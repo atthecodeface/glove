@@ -1,0 +1,27 @@
+(jbuild_version 1)
+
+;(library (
+;  (name sdl_ogl_gui)
+;  (public_name sdl_ogl_gui)
+;  (modules (sdl_ogl_gui))
+;  (libraries (
+;    tsdl
+;    batteries
+;    ogl_gui
+;  ))
+;))
+
+(executable (
+  (name track_glove)
+  (libraries (
+    batteries
+    atcflib
+  ))
+))
+
+(alias (
+  (name    run_track_glove)
+  (deps    (track_glove.exe))
+  (action  (run ${<}))
+))
+

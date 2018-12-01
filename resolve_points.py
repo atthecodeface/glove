@@ -147,6 +147,7 @@ class camera:
         (x,y) = self.pts[n]
         pitch = math.sqrt(x*x+y*y) * self.fov / self.width
         roll = math.atan2(y,x)
+        print x, y, self.fov, self.width, pitch, roll
         return (pitch,roll)
     def xy_of_angles(self, p, r):
         """
@@ -166,6 +167,7 @@ class camera:
         (for no real lens projection should be k*(x,y,1))
         """
         (p,r) = self.angles_of_pt(n)
+        print p,r
         x = math.sin(p)*math.cos(r+self.zrot)
         y = math.sin(p)*math.sin(r+self.zrot)
         z = math.cos(p)
@@ -214,9 +216,9 @@ cs = [camera(xyz=pt([0.,0.,0.]), xfov=45.0, zrot=0., yrot=0.),
       camera(xyz=pt([30.,0.,0.]), xfov=45.0, zrot=0.22, yrot=-0.677),
     ]
 
-if False: # Test xy_of_xyz, add_point, distance_from_line
-    cs[0].yrot = 0.1
-    cs[0].zrot = 0.3
+if True: # Test xy_of_xyz, add_point, distance_from_line
+    #cs[0].yrot = 0.1
+    #cs[0].zrot = 0.3
     test_p = pt([20.,10.,-60.])
     (p,r) = cs[0].pr_of_xyz(test_p)
     # The following should be (for 20, 10, -60) about 20.38 degrees pitch and 26.6 degrees roll
@@ -268,7 +270,7 @@ if False:
   cs[1].yrot = min_err[2]
   cs[1].fov  = min_err[3]
   
-if True:
+if False:
   for p1 in range(len(cs[0].pts)):
     min = (None, None)
     for p2 in range(len(cs[1].pts)):

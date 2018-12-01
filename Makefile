@@ -4,6 +4,12 @@ go: capture
 	./capture /dev/video1
 	convert -depth 8 -size 640x480 a.gray b.jpg
 
+.PHONY:track_glove
+track_glove:
+	jbuilder build src/track_glove/track_glove.exe
+	#DYLD_LIBRARY_PATH=~/Git/v4l/_build/default/src/sdl_ogl_gui/sdl
+	_build/default/src/track_glove/track_glove.exe
+
 track: track_highlights
 	./track_highlights /dev/video0 /dev/video1
 
