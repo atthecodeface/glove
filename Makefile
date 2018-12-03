@@ -3,6 +3,8 @@ go: capture
 	convert -depth 8 -size 640x480 a.gray a.jpg
 	./capture /dev/video1
 	convert -depth 8 -size 640x480 a.gray b.jpg
+	./capture /dev/video2
+	convert -depth 8 -size 640x480 a.gray c.jpg
 
 .PHONY:track_glove
 track_glove:
@@ -11,15 +13,43 @@ track_glove:
 	_build/default/src/track_glove/track_glove.exe
 
 track: track_highlights
-	./track_highlights /dev/video0 /dev/video1
+	./track_highlights /dev/video0 /dev/video1 /dev/video2
 
-all: capture track_highlights
+all: capture track_highlights highlights_server
 
-capture: capture.c capture_device.c capture_device.h highlights.h highlights.c 
-	gcc -o capture capture.c capture_device.c highlights.c
+capture: capture.o capture_device.o highlights.o
+	gcc -o capture capture.o capture_device.o highlights.o
 
-track_highlights: track_highlights.c capture_device.c capture_device.h highlights.h highlights.c 
-	gcc -o track_highlights track_highlights.c capture_device.c highlights.c
+track_highlights: track_highlights.o capture_device.o highlights.o
+	gcc -o track_highlights track_highlights.o capture_device.o highlights.o
+
+highlights_server: highlights.o capture_device.o highlights_server.o server.o
+	gcc -o $@ highlights.o capture_device.o highlights_server.o server.o -lpthread
+
+hs3: highlights_server
+	((echo "shutdown\n" | netcat 127.0.0.1 1234) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1235) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
+	./highlights_server /dev/video0 & ./highlights_server /dev/video1 & ./highlights_server /dev/video2 &
+
+capture_hs3:
+	( ((echo "set 1 128\nset 2 32\nset 3 64\ndump\nclose\n" | netcat 127.0.0.1 1234) || true) & \
+	  ((echo "set 1 128\nset 2 32\nset 3 64\ndump\nclose\n" | netcat 127.0.0.1 1235) || true) & \
+	  ((echo "set 1 128\nset 2 32\nset 3 64\ndump\nclose\n" | netcat 127.0.0.1 1236) || true) )
+	sleep 1
+	convert -depth 8 -size 640x480 a0.gray a0.jpg
+	convert -depth 8 -size 640x480 a1.gray a1.jpg
+	convert -depth 8 -size 640x480 a2.gray a2.jpg
+	mirage a0.jpg
+
+kill_hs3: highlights_server
+	((echo "shutdown\n" | netcat 127.0.0.1 1234) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1235) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
+
+
+%.o:%.c capture_device.h highlights.h server.h
+	gcc -c $< -o $@
 
 #                     brightness 0x00980900 (int)    : min=0 max=255 step=1 default=128 value=128
 #                       contrast 0x00980901 (int)    : min=0 max=255 step=1 default=32 value=32

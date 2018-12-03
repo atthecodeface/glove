@@ -46,24 +46,55 @@ void dump_to_file(void *handle, const unsigned char *buffer, int width, int heig
 }
 
 /*a Functions */
-/*f capture_frame */
-int capture_frame(struct capture_device *dev,
-                  int timeout_us,
-                  t_frame_callback *frame_callback,
-                  void *handle )
+/*f try_to_set */
+static int try_to_set(struct capture_device *dev, int id, int value)
+{
+    struct v4l2_control c;
+    c.id = id;
+    c.value = value;
+    return ioctl(dev->fd, VIDIOC_S_CTRL, &c);
+}
+/*f cd_set_parameter */
+int cd_set_parameter(struct capture_device *dev, int param, int value)
+{
+    switch (param) {
+    case cd_param_exposure:
+        return try_to_set(dev, V4L2_CID_EXPOSURE, value);
+    case cd_param_brightness:
+        return try_to_set(dev, V4L2_CID_BRIGHTNESS, value);
+    case cd_param_contrast:
+        return try_to_set(dev, V4L2_CID_CONTRAST, value);
+    case cd_param_gain:
+        return try_to_set(dev, V4L2_CID_GAIN, value);
+    }
+    return -1;
+}
+
+/*f cd_poll */
+int cd_poll(struct capture_device *dev, int timeout_us)
 {
     fd_set fds;
     struct timeval tv;
-    int rc;
-    struct v4l2_buffer buf;
 
     /*b Poll */
     FD_ZERO(&fds);
     FD_SET(dev->fd, &fds);
     tv.tv_sec = 0;
     tv.tv_usec = timeout_us;
-    rc = select(dev->fd + 1, &fds, NULL, NULL, &tv);
-    //fprintf(stderr, "Select returns %d\n",rc);
+    return select(dev->fd + 1, &fds, NULL, NULL, &tv);
+}
+
+/*f capture_frame */
+int capture_frame(struct capture_device *dev,
+                  int timeout_us,
+                  t_frame_callback *frame_callback,
+                  void *handle )
+{
+    int rc;
+    struct v4l2_buffer buf;
+
+    /*b Poll */
+    rc = cd_poll(dev, timeout_us);
     if (rc==0) return 0; // timeout
     if (rc<0)  return -1; // error
 
@@ -85,6 +116,23 @@ int capture_frame(struct capture_device *dev,
     /*b Enqueue buffer again */
     if (ioctl(dev->fd, VIDIOC_QBUF, &buf)<0) return -1;
     return 1;
+}
+
+/*f cd_flush */
+int cd_flush(struct capture_device *dev)
+{
+    struct v4l2_buffer buf;
+    int n=0;
+    while (cd_poll(dev, 4000)>0) {
+        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buf.memory = V4L2_MEMORY_MMAP;
+        buf.index = 0;
+        if (ioctl(dev->fd, VIDIOC_DQBUF, &buf)>=0) {
+            ioctl(dev->fd, VIDIOC_QBUF, &buf);
+            n++;
+        }
+    }
+    return n;
 }
 
 /*f stop_device */
@@ -141,13 +189,6 @@ void close_device(struct capture_device *dev)
 }
 
 /*f open_device */
-static void try_to_set(struct capture_device *dev, int id, int value)
-{
-    struct v4l2_control c;
-    c.id = id;
-    c.value = value;
-    ioctl(dev->fd, VIDIOC_S_CTRL, &c);
-}
 int open_device(struct capture_device *dev)
 {
     struct v4l2_capability cap;
@@ -182,7 +223,7 @@ int open_device(struct capture_device *dev)
     try_to_set(dev, V4L2_CID_AUTO_FOCUS_RANGE, V4L2_AUTO_FOCUS_RANGE_MACRO);
     try_to_set(dev, V4L2_CID_ISO_SENSITIVITY_AUTO, V4L2_ISO_SENSITIVITY_MANUAL);
     try_to_set(dev, V4L2_CID_EXPOSURE, 40);
-    try_to_set(dev, V4L2_CID_BRIGHTNESS, 80);
+    try_to_set(dev, V4L2_CID_BRIGHTNESS, 65);
     try_to_set(dev, V4L2_CID_CONTRAST, 64);
     try_to_set(dev, V4L2_CID_GAIN, 15);
     try_to_set(dev, V4L2_CID_HUE, 0);

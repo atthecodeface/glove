@@ -11,6 +11,14 @@
 ;  ))
 ;))
 
+;(executable (
+;  (name find_camera_positions)
+;  (libraries (
+;    batteries
+;    atcflib
+;  ))
+;))
+
 (executable (
   (name track_glove)
   (libraries (

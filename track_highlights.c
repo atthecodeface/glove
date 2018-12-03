@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     for (i=0; i<num_devices; i++) {
         if (start_device(dev[i])<0) exit(4);
     }
-    for (i=0; i<1; i++) {
+    for (i=0; i<2000; i++) {
         int j;
         for (j=0; j<num_devices; j++) {
             highlight_set_precapture(hs, j);

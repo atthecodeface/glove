@@ -147,7 +147,6 @@ class camera:
         (x,y) = self.pts[n]
         pitch = math.sqrt(x*x+y*y) * self.fov / self.width
         roll = math.atan2(y,x)
-        print x, y, self.fov, self.width, pitch, roll
         return (pitch,roll)
     def xy_of_angles(self, p, r):
         """
@@ -167,7 +166,6 @@ class camera:
         (for no real lens projection should be k*(x,y,1))
         """
         (p,r) = self.angles_of_pt(n)
-        print p,r
         x = math.sin(p)*math.cos(r+self.zrot)
         y = math.sin(p)*math.sin(r+self.zrot)
         z = math.cos(p)
@@ -207,7 +205,7 @@ pts = [(0,4,3152,928),(0,4,2832,1040),(0,4,3280,1168),(0,4,2576,1360),(0,4,3088,
 #pts = [(0,4,2960,1136),(0,4,2704,1296),(0,4,3152,1392),(0,4,3024,1648),(1,4,4208,1072),(1,4,3792,1280),(1,4,3216,1568),(1,4,3472,1632),]
 #pts = [(0,8,7552,1152),(0,4,3440,928),(1,4,4336,288),(1,4,3984,656),]
 #pts = [(0,4,3248,928),(0,4,1936,1440),(0,4,2704,1632),(0,4,2032,1696),(1,4,3984,736),(1,4,2768,1456),(1,4,3632,1584),(1,8,6080,3424),]
-pts = [(0,4,3184,1024),(0,4,2768,1040),(0,4,3120,1216),(0,4,2960,1440),(1,4,4176,848),(1,4,4240,960),(1,4,3536,1104),(1,4,3120,1296),(1,4,3568,1360),]
+#pts = [(0,4,3184,1024),(0,4,2768,1040),(0,4,3120,1216),(0,4,2960,1440),(1,4,4176,848),(1,4,4240,960),(1,4,3536,1104),(1,4,3120,1296),(1,4,3568,1360),]
        
 # (0.000000,0.000000,0.000000) [(74.0, -8.0),   (34.0, 20.0),                 (90.0, 52.0), (2.0, 100.0), (66.0, 112.0)]
 # (1.000000,0.000000,0.000000)[(194.0, -56.0), (206.0, -36.0), (94.0, -8.0), (146.0, 16.0), (82.0, 80.0), (130.0, 88.0)]
@@ -216,7 +214,7 @@ cs = [camera(xyz=pt([0.,0.,0.]), xfov=45.0, zrot=0., yrot=0.),
       camera(xyz=pt([30.,0.,0.]), xfov=45.0, zrot=0.22, yrot=-0.677),
     ]
 
-if True: # Test xy_of_xyz, add_point, distance_from_line
+if False: # Test xy_of_xyz, add_point, distance_from_line
     #cs[0].yrot = 0.1
     #cs[0].zrot = 0.3
     test_p = pt([20.,10.,-60.])
@@ -246,18 +244,21 @@ print cs[0], cs[1]
 cs[1].zrot = 0.307
 cs[1].yrot = -0.327
 cs[1].fov  = 0.700
-if False:
+cs[0].fov  = 0.700
+if True:
   min_err = (None, None, None, None)
-  for z in range(20):
+  for z in [10]:#range(20):
     cs[1].zrot = 0.307    +(z-10)*0.003
     cs[1].yrot = -0.327 #   + (z-10)*0.003
     cs[1].fov = 0.700 #  + (z-10)*0.001
-    print z,math.degrees(cs[1].fov),cs[1].fov,cs[1].zrot,cs[1].yrot,
+    cs[0].fov = 0.700 #  + (z-10)*0.001
+    print z,math.degrees(cs[1].fov),cs[1].fov,cs[1].zrot,cs[1].yrot
     err = 0.
     # (1,2), 
     for (p1,p2) in [(2,3), (3,4), (4,5)]:
+        print cs[0].line_of_pt(p1), cs[1].line_of_pt(p2)
         d = line.distance_between_lines(cs[0].line_of_pt(p1), cs[1].line_of_pt(p2))
-        print d,
+        print d
         err = err + abs(d)
         pass
     print err
@@ -269,6 +270,7 @@ if False:
   cs[1].zrot = min_err[1]
   cs[1].yrot = min_err[2]
   cs[1].fov  = min_err[3]
+  cs[0].fov  = min_err[3]
   
 if False:
   for p1 in range(len(cs[0].pts)):

@@ -13,7 +13,7 @@ convert -depth 8 -size 640x480 a.gray a.jpg
 /*f find_highlights */
 static int thresh0 = 200;
 static int thresh1 = 150;
-#define STEP 4
+#define STEP 1
 #define MAX_ACTIVE_HIGHTLIGHTS 4
 struct highlight {
     int last_y;
@@ -36,7 +36,7 @@ struct highlight_set {
 static void
 display_highlight(struct highlight_set *hs, struct highlight *h)
 {
-    fprintf(stdout,"(%d,%d,%d,%d),",
+    fprintf(stdout,"(%d,%d,%d,%d);",
             hs->current_device,
             h->total_points,
             h->dbl_sum_x,
@@ -56,13 +56,13 @@ struct highlight_set *create_highlight_set(int num_devices) {
 void highlight_set_precapture(struct highlight_set *hs, int n) {
     hs->current_device=n;
     if (n==0) {
-        fprintf(stdout,"(");
+        fprintf(stdout,"[");
     }
 }
 
 /*f highlight_set_complete */
 void highlight_set_complete(struct highlight_set *hs) {
-    fprintf(stdout,"),\n");
+    fprintf(stdout,"];\n");
 }
 
 /*f init_highlights */
