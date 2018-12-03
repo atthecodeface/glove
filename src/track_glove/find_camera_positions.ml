@@ -20,7 +20,7 @@
 open Batteries
 open Atcflib
 open Tracking
-let data = Tracking_data.data
+let data = Tracking_data.data2
          
 let _ =
   let l0 = Line.make (Vector.make3 0. 0. 0.) (Vector.make3 0. 0. (-1.0)) in
@@ -28,35 +28,9 @@ let _ =
   Printf.printf "Should be sqrt(2) %f\n" (Line.distance_between_lines l0 l1);
   Printf.printf "Should be sqrt(2) %f\n" (Line.distance_between_lines l1 l0)
 
-let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. 45.0;
-           Camera.make (Vector.make3 30. 0. 0.) 0.307 (-0.327) 45.0;
+let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. 0. 45.0;
+           Camera.make (Vector.make3 30. 0. 0.) 0. 0. 0. 45.0;
          |]
-let _ =
-  (*cs.(0).yrot <- 0.1;*)
-  (*cs.(0).zrot <- 0.3;*)
-  let test_p = Vector.make3 20. 10. (-60.) in
-  let (p,r) = Camera.pr_of_xyz cs.(0) test_p in
-  (* The following should be (for 20, 10, -60) about 20.38 degrees pitch and 26.6 degrees roll*)
-  Printf.printf "Should be about -20.38 and 26.6 (if yrot/zrot are 0) %f %f\n" (p *. rad_to_deg) (r *. rad_to_deg);
-  let (x,y) = Camera.xy_of_xyz cs.(0) test_p in
-  (* Since fov is 45 degrees (x,y) should be about 20.38/45*640 pixels from the centre (290 pixels)
-     This is x of 260 and y of 130, and if centred on 320,240 then this is 60/580, 110/370
-   *)
-  Printf.printf "Should be 60,110 (if yrot/zrot are 0) %f %f\n" x y ;
-  Camera.add_point cs.(0) x y;
-  let line_p = Camera.(line_of_pt cs.(0) (get_point cs.(0) 0)) in
-  (* Line goes from (0,0,0) through test_p, so its direction should be k*test_p *)
-  Printf.printf "Should be proportional %s %s\n" (Vector.str test_p) (Vector.str line_p.direction);
-  Printf.printf "Hence should be equal";
-  for i=0 to 2 do Printf.printf " %f" Vector.((get test_p i) /. (get line_p.direction i)); done;
-  Printf.printf "\n";
-  (* Line goes through test_p, so distance should be 0 *)
-  Printf.printf "Should be zero %f\n" (Line.distance_from_line line_p test_p);
-  (* Note *)
-  Printf.printf "(x,y) = (%f,%f)\n" x y;
-  let (lx, ly) = Camera.xy_of_xyz cs.(0) line_p.direction in
-  Printf.printf "xy of line direction (%f,%f)\n" lx ly
-
 module Camera_leds = struct
   type t = {
       c : int;
@@ -178,27 +152,33 @@ end
      
 let find_best_from_mappings mappings_01 =
   List.iter (fun m->Printf.printf "%s\n" (Mapping.str m)) mappings_01;
-  let fov = 42.0 in
-  let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. fov;
-             Camera.make (Vector.make3 30. 0. 0.) 0.307 (-0.327) fov;
-             Camera.make (Vector.make3 30. 60. 15.) 0.307 (-0.327) fov;
+  let fov = 41.0 in
+  let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. 0. fov;
+             Camera.make (Vector.make3 30. 0. 0.) 0. 0. 0. fov;
+             Camera.make (Vector.make3 30. 60. 15.) 0. 0. 0. fov;
            |] in
   let add_mapping n (m:Mapping.t) =
-    let num = Float.to_int (m.confidence) in
+    let num = Float.to_int (sqrt m.confidence) in
     Camera.(add_point_vec cs.(0) m.xy0;add_point_vec cs.(1) m.xy1);
-    n+1
-    (*    for i=1 to num do
+    (*n+1*)
+        for i=1 to num do
       Camera.(add_point_vec cs.(0) m.xy0;add_point_vec cs.(1) m.xy1);
     done;
-    n+num*)
+    n+num
   in
   let n = List.fold_left add_mapping 0 mappings_01 in
   Printf.printf "Camera 0 %s\n" (Camera.str cs.(0));
   Printf.printf "Camera 1 %s\n" (Camera.str cs.(1));
   let mappings = List.init n (fun i->(i,i)) in
-  let (e, (z, y)) = Camera.find_min_error cs mappings in
-  Printf.printf "Best zrot %f / %f yrot %f / %f (error %f)\n" (z *. Tracking.rad_to_deg) z (y *. Tracking.rad_to_deg) y e;
-
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  let r = 1.0 -. (sqrt (i *. i +. j *. j +. k *. k)) in
+  let q = Quaternion.make_rijk r i j k in
+  let v = Vector.make3 0. 0. 0. in
+  let (c,s) = Vector.assign_q_as_rotation v q in
+  let angle = (180. /. 3.141596) *. (atan2 s c) in
+  Printf.printf "Rotation by %f around %s\n" angle (Vector.str v);
+  
   let find_worst_error so_far (p0,p1) =
     let e = Camera.error_of_mapping cs (p0,p1) in
     if e>so_far then e else so_far
@@ -207,25 +187,26 @@ let find_best_from_mappings mappings_01 =
     let e = Camera.error_of_mapping cs (p0,p1) in
     if (e<max) then (p0,p1)::so_far else so_far
   in
+  (*let max = List.fold_left find_worst_error 0. mappings in
+  Printf.printf "Dropping those with error at %f\n" max;
+  let mappings = List.fold_left (only_if_err (0.99*.max)) [] mappings in
+  Printf.printf "Error now %f\n" (Camera.error_of_mappings cs mappings);
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
   let max = List.fold_left find_worst_error 0. mappings in
   Printf.printf "Dropping those with error at %f\n" max;
   let mappings = List.fold_left (only_if_err (0.99*.max)) [] mappings in
   Printf.printf "Error now %f\n" (Camera.error_of_mappings cs mappings);
-  let (e, (z, y)) = Camera.find_min_error cs mappings in
-  Printf.printf "Best zrot %f / %f yrot %f / %f (error %f)\n" (z *. Tracking.rad_to_deg) z (y *. Tracking.rad_to_deg) y e;
-  let max = List.fold_left find_worst_error 0. mappings in
-  Printf.printf "Dropping those with error at %f\n" max;
-  let mappings = List.fold_left (only_if_err (0.99*.max)) [] mappings in
-  Printf.printf "Error now %f\n" (Camera.error_of_mappings cs mappings);
-  let (e, (z, y)) = Camera.find_min_error cs mappings in
-  Printf.printf "Best zrot %f / %f yrot %f / %f (error %f)\n" (z *. Tracking.rad_to_deg) z (y *. Tracking.rad_to_deg) y e;
-
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+   *)
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  
   (*let map_lines = List.map (fun (x0,y0,x1,y1) -> Camera.(line_of_xy cs.(0) x0 y0, line_of_xy cs.(1) x1 y1)) pts in
   let map_midpoints = List.map (fun (l0, l1) -> (fst (Line.midpoint_between_lines l0 l1))) map_lines in
   let map_midpoints = Array.of_list map_midpoints in
   List.iteri (fun i _ -> Printf.printf "Error between (%d,%d) = %f : %s\n" i i (Camera.error_of_mapping cs (i,i)) (Vector.str map_midpoints.(i))) pts;
    *)
-  (z, y)
+  (i,j,k)
 
 let find_rots _ =
   let num_leds = 6 in
@@ -268,5 +249,5 @@ let find_rots _ =
   in
   List.iter handle_frame_tracking data;
   find_best_from_mappings !mappings_01
-let (zrot0, yrot0) = find_rots ()
+let (i0,j0,k0) = find_rots ()
                           

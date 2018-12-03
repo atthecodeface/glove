@@ -47,6 +47,11 @@ kill_hs3: highlights_server
 	((echo "shutdown\n" | netcat 127.0.0.1 1235) || true)
 	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
 
+track_hs3: highlights_server
+	( ((echo "track 200\nclose\n" | netcat 127.0.0.1 1234) || true) & \
+	  ((echo "track 200\nclose\n" | netcat 127.0.0.1 1235) || true) & \
+	  ((echo "track 200\nclose\n" | netcat 127.0.0.1 1236) || true) )
+
 
 %.o:%.c capture_device.h highlights.h server.h
 	gcc -c $< -o $@

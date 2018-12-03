@@ -31,6 +31,7 @@ enum {
     dt_action_flush=1,
     dt_action_capture=2,
     dt_action_accumulate=4,
+    dt_action_track_highlights=8,
 };
 struct device_thread {
     pthread_t pthread;
@@ -40,6 +41,7 @@ struct device_thread {
     int action;
     int action_state;
     int args[4];
+    struct highlight_set *hs;
 };
 struct highlights_server {
     struct capture_device *dev;
@@ -180,6 +182,16 @@ void *device_thread(void *handle)
                 free(acc_buffer);
             }
         }
+        if (action & dt_action_track_highlights) {
+            int i, frames;
+            frames = hs->dev_thread.args[0];
+            for (i=0; i<frames; i++) {
+                highlight_set_precapture(hs->dev_thread.hs, 0);
+                capture_frame(hs->dev, 1000*1000*4, find_highlights, hs->dev_thread.hs);
+                highlight_set_complete(hs->dev_thread.hs);
+            }
+            rc = 1;
+        }
         device_complete_action(hs, rc);
     }
     hs->dev_thread.started = 0;
@@ -236,6 +248,17 @@ int server_data_callback(struct server_skt *skt, void *handle, char *in_buffer, 
         if (sscanf(in_buffer,"accum %d",&frames)==1) {
             hs->dev_thread.args[0] = frames;
             device_start_action(hs, dt_action_accumulate | dt_action_flush);
+            rc = device_poll_for_action_complete(hs);
+        }
+        sprintf(buffer,"%d\n",rc);
+        server_add_to_send(skt, buffer, strlen(buffer));
+    }
+    if (!strncmp(in_buffer,"track",5)) {
+        int frames;
+        int rc=-2;
+        if (sscanf(in_buffer,"track %d",&frames)==1) {
+            hs->dev_thread.args[0] = frames;
+            device_start_action(hs, dt_action_track_highlights | dt_action_flush);
             rc = device_poll_for_action_complete(hs);
         }
         sprintf(buffer,"%d\n",rc);
@@ -325,6 +348,7 @@ int main(int argc, char **argv)
     signal(SIGHUP, sig_handler);
     signal(SIGTERM, sig_handler);
 
+    hs.dev_thread.hs = create_highlight_set(1);
     if (server_start_thread(&hs.srv_thread, hs.skt, 10000, server_data_callback, (void *)&hs)<0){
         fprintf(stderr, "Failed to start server thread\n");
         return 4;
