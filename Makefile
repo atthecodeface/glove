@@ -48,13 +48,13 @@ kill_hs3: highlights_server
 	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
 
 track_hs3: highlights_server
-	( ((echo "track 200\nclose\n" | netcat 127.0.0.1 1234) || true) & \
-	  ((echo "track 200\nclose\n" | netcat 127.0.0.1 1235) || true) & \
-	  ((echo "track 200\nclose\n" | netcat 127.0.0.1 1236) || true) )
+	( ((echo "track 0 200\nclose\n" | netcat 127.0.0.1 1234) || true) & \
+	  ((echo "track 1 200\nclose\n" | netcat 127.0.0.1 1235) || true) & \
+	  ((echo "track 2 200\nclose\n" | netcat 127.0.0.1 1236) || true) )
 
 
 %.o:%.c capture_device.h highlights.h server.h
-	gcc -c $< -o $@
+	gcc -g -Wall -Werror -c $< -o $@
 
 #                     brightness 0x00980900 (int)    : min=0 max=255 step=1 default=128 value=128
 #                       contrast 0x00980901 (int)    : min=0 max=255 step=1 default=32 value=32

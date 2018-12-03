@@ -76,6 +76,7 @@ int server_close(struct server_skt *skt) {
         close(skt->skt);
         skt->skt = -1;
     }
+    return 0;
 }
 
 /*f server_poll_for_new_client */
@@ -186,6 +187,7 @@ void *server_thread(void *handle)
 int server_halt_thread(struct server_skt *skt)
 {
     skt->halt_thread = 1;
+    return 0;
 }
 
 /*f server_start_thread
@@ -219,6 +221,7 @@ struct server_skt *server_create(int port) {
     skt->callback_handle = NULL;
     skt->halt_thread = 0;
     skt->thread_started = 0;
+    return skt;
 }
 
 /*f server_delete

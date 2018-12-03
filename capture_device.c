@@ -19,6 +19,7 @@ convert -depth 8 -size 640x480 a.gray a.jpg
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
@@ -30,22 +31,37 @@ struct capture_device {
     int fd;
     unsigned int buffer_size;
     unsigned int num_buffers;
+    long long clock_delta_us;
     void *buffers[MAX_BUFFERS];
 };
 
 /*a Standard frame callbacks */
 /*f dump_to_file - capture frame callback, dumps to a.yuv */
-void dump_to_file(void *handle, const unsigned char *buffer, int width, int height)
+void dump_to_file(void *handle, const struct capture_buffer *cb)
 {
     FILE *f = fopen((char *)handle,"w");
     int i;
-    for (i=0; i<width*height*2; i+=2) {
-        fwrite(buffer+i, 1, 1, f);
+    for (i=0; i<cb->width*cb->height*2; i+=2) {
+        fwrite(cb->buffer+i, 1, 1, f);
     }
     fclose(f);
 }
 
 /*a Functions */
+/*f cd_now */
+long long cd_now(void) {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return (now.tv_sec*1000LL*1000LL +
+            now.tv_usec);
+}
+
+/*f cd_now_of_local */
+long long cd_now_of_local(struct capture_device *dev, struct timeval *local) {
+    return dev->clock_delta_us + (local->tv_sec*1000LL*1000LL +
+                                  local->tv_usec);
+}
+
 /*f try_to_set */
 static int try_to_set(struct capture_device *dev, int id, int value)
 {
@@ -110,7 +126,12 @@ int capture_frame(struct capture_device *dev,
 
     /*b Invoke callback */
     if (frame_callback) {
-        frame_callback(handle, dev->buffers[buf.index], 640, 480 );//buf.bytesused );
+        struct capture_buffer cb;
+        cb.buffer = dev->buffers[buf.index];
+        cb.width = 640;
+        cb.height = 480;
+        cb.timestamp = cd_now_of_local(dev, &buf.timestamp);
+        frame_callback(handle, &cb );
     }
 
     /*b Enqueue buffer again */
@@ -289,6 +310,13 @@ struct capture_device *create_device(const char *device_name)
     dev = (struct capture_device *)malloc(sizeof(struct capture_device));
     dev->name = (const char *)malloc(strlen(device_name)+1);
     strcpy((char *)dev->name, device_name);
+
+    struct timeval now;
+    struct timespec uptime;
+    gettimeofday(&now, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &uptime);
+    dev->clock_delta_us = ( (now.tv_sec-uptime.tv_sec)*1000LL*1000LL +
+                            (now.tv_usec-uptime.tv_nsec/1000LL) );
     return dev;
 }
 

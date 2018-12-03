@@ -17,6 +17,7 @@ convert -depth 8 -size 640x480 a.gray a.jpg
 
 #include <signal.h>
 #include <strings.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -49,34 +50,35 @@ struct highlights_server {
     char *filename;
     pthread_t srv_thread;
     struct device_thread dev_thread;
+    long long cmd_timestamp;
 };
 
 /*a Capture callback functions */
 /*f find_highlights */
 static
-void threshold_capture_callback(void *handle, const unsigned char *buffer, int width, int height )
+void threshold_capture_callback(void *handle, const struct capture_buffer *cb)
 {
     int *result = (int *)handle;
     int i, n;
-    for (i=n=0; i<width*height*2; i+=2) {
-        if (buffer[i]>*result) n++;
+    for (i=n=0; i<cb->width*cb->height*2; i+=2) {
+        if (cb->buffer[i]>*result) n++;
     }
     *result = n;
 }
 
 /*f accumulate - accumulate into an int * buffer */
-void accumulate(void *handle, const unsigned char *buffer, int width, int height)
+void accumulate(void *handle, const struct capture_buffer *cb )
 {
     int **acc = (int **)handle;
     int i;
     if (!(*acc)) {
-        *acc = (int *)malloc(width*height*sizeof(int));
-        for (i=0; i<width*height; i++) {
+        *acc = (int *)malloc(cb->width*cb->height*sizeof(int));
+        for (i=0; i<cb->width*cb->height; i++) {
             (*acc)[i] = 0;
         }
     }
-    for (i=0; i<width*height; i++) {
-        (*acc)[i] += buffer[i*2];
+    for (i=0; i<cb->width*cb->height; i++) {
+        (*acc)[i] += cb->buffer[i*2];
     }
 }
 
@@ -152,6 +154,18 @@ int device_poll_for_action_complete(struct highlights_server *hs)
     return -1;
 }
 
+/*f device_find_highlights */
+void device_find_highlights(void *handle, const struct capture_buffer *cb )
+{
+    struct highlights_server *hs = (struct highlights_server *)handle;
+    long long diff_usec = cb->timestamp - hs->cmd_timestamp;
+    fprintf(stdout, "(%d, %12Ld,", hs->dev_thread.args[1], diff_usec);
+    highlight_set_precapture(hs->dev_thread.hs, 0);
+    find_highlights(hs->dev_thread.hs, cb);
+    highlight_set_complete(hs->dev_thread.hs);
+    fprintf(stdout, "]);\n");
+}
+
 /*f device_thread */
 static
 void *device_thread(void *handle)
@@ -186,9 +200,7 @@ void *device_thread(void *handle)
             int i, frames;
             frames = hs->dev_thread.args[0];
             for (i=0; i<frames; i++) {
-                highlight_set_precapture(hs->dev_thread.hs, 0);
-                capture_frame(hs->dev, 1000*1000*4, find_highlights, hs->dev_thread.hs);
-                highlight_set_complete(hs->dev_thread.hs);
+                capture_frame(hs->dev, 1000*1000*4, device_find_highlights, (void *)hs);
             }
             rc = 1;
         }
@@ -236,7 +248,8 @@ int server_data_callback(struct server_skt *skt, void *handle, char *in_buffer, 
     for (cmd_len=0; (cmd_len<in_valid) && (in_buffer[cmd_len]>=' '); cmd_len++);
     if (cmd_len>=in_valid) return 0;
     in_buffer[cmd_len] = 0;
-    fprintf(stderr,"Command '%s'\n", in_buffer);
+    hs->cmd_timestamp = cd_now();
+    fprintf(stderr,"%lld: Command '%s'\n", hs->cmd_timestamp, in_buffer);
     if (!strncmp(in_buffer,"dump",4)) {
         device_start_action(hs, dt_action_capture | dt_action_flush);
         sprintf(buffer,"%d\n", device_poll_for_action_complete(hs));
@@ -254,10 +267,11 @@ int server_data_callback(struct server_skt *skt, void *handle, char *in_buffer, 
         server_add_to_send(skt, buffer, strlen(buffer));
     }
     if (!strncmp(in_buffer,"track",5)) {
-        int frames;
+        int seq, frames;
         int rc=-2;
-        if (sscanf(in_buffer,"track %d",&frames)==1) {
+        if (sscanf(in_buffer,"track %d %d",&seq,&frames)==2) {
             hs->dev_thread.args[0] = frames;
+            hs->dev_thread.args[1] = seq;
             device_start_action(hs, dt_action_track_highlights | dt_action_flush);
             rc = device_poll_for_action_complete(hs);
         }
@@ -329,7 +343,6 @@ int main(int argc, char **argv)
     sprintf(hs.filename, "a%d.gray", dev_num);
     
     hs.dev = create_device(argv[1]);
-    struct highlight_set *highlights = create_highlight_set(1);
     hs.skt = server_create(port);
     if (!hs.skt) {
         fprintf(stderr, "Failed to create server\n");

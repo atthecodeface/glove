@@ -30,6 +30,7 @@ struct highlight_set {
     struct highlight highlights[MAX_ACTIVE_HIGHTLIGHTS];
     int current_device;
     int num_devices;
+    const struct capture_buffer *cb;
 };
 
 /*f display_highlight */
@@ -67,8 +68,9 @@ void highlight_set_complete(struct highlight_set *hs) {
 
 /*f init_highlights */
 static
-void init_highlights(struct highlight_set *hs) {
+void init_highlights(struct highlight_set *hs, const struct capture_buffer *cb) {
     int i;
+    hs->cb = cb;
     for (i=0; i<MAX_ACTIVE_HIGHTLIGHTS; i++) {
         hs->highlights[i].last_y = -1;
     }
@@ -105,18 +107,18 @@ void add_highlight(struct highlight_set *hs, int lx, int rx, int y ) {
 }
 
 /*f find_highlights */
-void find_highlights(void *handle, const unsigned char *buffer, int width, int height )
+void find_highlights(void *handle, const struct capture_buffer *cb )
 {
     struct highlight_set *hs = (struct highlight_set *)handle;
     int i;
     int x, y;
     int num_highlights=0;
-    init_highlights(hs);
-    for (y=0; y<height; y+=STEP) {
+    init_highlights(hs, cb);
+    for (y=0; y<cb->height; y+=STEP) {
         int lx, rx, state;
         state = 0;
-        const unsigned char *ptr = buffer + y*width*2;
-        for (x=0; x<width; x+=STEP) {
+        const unsigned char *ptr = cb->buffer + y*cb->width*2;
+        for (x=0; x<cb->width; x+=STEP) {
             int ch=ptr[x*2];
             if (ch<thresh1) { // black
                 if (state==2) { add_highlight(hs, lx, x, y); }
