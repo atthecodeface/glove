@@ -47,6 +47,12 @@ kill_hs3: highlights_server
 	((echo "shutdown\n" | netcat 127.0.0.1 1235) || true)
 	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
 
+log_hs3: highlights_server
+	((echo "shutdown\n" | netcat 127.0.0.1 1234) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1235) || true)
+	((echo "shutdown\n" | netcat 127.0.0.1 1236) || true)
+	(./highlights_server /dev/video0 >> log0.txt) & (./highlights_server /dev/video1 >> log1.txt) & (./highlights_server /dev/video2 >> log2.txt) &
+
 track_hs3: highlights_server
 	( ((echo "track 0 200\nclose\n" | netcat 127.0.0.1 1234) || true) & \
 	  ((echo "track 1 200\nclose\n" | netcat 127.0.0.1 1235) || true) & \

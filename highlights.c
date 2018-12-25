@@ -37,11 +37,10 @@ struct highlight_set {
 static void
 display_highlight(struct highlight_set *hs, struct highlight *h)
 {
-    fprintf(stdout,"(%d,%d,%d,%d);",
+    fprintf(stdout,"(%d,%lf,%lf);",
             hs->current_device,
-            h->total_points,
-            h->dbl_sum_x,
-            h->sum_y );
+            h->dbl_sum_x / (2.*h->total_points),
+            h->sum_y / (double)h->total_points );
 }
 
 /*f create_highlight_set */
