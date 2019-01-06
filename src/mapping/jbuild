@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(library (
+  (name mapping)
+;  (public_name sdl_ogl_gui)
+;  (modules (sdl_ogl_gui))
+  (libraries (
+    batteries
+    atcflib
+  ))
+))
+

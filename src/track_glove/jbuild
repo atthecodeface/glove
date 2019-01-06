@@ -22,6 +22,7 @@
 (executable (
   (name track_glove)
   (libraries (
+    mapping
     batteries
     atcflib
   ))
