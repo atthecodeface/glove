@@ -59,7 +59,7 @@ let blah camera_pts =
   let find_best_in_camera_1 i0 (l0, x0, y0) =
     let get_value_in_cameras i1 (l1, x1, y1) =
       let (midpoint, d, np) = Line.midpoint_between_lines l0 l1 in
-      let d2 = Camera.distance_between_xys cs midpoint (x0,y0,x1,y1) in
+      let d2 = Camera.distance_between_xys (cs.(0),cs.(1)) midpoint (x0,y0,x1,y1) in
       if (d2<400.0) then 
         Printf.printf "%2d %2d %14f %14f %8f  %s\n" i0 i1 d d2 np (Vector.str midpoint)
     in

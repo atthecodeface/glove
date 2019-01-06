@@ -171,44 +171,28 @@ let find_best_from_mappings mappings_01 =
 
   Printf.printf "Camera 0 %s\n" (Camera.str cs.(0));
   Printf.printf "Camera 1 %s\n" (Camera.str cs.(1));
-  List.iter (fun (p0,p1) -> let (e,np)=(Camera.error_of_mapping_verbose cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
+  let cs = (cs.(0), cs.(1)) in
+  List.iter (fun (p0,p1) -> let (e,np)=(Camera.error_of_mapping ~verbose:true cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
 
   let (e, (i,j,k)) = Camera.find_min_error cs mappings in
   Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
-  let r = 1.0 -. (sqrt (i *. i +. j *. j +. k *. k)) in
-  let q = Quaternion.make_rijk r i j k in
-  let v = Vector.make3 0. 0. 0. in
-  let (c,s) = Vector.assign_q_as_rotation v q in
-  let angle = (180. /. 3.141596) *. (atan2 s c) in
-  Printf.printf "Rotation by %f around %s\n" angle (Vector.str v);
-  
-  let find_worst_error so_far (p0,p1) =
-    let e = Camera.error_of_mapping cs (p0,p1) in
-    if e>so_far then e else so_far
-  in
-  let only_if_err max so_far (p0,p1) =
-    let e = Camera.error_of_mapping cs (p0,p1) in
-    if (e<max) then (p0,p1)::so_far else so_far
-  in
-  (*let max = List.fold_left find_worst_error 0. mappings in
-  Printf.printf "Dropping those with error at %f\n" max;
-  let mappings = List.fold_left (only_if_err (0.99*.max)) [] mappings in
-  Printf.printf "Error now %f\n" (Camera.error_of_mappings cs mappings);
+  Printf.printf "C1 = %s\n" (Camera.str (snd cs));
+
+  let (c0,c1) = cs in
+  let cs = (c1,c0) in
+  Printf.printf "Swapping cameras\n";
+
   let (e, (i,j,k)) = Camera.find_min_error cs mappings in
   Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
-  let max = List.fold_left find_worst_error 0. mappings in
-  Printf.printf "Dropping those with error at %f\n" max;
-  let mappings = List.fold_left (only_if_err (0.99*.max)) [] mappings in
-  Printf.printf "Error now %f\n" (Camera.error_of_mappings cs mappings);
+  Printf.printf "C0 = %s\n" (Camera.str (snd cs));
+
+  let (c0,c1) = cs in
+  let cs = (c1,c0) in
+  Printf.printf "Swapping cameras\n";
+
   let (e, (i,j,k)) = Camera.find_min_error cs mappings in
-   *)
   Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
-  
-  (*let map_lines = List.map (fun (x0,y0,x1,y1) -> Camera.(line_of_xy cs.(0) x0 y0, line_of_xy cs.(1) x1 y1)) pts in
-  let map_midpoints = List.map (fun (l0, l1) -> (fst (Line.midpoint_between_lines l0 l1))) map_lines in
-  let map_midpoints = Array.of_list map_midpoints in
-  List.iteri (fun i _ -> Printf.printf "Error between (%d,%d) = %f : %s\n" i i (Camera.error_of_mapping cs (i,i)) (Vector.str map_midpoints.(i))) pts;
-   *)
+  Printf.printf "C1 = %s\n" (Camera.str (snd cs));
   (i,j,k)
 
 let find_rots _ =
@@ -258,7 +242,7 @@ let find_rots _ =
                           [|(430.833333,342.666667); (403.500000,263.500000); (285.000000,211.500000);|];
                         ] in
                         
-  mappings_01 := List.map (fun cxya -> Mapping.make (Vector.make2 (fst cxya.(2)) (snd cxya.(2))) (Vector.make2 (fst cxya.(1)) (snd cxya.(1)))) known_good_data;
+  mappings_01 := List.map (fun cxya -> Mapping.make (Vector.make2 (fst cxya.(0)) (snd cxya.(0))) (Vector.make2 (fst cxya.(1)) (snd cxya.(1)))) known_good_data;
   find_best_from_mappings !mappings_01
 let (i0,j0,k0) = find_rots ()
                           

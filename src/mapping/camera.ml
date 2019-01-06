@@ -27,7 +27,7 @@ let half_pi = pi /. 2.
 let deg_to_rad = pi /. 180.
 let rad_to_deg = 180. /.  pi
 
-(*a modue Line *)
+(*a modue Line - line in 3D *)
 module Line =
   struct
     type t = { start:Vector.t ;
@@ -251,57 +251,45 @@ module Camera =
       xy_of_angles t pr
     (*f str *)
     let str t =
-      Printf.sprintf "%s:%s" (Vector.str t.xyz) (List.fold_left (fun s p -> Printf.sprintf "%s (%s)" s (Vector.str p)) "" t.pts)
+      let z = Vector.(apply_q  t.q (make3 0. 0. (-1.))) in
+      let y = Vector.(apply_q  t.q (make3 0. 1. 0.)) in
+      Printf.sprintf "%s + (Z:%s Y:%s):%s" (Vector.str t.xyz) (Vector.str z) (Vector.str y) (List.fold_left (fun s p -> Printf.sprintf "%s (%s)" s (Vector.str p)) "" t.pts)
     (*f distance_between_xys *)
-    let distance_between_xys cs xyz (x0, y0, x1, y1) =
-      let (mx0,my0) = xy_of_xyz cs.(0) xyz in
-      let (mx1,my1) = xy_of_xyz cs.(1) xyz in
+    let distance_between_xys (c0,c1) xyz (x0, y0, x1, y1) =
+      let (mx0,my0) = xy_of_xyz c0 xyz in
+      let (mx1,my1) = xy_of_xyz c1 xyz in
       let d0 = sqrt ((x0 -. mx0) *. (x0 -. mx0) +. (y0 -. my0) *. (y0 -. my0)) in
       let d1 = sqrt ((x1 -. mx1) *. (x1 -. mx1) +. (y1 -. my1) *. (y1 -. my1)) in
       d0 +. d1
     (*f error_of_mapping_in_3d *)
-    let error_of_mapping_in_3d cs (p0,p1) =
-      let l0 = line_of_pt cs.(0) (get_point cs.(0) p0) in
-      let l1 = line_of_pt cs.(1) (get_point cs.(1) p1) in
+    let error_of_mapping_in_3d (c0,c1) (p0,p1) =
+      let l0 = line_of_pt c0 (get_point c0 p0) in
+      let l1 = line_of_pt c1 (get_point c1 p1) in
       let d = Line.distance_between_lines l0 l1 in
       abs_float d
     (*f error_of_mapping *)
     let use_error_sq = true
-    let error_of_mapping cs (p0,p1) =
-      let p0 = (get_point cs.(0) p0) in
-      let p1 = (get_point cs.(1) p1) in
-      let l0 = line_of_pt cs.(0) p0 in
-      let l1 = line_of_pt cs.(1) p1 in
+    let error_of_mapping ?verbose:(verbose=false) (c0,c1) (p0,p1) =
+      let p0 = (get_point c0 p0) in
+      let p1 = (get_point c1 p1) in
+      let l0 = line_of_pt c0 p0 in
+      let l1 = line_of_pt c1 p1 in
+      if verbose then (Printf.printf "Line 0:%s line 1:%s\n" (Line.str l0) (Line.str l1));
       let (xyz, d, np) = Line.midpoint_between_lines l0 l1 in
       if (Vector.get xyz 2) > (-5.) then (100000., np) else (
-      let (x0,y0) = xy_of_xyz cs.(0) xyz in
-      let (x1,y1) = xy_of_xyz cs.(1) xyz in
+      let (x0,y0) = xy_of_xyz c0 xyz in
+      let (x1,y1) = xy_of_xyz c1 xyz in
       let d0 = Vector.(modulus (add_scaled (-1.) p0 (make2 x0 y0))) in
       let d1 = Vector.(modulus (add_scaled (-1.) p1 (make2 x1 y1))) in
+      if verbose then (
+        Printf.printf "xyz=%s : np/d0/d1=%8f:%8f:%8f:(%f,%f):%s cf (%f,%f):%s\n" (Vector.str xyz) np d0 d1 x0 y0 (Vector.str p0) x1 y1 (Vector.str p1)
+      );
       if use_error_sq then
         (d0*.d0 +. d1*.d1, np)
       else
         (d0 +. d1, np)
       )
-    (*f error_of_mapping_verbose *)
-    let error_of_mapping_verbose cs (p0,p1) =
-      let p0 = (get_point cs.(0) p0) in
-      let p1 = (get_point cs.(1) p1) in
-      let l0 = line_of_pt cs.(0) p0 in
-      let l1 = line_of_pt cs.(1) p1 in
-      Printf.printf "Line 0:%s line 1:%s\n" (Line.str l0) (Line.str l1);
-      let (xyz, d, np) = Line.midpoint_between_lines l0 l1 in
-      if (Vector.get xyz 2) > (-5.) then (100000., np) else (
-      let (x0,y0) = xy_of_xyz cs.(0) xyz in
-      let (x1,y1) = xy_of_xyz cs.(1) xyz in
-      let d0 = Vector.(modulus (add_scaled (-1.) p0 (make2 x0 y0))) in
-      let d1 = Vector.(modulus (add_scaled (-1.) p1 (make2 x1 y1))) in
-      Printf.printf "xyz=%s : np/d0/d1=%8f:%8f:%8f:(%f,%f):%s cf (%f,%f):%s\n" (Vector.str xyz) np d0 d1 x0 y0 (Vector.str p0) x1 y1 (Vector.str p1);
-      if use_error_sq then
-        (d0*.d0 +. d1*.d1, np)
-      else
-        (d0 +. d1, np)
-      )
+
     (*f error_of_mappings *)
     let error_of_mappings cs pt_maps =
       let acc_error_of_mapping so_far (p0,p1) =
@@ -310,8 +298,10 @@ module Camera =
         so_far +. e
       in
       List.fold_left acc_error_of_mapping 0. pt_maps
+
     (*f find_min_error *)
     let find_min_error cs mappings =
+      let (c0,c1) = cs in
       let find_min_error_step bi bj bk range =
         let result = ref (100000., (0., 0., 0.)) in
         let step = range /. 5. in
@@ -321,7 +311,7 @@ module Camera =
               let i = bi +. ((float (di-5)) *. step) in
               let j = bj +. ((float (dj-5)) *. step) in
               let k = bk +. ((float (dk-5)) *. step) in
-              set_q cs.(1) i j k;
+              set_q c1 i j k;
               let err = error_of_mappings cs mappings in
               (* Printf.printf "%8f %8f %8f : %f\n" i j k err; *)
               if (err<(fst (!result))) then result := (err, (i,j,k));
@@ -330,7 +320,6 @@ module Camera =
         done;
         !result
         in
-        set_q cs.(0) 0. 0. 0.;
         let (e, (i,j,k)) = find_min_error_step 0. 0. 0. 1.0  in
         Printf.printf "Error %f i %f j %f k %f\n" e i j k;
         let (e, (i,j,k)) = find_min_error_step i j k 0.3  in
@@ -347,8 +336,8 @@ module Camera =
         Printf.printf "Error %f i %f j %f k %f\n" e i j k;
         let (e, (i,j,k)) = find_min_error_step i j k 0.0002  in
         Printf.printf "Error %f i %f j %f k %f\n" e i j k;
-        set_q cs.(1) i j k;
-        List.iter (fun (p0,p1) -> let (e,np)=(error_of_mapping_verbose cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
+        set_q c1 i j k;
+        List.iter (fun (p0,p1) -> let (e,np)=(error_of_mapping ~verbose:true cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
         (e, (i,j,k))
   end
 
@@ -448,7 +437,7 @@ let test_me2 _ =
     Printf.printf "\n";
     ()
 
-let _ =
+let test _ =
   test_me ();
   test_me2 ()
 

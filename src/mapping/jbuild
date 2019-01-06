@@ -3,7 +3,7 @@
 (library (
   (name mapping)
 ;  (public_name sdl_ogl_gui)
-  (modules (mapping camera))
+  (modules (mapping camera calibrate))
   (libraries (
     batteries
     atcflib
