@@ -21,6 +21,7 @@
 
 (executable (
   (name track_glove)
+  (modules (track_glove tracking_data calibrate maxlike find_camera_positions))
   (libraries (
     mapping
     batteries
