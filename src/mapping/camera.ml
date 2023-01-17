@@ -31,29 +31,63 @@ let rad_to_deg = 180. /.  pi
 module Line =
   struct
     type t = { start:Vector.t ;
-               direction:Vector.t}
+               direction:Vector.t
+             }
+    (*f make start direction -> t - make a line *)
     let make start direction =
       let direction = Vector.(normalize (copy direction)) in
       {start; direction}
-    let distance_from_line t p = 
-      (*
-        rp = p relative to start
-        rp.direction = amount of direction
-        Hence rp = rp.direction * direction + perpendicular_vector
-        perpendicular_vector = rp - rp.direction * direction
-        And distance = mod(perpendicular_vector)
+
+    (*f point_at_k t k -> v - get a new vector that is start + k * direction *)
+    let point_at_k t k =
+      Vector.(add_scaled k t.direction (copy t.start))
+
+    (*f distance_from_point t v -> float - calculate distance between line and point *)
+    let distance_from_point t v = 
+      (* Line is every pt p + k.d;
+         Vector relative to point is p-v + k.d
+         Closest to origin at x where x.d = 0
+         x = p-v + k.d
+         x.d = (p-v).d + k = 0
+         k = (v-p).d
+         x = p-v + ((v-p).d) * d
+         |x| = sqrt(x.x)
+         x.x = (p-v + ((v-p).d) * d) . (p-v + ((v-p).d) * d)
+         = (p-v).(p-v) - 2*((p-v).d)^2 + ((v-p).d)^2
+         = (p-v).(p-v) - ((p-v).d)^2
        *)
-      let rp = Vector.(add_scaled (-1.0) p (copy t.start)) in
-      let rp_along_d = Vector.(scale (dot_product rp t.direction) (copy t.direction)) in
-      let rpr = Vector.(add_scaled (-1.0) rp_along_d rp) in
-      Vector.modulus rpr
+      let pmv = Vector.(sub v (copy t.start)) in
+      let k = -. (Vector.dot_product pmv t.direction) in
+      let x = Vector.(add_scaled k t.direction pmv) in
+      Vector.modulus x
+
+    (*f ks_at_distance_from_point t dist v -> float k0 * float kd option - calculate k=k0+-kd where the distance between the point on the line and v equals d *)
+    let ks_at_distance_from_point t dist v = 
+      (* Line is every pt p + k.d;
+         Vector relative to point on line is x = p-v + k.d
+         Want x.x = dist*dist
+         x = p-v + k.d
+         x.x = k^2 + 2((p-v).d)*k + |p-v|^2
+         k^2 + 2((p-v).d)*k + |p-v|^2 - dist*dist = 0
+         k = ((v-p).d) +- sqrt( ((v-p).d)^2 + dist*dist - |p-v|^2 )
+       *)
+      let pmv = Vector.(sub v (copy t.start)) in
+      let vmp_dot_d = -. (Vector.dot_product pmv t.direction) in
+      let discriminant = (vmp_dot_d*.vmp_dot_d) +. (dist*.dist) -. (Vector.modulus_squared pmv) in
+      if discriminant<0. then None else Some (vmp_dot_d, (sqrt discriminant))
+
+    (*f distance_betweek_lines a b -> float - calculate distance between two lines *)
     let distance_between_lines a b = 
       let bvd = Vector.(assign_cross_product3 a.direction b.direction (copy a.direction)) in
       let sd  = Vector.(add_scaled (-1.0) b.start (copy a.start)) in
       abs_float (Vector.dot_product bvd sd)
+
+    (*f nonparallelity a b -> float - get a measure of how nonparallel lines are sqrt(1-sq(direction dot product)) *)
     let nonparallelity a b =
       let ab = Vector.dot_product a.direction b.direction in
       sqrt (1. -. ab *. ab )
+
+    (*f midpoint_between_lines a b -> pt - calculate midpoint between two (nonparallel) lines *)
     let midpoint_between_lines a b = 
       (*
         (define the line between midpoints to be c1<->c2, c1 on a, c2 on b)
@@ -81,6 +115,8 @@ module Line =
       let d = Vector.(modulus (add_scaled (-1.0) c2 (copy c1))) in
       let midpoint = Vector.(add_scaled 0.5 c2 (scale 0.5 c1)) in
       (midpoint, d, (nonparallelity a b))
+
+    (*f str t -> string - get string representation of line *)
     let str t =
       Printf.sprintf "[%s -> %s]" (Vector.str t.start) (Vector.str t.direction)
   end
@@ -132,6 +168,10 @@ module Camera =
       t.q <- Quaternion.make_rijk r i j k;
       ignore Quaternion.(scale (1. /. (modulus t.q)) t.q);
       update_q t
+    (*f set_xyz *)
+    let set_xyz t x y z =
+      ignore (Vector.(set 0 x (set 1 y (set 2 z t.xyz))))
+      
     (*f make *)
     let make xyz i j k xfov =
       let t = {cx=320;
@@ -145,6 +185,10 @@ module Camera =
               } in
       set_q t i j k;
       t
+    (*f delete_points *)
+    let delete_points t =
+      t.pts <- []
+      
     (*f get_point t n - get nth point in t *)
     let get_point t n =
       List.nth t.pts n
@@ -223,7 +267,7 @@ module Camera =
     let line_of_direction t v3 =
       let v3_rel = Vector.(apply_q t.q (copy v3)) in
       Line.make t.xyz v3_rel
-    (*f line_of_xy t v3 - get new line in world space from camera through screen space (relative to centre)
+    (*f line_of_xy t x y - get new line in world space from camera through screen space (relative to centre)
      *)
     let line_of_xy t x y = 
       let v3_camera = direction_of_xy t x y in
@@ -251,9 +295,10 @@ module Camera =
       xy_of_angles t pr
     (*f str *)
     let str t =
-      let z = Vector.(apply_q  t.q (make3 0. 0. (-1.))) in
+      let x = Vector.(apply_q  t.q (make3 1. 0. 0.)) in
       let y = Vector.(apply_q  t.q (make3 0. 1. 0.)) in
-      Printf.sprintf "%s + (Z:%s Y:%s):%s" (Vector.str t.xyz) (Vector.str z) (Vector.str y) (List.fold_left (fun s p -> Printf.sprintf "%s (%s)" s (Vector.str p)) "" t.pts)
+      let z = Vector.(apply_q  t.q (make3 0. 0. (-1.))) in
+      Printf.sprintf "%s + (X:%s Y:%s -Z:%s) %s:%s" (Vector.str t.xyz) (Vector.str x) (Vector.str y) (Vector.str z) (Quaternion.str t.q) (List.fold_left (fun s p -> Printf.sprintf "%s (%s)" s (Vector.str p)) "" t.pts)
     (*f distance_between_xys *)
     let distance_between_xys (c0,c1) xyz (x0, y0, x1, y1) =
       let (mx0,my0) = xy_of_xyz c0 xyz in
@@ -339,17 +384,76 @@ module Camera =
         set_q c1 i j k;
         List.iter (fun (p0,p1) -> let (e,np)=(error_of_mapping ~verbose:true cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
         (e, (i,j,k))
+
+    (*f find_min_error_translate *)
+    let find_min_error_translate scale cs mappings =
+      let (c0,c1) = cs in
+      let x0 = Vector.get c1.xyz 0 in
+      let y0 = Vector.get c1.xyz 1 in
+      let z0 = Vector.get c1.xyz 2 in
+      let find_min_error_step x0 y0 z0 range =
+        let result = ref (100000., (0., 0., 0.)) in
+        let step = scale *. range /. 5. in
+        for di=0 to 10 do
+          for dj=0 to 10 do
+            for dk=0 to 10 do
+              let x = x0 +. ((float (di-5)) *. step) in
+              let y = y0 +. ((float (dj-5)) *. step) in
+              let z = z0 +. ((float (dk-5)) *. step) in
+              set_xyz c1 x y z;
+              let err = error_of_mappings cs mappings in
+              (* Printf.printf "%8f %8f %8f : %f\n" i j k err; *)
+              if (err<(fst (!result))) then result := (err, (x,y,z));
+            done
+          done
+        done;
+        !result
+        in
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 1.0  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.3  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.05  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.02  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.005  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.002  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.0005  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        let (e, (x0,y0,z0)) = find_min_error_step x0 y0 z0 0.0002  in
+        Printf.printf "Error %f i %f j %f k %f\n" e x0 y0 z0;
+        set_xyz c1 x0 y0 z0;
+        List.iter (fun (p0,p1) -> let (e,np)=(error_of_mapping ~verbose:true cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
+        (e, (x0,y0,z0))
   end
 
 (*a Tests *)
 let test_me _ =
-  Printf.printf "Testing distance between lines (0 0 0) + k (0 0 -1) and (1 0 0) + m (1 1 0)\n";
-  let l0 = Line.make (Vector.make3 0. 0. 0.) (Vector.make3 0. 0. (-1.0)) in
-  let l1 = Line.make (Vector.make3 1. 0. 0.) (Vector.make3 1. 1. ( 0.0)) in
-  Printf.printf "Should be sqrt(2) %f\n" (Line.distance_between_lines l0 l1);
-  Printf.printf "Should be sqrt(2) %f\n" (Line.distance_between_lines l1 l0)
+  Printf.printf "Testing distance between lines (0 0 0) + k (0 0 1) and (1 0 0) + m (1 1 0)\n";
+  let xyz000 = Vector.make3 0. 0. 0. in
+  let xyz100 = Vector.make3 1. 0. 0. in
+  let xyz110 = Vector.make3 1. 1. 0. in
+  let xyz001 = Vector.make3 0. 0. 1. in
+  let l0 = Line.make xyz000 xyz001 in
+  let l1 = Line.make xyz100 xyz110 in
+  Printf.printf "Should be 1/sqrt(2) %f\n" (Line.distance_between_lines l0 l1);
+  Printf.printf "Should be 1/sqrt(2) %f\n" (Line.distance_between_lines l1 l0);
+  Printf.printf "Should be 1.0 %f\n" (Line.distance_from_point l0 xyz100);
+  Printf.printf "Should be 1/sqrt(2) %f\n" (Line.distance_from_point l1 xyz000);
+  Printf.printf "Should be sqrt(2) %f\n" (Line.distance_from_point l0 xyz110);
+  let show_distances msg l dist v =
+    match Line.ks_at_distance_from_point l dist v with
+      None -> Printf.printf "%s : None\n" msg
+    | Some (k0,kd) ->
+       Printf.printf "%s : %f +- %f\n" msg k0 kd
+  in
+  show_distances "Should be none" l0 0. xyz100;
+  show_distances "Should be +-sqrt(3)" l0 2. xyz100;
+  ()
   
-
 let test_me2 _ =
   let cs = [|Camera.make (Vector.make3  0. 0. 0.) 0. 0. 0. 42.0;
              Camera.make (Vector.make3 30. 0. 0.) 0.1 0.3 0.5 42.0;
@@ -393,7 +497,7 @@ let test_me2 _ =
      *)
     Printf.printf "Should be 260,130 %f %f\n" x y ;
 
-    Printf.printf "Test line_of_pt and distance_from_line\n";
+    Printf.printf "Test line_of_pt and distance_from_point\n";
     Camera.add_point cs.(0) (x +. 320.) (y +. 240.);
     let line_p = Camera.(line_of_pt cs.(0) (get_point cs.(0) 0)) in
     (* Line goes from (0,0,0) through test_p, so its direction should be k*test_p *)
@@ -402,7 +506,7 @@ let test_me2 _ =
     for i=0 to 2 do Printf.printf " %f" Vector.((get test_p i) /. (get line_p.direction i)); done;
     Printf.printf "\n";
     (* Line goes through test_p, so distance should be 0 *)
-    Printf.printf "Should be zero %f\n" (Line.distance_from_line line_p test_p);
+    Printf.printf "Should be zero %f\n" (Line.distance_from_point line_p test_p);
     (* Note *)
     Printf.printf "(x,y) = (%f,%f)\n" x y;
     let (lx, ly) = Camera.xy_of_xyz cs.(0) line_p.direction in

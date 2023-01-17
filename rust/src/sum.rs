@@ -2,19 +2,22 @@
 use crate::{Function, Value};
 
 //a Sum
+//tp Sum
 #[derive(Default)]
-pub struct Sum<'a> {
-    fns: Vec<Box<dyn Function + 'a>>,
+pub struct Sum<'arg> {
+    fns: Vec<Box<dyn Function<'arg> + 'arg>>,
 }
 
+//ip Sum
 impl<'arg> Sum<'arg> {
-    pub fn add_fn(&mut self, f: Box<dyn Function + 'arg>) {
+    pub fn add_fn(&mut self, f: Box<dyn Function<'arg> + 'arg>) {
         if !f.is_zero() {
             self.fns.push(f);
         }
     }
 }
 
+//ip Display for Sum
 impl<'arg> std::fmt::Display for Sum<'arg> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self.fns.len() {
@@ -34,12 +37,15 @@ impl<'arg> std::fmt::Display for Sum<'arg> {
     }
 }
 
-impl<'a> Function for Sum<'a> {
-    fn clone<'arg>(&'arg self) -> Box<dyn Function + 'arg> {
+//ip Function for Sum
+impl<'arg> Function<'arg> for Sum<'arg> {
+    //fp clone
+    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
         Box::new(Sum::<'arg> { fns })
     }
 
+    //fp as_constant
     fn as_constant(&self) -> Option<f64> {
         if self.fns.is_empty() {
             Some(0.0)
@@ -48,7 +54,8 @@ impl<'a> Function for Sum<'a> {
         }
     }
 
-    fn evaluate<'e>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    //fp evaluate
+    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -60,6 +67,7 @@ impl<'a> Function for Sum<'a> {
         }
     }
 
+    //fp has_arg
     fn has_arg(&self, arg: &Value) -> bool {
         for f in self.fns.iter() {
             if f.has_arg(arg) {
@@ -68,7 +76,12 @@ impl<'a> Function for Sum<'a> {
         }
         return false;
     }
-    fn differentiate<'arg>(&'arg self, arg: &'arg Value) -> Option<Box<dyn Function + 'arg>> {
+
+    //fp differentiate
+    fn differentiate<'s: 'arg>(
+        &'s self,
+        arg: &'arg Value,
+    ) -> Option<Box<dyn Function<'arg> + 'arg>> {
         let mut sum = Sum::<'arg> { fns: vec![] };
         for f in self.fns.iter() {
             if let Some(df) = f.differentiate(arg) {
@@ -83,7 +96,7 @@ impl<'a> Function for Sum<'a> {
     }
 
     //fp simplify
-    fn simplify<'arg>(&'arg self) -> Option<Box<dyn Function + 'arg>> {
+    fn simplify<'a: 'arg>(&'a self) -> Option<Box<dyn Function<'arg> + 'arg>> {
         let mut fns = Vec::new();
         let mut constant = 0.;
         let mut simplified = false;

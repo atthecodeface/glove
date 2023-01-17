@@ -150,50 +150,72 @@ module Mapping = struct
     Printf.sprintf "[%s ; %s @ %f]" (Vector.str t.xy0) (Vector.str t.xy1) t.confidence
 end
      
-let find_best_from_mappings mappings_01 =
+let find_best_from_mappings (c0,c1) mappings_01 =
   Printf.printf "find_best_from_mappings\n";
   List.iter (fun m->Printf.printf "%s\n" (Mapping.str m)) mappings_01;
-  let fov = 41.0 in
-  (* Best q 0.052800 -0.066400 0.207700 (error 31.095012)  *)
-  let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. 0. fov;
-             (*Camera.make (Vector.make3 30. 0. 0.) 0.133960 0.562300 0.281960 fov;*)
-             Camera.make (Vector.make3 30. 0. 0.) 0.14 0.62 0.28 fov;
-             Camera.make (Vector.make3 30. 60. 15.) 0. 0. 0. fov;
-           |] in
-  
+  Camera.delete_points c0;
+  Camera.delete_points c1;
   let add_mapping n (m:Mapping.t) =
     let num = Float.to_int (sqrt m.confidence) in
-    Camera.(add_point_vec cs.(0) m.xy0;add_point_vec cs.(1) m.xy1);
+    Camera.(add_point_vec c0 m.xy0;add_point_vec c1 m.xy1);
     n+1
   in
   let n = List.fold_left add_mapping 0 mappings_01 in
   let mappings = List.init n (fun i->(i,i)) in
 
-  Printf.printf "Camera 0 %s\n" (Camera.str cs.(0));
-  Printf.printf "Camera 1 %s\n" (Camera.str cs.(1));
-  let cs = (cs.(0), cs.(1)) in
-  List.iter (fun (p0,p1) -> let (e,np)=(Camera.error_of_mapping ~verbose:true cs (p0,p1)) in Printf.printf "Mapping %d %d err %f\n" p0 p1 e) mappings;
+  Printf.printf "Camera 0 %s\n" (Camera.str c0);
+  Printf.printf "Camera 1 %s\n" (Camera.str c1);
+
+  let cs = (c0,c1) in
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+
+  let (e, (i,j,k)) = Camera.find_min_error_translate 20. cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+
+(*
 
   let (e, (i,j,k)) = Camera.find_min_error cs mappings in
   Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
   Printf.printf "C1 = %s\n" (Camera.str (snd cs));
 
-  let (c0,c1) = cs in
-  let cs = (c1,c0) in
-  Printf.printf "Swapping cameras\n";
-
-  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
-  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
-  Printf.printf "C0 = %s\n" (Camera.str (snd cs));
-
-  let (c0,c1) = cs in
-  let cs = (c1,c0) in
-  Printf.printf "Swapping cameras\n";
-
-  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  let (e, (i,j,k)) = Camera.find_min_error_translate 0.2 cs mappings in
   Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
   Printf.printf "C1 = %s\n" (Camera.str (snd cs));
-  (i,j,k)
+ *)  
+
+  let cs = (c1,c0) in
+  Printf.printf "Swapping cameras\n";
+
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  Printf.printf "C0 = %s\n" (Camera.str c0);
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+  
+  let cs = (c0,c1) in
+  Printf.printf "Swapping cameras back\n";
+  Printf.printf "Apply c0.q to c1\n";
+  let q0' = Quaternion.(conjugate (copy c0.q)) in
+  ignore (Quaternion.premultiply q0' c1.q);
+  ignore (Vector.apply_q q0' c1.xyz);
+  ignore (Quaternion.premultiply q0' c0.q);
+  Camera.update_q c0;
+  Camera.update_q c1;
+  Printf.printf "C0 = %s\n" (Camera.str c0);
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+
+  let (e, (i,j,k)) = Camera.find_min_error_translate 20. cs mappings in
+  let (e, (i,j,k)) = Camera.find_min_error cs mappings in
+  Printf.printf "Best q %f %f %f (error %f)\n" i j k e;
+  Printf.printf "C1 = %s\n" (Camera.str c1);
+
+  c1
 
 let find_rots _ =
   let num_leds = 6 in
@@ -242,7 +264,20 @@ let find_rots _ =
                           [|(430.833333,342.666667); (403.500000,263.500000); (285.000000,211.500000);|];
                         ] in
                         
-  mappings_01 := List.map (fun cxya -> Mapping.make (Vector.make2 (fst cxya.(0)) (snd cxya.(0))) (Vector.make2 (fst cxya.(1)) (snd cxya.(1)))) known_good_data;
-  find_best_from_mappings !mappings_01
-let (i0,j0,k0) = find_rots ()
+  let mappings_01 = List.map (fun cxya -> Mapping.make (Vector.make2 (fst cxya.(0)) (snd cxya.(0))) (Vector.make2 (fst cxya.(1)) (snd cxya.(1)))) known_good_data in
+  let mappings_02 = List.map (fun cxya -> Mapping.make (Vector.make2 (fst cxya.(0)) (snd cxya.(0))) (Vector.make2 (fst cxya.(2)) (snd cxya.(2)))) known_good_data in
+  let fov = 41.0 in
+  let cs = [|Camera.make (Vector.make3 0. 0. 0.) 0. 0. 0. fov;
+             Camera.make (Vector.make3 30. 0. 0.) 0. 0. 0. fov;
+             Camera.make (Vector.make3 45. 0. 0.) 0. 0. 0. fov;
+           |] in
+(*
+  let c1 = find_best_from_mappings (cs.(0),cs.(1)) mappings_01 in
+  let c2 = find_best_from_mappings (cs.(0),cs.(2)) mappings_02 in
+ *)
+  let c1 = cs.(1) in
+  let c2 = cs.(2) in
+  (cs.(0), c1,c2)
+
+let cs0,cs1,cs2 = find_rots ()
                           

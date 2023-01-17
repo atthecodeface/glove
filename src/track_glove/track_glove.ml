@@ -25,12 +25,7 @@ open Mapping
 let data = Tracking_data.data2
 open Find_camera_positions
 
-let fov = 41.0
-let cameras = [| ( 0.,  0.,  0.,  0.,0.,0.   );
-                 (30.,  0.,  0.,  i0,j0,k0 );
-                 (30.,  60., 15., 0.,0.,0.   );
-              |]
-let cs = Array.map (fun (cx,cy,cz,i,j,k) -> Camera.make (Vector.make3 cx cy cz) i j k fov) cameras
+let cs = [| cs0; cs1; cs2 |]
 
 module Led =
   struct
@@ -46,7 +41,7 @@ module Led =
                       }
     end
        
-let camera_lines = Array.map (fun _ -> []) cameras
+let camera_lines = Array.map (fun _ -> []) cs
 let blah camera_pts = 
   let map_line (c,t,sx,sy) =
     let x = ((float sx)/.(float (2*t))) -. (float cs.(c).cx) in
@@ -54,7 +49,7 @@ let blah camera_pts =
     let line = Camera.line_of_xy cs.(c) x y in
     camera_lines.(c) <- (line, x, y) :: camera_lines.(c) 
   in
-  Array.iteri (fun i _ -> camera_lines.(i) <- []) cameras;
+  Array.iteri (fun i _ -> camera_lines.(i) <- []) cs;
   List.iter map_line camera_pts;
   let find_best_in_camera_1 i0 (l0, x0, y0) =
     let get_value_in_cameras i1 (l1, x1, y1) =

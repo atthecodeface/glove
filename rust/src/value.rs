@@ -1,17 +1,21 @@
+//a Imports
 use crate::Function;
 
-pub enum Value<'f> {
+//a Value
+//tp Value
+pub enum Value<'arg> {
     Argument(String),
     Constant(f64),
-    Function(Box<dyn Function + 'f>),
+    Function(Box<dyn Function<'arg> + 'arg>),
 }
 
-impl<'f> Value<'f> {
+//ip Value
+impl<'arg> Value<'arg> {
     pub fn new_arg<S: Into<String>>(name: S) -> Self {
         let name = name.into();
         Self::Argument(name)
     }
-    pub fn new_fn(f: Box<dyn Function + 'f>) -> Self {
+    pub fn new_fn(f: Box<dyn Function<'arg> + 'arg>) -> Self {
         Self::Function(f)
     }
     pub fn one() -> Self {
@@ -20,8 +24,15 @@ impl<'f> Value<'f> {
     pub fn constant(f: f64) -> Self {
         Self::Constant(f)
     }
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::Argument(n) => Some(n),
+            _ => None,
+        }
+    }
 }
 
+//ip Display for Value
 impl<'f> std::fmt::Display for Value<'f> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
@@ -32,23 +43,17 @@ impl<'f> std::fmt::Display for Value<'f> {
     }
 }
 
-impl<'f> PartialEq<Value<'f>> for Value<'f> {
-    fn eq(&self, other: &Value<'f>) -> bool {
-        match self {
-            Self::Argument(name) => {
-                if let Self::Argument(other_name) = other {
-                    name == other_name
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
+//ip PartialEq for Value
+impl<'f, 'other> PartialEq<Value<'other>> for Value<'f> {
+    fn eq(&self, other: &Value<'other>) -> bool {
+        self.name().is_some() && self.name() == other.name()
     }
 }
 
-impl<'f> Function for Value<'f> {
-    fn evaluate<'e>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+//ip Function for Value
+impl<'arg> Function<'arg> for Value<'arg> {
+    //fp evaluate
+    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
         match self {
             Self::Constant(x) => *x,
             Self::Function(f) => f.evaluate(arg_to_value),
@@ -56,7 +61,8 @@ impl<'f> Function for Value<'f> {
         }
     }
 
-    fn clone<'arg>(&'arg self) -> Box<dyn Function + 'arg> {
+    //fp clone
+    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
         use Value::*;
         Box::new(match self {
             Argument(name) => Value::new_arg(name),
@@ -65,6 +71,7 @@ impl<'f> Function for Value<'f> {
         })
     }
 
+    //fp as_constant
     fn as_constant(&self) -> Option<f64> {
         match self {
             Self::Constant(x) => Some(*x),
@@ -73,20 +80,25 @@ impl<'f> Function for Value<'f> {
         }
     }
 
+    //fp has_arg
     fn has_arg(&self, arg: &Value) -> bool {
         match self {
             Self::Argument(_) => self == arg,
             _ => false,
         }
     }
-    fn differentiate<'arg>(&'arg self, arg: &'arg Value) -> Option<Box<dyn Function>> {
+
+    //fp differentiate
+    fn differentiate<'s: 'arg>(&'s self, arg: &'arg Value) -> Option<Box<dyn Function<'arg>>> {
         if self.has_arg(arg) {
             Some(Box::new(Value::one()))
         } else {
             None
         }
     }
-    fn simplify<'arg>(&'arg self) -> Option<Box<dyn Function + 'arg>> {
+
+    //fp simplify
+    fn simplify<'s: 'arg>(&'s self) -> Option<Box<dyn Function<'arg> + 'arg>> {
         if let Self::Function(f) = self {
             if let Some(c) = f.as_constant() {
                 Some(Box::new(Value::constant(c)))

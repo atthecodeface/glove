@@ -17,6 +17,91 @@
  *
  *)
 
+(* Documentation
+
+  The calibration diagram is 4 points of X axis and 5 of Y axis with also point (1,1).
+
+  Assume the diagram is in the Z=0 plane.
+
+  A camera at P with quaternion Q will have camera-relative coordinates Q.(xy0+P) = xyz'
+
+  This has a pitch/roll and hence view XY
+
+  As a guess one has XY = fov_scale * xyz' / z' (This assumes a type of lens)
+
+  We should have points (0,0), (0,1), (0,2), (0,3) ...
+
+  These have coords
+  xyz00' = Q.000+Q.P
+  xyz01' = Q.010+Q.P = xyz00' + 1*Q.dx010
+  xyz02' = Q.020+Q.P = xyz00' + 2*Q.dx010
+  xyz03' = Q.030+Q.P = xyz00' + 3*Q.dx010
+
+  Now if Q.dx010 = dx,dy,dz then we have
+  XY00 = xyz00' * (scale/z00') hence xyz00' = XY00/(scale/z00')
+  XY01 = ((XY00 / (scale/z00')) + (dx,dy)) * scale / (z00'+dz)
+       = ((XY00 * z00' +   (dx,dy)*scale) / (z00'+dz)
+  XY02 = ((XY00 * z00' + 2*(dx,dy)*scale) / (z00'+2*dz)
+  XY03 = ((XY00 * z00' + 3*(dx,dy)*scale) / (z00'+3*dz)
+
+  let z = z00' and (dx,dy)*scale=DXY and XY00=XY
+
+  Hence:
+  XY01-XY00 = ((XY * (z-z-dz) + dxysc) / (z+dz)
+            = (DXY - dz * XY) / (z+dz)
+  and
+  XY03-XY02 = ((XY*z + 3DXY) / (z+3dz) - ((XY*z + 2DXY) / (z+2dz)
+            = XY*z*(1/(z+3dz) - 1/(z+2dz)) + DXY*(3/(z+3dz)-2/(z+2dz))
+
+  1/(z+3dz)-1/(z+2dz) = (z+2dz-z-3dz)/(z+3dz)/z+2dz) = -dz/(z+3dz)/z+2dz)
+  3/(z+3dz)-2/(z+2dz) = (3z+6dz-2z-2dz)/(z+3dz)/z+2dz) = z/(z+3dz)/z+2dz)
+
+  XY03-XY02 = ((XY*z + 3DXY) / (z+3dz) - ((XY*z + 2DXY) / (z+2dz)
+            = (DXY-dz*XY) * z/(z+3dz)/(z+2dz)
+  Now z/(z+3dz)/z+2dz) = z / (z**2 + 5z.dz + 6.dz**2)
+  If dz<<z then this = 1 / (z + 5.dz)
+  XY03-XY02 = (DXY-dz*XY) / (z+5dz)
+
+  xyz00' = (z+0*dz) * (XY00,1) = P + 0*Q.dx010
+  xyz01' = (z+1*dz) * (XY01,1) = P + 1*Q.dx010
+  xyz02' = (z+2*dz) * (XY02,1) = P + 2*Q.dx010
+  xyz03' = (z+3*dz) * (XY03,1) = P + 3*Q.dx010
+
+  Q.dx010 = (z+3*dz) * (XY03,1) - (z+2*dz) * (XY02,1)
+
+  To a first approximation this is
+
+  Q.dx010 = (z+5/2*dz) * ((XY03,1)-(XY02,1))
+
+C0, about 54cm from the origin on the screen (C1 is 46cm)
+
+Y axis  (374.591667 300.550000 ) (374.120000 224.720000 ) (375.580000 156.230000 ) (375.598592 86.098592 ) (375.085366 21.048780 )
+X axis  (231.333333 129.294118 ) (375.580000 156.230000 ) (504.053398 175.679612 ) (619.271084 195.301205 )
+
+(54.591667   60.550000 ) (0,+76)
+(54.120000  -15.280000 ) (0,+70)
+(55.580000  -83.770000 ) (0,+70)
+(55.598592 -153.910000 ) (0,+65)
+(55.085366 -218.950000 )
+
+(-89.67     -110.71 )
+( 55.580000 -83.77 )
+(184.053398 -64.32 )
+(299.271084 -44.69 )
+
+Another way to look at it is that each point on the calibration is on a line from the camera out.
+i.e. xyz00' = k0 * Dir(XY00)
+And we know that
+xyz01' - xyz00' =   dxyz01 = k1 * Dir(XY01) - k0 * Dir(XY00)  (3 equations, 5 unknowns)
+and
+xyz02' - xyz00' = 2*dxyz01 = k2 * Dir(XY02) - k0 * Dir(XY00)  (6 equations, 6 unknowns)
+
+If we assume that k0=1 then 
+xyz01' - xyz00' =   dxyz01 = k1 * Dir(XY01) - Dir(XY00)
+xyz02' - xyz00' = 2*dxyz01 = k2 * Dir(XY02) - Dir(XY00)
+xyz02' - xyz00' =   dxyz01 = k2/2 * Dir(XY02) - 1/2*Dir(XY00) = k1 * Dir(XY01) - Dir(XY00)
+k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
+ *)
 (*a Libraries *)
 open Atcflib
 
@@ -428,3 +513,164 @@ module Mapping = struct
   ()
 end
                    
+(*f option_is_some/is_none/get *)
+let option_is_none o = match o with None -> true | Some _ -> false
+let option_is_some o = match o with None -> false | Some _ -> true
+let option_get     x = match x with Some p -> p | None -> raise Not_found
+let option_get_default o default = match o with None -> default | Some x -> x
+let option_apply f d o = match o with None -> d | Some x -> f x
+
+(* dxy_possibilites : line -> dist-in-cm -> camera-vec3 -> [] or [vec0; vec1]
+  Find the k values along line whose distance from the camera-vec3 is dist-in-cm
+  Return [] or [dxy0,dxy1] for the two vectors for the k values along the line
+  Effectively 'assume line is perfectly directed and camera-vec3 is perfect, find
+  the vectors along the line that match perfectly the dist-in-cm from camera-vec3
+ *)
+let dxy_possibilites l dist xyz0 =
+  let ks = Camera.Line.ks_at_distance_from_point l dist xyz0 in
+  match ks with
+    None -> []
+  | Some (k,kd) -> (
+    let pa = Camera.Line.point_at_k l (k +. kd) in
+    let pb = Camera.Line.point_at_k l (k -. kd) in
+    [ Vector.(normalize (sub xyz0 pa));
+      Vector.(normalize (sub xyz0 pb))]
+  )
+
+let dxys_parallel_to dxy dxy_option_lists =
+  let rec add_most_parallel_to acc dxy_option_lists =
+    match dxy_option_lists with
+      [] -> Some acc
+    | [] :: tl ->
+       None
+    | dxy_options :: tl ->
+       let acc_most_parallel_to acc d =
+         let (best, best_dxy) = acc in
+         let p = Vector.dot_product d dxy in
+         let p = p *. p in
+         if p > best then (p, d) else acc
+       in
+       let _,best_dxy = List.fold_left acc_most_parallel_to (0., List.hd dxy_options) dxy_options in
+       let new_acc = acc @ [best_dxy] in
+       add_most_parallel_to new_acc tl
+  in    
+  add_most_parallel_to [] dxy_option_lists
+
+let dxys_most_perp corr_dxys_x corr_dxys_y =
+  let v = Vector.make3 0. 0. 0. in
+  let most_perp_to_x acc (_,dxy_x) =
+    let most_perp_to_y acc (_,dxy_y) =
+      let (best,_) = acc in
+      let p = Vector.dot_product dxy_x dxy_y in
+      let p = p *. p in
+      if p < best then (p, dxy_y) else acc
+    in
+    let best_p,best_dxy_y = List.fold_left most_perp_to_y (1., v) corr_dxys_y in
+    let (p,_,_) = acc in
+    if best_p<p then (best_p, dxy_x, best_dxy_y) else acc
+  in
+  List.fold_left most_perp_to_x (2., v, v) corr_dxys_x
+
+(* average_dxys dxys -> dxy : calculate an 'average' vector
+  Sums each vector after normalizing (and resolving to be in the same direction),
+  yielding an approximately straight line of subvectors really.
+  The average vector is a unit vector in that direction.
+
+  Another option could be to find the vector (x,y,z) whose sum of squares of the dot product with
+  the dxys is minimal
+ *)
+let average_dxys dxys =
+  let dxy0 = List.hd dxys in
+  let dxy = Vector.make3 0. 0. 0. in
+  let add_dxy v =
+    let dp = Vector.dot_product v dxy in
+    let sc = (if dp<0. then (-1.) else (1.)) in
+    ignore (Vector.add_scaled sc v dxy);
+  in
+  List.iter add_dxy dxys;
+  let dp = Vector.dot_product dxy0 dxy in
+  let sc = if (dp<0.) then (-1.) else 1. in
+  Vector.(scale sc (normalize dxy))
+
+(* correlate_dxys : dxy -> dxys -> float - get measure of how 'parallel' the list of dxys are to dxy
+  Product ( dxys[i] _dot_product_ dxy ) for dxys[i] in dxys
+ *)
+let correlate_dxys dxy dxys =
+  let correlate_dxy acc v =
+    let dp = Vector.dot_product v dxy in
+    acc *. dp
+  in
+  let c = List.fold_left correlate_dxy 1. dxys in
+  abs_float c
+
+(* best_at_k camera camera-line-through-calibration-origin distance-in-cm-to-origin (cm*scr_x*src_y)list
+   
+ *)
+let best_at_k c l0 k0 data =
+  (* xyz0 is the origin given k0 is the distance in cm for unit vector l0 *)
+  let xyz0 = Camera.Line.point_at_k l0 k0 in
+  (* add_dxys builds a list of [veca,vecb] pairs of XY vectors from origin xyz0
+    where |(xyz0+veca|b)| = dist for veca/vecb corresponding to screen points (x,y) for distance dist
+    (dist,x,y) should then be a distance in cm for a callibration point (X,Y) with dist |(X,Y)|
+  *)
+  let add_dxys acc (dist, x, y) =
+    let l   = Camera.Camera.line_of_xy c x y in
+    let dxy = dxy_possibilites l dist xyz0 in
+    acc @ [dxy]
+  in
+  (* Get list of dxys for the given [ (dist,x,y) ] callibration points *)
+  let dxy_poss = List.fold_left add_dxys [] data in
+  (* dxy1 is *the list of candidate vectors for the first callibration point* *)
+  let dxy1 = List.hd dxy_poss in
+  (* best_for_acc dxy -> [float * dxy] list *)
+  let best_for acc dxy =
+    let best_dxy1a = option_get (dxys_parallel_to dxy dxy_poss) in
+    let avg_dxy1a = average_dxys best_dxy1a in
+    let corr_dxy1a = correlate_dxys avg_dxy1a best_dxy1a in
+    Printf.printf "Best for %s : %f : %s : %s\n" (Vector.str dxy) corr_dxy1a (Vector.str avg_dxy1a) (Vector.str_list best_dxy1a);
+    (corr_dxy1a, avg_dxy1a)::acc
+  in
+  List.fold_left best_for [] dxy1
+  
+let find_best_for_k k0 =
+
+  let xfov = 43.0 in
+  let c = Camera.Camera.make (Vector.make3 0. 0. 0.) 0. 0. 0. xfov in
+  (* l0 is line through the origin *)
+  let l0 = Camera.Camera.line_of_xy c (55.58)  (-83.77) in
+  let data_xy = ((180.932099),(-127.37)) in
+  (* data_y is the calibration figure points on the Y-axis - distance in cm from the origin and screen XY coordinates *)
+  let data_y =  [ (5.,  (55.60),  (-153.91));
+                (10., (55.60),  (-218.95));
+                (5.,  (54.12),  (-15.28));
+                (10., (54.59),  (60.55));
+              ] in
+  (* data_x is the calibration figure points on the X-axis - distance in cm from the origin and screen XY coordinates *)
+  let data_x =  [ (10.,  (-89.67),  (-110.71));
+                (10., (184.053398), (-64.32));
+                (20., (299.271084), (-44.69));
+                ] in
+  (* coor_dxys_x is coor_dxy1a * avg_dxy1a 
+  let corr_dxys_x = best_at_k c l0 k0 data_x in
+  let corr_dxys_y = best_at_k c l0 k0 data_y in
+  List.iter (fun (_,dxy_x) ->
+      List.iter (fun (_,dxy_y) ->
+          let dp = Vector.dot_product dxy_x dxy_y in
+          let xyz110 = Camera.Line.point_at_k l0 k0 in
+          Vector.add_scaled (-10.) dxy_x xyz110;
+          Vector.add_scaled (5.) dxy_y xyz110;
+          let (x,y)= Camera.Camera.xy_of_xyz c xyz110 in
+          Printf.printf "(1,1) at %f,%f : %f : %s : %s \n" x y dp (Vector.str dxy_x) (Vector.str dxy_y)
+        ) corr_dxys_y ) corr_dxys_x;
+  let v,dxy_x,dxy_y = dxys_most_perp corr_dxys_x corr_dxys_y in
+  Printf.printf "K0 %f: Perpendicularity %f for X axis %s Y axis %s\n" k0 v (Vector.str dxy_x) (Vector.str dxy_y)
+
+let _ =
+  find_best_for_k 54.0;
+  find_best_for_k 55.0;
+  find_best_for_k 56.0;
+  find_best_for_k 57.0;
+(*  find_best_for_k 58.0;
+  find_best_for_k 59.0;
+  find_best_for_k 60.0;
+ *)

@@ -3,9 +3,9 @@ use crate::{Function, Sum, Value};
 
 //a Product
 //tp Product
-pub struct Product<'a> {
+pub struct Product<'arg> {
     s: f64,
-    fns: Vec<Box<dyn Function + 'a>>,
+    fns: Vec<Box<dyn Function<'arg> + 'arg>>,
 }
 
 //ip Default for Product
@@ -45,7 +45,7 @@ impl<'arg> Product<'arg> {
     pub fn scale(&mut self, c: f64) {
         self.s *= c;
     }
-    pub fn add_fn(&mut self, f: Box<dyn Function + 'arg>) {
+    pub fn add_fn(&mut self, f: Box<dyn Function<'arg> + 'arg>) {
         if let Some(x) = f.as_constant() {
             self.s *= x;
         } else {
@@ -55,11 +55,15 @@ impl<'arg> Product<'arg> {
 }
 
 //ip Function for Product
-impl<'a> Function for Product<'a> {
+impl<'arg> Function<'arg> for Product<'arg> {
     //fp clone
-    fn clone<'arg>(&'arg self) -> Box<dyn Function + 'arg> {
+    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
         Box::new(Product::<'arg> { s: self.s, fns })
+    }
+    fn clone2(&self) -> Option<Box<dyn Function<'arg> + 'arg>> {
+        let fns = self.fns.iter().map(|f| (*f).clone2().unwrap()).collect();
+        Some(Box::new(Product::<'arg> { s: self.s, fns }))
     }
 
     //fp as_constant
@@ -72,7 +76,7 @@ impl<'a> Function for Product<'a> {
     }
 
     //fp evaluate
-    fn evaluate<'e>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -95,7 +99,10 @@ impl<'a> Function for Product<'a> {
     }
 
     //fp differentiate
-    fn differentiate<'arg>(&'arg self, arg: &'arg Value) -> Option<Box<dyn Function + 'arg>> {
+    fn differentiate<'a: 'arg>(
+        &'a self,
+        arg: &'arg Value,
+    ) -> Option<Box<dyn Function<'arg> + 'arg>> {
         let mut sum = Sum::default();
         for (i, f) in self.fns.iter().enumerate() {
             if let Some(df) = f.differentiate(arg) {
@@ -120,12 +127,12 @@ impl<'a> Function for Product<'a> {
     }
 
     //fp as_products
-    fn as_products<'s, 'arg>(&'s self) -> Option<(f64, Vec<Box<dyn Function + 'arg>>)> {
-        Some((self.s, self.fns.iter().map(|f| (*f).clone()).collect()))
+    fn as_products(self: Box<Self>) -> Option<(f64, Vec<Box<dyn Function<'arg> + 'arg>>)> {
+        Some((self.s, self.fns.into_iter().map(|f| f.clone()).collect()))
     }
 
     //fp simplify
-    fn simplify<'arg>(&'arg self) -> Option<Box<dyn Function + 'arg>> {
+    fn simplify<'s: 'arg>(&'s self) -> Option<Box<dyn Function<'arg> + 'arg>> {
         println!("Simplify {}", self);
         let mut fns = Vec::new();
         let mut constant = self.s;
@@ -139,20 +146,21 @@ impl<'a> Function for Product<'a> {
                 } else if let Some((c, ps)) = f.as_products() {
                     constant *= c;
                     for p in ps.into_iter() {
-                        fns.push(p.clone());
+                        // fns.push(p.clone());
                     }
                     simplified = true;
                 } else {
-                    fns.push((*f).clone());
+                    // fns.push((*f).clone());
                 }
-            } else if let Some((c, ps)) = f.as_products() {
-                constant *= c;
-                for p in ps.into_iter() {
-                    fns.push(p);
-                }
-                simplified = true;
+            /*                           } else if let Some((c, ps)) = f.as_products() {
+                            constant *= c;
+                            for p in ps.into_iter() {
+                                fns.push(p);
+                            }
+                            simplified = true;
+            */
             } else {
-                fns.push((*f).clone());
+                // fns.push((*f).clone());
             }
         }
         println!("{} {}", constant, fns.len());
