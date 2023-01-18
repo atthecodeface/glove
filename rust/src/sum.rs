@@ -40,7 +40,7 @@ impl<'arg> std::fmt::Display for Sum<'arg> {
 //ip Function for Sum
 impl<'arg> Function<'arg> for Sum<'arg> {
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
+    fn clone(&self) -> Box<dyn Function<'arg>> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
         Box::new(Sum::<'arg> { fns })
     }
@@ -55,7 +55,7 @@ impl<'arg> Function<'arg> for Sum<'arg> {
     }
 
     //fp evaluate
-    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -78,10 +78,7 @@ impl<'arg> Function<'arg> for Sum<'arg> {
     }
 
     //fp differentiate
-    fn differentiate<'s: 'arg>(
-        &'s self,
-        arg: &'arg Value,
-    ) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
         let mut sum = Sum::<'arg> { fns: vec![] };
         for f in self.fns.iter() {
             if let Some(df) = f.differentiate(arg) {
@@ -95,44 +92,33 @@ impl<'arg> Function<'arg> for Sum<'arg> {
         }
     }
 
-    //fp simplify
-    fn simplify<'a: 'arg>(&'a self) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    //fp simplified
+    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg>> {
         let mut fns = Vec::new();
         let mut constant = 0.;
-        let mut simplified = false;
-        for f in self.fns.iter() {
+        for f in self.fns.into_iter() {
+            let f = f.simplified();
             if let Some(c) = f.as_constant() {
                 constant += c;
-            } else if let Some(f) = f.simplify() {
-                if let Some(c) = f.as_constant() {
-                    constant += c;
-                } else {
-                    fns.push(f);
-                    simplified = true;
-                }
-            } else if let Some(ps) = f.as_sums() {
+            } else {
+                let ps = f.as_sums();
                 for p in ps.into_iter() {
                     fns.push(p);
                 }
-                simplified = true;
-            } else {
-                fns.push((*f).clone());
             }
         }
         if fns.is_empty() {
-            Some(Box::new(Value::constant(constant)))
+            Box::new(Value::constant(constant))
         } else if constant == 0. && fns.len() == 1 {
             let f = fns.pop().unwrap();
-            Some(f)
-        } else if simplified {
+            f
+        } else {
             let mut sum = Sum::default();
             sum.add_fn(Box::new(Value::constant(constant)));
             for f in fns {
                 sum.add_fn(f);
             }
-            Some(Box::new(sum))
-        } else {
-            None
+            Box::new(sum)
         }
     }
 }

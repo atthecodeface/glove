@@ -53,7 +53,7 @@ impl<'f, 'other> PartialEq<Value<'other>> for Value<'f> {
 //ip Function for Value
 impl<'arg> Function<'arg> for Value<'arg> {
     //fp evaluate
-    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
         match self {
             Self::Constant(x) => *x,
             Self::Function(f) => f.evaluate(arg_to_value),
@@ -89,7 +89,7 @@ impl<'arg> Function<'arg> for Value<'arg> {
     }
 
     //fp differentiate
-    fn differentiate<'s: 'arg>(&'s self, arg: &'arg Value) -> Option<Box<dyn Function<'arg>>> {
+    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
         if self.has_arg(arg) {
             Some(Box::new(Value::one()))
         } else {
@@ -97,16 +97,17 @@ impl<'arg> Function<'arg> for Value<'arg> {
         }
     }
 
-    //fp simplify
-    fn simplify<'s: 'arg>(&'s self) -> Option<Box<dyn Function<'arg> + 'arg>> {
-        if let Self::Function(f) = self {
-            if let Some(c) = f.as_constant() {
-                Some(Box::new(Value::constant(c)))
-            } else {
-                None
+    //fp simplified
+    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg> + 'arg> {
+        match *self {
+            Self::Function(f) => {
+                if let Some(c) = f.as_constant() {
+                    Box::new(Value::constant(c))
+                } else {
+                    Box::new(Self::Function(f))
+                }
             }
-        } else {
-            None
+            s => Box::new(s),
         }
     }
 }

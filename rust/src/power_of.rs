@@ -26,7 +26,7 @@ impl<'arg> Function<'arg> for PowerOf<'arg> {
     }
 
     //fp evaluate
-    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
         self.x.evaluate(arg_to_value).powf(self.n as f64)
     }
 
@@ -36,7 +36,7 @@ impl<'arg> Function<'arg> for PowerOf<'arg> {
     }
 
     //fp differentiate
-    fn differentiate<'a: 'arg>(&'a self, arg: &'a Value) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
         let dx = self.x.differentiate(arg);
         if dx.is_none() {
             return None;
@@ -65,6 +65,11 @@ impl<'arg> Function<'arg> for PowerOf<'arg> {
             product.add_fn(df);
             Some(Box::new(product))
         }
+    }
+
+    //fp simplified
+    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg>> {
+        self
     }
 }
 

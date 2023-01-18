@@ -3,29 +3,41 @@ use crate::{Function, Product, Value};
 
 //a FunctionOfFunction
 //tp FunctionOfFunction
-pub struct FunctionOfFunction<'arg> {
+pub struct FunctionOfFunction<'f, 'arg>
+where
+    'arg: 'f,
+{
     // For f(g())
-    f: Box<dyn Function<'arg> + 'arg>,
-    f_arg: &'arg Value<'arg>,
-    g: Box<dyn Function<'arg> + 'arg>,
+    f: Box<dyn Function<'arg>>,
+    f_arg: &'f Value<'arg>,
+    g: Box<dyn Function<'arg>>,
 }
 
 //ip FunctionOfFunction
-impl<'arg> FunctionOfFunction<'arg> {
-    pub fn new(
-        f: Box<dyn Function<'arg> + 'arg>,
-        f_arg: &'arg Value<'arg>,
-        g: Box<dyn Function<'arg> + 'arg>,
-    ) -> Self {
-        Self { f, f_arg, g }
+impl<'f, 'arg> FunctionOfFunction<'f, 'arg>
+where
+    'arg: 'f,
+{
+    pub fn new<'a>(
+        f: Box<dyn Function<'arg>>,
+        f_arg: &'a Value<'arg>,
+        g: Box<dyn Function<'arg>>,
+    ) -> FunctionOfFunction<'a, 'arg>
+    where
+        'arg: 'a,
+    {
+        FunctionOfFunction::<'a> { f, f_arg, g }
     }
 }
 
 //ip Function for FunctionOfFunction
-impl<'arg> Function<'arg> for FunctionOfFunction<'arg> {
+impl<'f, 'arg> Function<'arg> for FunctionOfFunction<'f, 'arg>
+where
+    'arg: 'f,
+{
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
-        Box::new(FunctionOfFunction::<'a> {
+    fn clone(&self) -> Box<dyn Function<'arg>> {
+        Box::new(FunctionOfFunction {
             f: self.f.clone(),
             f_arg: self.f_arg,
             g: self.g.clone(),
@@ -33,7 +45,7 @@ impl<'arg> Function<'arg> for FunctionOfFunction<'arg> {
     }
 
     //fp evaluate
-    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
         let v = self.g.evaluate(arg_to_value);
         fn f_value<'a>(v: f64, _: &'a Value<'a>) -> f64 {
             v
@@ -48,10 +60,7 @@ impl<'arg> Function<'arg> for FunctionOfFunction<'arg> {
     }
 
     //fp differentiate
-    fn differentiate<'s: 'arg>(
-        &'s self,
-        arg: &'arg Value,
-    ) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
         let dg = self.g.differentiate(arg);
         if dg.is_none() {
             return None;
@@ -71,36 +80,16 @@ impl<'arg> Function<'arg> for FunctionOfFunction<'arg> {
         }
     }
 
-    //fp simplify
-    fn simplify<'s: 'arg>(&'s self) -> Option<Box<dyn Function<'arg> + 'arg>> {
-        if let Some(f_simp) = self.f.simplify() {
-            if let Some(g_simp) = self.g.simplify() {
-                Some(Box::new(FunctionOfFunction::new(
-                    f_simp, self.f_arg, g_simp,
-                )))
-            } else {
-                Some(Box::new(FunctionOfFunction::new(
-                    f_simp,
-                    self.f_arg,
-                    self.g.clone(),
-                )))
-            }
-        } else {
-            if let Some(g_simp) = self.g.simplify() {
-                Some(Box::new(FunctionOfFunction::new(
-                    self.f.clone(),
-                    self.f_arg,
-                    g_simp,
-                )))
-            } else {
-                None
-            }
-        }
+    //fp simplified
+    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg> + 'arg> {
+        let f_simp = self.f.simplified();
+        let g_simp = self.g.simplified();
+        Box::new(FunctionOfFunction::new(f_simp, self.f_arg, g_simp))
     }
 }
 
 //ip Display for FunctionOfFunction
-impl<'arg> std::fmt::Display for FunctionOfFunction<'arg> {
+impl<'f, 'arg> std::fmt::Display for FunctionOfFunction<'f, 'arg> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "[{} o {}]", self.f, self.g)
     }

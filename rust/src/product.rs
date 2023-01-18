@@ -57,13 +57,9 @@ impl<'arg> Product<'arg> {
 //ip Function for Product
 impl<'arg> Function<'arg> for Product<'arg> {
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
+    fn clone(&self) -> Box<dyn Function<'arg>> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
         Box::new(Product::<'arg> { s: self.s, fns })
-    }
-    fn clone2(&self) -> Option<Box<dyn Function<'arg> + 'arg>> {
-        let fns = self.fns.iter().map(|f| (*f).clone2().unwrap()).collect();
-        Some(Box::new(Product::<'arg> { s: self.s, fns }))
     }
 
     //fp as_constant
@@ -76,7 +72,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp evaluate
-    fn evaluate<'e: 'arg>(&'e self, arg_to_value: &'e dyn Fn(&'e Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -99,10 +95,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp differentiate
-    fn differentiate<'a: 'arg>(
-        &'a self,
-        arg: &'arg Value,
-    ) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
         let mut sum = Sum::default();
         for (i, f) in self.fns.iter().enumerate() {
             if let Some(df) = f.differentiate(arg) {
@@ -127,49 +120,34 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp as_products
-    fn as_products(self: Box<Self>) -> Option<(f64, Vec<Box<dyn Function<'arg> + 'arg>>)> {
-        Some((self.s, self.fns.into_iter().map(|f| f.clone()).collect()))
+    fn as_products(self: Box<Self>) -> (f64, Vec<Box<dyn Function<'arg>>>) {
+        (self.s, self.fns.into_iter().map(|f| (*f).clone()).collect())
     }
 
-    //fp simplify
-    fn simplify<'s: 'arg>(&'s self) -> Option<Box<dyn Function<'arg> + 'arg>> {
+    //fp simplified
+    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg>> {
         println!("Simplify {}", self);
         let mut fns = Vec::new();
         let mut constant = self.s;
-        let mut simplified = false;
-        for f in self.fns.iter() {
+        for f in self.fns.into_iter() {
+            let f = f.simplified();
             if let Some(c) = f.as_constant() {
                 constant *= c;
-            } else if let Some(f) = f.simplify() {
-                if let Some(c) = f.as_constant() {
-                    constant *= c;
-                } else if let Some((c, ps)) = f.as_products() {
-                    constant *= c;
-                    for p in ps.into_iter() {
-                        // fns.push(p.clone());
-                    }
-                    simplified = true;
-                } else {
-                    // fns.push((*f).clone());
-                }
-            /*                           } else if let Some((c, ps)) = f.as_products() {
-                            constant *= c;
-                            for p in ps.into_iter() {
-                                fns.push(p);
-                            }
-                            simplified = true;
-            */
             } else {
-                // fns.push((*f).clone());
+                let (c, ps) = f.as_products();
+                constant *= c;
+                for p in ps.into_iter() {
+                    fns.push(p);
+                }
             }
         }
         println!("{} {}", constant, fns.len());
         if fns.is_empty() {
-            Some(Box::new(Value::constant(constant)))
+            Box::new(Value::constant(constant))
         } else if constant == 1. && fns.len() == 1 {
             let f = fns.pop().unwrap();
-            Some(f)
-        } else if simplified {
+            f
+        } else {
             let mut product = Product::default();
             product.scale(constant);
             println!("Simplified to {}", constant);
@@ -177,9 +155,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
                 println!(" * {}", f);
                 product.add_fn(f);
             }
-            Some(Box::new(product))
-        } else {
-            None
+            Box::new(product)
         }
     }
 }
