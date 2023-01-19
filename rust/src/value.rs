@@ -1,21 +1,20 @@
 //a Imports
-use crate::Function;
+use crate::{Arg, Function, Node};
 
 //a Value
 //tp Value
-pub enum Value<'arg> {
-    Argument(String),
+pub enum Value<A: Arg> {
+    Argument(A),
     Constant(f64),
-    Function(Box<dyn Function<'arg> + 'arg>),
+    Function(Node<A>),
 }
 
 //ip Value
-impl<'arg> Value<'arg> {
-    pub fn new_arg<S: Into<String>>(name: S) -> Self {
-        let name = name.into();
-        Self::Argument(name)
+impl<A: Arg> Value<A> {
+    pub fn new_arg(arg: &A) -> Self {
+        Self::Argument(arg.clone())
     }
-    pub fn new_fn(f: Box<dyn Function<'arg> + 'arg>) -> Self {
+    pub fn new_fn(f: Node<A>) -> Self {
         Self::Function(f)
     }
     pub fn one() -> Self {
@@ -24,7 +23,7 @@ impl<'arg> Value<'arg> {
     pub fn constant(f: f64) -> Self {
         Self::Constant(f)
     }
-    pub fn name(&self) -> Option<&str> {
+    pub fn arg(&self) -> Option<&A> {
         match self {
             Self::Argument(n) => Some(n),
             _ => None,
@@ -33,7 +32,7 @@ impl<'arg> Value<'arg> {
 }
 
 //ip Display for Value
-impl<'f> std::fmt::Display for Value<'f> {
+impl<A: Arg> std::fmt::Display for Value<A> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             Self::Argument(name) => name.fmt(fmt),
@@ -44,27 +43,18 @@ impl<'f> std::fmt::Display for Value<'f> {
 }
 
 //ip PartialEq for Value
-impl<'f, 'other> PartialEq<Value<'other>> for Value<'f> {
-    fn eq(&self, other: &Value<'other>) -> bool {
-        self.name().is_some() && self.name() == other.name()
+impl<A: Arg> PartialEq<Value<A>> for Value<A> {
+    fn eq(&self, other: &Value<A>) -> bool {
+        self.arg().is_some() && self.arg() == other.arg()
     }
 }
 
 //ip Function for Value
-impl<'arg> Function<'arg> for Value<'arg> {
-    //fp evaluate
-    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
-        match self {
-            Self::Constant(x) => *x,
-            Self::Function(f) => f.evaluate(arg_to_value),
-            Self::Argument(_) => arg_to_value(self),
-        }
-    }
-
+impl<A: Arg> Function<A> for Value<A> {
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg> + 'arg> {
+    fn clone(&self) -> Node<A> {
         use Value::*;
-        Box::new(match self {
+        Node::new(match self {
             Argument(name) => Value::new_arg(name),
             Constant(f) => Value::constant(*f),
             Function(f) => Value::Function((*f).clone()),
@@ -81,33 +71,42 @@ impl<'arg> Function<'arg> for Value<'arg> {
     }
 
     //fp has_arg
-    fn has_arg(&self, arg: &Value) -> bool {
+    fn has_arg(&self, arg: &A) -> bool {
         match self {
-            Self::Argument(_) => self == arg,
+            Self::Argument(a) => a == arg,
             _ => false,
         }
     }
 
     //fp differentiate
-    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
+    fn differentiate(&self, arg: &A) -> Option<Node<A>> {
         if self.has_arg(arg) {
-            Some(Box::new(Value::one()))
+            Some(Node::new(Value::one()))
         } else {
             None
         }
     }
 
+    //fp evaluate
+    fn evaluate(&self, arg_to_value: &dyn Fn(&A) -> f64) -> f64 {
+        match self {
+            Self::Constant(x) => *x,
+            Self::Function(f) => f.evaluate(arg_to_value),
+            Self::Argument(a) => arg_to_value(a),
+        }
+    }
+
     //fp simplified
-    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg> + 'arg> {
+    fn simplified(self: Box<Self>) -> Node<A> {
         match *self {
             Self::Function(f) => {
                 if let Some(c) = f.as_constant() {
-                    Box::new(Value::constant(c))
+                    Node::new(Value::constant(c))
                 } else {
-                    Box::new(Self::Function(f))
+                    Node::new(Self::Function(f))
                 }
             }
-            s => Box::new(s),
+            s => Node::new(s),
         }
     }
 }

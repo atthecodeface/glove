@@ -1,16 +1,22 @@
 //a Imports
-use crate::{Function, Value};
+use crate::{Arg, Function, Node, Value};
 
 //a Sum
 //tp Sum
-#[derive(Default)]
-pub struct Sum<'arg> {
-    fns: Vec<Box<dyn Function<'arg> + 'arg>>,
+pub struct Sum<A: Arg> {
+    fns: Vec<Node<A>>,
+}
+
+//ip Default for Sum
+impl<A: Arg> std::default::Default for Sum<A> {
+    fn default() -> Self {
+        Sum { fns: Vec::new() }
+    }
 }
 
 //ip Sum
-impl<'arg> Sum<'arg> {
-    pub fn add_fn(&mut self, f: Box<dyn Function<'arg> + 'arg>) {
+impl<A: Arg> Sum<A> {
+    pub fn add_fn(&mut self, f: Node<A>) {
         if !f.is_zero() {
             self.fns.push(f);
         }
@@ -18,7 +24,7 @@ impl<'arg> Sum<'arg> {
 }
 
 //ip Display for Sum
-impl<'arg> std::fmt::Display for Sum<'arg> {
+impl<A: Arg> std::fmt::Display for Sum<A> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self.fns.len() {
             0 => write!(fmt, "0"),
@@ -38,11 +44,11 @@ impl<'arg> std::fmt::Display for Sum<'arg> {
 }
 
 //ip Function for Sum
-impl<'arg> Function<'arg> for Sum<'arg> {
+impl<A: Arg> Function<A> for Sum<A> {
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg>> {
+    fn clone(&self) -> Node<A> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
-        Box::new(Sum::<'arg> { fns })
+        Node::new(Sum { fns })
     }
 
     //fp as_constant
@@ -55,7 +61,7 @@ impl<'arg> Function<'arg> for Sum<'arg> {
     }
 
     //fp evaluate
-    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&A) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -68,7 +74,7 @@ impl<'arg> Function<'arg> for Sum<'arg> {
     }
 
     //fp has_arg
-    fn has_arg(&self, arg: &Value) -> bool {
+    fn has_arg(&self, arg: &A) -> bool {
         for f in self.fns.iter() {
             if f.has_arg(arg) {
                 return true;
@@ -78,8 +84,8 @@ impl<'arg> Function<'arg> for Sum<'arg> {
     }
 
     //fp differentiate
-    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
-        let mut sum = Sum::<'arg> { fns: vec![] };
+    fn differentiate(&self, arg: &A) -> Option<Node<A>> {
+        let mut sum = Sum { fns: vec![] };
         for f in self.fns.iter() {
             if let Some(df) = f.differentiate(arg) {
                 sum.add_fn(df)
@@ -88,12 +94,12 @@ impl<'arg> Function<'arg> for Sum<'arg> {
         if sum.fns.is_empty() {
             None
         } else {
-            Some(Box::new(sum))
+            Some(Node::new(sum))
         }
     }
 
     //fp simplified
-    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg>> {
+    fn simplified(self: Box<Self>) -> Node<A> {
         let mut fns = Vec::new();
         let mut constant = 0.;
         for f in self.fns.into_iter() {
@@ -108,17 +114,17 @@ impl<'arg> Function<'arg> for Sum<'arg> {
             }
         }
         if fns.is_empty() {
-            Box::new(Value::constant(constant))
+            Node::new(Value::constant(constant))
         } else if constant == 0. && fns.len() == 1 {
             let f = fns.pop().unwrap();
             f
         } else {
             let mut sum = Sum::default();
-            sum.add_fn(Box::new(Value::constant(constant)));
+            sum.add_fn(Node::new(Value::constant(constant)));
             for f in fns {
                 sum.add_fn(f);
             }
-            Box::new(sum)
+            Node::new(sum)
         }
     }
 }

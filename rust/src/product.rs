@@ -1,15 +1,15 @@
 //a Imports
-use crate::{Function, Sum, Value};
+use crate::{Arg, Function, Node, Sum, Value};
 
 //a Product
 //tp Product
-pub struct Product<'arg> {
+pub struct Product<A: Arg> {
     s: f64,
-    fns: Vec<Box<dyn Function<'arg> + 'arg>>,
+    fns: Vec<Node<A>>,
 }
 
 //ip Default for Product
-impl<'arg> std::default::Default for Product<'arg> {
+impl<A: Arg> std::default::Default for Product<A> {
     fn default() -> Self {
         Self {
             s: 1.,
@@ -19,14 +19,14 @@ impl<'arg> std::default::Default for Product<'arg> {
 }
 
 //ip Display for Product
-impl<'arg> std::fmt::Display for Product<'arg> {
+impl<A: Arg> std::fmt::Display for Product<A> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self.fns.len() {
             0 => write!(fmt, "{}", self.s),
             _ => {
                 let mut pre = "(";
                 if self.s != 1. {
-                    write!(fmt, "{}", self.s)?;
+                    write!(fmt, "({}", self.s)?;
                     pre = "*";
                 }
                 for f in self.fns.iter() {
@@ -41,11 +41,11 @@ impl<'arg> std::fmt::Display for Product<'arg> {
 }
 
 //ip Product
-impl<'arg> Product<'arg> {
+impl<A: Arg> Product<A> {
     pub fn scale(&mut self, c: f64) {
         self.s *= c;
     }
-    pub fn add_fn(&mut self, f: Box<dyn Function<'arg> + 'arg>) {
+    pub fn add_fn(&mut self, f: Node<A>) {
         if let Some(x) = f.as_constant() {
             self.s *= x;
         } else {
@@ -55,11 +55,11 @@ impl<'arg> Product<'arg> {
 }
 
 //ip Function for Product
-impl<'arg> Function<'arg> for Product<'arg> {
+impl<A: Arg> Function<A> for Product<A> {
     //fp clone
-    fn clone(&self) -> Box<dyn Function<'arg>> {
+    fn clone(&self) -> Node<A> {
         let fns = self.fns.iter().map(|f| (*f).clone()).collect();
-        Box::new(Product::<'arg> { s: self.s, fns })
+        Node::new(Product { s: self.s, fns })
     }
 
     //fp as_constant
@@ -72,7 +72,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp evaluate
-    fn evaluate(&self, arg_to_value: &dyn Fn(&Value) -> f64) -> f64 {
+    fn evaluate(&self, arg_to_value: &dyn Fn(&A) -> f64) -> f64 {
         if let Some(x) = self.as_constant() {
             x
         } else {
@@ -85,7 +85,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp has_arg
-    fn has_arg(&self, arg: &Value) -> bool {
+    fn has_arg(&self, arg: &A) -> bool {
         for f in self.fns.iter() {
             if f.has_arg(arg) {
                 return true;
@@ -95,11 +95,11 @@ impl<'arg> Function<'arg> for Product<'arg> {
     }
 
     //fp differentiate
-    fn differentiate(&self, arg: &Value) -> Option<Box<dyn Function<'arg>>> {
+    fn differentiate(&self, arg: &A) -> Option<Node<A>> {
         let mut sum = Sum::default();
         for (i, f) in self.fns.iter().enumerate() {
             if let Some(df) = f.differentiate(arg) {
-                let mut product = Product::<'arg> {
+                let mut product = Product {
                     s: self.s,
                     fns: vec![],
                 };
@@ -109,23 +109,23 @@ impl<'arg> Function<'arg> for Product<'arg> {
                     }
                 }
                 product.add_fn(df);
-                sum.add_fn(Box::new(product));
+                sum.add_fn(Node::new(product));
             }
         }
         if sum.is_zero() {
             None
         } else {
-            Some(Box::new(sum))
+            Some(Node::new(sum))
         }
     }
 
     //fp as_products
-    fn as_products(self: Box<Self>) -> (f64, Vec<Box<dyn Function<'arg>>>) {
-        (self.s, self.fns.into_iter().map(|f| (*f).clone()).collect())
+    fn as_products(self: Box<Self>) -> (f64, Vec<Node<A>>) {
+        (self.s, self.fns.into_iter().map(|f| f.clone()).collect())
     }
 
     //fp simplified
-    fn simplified(self: Box<Self>) -> Box<dyn Function<'arg>> {
+    fn simplified(self: Box<Self>) -> Node<A> {
         println!("Simplify {}", self);
         let mut fns = Vec::new();
         let mut constant = self.s;
@@ -141,9 +141,9 @@ impl<'arg> Function<'arg> for Product<'arg> {
                 }
             }
         }
-        println!("{} {}", constant, fns.len());
+        // println!("{} {}", constant, fns.len());
         if fns.is_empty() {
-            Box::new(Value::constant(constant))
+            Node::new(Value::constant(constant))
         } else if constant == 1. && fns.len() == 1 {
             let f = fns.pop().unwrap();
             f
@@ -155,7 +155,7 @@ impl<'arg> Function<'arg> for Product<'arg> {
                 println!(" * {}", f);
                 product.add_fn(f);
             }
-            Box::new(product)
+            Node::new(product)
         }
     }
 }
