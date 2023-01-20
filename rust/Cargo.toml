@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
+[dependencies.geo-nd]
+version="0.1.1"
+
