@@ -154,7 +154,7 @@ fn test_find_rotation() {
         pm.show_error(&cam);
     }
     eprintln!("Adjust positions");
-    cam = cam.adjust_position(&mappings).0;
+    cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
     dbg!(cam.total_error(&mappings));
     for pm in mappings.iter() {
         pm.show_error(&cam);
@@ -199,33 +199,75 @@ fn test_optimize() {
         cam = cam.get_best_direction(&rotations, &mappings[0]).0;
     }
     let num = mappings.len();
+    let mut worst_data = (1_000_000.0, 0, cam);
     for i in 0..300 {
-        let mut last_n = cam.find_worst_error(&mappings);
-        for i in 0..30 {
-            let mut n = cam.find_worst_error(&mappings);
-            dbg!(i, n, last_n);
-            if n == last_n {
-                n = (n + 1 + (i % (num - 1))) % num;
+        /*
+               let mut last_n = cam.find_worst_error(&mappings).0;
+               for i in 0..30 {
+                   let mut n = cam.find_worst_error(&mappings).0;
+                   dbg!(i, n, last_n);
+                   if n == last_n {
+                       last_n = (last_n + 1 + (i % (num - 1))) % num;
+                   }
+                   cam = cam
+                       .adjust_direction_while_keeping_one_okay(
+                           &rotations,
+                           &mappings[last_n],
+                           &mappings[n],
+                       )
+                       .0;
+                   last_n = n;
+               }
+        */
+        for i in 0..100 {
+            let best_n = cam.find_best_error(&mappings).0;
+            let worst_n = cam.find_worst_error(&mappings).0;
+            dbg!(i, best_n, worst_n);
+            if best_n == worst_n {
+                break;
             }
             cam = cam
                 .adjust_direction_while_keeping_one_okay(
                     &rotations,
-                    &mappings[last_n],
-                    &mappings[n],
+                    &mappings[best_n],
+                    &mappings[worst_n],
                 )
                 .0;
-            last_n = n;
         }
-        if i < 99 {
-            cam = cam.adjust_position(&mappings).0;
-        }
-        eprintln!("Loop {} completed", i);
-        dbg!(cam.total_error(&mappings));
+        dbg!(
+            "Total error pre move",
+            cam.total_error(&mappings),
+            cam.worst_error(&mappings)
+        );
         dbg!(cam);
         for pm in mappings.iter() {
             pm.show_error(&cam);
         }
+        if true {
+            cam = cam
+                .adjust_position_in_out(&mappings, &|c, m| c.worst_error(m))
+                .0;
+            cam = cam.adjust_position(&mappings, &|c, m| c.worst_error(m)).0;
+        }
+        eprintln!("Loop {} completed", i);
+        dbg!(
+            "Total error post move",
+            cam.total_error(&mappings),
+            cam.worst_error(&mappings)
+        );
+        let we = cam.worst_error(&mappings);
+        eprintln!("WE {:.2} Camera {}", we, cam);
+        for pm in mappings.iter() {
+            pm.show_error(&cam);
+        }
+        if we < worst_data.0 {
+            worst_data = (we, i, cam);
+        }
     }
+    eprintln!(
+        "Lowest WE {} {:.2} Camera {}",
+        worst_data.1, worst_data.0, worst_data.2
+    );
     assert!(false);
 }
 
@@ -249,7 +291,7 @@ fn test_calibrate() {
         pm.show_error(&camera0);
     }
     let mut cam = camera0.clone();
-    cam = cam.adjust_position(&mappings).0;
+    cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
     for pm in mappings.iter() {
         pm.show_error(&cam);
     }

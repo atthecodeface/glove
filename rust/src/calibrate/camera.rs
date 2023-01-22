@@ -3,8 +3,8 @@ use super::{Point2D, Point3D, PointMapping, Projection, Quat};
 
 use geo_nd::{quat, vector};
 
-//a Constatns
-const MIN_ERROR: f64 = 4.0;
+//a Constants
+const MIN_ERROR: f64 = 0.5;
 
 //a Rotations
 //tp Rotations
@@ -49,9 +49,53 @@ impl Projection for LCamera {
     // tan_fov_x is the x to z ratio that makes a right-most pixel map to the camera space for the edge of the camera view
     // So it is tan of *half* the full camera FOV width
     fn tan_fov_x(&self) -> f64 {
-        // Got best values with 60.6, maps to about -120, -180, 660
-        // 60.6_f64.to_radians().tan()
-        35.2_f64.to_radians().tan()
+        // With MIN_ERROR = 2.0
+        // 20.9 Lowest WE 85 27.96 Camera @[-191.72,-247.43,472.45] yaw -18.19 pitch -19.85 + [-0.29,-0.34,0.89]
+        // 21.9 Lowest WE 10 26.74 Camera @[-180.39,-208.51,469.58] yaw -17.10 pitch -16.33 + [-0.28,-0.28,0.92]
+        // 22.9 Lowest WE 17 9.51 Camera @[-177.09,-202.00,441.55] yaw -17.65 pitch -16.40 + [-0.29,-0.28,0.91]
+        // 23.9 Lowest WE 88 5.36 Camera @[-183.55,-190.09,409.24] yaw -19.55 pitch -16.17 + [-0.32,-0.28,0.91]
+        // 24.9 Lowest WE 235 6.36 Camera @[-173.57,-175.53,395.57] yaw -18.95 pitch -14.92 + [-0.31,-0.26,0.91]
+        // 25.9 Lowest WE 247 7.25 Camera @[-165.02,-173.48,376.42] yaw -18.66 pitch -15.36 + [-0.31,-0.26,0.91]
+        // 26.9 Lowest WE 297 64.51 Camera @[-121.16,-187.45,367.38] yaw -13.56 pitch -17.81 + [-0.22,-0.31,0.93]
+        // 27,6 WE 74.49 Camera @[-118.03,-134.71,404.21] yaw -11.56 pitch -9.87 + [-0.20,-0.17,0.97]
+        // 28.6 WE 82.28 Camera @[-122.58,-123.63,388.92] yaw -12.39 pitch -8.26 + [-0.21,-0.14,0.97]
+        // 29.1 WE 83.41 Camera @[-103.61,-132.34,374.19] yaw -10.41 pitch -10.21 + [-0.18,-0.18,0.97]
+        // 29.6 WE 68.79 Camera @[-110.52,-137.75,353.28] yaw -11.92 pitch -11.80 + [-0.20,-0.20,0.96]
+
+        // With MIN_ERROR = 0.5
+        // 22.9 Lowest WE 77 4.20 Camera @[-190.81,-194.42,434.13] yaw -19.44 pitch -15.79 + [-0.32,-0.27,0.91]
+        // 23.4 Lowest WE 74 6.08 Camera @[-180.90,-186.53,431.35] yaw -18.37 pitch -15.04 + [-0.30,-0.26,0.92]
+        // 23.5 Lowest WE 57 11.82 Camera @[-173.70,-202.87,424.04] yaw -17.78 pitch -17.10 + [-0.29,-0.29,0.91]
+        // 23.6 Lowest WE 15 12.30 Camera @[-168.33,-193.25,428.91] yaw -17.15 pitch -15.95 + [-0.28,-0.27,0.92]
+        // 23.7 Lowest WE 56 5.81 Camera @[-182.86,-183.68,420.27] yaw -19.07 pitch -15.03 + [-0.32,-0.26,0.91]
+        // 23.9 Lowest WE 92 4.77 Camera @[-182.12,-185.26,414.33] yaw -19.18 pitch -15.42 + [-0.32,-0.27,0.91]
+        // 24.9 Lowest WE 251 16.39 Camera @[-173.77,-186.47,396.40] yaw -18.77 pitch -16.02 + [-0.31,-0.28,0.91]
+        23.7_f64.to_radians().tan()
+    }
+}
+
+//ip Display for LCamera
+impl std::fmt::Display for LCamera {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let dxyz = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
+        // First rotation around Y axis (yaw)
+        let yaw = dxyz[0].atan2(dxyz[2]).to_degrees();
+        // Then rotation around X axis (elevation)
+        let pitch = dxyz[1]
+            .atan2((dxyz[0] * dxyz[0] + dxyz[2] * dxyz[2]).sqrt())
+            .to_degrees();
+        write!(
+            fmt,
+            "@[{:.2},{:.2},{:.2}] yaw {:.2} pitch {:.2} + [{:.2},{:.2},{:.2}]",
+            self.position[0],
+            self.position[1],
+            self.position[2],
+            yaw,
+            pitch,
+            dxyz[0],
+            dxyz[1],
+            dxyz[2]
+        )
     }
 }
 
@@ -215,8 +259,22 @@ impl LCamera {
         return (c, e);
     }
 
+    //fp find_best_error
+    pub fn find_best_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
+        let mut n = 0;
+        let mut best_e = 1000_000_000.0;
+        for (i, pm) in mappings.iter().enumerate() {
+            let e = pm.get_sq_error(self);
+            if e < best_e {
+                n = i;
+                best_e = e;
+            }
+        }
+        (n, best_e)
+    }
+
     //fp find_worst_error
-    pub fn find_worst_error(&self, mappings: &[PointMapping]) -> usize {
+    pub fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
         let mut n = 0;
         let mut worst_e = 0.;
         for (i, pm) in mappings.iter().enumerate() {
@@ -226,7 +284,7 @@ impl LCamera {
                 worst_e = e;
             }
         }
-        n
+        (n, worst_e)
     }
 
     //fp total_error
@@ -239,29 +297,63 @@ impl LCamera {
         sum_e
     }
 
+    //fp worst_error
+    pub fn worst_error(&self, mappings: &[PointMapping]) -> f64 {
+        self.find_worst_error(mappings).1
+    }
+
     //fp adjust_position
-    pub fn adjust_position(&self, mappings: &[PointMapping]) -> (Self, f64) {
+    pub fn adjust_position<F: Fn(&Self, &[PointMapping]) -> f64>(
+        &self,
+        mappings: &[PointMapping],
+        f: &F,
+    ) -> (Self, f64) {
         let mut cam = *self;
-        let mut e = cam.total_error(mappings);
+        let mut e = f(&cam, mappings);
         for _ in 0..10_000 {
             let cx = cam.moved_by([1., 0., 0.]);
-            let de_cx = cx.total_error(mappings) - e;
+            let de_cx = f(&cx, mappings) - e;
             let cy = cam.moved_by([0., 1., 0.]);
-            let de_cy = cy.total_error(mappings) - e;
+            let de_cy = f(&cy, mappings) - e;
             let cz = cam.moved_by([0., 0., 1.]);
-            let de_cz = cz.total_error(mappings) - e;
+            let de_cz = f(&cz, mappings) - e;
             let sqe = de_cx * de_cx + de_cy * de_cy + de_cz * de_cz;
             let rsqe = sqe.sqrt();
             let dx = de_cx / rsqe * 0.25;
             let dy = de_cy / rsqe * 0.25;
             let dz = de_cz / rsqe * 0.25;
             let cn = cam.moved_by([-dx, -dy, -dz]);
-            let en = cn.total_error(mappings);
+            let en = f(&cn, mappings);
             if en > e {
                 return (cam, e);
             }
             e = en;
             cam = cn
+        }
+        (cam, e)
+    }
+
+    //fp adjust_position_in_out
+    pub fn adjust_position_in_out<F: Fn(&Self, &[PointMapping]) -> f64>(
+        &self,
+        mappings: &[PointMapping],
+        f: &F,
+    ) -> (Self, f64) {
+        let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
+        // let [dx, dy, dz] = quat::apply3(&self.direction.as_ref(), &[0., 0., 1.]);
+        dbg!(dx, dy, dz);
+        let mut cam = *self;
+        let mut e = f(&cam, mappings);
+        for sc in [1., -1.] {
+            for _ in 0..10_000 {
+                let cn = cam.moved_by([dx * sc, dy * sc, dz * sc]);
+                let en = f(&cn, mappings);
+                if en > e {
+                    break;
+                }
+                e = en;
+                cam = cn
+            }
         }
         (cam, e)
     }
