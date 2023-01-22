@@ -48,6 +48,12 @@ impl Projection for LCamera {
     }
     // tan_fov_x is the x to z ratio that makes a right-most pixel map to the camera space for the edge of the camera view
     // So it is tan of *half* the full camera FOV width
+    //
+    // The spec diagonal FOV is probably 55.0 degrees
+    //
+    // This yields an X FOV of 2.0 * atan(4/5 * tan(55.0/2.0)) = 45.2 degrees
+    //
+    // Hence 22.6 would seem to be the correct number
     fn tan_fov_x(&self) -> f64 {
         // With MIN_ERROR = 2.0
         // 20.9 Lowest WE 85 27.96 Camera @[-191.72,-247.43,472.45] yaw -18.19 pitch -19.85 + [-0.29,-0.34,0.89]
@@ -70,7 +76,39 @@ impl Projection for LCamera {
         // 23.7 Lowest WE 56 5.81 Camera @[-182.86,-183.68,420.27] yaw -19.07 pitch -15.03 + [-0.32,-0.26,0.91]
         // 23.9 Lowest WE 92 4.77 Camera @[-182.12,-185.26,414.33] yaw -19.18 pitch -15.42 + [-0.32,-0.27,0.91]
         // 24.9 Lowest WE 251 16.39 Camera @[-173.77,-186.47,396.40] yaw -18.77 pitch -16.02 + [-0.31,-0.28,0.91]
-        23.7_f64.to_radians().tan()
+
+        // With MIN_ERROR = 0.5, pos in out adj by 0.01
+        // 22.5  Lowest WE 54 10.98 38.10 Camera @[-184.62,-210.27,440.32] yaw -18.49 pitch -17.35 + [-0.30,-0.30,0.91]
+        // 22.55 Lowest WE 83 3.69 15.41 Camera @[-195.99,-196.84,442.77] yaw -19.65 pitch -15.73 + [-0.32,-0.27,0.91]
+        // 22.57 Lowest WE 83 4.57 23.53 Camera @[-199.16,-201.65,435.92] yaw -20.21 pitch -16.46 + [-0.33,-0.28,0.90]
+        // 22.58 Lowest WE 122 19.63 87.42 Camera @[-175.07,-223.47,436.55] yaw -17.63 pitch -18.90 + [-0.29,-0.32,0.90]
+        // 22.59 Lowest WE 53 8.44 28.08 Camera @[-185.74,-209.59,439.91] yaw -18.68 pitch -17.23 + [-0.31,-0.30,0.90]
+        // 22.6  Lowest WE 92 4.02 17.16 Camera @[-195.55,-199.31,439.53] yaw -19.69 pitch -16.11 + [-0.32,-0.28,0.90]
+        // 22.61 Lowest WE 77 3.66 16.26 Camera @[-196.20,-200.80,435.82] yaw -19.93 pitch -16.39 + [-0.33,-0.28,0.90]
+        // 22.62 Lowest WE 65 3.63 15.87 Camera @[-195.54,-198.09,439.14] yaw -19.75 pitch -15.99 + [-0.32,-0.28,0.90]
+        // 22.65 Lowest WE 124 4.91 19.63 Camera @[-195.62,-205.03,432.49] yaw -19.98 pitch -16.94 + [-0.33,-0.29,0.90]
+        // 23.3  Lowest WE 152 4.92 23.04 Camera @[-190.61,-193.61,421.99] yaw -19.82 pitch -16.09 + [-0.33,-0.28,0.90]
+        // 23.35 Lowest WE 117 5.39 24.82 Camera @[-189.70,-198.25,418.95] yaw -19.87 pitch -16.67 + [-0.33,-0.29,0.90]
+        // 23.4  Lowest WE 120 4.35 22.65 Camera @[-190.19,-194.27,417.75] yaw -19.97 pitch -16.29 + [-0.33,-0.28,0.90]
+        // 23.45 Lowest WE 100 4.62 19.28 Camera @[-187.44,-188.69,423.31] yaw -19.44 pitch -15.50 + [-0.32,-0.27,0.91]
+        // 23.5  Lowest WE 84 3.96 20.11 Camera @[-187.12,-186.96,421.74] yaw -19.47 pitch -15.38 + [-0.32,-0.27,0.91]
+        // 23.51 Lowest WE 102 5.50 26.89 Camera @[-186.52,-198.07,413.55] yaw -19.69 pitch -16.90 + [-0.32,-0.29,0.90]
+        // 23.52 Lowest WE 81 4.80 19.55 Camera @[-187.01,-186.60,421.22] yaw -19.48 pitch -15.32 + [-0.32,-0.26,0.91]
+        // 23.53 Lowest WE 69 4.62 19.32 Camera @[-185.16,-185.59,423.40] yaw -19.20 pitch -15.15 + [-0.32,-0.26,0.91]
+        // 23.54 Lowest WE 101 6.20 29.70 Camera @[-185.01,-195.70,414.41] yaw -19.48 pitch -16.67 + [-0.32,-0.29,0.90]
+        // 23.55 Lowest WE 145 4.68 23.16 Camera @[-188.06,-188.81,418.34] yaw -19.68 pitch -15.69 + [-0.32,-0.27,0.91]
+        // 23.6  Lowest WE 104 4.55 22.78 Camera @[-187.47,-188.88,417.79] yaw -19.63 pitch -15.69 + [-0.32,-0.27,0.91]
+        // 23.65 Lowest WE 66 4.25 21.91 Camera @[-185.98,-185.40,418.98] yaw -19.42 pitch -15.28 + [-0.32,-0.26,0.91]
+        // 23.7  Lowest WE 87 4.73 22.97 Camera @[-186.76,-185.65,415.75] yaw -19.65 pitch -15.40 + [-0.32,-0.27,0.91]
+        // 23.75 Lowest WE 41 11.28 54.03 Camera @[-169.76,-202.04,419.17] yaw -17.58 pitch -17.20 + [-0.29,-0.30,0.91]
+        // 23.8  Lowest WE 113 4.95 Camera @[-183.80,-184.33,415.98] yaw -19.32 pitch -15.27 + [-0.32,-0.26,0.91]
+        // 23.85 Lowest WE 133 5.57 Camera @[-185.01,-194.11,408.40] yaw -19.75 pitch -16.60 + [-0.32,-0.29,0.90]
+        // 23.95 Lowest WE 96 5.05 Camera @[-183.71,-183.40,412.44] yaw -19.42 pitch -15.30 + [-0.32,-0.26,0.91]
+        // 24.05 Lowest WE 246 6.71 Camera @[-185.75,-179.94,408.13] yaw -19.85 pitch -15.00 + [-0.33,-0.26,0.91]
+        // 27.05 Lowest WE 251 9.70 Camera @[-157.94,-162.90,358.31] yaw -18.47 pitch -14.75 + [-0.31,-0.25,0.92]
+        // 28.05 Lowest WE 175 12.26 Camera @[-147.95,-157.90,346.69] yaw -17.63 pitch -14.44 + [-0.29,-0.25,0.92]
+        // 29.05 Lowest WE 213 14.73 66.67 Camera @[-142.12,-150.93,332.64] yaw -17.39 pitch -14.02 + [-0.29,-0.24,0.93]
+        22.61_f64.to_radians().tan()
     }
 }
 
@@ -344,7 +382,7 @@ impl LCamera {
         dbg!(dx, dy, dz);
         let mut cam = *self;
         let mut e = f(&cam, mappings);
-        for sc in [1., -1.] {
+        for sc in [1., -1., 0.01, -0.01] {
             for _ in 0..10_000 {
                 let cn = cam.moved_by([dx * sc, dy * sc, dz * sc]);
                 let en = f(&cn, mappings);

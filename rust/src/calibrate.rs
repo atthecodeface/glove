@@ -199,7 +199,7 @@ fn test_optimize() {
         cam = cam.get_best_direction(&rotations, &mappings[0]).0;
     }
     let num = mappings.len();
-    let mut worst_data = (1_000_000.0, 0, cam);
+    let mut worst_data = (1_000_000.0, 0, cam, 0.);
     for i in 0..300 {
         /*
                let mut last_n = cam.find_worst_error(&mappings).0;
@@ -261,12 +261,12 @@ fn test_optimize() {
             pm.show_error(&cam);
         }
         if we < worst_data.0 {
-            worst_data = (we, i, cam);
+            worst_data = (we, i, cam, cam.total_error(&mappings));
         }
     }
     eprintln!(
-        "Lowest WE {} {:.2} Camera {}",
-        worst_data.1, worst_data.0, worst_data.2
+        "Lowest WE {} {:.2} {:.2} Camera {}",
+        worst_data.1, worst_data.0, worst_data.3, worst_data.2
     );
     assert!(false);
 }
