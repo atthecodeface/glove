@@ -1,13 +1,18 @@
+//a Imports
 use super::{Point2D, Point3D, PointMapping, Projection, Quat};
 
 use geo_nd::{quat, vector};
 
+//a Constatns
 const MIN_ERROR: f64 = 4.0;
 
+//a Rotations
+//tp Rotations
 pub struct Rotations {
     pub quats: [Quat; 6],
 }
 
+//ip Rotations
 impl Rotations {
     pub fn new(da: f64) -> Self {
         let q = quat::new();
@@ -22,12 +27,15 @@ impl Rotations {
     }
 }
 
+//a LCamera
+//tp LCamera
 #[derive(Debug, Clone, Copy)]
 pub struct LCamera {
     position: Point3D,
     direction: Quat,
 }
 
+//ip Projection for LCamera
 impl Projection for LCamera {
     fn centre_xy(&self) -> Point2D {
         [320., 240.].into()
@@ -47,23 +55,52 @@ impl Projection for LCamera {
     }
 }
 
+//ip LCamera
 impl LCamera {
+    //fp new
     pub fn new(position: Point3D, direction: Quat) -> Self {
         Self {
             position,
             direction,
         }
     }
+
+    //fp moved_by
+    pub fn moved_by(&self, dp: [f64; 3]) -> Self {
+        let position = self.position + Point3D::from(dp);
+        Self {
+            position,
+            direction: self.direction,
+        }
+    }
+
+    //fp position
+    pub fn position(&self) -> &[f64; 3] {
+        self.position.as_ref()
+    }
+
+    //fp rotation_matrix
+    pub fn rotation_matrix(&self) -> [f64; 9] {
+        let mut rot = [0.; 9];
+        quat::to_rotation3(self.direction.as_ref(), &mut rot);
+        rot
+    }
+
+    //fp to_camera_space
     pub fn to_camera_space(&self, model_xyz: &Point3D) -> Point3D {
         let camera_relative_xyz = *model_xyz - self.position;
         quat::apply3(self.direction.as_ref(), camera_relative_xyz.as_ref()).into()
     }
+
+    //fp to_sph_xy
     pub fn to_sph_xy(&self, model_xyz: &Point3D) -> Point2D {
         let camera_xyz = self.to_camera_space(model_xyz);
         let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
         let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
         [camera_as_sph_x, camera_as_sph_y].into()
     }
+
+    //fp to_scr_xy
     pub fn to_scr_xy(&self, model_xyz: &Point3D) -> Point2D {
         // If x is about 300, and z about 540, and a FOV of 60 degress across
         // then this should map to the right-hand edge (i.e. about 640)
@@ -82,21 +119,8 @@ impl LCamera {
         ]
         .into()
     }
-    pub fn position(&self) -> &[f64; 3] {
-        self.position.as_ref()
-    }
-    pub fn rotation_matrix(&self) -> [f64; 9] {
-        let mut rot = [0.; 9];
-        quat::to_rotation3(self.direction.as_ref(), &mut rot);
-        rot
-    }
-    pub fn moved_by(&self, dp: [f64; 3]) -> Self {
-        let position = self.position + Point3D::from(dp);
-        Self {
-            position,
-            direction: self.direction,
-        }
-    }
+
+    //fp apply_quat_to_get_min_sq_error
     pub fn apply_quat_to_get_min_sq_error(&self, pm: &PointMapping, q: &Quat) -> (Self, f64) {
         let mut c = self.clone();
         let mut tc = c.clone();
@@ -112,6 +136,8 @@ impl LCamera {
         }
         panic!("Should not get here as the loop should cover all rotations");
     }
+
+    //fp get_best_direction
     pub fn get_best_direction(&self, rotations: &Rotations, pm: &PointMapping) -> (Self, f64) {
         let mut c = self.clone();
         let mut e = 0.;
@@ -120,12 +146,16 @@ impl LCamera {
         }
         (c, e)
     }
+
+    //fp error_with_quat
     #[inline]
     fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
         let mut c = self.clone();
         c.direction = self.direction * *quat;
         pm.get_sq_error(&c)
     }
+
+    //fp error_surface_normal
     fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> [f64; 3] {
         // At the current point xyz there is *probably* a surface such that any adjustment
         // dxyz within the plane as no immpact. This is grad.es. We can call this vector n.
@@ -138,6 +168,8 @@ impl LCamera {
         let dz_p = self.error_with_quat(pm, &quats[5]);
         vector::normalize([dx_p - dx_n, dy_p - dy_n, dz_p - dz_n])
     }
+
+    //fp adjust_direction_while_keeping_one_okay
     pub fn adjust_direction_while_keeping_one_okay(
         &self,
         rotations: &Rotations,
@@ -182,6 +214,8 @@ impl LCamera {
         dbg!("Adjusted BUT TOO MUCH!", e);
         return (c, e);
     }
+
+    //fp find_worst_error
     pub fn find_worst_error(&self, mappings: &[PointMapping]) -> usize {
         let mut n = 0;
         let mut worst_e = 0.;
@@ -194,6 +228,8 @@ impl LCamera {
         }
         n
     }
+
+    //fp total_error
     pub fn total_error(&self, mappings: &[PointMapping]) -> f64 {
         let mut sum_e = 0.;
         for pm in mappings.iter() {
@@ -202,6 +238,8 @@ impl LCamera {
         }
         sum_e
     }
+
+    //fp adjust_position
     pub fn adjust_position(&self, mappings: &[PointMapping]) -> (Self, f64) {
         let mut cam = *self;
         let mut e = cam.total_error(mappings);
@@ -227,4 +265,6 @@ impl LCamera {
         }
         (cam, e)
     }
+
+    //zz All done
 }

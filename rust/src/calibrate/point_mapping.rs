@@ -1,6 +1,9 @@
+//a Imports
 use super::{LCamera, Point2D, Point3D, Projection};
 use geo_nd::matrix;
 
+//a PointMapping
+//tp PointMapping
 #[derive(Debug)]
 pub struct PointMapping {
     /// The 3D model coordinate this point corresponds to
@@ -11,7 +14,9 @@ pub struct PointMapping {
     screen: Point2D,
 }
 
+//ip PointMapping
 impl PointMapping {
+    //fp new
     pub fn new(model: &Point3D, screen: &Point2D) -> Self {
         PointMapping {
             model: *model,
@@ -19,6 +24,7 @@ impl PointMapping {
         }
     }
 
+    //fp show_error
     pub fn show_error(&self, camera: &LCamera) {
         let camera_scr_xy = camera.to_scr_xy(&self.model);
         let dx = self.screen[0] - camera_scr_xy[0];
@@ -29,6 +35,8 @@ impl PointMapping {
             self.model, self.screen, camera_scr_xy, esq
         );
     }
+
+    //fp get_sq_error
     pub fn get_sq_error(&self, camera: &LCamera) -> f64 {
         let camera_scr_xy = camera.to_scr_xy(&self.model);
         let dx = self.screen[0] - camera_scr_xy[0];
@@ -36,6 +44,7 @@ impl PointMapping {
         dx * dx + dy * dy
     }
 
+    //fp add_sq_error_mat
     pub fn add_sq_error_mat(
         &self,
         camera_est: &LCamera,
@@ -155,4 +164,6 @@ impl PointMapping {
         desq_dp_mat[8] += de_sq_y_dpz_scale * p[2];
         desq_dp_eq[2] += de_sq_y_dpz_scale * blah_y;
     }
+
+    //zz All done
 }
