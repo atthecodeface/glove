@@ -98,94 +98,20 @@ pub use model_data::*;
 use geo_nd::Vector;
 use geo_nd::{matrix, quat};
 
-fn test_find_rotation() {
-    let camera0 = LCamera::new(
-        [21., 40., 700.].into(),
-        quat::look_at(&[-33., -30., -570.], &[0.10, -1., -0.1]).into(),
-    );
-    let (model, screen) = &C0_DATA_ALL[7];
-    let pm = PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen));
-    pm.show_error(&camera0);
-
-    let da = 0.02_f64.to_radians();
-    let rotations = Rotations::new(da);
-
-    let mut cam = camera0.clone();
-    cam = cam.get_best_direction(&rotations, &pm).0;
-    pm.show_error(&cam);
-
-    let (model, screen) = &C0_DATA_ALL[0];
-    let pm2 = PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen));
-    let (model, screen) = &C0_DATA_ALL[5];
-    let pm3 = PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen));
-    eprintln!("Before adjusting pm2 keeping pm safe");
-    pm.show_error(&cam);
-    pm2.show_error(&cam);
-    pm3.show_error(&cam);
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm2)
-        .0;
-    eprintln!("Before adjusting pm3 keeping pm safe");
-    pm.show_error(&cam);
-    pm2.show_error(&cam);
-    pm3.show_error(&cam);
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm3)
-        .0;
-    eprintln!("Before adjusting pm2 keeping pm safe");
-    pm.show_error(&cam);
-    pm2.show_error(&cam);
-    pm3.show_error(&cam);
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm2)
-        .0;
-    eprintln!("After direction adjustments");
-    pm.show_error(&cam);
-    pm2.show_error(&cam);
-    pm3.show_error(&cam);
-    let mappings: Vec<PointMapping> = C0_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
-    dbg!(cam.total_error(&mappings));
-    for pm in mappings.iter() {
-        pm.show_error(&cam);
-    }
-    eprintln!("Adjust positions");
-    cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
-    dbg!(cam.total_error(&mappings));
-    for pm in mappings.iter() {
-        pm.show_error(&cam);
-    }
-    dbg!(cam);
-    eprintln!("Get best directions again");
-    cam = cam.get_best_direction(&rotations, &pm).0;
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm2)
-        .0;
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm3)
-        .0;
-    cam = cam
-        .adjust_direction_while_keeping_one_okay(&rotations, &pm, &pm2)
-        .0;
-    dbg!(cam.total_error(&mappings));
-    for pm in mappings.iter() {
-        pm.show_error(&cam);
-    }
-    dbg!(cam);
-    assert!(false);
-}
-
 #[test]
 fn test_optimize() {
+    // let camera0 = LCamera::new(
+    //     [-80., -120., 280.].into(), // 540 mm fromm model 280 for fov 35
+    //     quat::look_at(&[-33., -30., -570.], &[0.10, -1., -0.1]).into(),
+    // );
     let camera0 = LCamera::new(
-        [-80., -120., 280.].into(), // 540 mm fromm model 280 for fov 35
-        quat::look_at(&[-33., -30., -570.], &[0.10, -1., -0.1]).into(),
+        // for C0_DATA_ALL
+        // [-196., -204., 435.].into(), // 540 mm fromm model origin?
+        // for -201.77,-292.29,648.1
+        [54.10, -32.0, 781.].into(),
+        quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C0_DATA_ALL
+    let mappings: Vec<PointMapping> = C1_DATA_ALL
         .iter()
         .map(|(model, screen)| {
             PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
@@ -200,25 +126,26 @@ fn test_optimize() {
     }
     let num = mappings.len();
     let mut worst_data = (1_000_000.0, 0, cam, 0.);
-    for i in 0..300 {
+    for i in 0..100 {
         /*
-               let mut last_n = cam.find_worst_error(&mappings).0;
-               for i in 0..30 {
-                   let mut n = cam.find_worst_error(&mappings).0;
-                   dbg!(i, n, last_n);
-                   if n == last_n {
-                       last_n = (last_n + 1 + (i % (num - 1))) % num;
-                   }
-                   cam = cam
-                       .adjust_direction_while_keeping_one_okay(
-                           &rotations,
-                           &mappings[last_n],
-                           &mappings[n],
-                       )
-                       .0;
-                   last_n = n;
-               }
-        */
+        let mut last_n = cam.find_worst_error(&mappings).0;
+        for i in 0..30 {
+            let mut n = cam.find_worst_error(&mappings).0;
+            dbg!(i, n, last_n);
+            if n == last_n {
+                last_n = (last_n + 1 + (i % (num - 1))) % num;
+            }
+            cam = cam
+                .adjust_direction_while_keeping_one_okay(
+                    &rotations,
+                    &|c, m, n| m[n].get_sq_error(c),
+                    &mappings,
+                    last_n,
+                    n,
+                )
+                .0;
+            last_n = n;
+        }
         for i in 0..100 {
             let best_n = cam.find_best_error(&mappings).0;
             let worst_n = cam.find_worst_error(&mappings).0;
@@ -229,8 +156,25 @@ fn test_optimize() {
             cam = cam
                 .adjust_direction_while_keeping_one_okay(
                     &rotations,
-                    &mappings[best_n],
-                    &mappings[worst_n],
+                    &|c, m, n| m[n].get_sq_error(c),
+                    // &|c, m, n| c.total_error(&mappings),
+                    // &|c, m, n| c.worst_error(&mappings),
+                    &mappings,
+                    best_n,
+                    worst_n,
+                )
+                .0;
+        }
+         */
+        for i in 0..num {
+            cam = cam
+                .adjust_direction_rotating_around_one_point(
+                    // &|c, m, n| m[n].get_sq_error(c),
+                    // &|c, m, n| c.total_error(&mappings),
+                    &|c, m, n| c.worst_error(&mappings),
+                    &mappings,
+                    i,
+                    0,
                 )
                 .0;
         }
@@ -248,6 +192,13 @@ fn test_optimize() {
                 .adjust_position_in_out(&mappings, &|c, m| c.worst_error(m))
                 .0;
             cam = cam.adjust_position(&mappings, &|c, m| c.worst_error(m)).0;
+        }
+        // Try for cam1 to get good rough position
+        if false {
+            cam = cam
+                .adjust_position_in_out(&mappings, &|c, m| c.total_error(m))
+                .0;
+            cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
         }
         eprintln!("Loop {} completed", i);
         dbg!(

@@ -108,7 +108,22 @@ impl Projection for LCamera {
         // 27.05 Lowest WE 251 9.70 Camera @[-157.94,-162.90,358.31] yaw -18.47 pitch -14.75 + [-0.31,-0.25,0.92]
         // 28.05 Lowest WE 175 12.26 Camera @[-147.95,-157.90,346.69] yaw -17.63 pitch -14.44 + [-0.29,-0.25,0.92]
         // 29.05 Lowest WE 213 14.73 66.67 Camera @[-142.12,-150.93,332.64] yaw -17.39 pitch -14.02 + [-0.29,-0.24,0.93]
-        22.61_f64.to_radians().tan()
+
+        // With new rotation adjustment to 'worst case of all' by spinnning aroud all of them one by one
+        // 22.57 WE 5.18 Camera @[-195.94,-203.95,434.83] yaw -20.00 pitch -16.72 + [-0.33,-0.29,0.90]
+        // 22.58 Lowest WE 2 4.77 18.39 Camera @[-195.95,-203.95,434.86] yaw -19.97 pitch -16.73 + [-0.33,-0.29,0.90]
+        // 22.59 Lowest WE 1 4.65 17.13 Camera @[-195.98,-203.99,434.95] yaw -19.96 pitch -16.74 + [-0.33,-0.29,0.90]
+        // 22.6  Lowest WE 1 4.55 20.35 Camera @[-196.02,-204.02,435.05] yaw -19.91 pitch -16.76 + [-0.33,-0.29,0.90]
+        // 22.61 Lowest WE 11 4.57 20.24 Camera @[-195.94,-203.95,434.85] yaw -19.91 pitch -16.76 + [-0.33,-0.29,0.90]
+        // 22.62 Lowest WE 1 4.92 20.56 Camera @[-196.02,-204.01,435.04] yaw -19.97 pitch -16.74 + [-0.33,-0.29,0.90]
+        // 22.63 Lowest WE 3 4.87 19.99 Camera @[-195.96,-203.97,434.89] yaw -19.93 pitch -16.74 + [-0.33,-0.29,0.90]
+        // 22.64 Lowest WE 2 4.97 21.15 Camera @[-195.95,-203.96,434.86] yaw -19.91 pitch -16.74 + [-0.33,-0.29,0.90]
+        // 22.65 Lowest WE 3 5.16 20.74 Camera @[-195.98,-203.98,434.94] yaw -19.92 pitch -16.73 + [-0.33,-0.29,0.90]
+
+        // CDATA 1
+        // 22.62 Lowest WE 6 12.06 73.79 Camera @[54.87,-29.79,781.31] yaw 3.00 pitch -6.00 + [0.05,-0.10,0.99]
+        // 22.7  Lowest WE 5 11.76 75.93 Camera @[54.27,-29.57,777.99] yaw 2.96 pitch -6.00 + [0.05,-0.10,0.99]
+        22.62_f64.to_radians().tan()
     }
 }
 
@@ -252,11 +267,13 @@ impl LCamera {
     }
 
     //fp adjust_direction_while_keeping_one_okay
-    pub fn adjust_direction_while_keeping_one_okay(
+    pub fn adjust_direction_while_keeping_one_okay<F: Fn(&Self, &[PointMapping], usize) -> f64>(
         &self,
         rotations: &Rotations,
-        keep_pm: &PointMapping,
-        test_pm: &PointMapping,
+        f: &F,
+        mappings: &[PointMapping],
+        keep_pm: usize,
+        test_pm: usize,
     ) -> (Self, f64) {
         // We first find the surface normal for the error field for the keep_pm; moving at all
         // in that direction changes esq for that point. So only move perpendicular to it.
@@ -267,22 +284,25 @@ impl LCamera {
         // We want to move in direction - n x (n_pm x n)
         let mut c = self.clone();
         let mut tc = c.clone();
-        let mut e = test_pm.get_sq_error(&c);
+        let mut e = f(&c, mappings, test_pm);
+        dbg!("Preadjusted", e);
         let da = 0.02_f64.to_radians();
         for i in 0..100_000 {
-            let keep_pm_n = c.error_surface_normal(keep_pm, rotations);
-            let test_pm_n = c.error_surface_normal(test_pm, rotations);
+            let keep_pm_n = c.error_surface_normal(&mappings[keep_pm], rotations);
+            let test_pm_n = c.error_surface_normal(&mappings[test_pm], rotations);
             let k_x_t = vector::cross_product3(&keep_pm_n, &test_pm_n);
             let k_x_k_x_t = vector::cross_product3(&keep_pm_n, &k_x_t);
             let k_x_k_x_t = vector::normalize(k_x_k_x_t);
-            // This is always in the correct 'direction' to reduce error if possible
+            // This is always in the correct 'direction' to reduce error for test_pm if possible
+            //
+            // This is not necessarily reducing the f() function value
             let q = quat::rotate_x(&quat::new(), da * k_x_k_x_t[0]);
             let q = quat::rotate_y(&q, da * k_x_k_x_t[1]);
             let q = quat::rotate_z(&q, da * k_x_k_x_t[2]);
             tc.direction = c.direction * Quat::from(q);
-            let ne = test_pm.get_sq_error(&tc);
+            let ne = f(&tc, mappings, test_pm);
             if ne > e {
-                dbg!("Adjusted", i, e);
+                dbg!("Adjusted", i, e, ne, k_x_k_x_t);
                 *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
                 return (c, e);
             }
@@ -294,6 +314,50 @@ impl LCamera {
             e = ne;
         }
         dbg!("Adjusted BUT TOO MUCH!", e);
+        return (c, e);
+    }
+
+    //fp adjust_direction_rotating_around_one_point
+    pub fn adjust_direction_rotating_around_one_point<
+        F: Fn(&Self, &[PointMapping], usize) -> f64,
+    >(
+        &self,
+        f: &F,
+        mappings: &[PointMapping],
+        keep_pm: usize,
+        test_pm: usize,
+    ) -> (Self, f64) {
+        // We first the axis to rotate around - the direction in the view of keep_pm
+        //
+        // We want a da rotation around the axis (direction * model[keep_pm])
+        //
+        // Then da * (direction * model[keep_pm)]) does not impact the view position
+        // of model[keep_pm]
+        let keep_v = self.to_camera_space(mappings[keep_pm].model());
+        let da = 0.02_f64.to_radians();
+        let mut rot: Quat = quat::of_axis_angle(keep_v.as_ref(), da).into();
+        let mut c = *self;
+        let mut tc = c;
+        let mut e = f(&c, mappings, test_pm);
+        for sc in 0..2 {
+            dbg!("Preadjusted", e);
+            for i in 0..100_000 {
+                tc.direction = rot * c.direction;
+                let ne = f(&tc, mappings, test_pm);
+                if ne > e {
+                    dbg!("Adjusted", i, e, ne);
+                    *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
+                    break;
+                }
+                if e < MIN_ERROR {
+                    dbg!("Adjusted to MIN ERROR", i, e);
+                    return (c, e);
+                }
+                c = tc;
+                e = ne;
+            }
+            rot = quat::conjugate(rot.as_ref()).into();
+        }
         return (c, e);
     }
 
@@ -377,8 +441,8 @@ impl LCamera {
         mappings: &[PointMapping],
         f: &F,
     ) -> (Self, f64) {
+        // Map (0,0,1) to view space
         let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
-        // let [dx, dy, dz] = quat::apply3(&self.direction.as_ref(), &[0., 0., 1.]);
         dbg!(dx, dy, dz);
         let mut cam = *self;
         let mut e = f(&cam, mappings);

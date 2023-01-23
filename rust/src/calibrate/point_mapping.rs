@@ -24,6 +24,11 @@ impl PointMapping {
         }
     }
 
+    //mp model
+    pub fn model(&self) -> &Point3D {
+        &self.model
+    }
+
     //fp show_error
     pub fn show_error(&self, camera: &LCamera) {
         let camera_scr_xy = camera.to_scr_xy(&self.model);
