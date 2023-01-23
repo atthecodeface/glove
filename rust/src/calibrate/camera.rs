@@ -210,6 +210,9 @@ impl LCamera {
         let camera_xyz = self.to_camera_space(model_xyz);
         let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
         let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
+        if camera_xyz[2].abs() < 0.00001 {
+            return [0., 0.].into();
+        }
         [
             centre[0] + camera_as_sph_x * wh[0] / 2.0 / self.tan_fov_x(),
             centre[1] - camera_as_sph_y * wh[1] / 2.0 / self.tan_fov_y(),
@@ -218,28 +221,38 @@ impl LCamera {
     }
 
     //fp apply_quat_to_get_min_sq_error
-    pub fn apply_quat_to_get_min_sq_error(&self, pm: &PointMapping, q: &Quat) -> (Self, f64) {
-        let mut c = self.clone();
-        let mut tc = c.clone();
+    pub fn apply_quat_to_get_min_sq_error(
+        &self,
+        steps_per_rot: usize,
+        pm: &PointMapping,
+        q: &Quat,
+    ) -> (Self, f64) {
+        let mut c = *self;
+        let mut tc = c;
         let mut e = pm.get_sq_error(&c);
-        for _ in 0..10000 {
+        for _ in 0..steps_per_rot {
             tc.direction = c.direction * *q;
             let ne = pm.get_sq_error(&tc);
             if ne > e {
-                return (c, e);
+                break;
             }
             c = tc;
             e = ne;
         }
-        panic!("Should not get here as the loop should cover all rotations");
+        return (c, e);
     }
 
     //fp get_best_direction
-    pub fn get_best_direction(&self, rotations: &Rotations, pm: &PointMapping) -> (Self, f64) {
+    pub fn get_best_direction(
+        &self,
+        steps_per_rot: usize,
+        rotations: &Rotations,
+        pm: &PointMapping,
+    ) -> (Self, f64) {
         let mut c = self.clone();
         let mut e = 0.;
         for q in rotations.quats.iter() {
-            (c, e) = c.apply_quat_to_get_min_sq_error(pm, &q);
+            (c, e) = c.apply_quat_to_get_min_sq_error(steps_per_rot, pm, &q);
         }
         (c, e)
     }
@@ -269,6 +282,8 @@ impl LCamera {
     //fp adjust_direction_while_keeping_one_okay
     pub fn adjust_direction_while_keeping_one_okay<F: Fn(&Self, &[PointMapping], usize) -> f64>(
         &self,
+        max_adj: usize,
+        da: f64,
         rotations: &Rotations,
         f: &F,
         mappings: &[PointMapping],
@@ -285,9 +300,8 @@ impl LCamera {
         let mut c = self.clone();
         let mut tc = c.clone();
         let mut e = f(&c, mappings, test_pm);
-        dbg!("Preadjusted", e);
-        let da = 0.02_f64.to_radians();
-        for i in 0..100_000 {
+        // dbg!("Preadjusted", e);
+        for i in 0..max_adj {
             let keep_pm_n = c.error_surface_normal(&mappings[keep_pm], rotations);
             let test_pm_n = c.error_surface_normal(&mappings[test_pm], rotations);
             let k_x_t = vector::cross_product3(&keep_pm_n, &test_pm_n);
@@ -302,12 +316,12 @@ impl LCamera {
             tc.direction = c.direction * Quat::from(q);
             let ne = f(&tc, mappings, test_pm);
             if ne > e {
-                dbg!("Adjusted", i, e, ne, k_x_k_x_t);
+                // dbg!("Adjusted", i, e, ne, k_x_k_x_t);
                 *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
                 return (c, e);
             }
             if e < MIN_ERROR {
-                dbg!("Adjusted to MIN ERROR", i, e);
+                // dbg!("Adjusted to MIN ERROR", i, e);
                 return (c, e);
             }
             c = tc;
@@ -323,6 +337,7 @@ impl LCamera {
     >(
         &self,
         f: &F,
+        da: f64,
         mappings: &[PointMapping],
         keep_pm: usize,
         test_pm: usize,
@@ -334,23 +349,22 @@ impl LCamera {
         // Then da * (direction * model[keep_pm)]) does not impact the view position
         // of model[keep_pm]
         let keep_v = self.to_camera_space(mappings[keep_pm].model());
-        let da = 0.02_f64.to_radians();
         let mut rot: Quat = quat::of_axis_angle(keep_v.as_ref(), da).into();
         let mut c = *self;
         let mut tc = c;
         let mut e = f(&c, mappings, test_pm);
         for sc in 0..2 {
-            dbg!("Preadjusted", e);
+            // dbg!("Preadjusted", e);
             for i in 0..100_000 {
                 tc.direction = rot * c.direction;
                 let ne = f(&tc, mappings, test_pm);
                 if ne > e {
-                    dbg!("Adjusted", i, e, ne);
+                    // dbg!("Adjusted", i, e, ne);
                     *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
                     break;
                 }
                 if e < MIN_ERROR {
-                    dbg!("Adjusted to MIN ERROR", i, e);
+                    // dbg!("Adjusted to MIN ERROR", i, e);
                     return (c, e);
                 }
                 c = tc;
@@ -458,6 +472,78 @@ impl LCamera {
             }
         }
         (cam, e)
+    }
+
+    //mp find_coarse_position
+    pub fn find_coarse_position(
+        &self,
+        mappings: &[PointMapping],
+        scales: &[f64; 3],
+        n: usize,
+    ) -> Self {
+        dbg!("Find coarse position", self, scales, n);
+        let coarse_rotations = Rotations::new(1.0_f64.to_radians());
+        let fine_rotations = Rotations::new(0.1_f64.to_radians());
+        let mut worst_data = (1_000_000.0, 0, *self, 0.);
+        let num = mappings.len();
+        let map = |i, sc| ((i as f64) - (n as f64) / 2.0) * sc / (n as f64);
+        for i in 0..(n * n * n) {
+            let x = map(i % n, scales[0]);
+            let y = map((i / n) % n, scales[1]);
+            let z = map((i / n / n) % n, scales[2]);
+            let mut cam = self.moved_by([x, y, z]);
+            for _ in 0..5 {
+                cam = cam
+                    .get_best_direction(400, &coarse_rotations, &mappings[0])
+                    .0;
+            }
+            for _ in 0..5 {
+                cam = cam.get_best_direction(400, &fine_rotations, &mappings[0]).0;
+            }
+            let mut last_n = cam.find_worst_error(mappings).0;
+            for i in 0..num {
+                cam = cam
+                    .adjust_direction_rotating_around_one_point(
+                        // &|c, m, n| m[n].get_sq_error(c),
+                        // &|c, m, n| c.total_error(&mappings),
+                        &|c, m, n| c.worst_error(&mappings),
+                        0.2_f64.to_radians(),
+                        mappings,
+                        i,
+                        0,
+                    )
+                    .0;
+            }
+            /*
+            for i in 0..30 {
+                let n = cam.find_worst_error(mappings).0;
+                dbg!(i, n, last_n);
+                if n == last_n {
+                    last_n = (last_n + 1 + (i % (num - 1))) % num;
+                }
+                cam = cam
+                    .adjust_direction_while_keeping_one_okay(
+                        1000,
+                        0.5_f64.to_radians(),
+                        &fine_rotations,
+                        &|c, m, n| m[n].get_sq_error(c),
+                        mappings,
+                        last_n,
+                        n,
+                    )
+                    .0;
+                last_n = n;
+            }
+             */
+            let te = cam.total_error(mappings);
+            let we = cam.worst_error(mappings);
+            if we < worst_data.0 {
+                worst_data = (we, i, cam, te);
+                // dbg!(worst_data);
+            }
+        }
+        dbg!(worst_data);
+        worst_data.2
     }
 
     //zz All done
