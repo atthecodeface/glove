@@ -297,11 +297,11 @@ impl LCamera {
         // test_pm. We can find the surface for test_pm, which has normal n_pm.
         //
         // We want to move in direction - n x (n_pm x n)
-        let mut c = self.clone();
-        let mut tc = c.clone();
+        let mut c = *self;
+        let mut tc = c;
         let mut e = f(&c, mappings, test_pm);
         // dbg!("Preadjusted", e);
-        for i in 0..max_adj {
+        for _i in 0..max_adj {
             let keep_pm_n = c.error_surface_normal(&mappings[keep_pm], rotations);
             let test_pm_n = c.error_surface_normal(&mappings[test_pm], rotations);
             let k_x_t = vector::cross_product3(&keep_pm_n, &test_pm_n);
@@ -353,9 +353,9 @@ impl LCamera {
         let mut c = *self;
         let mut tc = c;
         let mut e = f(&c, mappings, test_pm);
-        for sc in 0..2 {
+        for _sc in 0..2 {
             // dbg!("Preadjusted", e);
-            for i in 0..100_000 {
+            for _i in 0..100_000 {
                 tc.direction = rot * c.direction;
                 let ne = f(&tc, mappings, test_pm);
                 if ne > e {
@@ -500,13 +500,12 @@ impl LCamera {
             for _ in 0..5 {
                 cam = cam.get_best_direction(400, &fine_rotations, &mappings[0]).0;
             }
-            let mut last_n = cam.find_worst_error(mappings).0;
             for i in 0..num {
                 cam = cam
                     .adjust_direction_rotating_around_one_point(
                         // &|c, m, n| m[n].get_sq_error(c),
                         // &|c, m, n| c.total_error(&mappings),
-                        &|c, m, n| c.worst_error(&mappings),
+                        &|c, _m, _n| c.worst_error(&mappings),
                         0.2_f64.to_radians(),
                         mappings,
                         i,
@@ -515,6 +514,7 @@ impl LCamera {
                     .0;
             }
             /*
+            let mut last_n = cam.find_worst_error(mappings).0;
             for i in 0..30 {
                 let n = cam.find_worst_error(mappings).0;
                 dbg!(i, n, last_n);
