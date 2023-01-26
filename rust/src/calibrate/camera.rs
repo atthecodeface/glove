@@ -10,10 +10,22 @@ const MIN_ERROR: f64 = 0.5;
 
 //a LCamera
 //tp LCamera
+/// A camera that allows mapping a world point to camera relative XYZ,
+/// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
+/// relative XY (relative to the center of the camera sensor)
 #[derive(Debug, Clone)]
 pub struct LCamera {
+    /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
+    /// XY
     projection: Rc<dyn LensProjection>,
+    /// Position in world coordinates of the camera
+    ///
+    /// Subtract from world coords to get camera-relative world coordinates
     position: Point3D,
+    /// Direction to be applied to camera-relative world coordinates
+    /// to convert to camera-space coordinates
+    ///
+    /// Camera-space XYZ = direction applied to (world - positionn)
     direction: Quat,
 }
 
@@ -158,6 +170,8 @@ impl LCamera {
     }
 
     //fp rotation_matrix
+    /// Get a rotation matrix that maps camera-relative world
+    /// coordinates to camera-space coordinates
     pub fn rotation_matrix(&self) -> [f64; 9] {
         let mut rot = [0.; 9];
         quat::to_rotation3(self.direction.as_ref(), &mut rot);
@@ -165,12 +179,32 @@ impl LCamera {
     }
 
     //fp to_camera_space
+    /// Convert a Point3D in world space (XYZ) to camera-space
+    /// coordinates (XYZ)
     pub fn to_camera_space(&self, model_xyz: &Point3D) -> Point3D {
         let camera_relative_xyz = *model_xyz - self.position;
         quat::apply3(self.direction.as_ref(), camera_relative_xyz.as_ref()).into()
     }
 
+    //fp world_xyz_to_txty
+    /// Convert a Point3D in world space (XYZ) to camera-space
+    /// coordinates (XYZ)
+    pub fn world_xyz_to_txty(&self, model_xyz: &Point3D) -> Point2D {
+        let camera_xyz = self.to_camera_space(model_xyz);
+        if camera_xyz[2].abs() < 1.0E-4 {
+            let camera_as_sph_x = camera_xyz[0] / 1.0E-4;
+            let camera_as_sph_y = camera_xyz[1] / 1.0E-4;
+            [camera_as_sph_x, camera_as_sph_y].into()
+        } else {
+            let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
+            let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
+            [camera_as_sph_x, camera_as_sph_y].into()
+        }
+    }
+
     //fp to_sph_xy
+    /// Map a world Point3D coordinate to camera-space coordinates,
+    /// and then to tan(x)/tan(y)
     pub fn to_sph_xy(&self, model_xyz: &Point3D) -> Point2D {
         let camera_xyz = self.to_camera_space(model_xyz);
         let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
@@ -179,6 +213,10 @@ impl LCamera {
     }
 
     //fp to_scr_xy
+    /// Map a world Point3D coordinate to camera-space coordinates,
+    /// and then to tan(x)/tan(y)
+    ///
+    /// Then to camera sensor pixel X-Y coordinates
     pub fn to_scr_xy(&self, model_xyz: &Point3D) -> Point2D {
         // If x is about 300, and z about 540, and a FOV of 60 degress across
         // then this should map to the right-hand edge (i.e. about 640)
@@ -201,26 +239,45 @@ impl LCamera {
         .into()
     }
 
+    //fp show_pm_error
+    pub fn show_pm_error(&self, pm: &PointMapping) {
+        let camera_scr_xy = self.to_scr_xy(&pm.model);
+        let esq = self.get_pm_sq_error(pm);
+        eprintln!(
+            "model {} has screen {}, camera maps it to {}, error {}",
+            pm.model, pm.screen, camera_scr_xy, esq
+        );
+    }
+
+    //fp get_pm_sq_error
+    pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
+        let camera_scr_xy = self.to_scr_xy(&pm.model);
+        let dx = pm.screen[0] - camera_scr_xy[0];
+        let dy = pm.screen[1] - camera_scr_xy[1];
+        dx * dx + dy * dy
+    }
+
     //fp apply_quat_to_get_min_sq_error
     pub fn apply_quat_to_get_min_sq_error(
         &self,
-        steps_per_rot: usize,
+        max_steps: usize,
         pm: &PointMapping,
         q: &Quat,
     ) -> (Self, f64) {
         let mut c = self.clone();
         let mut tc = c.clone();
-        let mut e = pm.get_sq_error(&c);
-        for _ in 0..steps_per_rot {
+        let mut e = c.get_pm_sq_error(&pm);
+        for _ in 0..max_steps {
             tc.direction = c.direction * *q;
-            let ne = pm.get_sq_error(&tc);
+            let ne = tc.get_pm_sq_error(&pm);
             if ne > e {
                 break;
             }
-            c = tc.clone();
+            c.direction = tc.direction;
             e = ne;
         }
-        return (c, e);
+        *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
+        (c, e)
     }
 
     //fp get_best_direction
@@ -243,7 +300,7 @@ impl LCamera {
     fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
         let mut c = self.clone();
         c.direction = self.direction * *quat;
-        pm.get_sq_error(&c)
+        c.get_pm_sq_error(pm)
     }
 
     //fp error_surface_normal
@@ -361,7 +418,7 @@ impl LCamera {
         let mut n = 0;
         let mut best_e = 1000_000_000.0;
         for (i, pm) in mappings.iter().enumerate() {
-            let e = pm.get_sq_error(self);
+            let e = self.get_pm_sq_error(pm);
             if e < best_e {
                 n = i;
                 best_e = e;
@@ -375,7 +432,7 @@ impl LCamera {
         let mut n = 0;
         let mut worst_e = 0.;
         for (i, pm) in mappings.iter().enumerate() {
-            let e = pm.get_sq_error(self);
+            let e = self.get_pm_sq_error(pm);
             if e > worst_e {
                 n = i;
                 worst_e = e;
@@ -388,7 +445,7 @@ impl LCamera {
     pub fn total_error(&self, mappings: &[PointMapping]) -> f64 {
         let mut sum_e = 0.;
         for pm in mappings.iter() {
-            let e = pm.get_sq_error(self);
+            let e = self.get_pm_sq_error(pm);
             sum_e += e;
         }
         sum_e

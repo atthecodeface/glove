@@ -12,6 +12,7 @@ use geo_nd::Vector;
 use geo_nd::{matrix, quat};
 
 //a Tests
+//ft test_find_coarse_position
 // CAM 0
 // WE 28 4.12 20.86 Camera @[-197.71,-200.37,435.25] yaw -20.09 pitch -16.35 + [-0.33,-0.28,0.90]
 
@@ -68,7 +69,7 @@ fn test_find_coarse_position() {
                     100_000,
                     0.02_f64.to_radians(),
                     &fine_rotations,
-                    &|c, m, n| m[n].get_sq_error(c),
+                    &|c, m, n| c.get_pm_sq_error(&m[n]),
                     &mappings,
                     last_n,
                     n,
@@ -77,7 +78,7 @@ fn test_find_coarse_position() {
             last_n = n;
         }
         for pm in mappings.iter() {
-            pm.show_error(&cam);
+            cam.show_pm_error(pm);
         }
         if true {
             cam = cam
@@ -88,7 +89,7 @@ fn test_find_coarse_position() {
         eprintln!("Loop {} completed", i);
         let we = cam.worst_error(&mappings);
         for pm in mappings.iter() {
-            pm.show_error(&cam);
+            cam.show_pm_error(pm);
         }
         eprintln!("WE {} {:.2}", i, we);
         if we < worst_data.0 {
@@ -103,6 +104,7 @@ fn test_find_coarse_position() {
     assert!(false);
 }
 
+//ft test_optimize
 // #[test]
 fn test_optimize() {
     // let camera0 = LCamera::new(
@@ -147,7 +149,7 @@ fn test_optimize() {
                     100_000,
                     0.02_f64.to_radians(),
                     &rotations,
-                    &|c, m, n| m[n].get_sq_error(c),
+                    &|c, m, n| c.get_pm_sq_error(&m[n]),
                     &mappings,
                     last_n,
                     n,
@@ -168,7 +170,7 @@ fn test_optimize() {
                            100_000,
                     0.02_f64.to_radians(),
                     &rotations,
-                    // &|c, m, n| m[n].get_sq_error(c),
+                    // &|c, m, n| c.get_pm_sq_error(&m[n]),
                     // &|c, m, n| c.total_error(m),
                     &|c, m, n| c.worst_error(m),
                     &mappings,
@@ -200,7 +202,7 @@ fn test_optimize() {
         );
         dbg!(&cam);
         for pm in mappings.iter() {
-            pm.show_error(&cam);
+            cam.show_pm_error(&pm);
         }
         if true {
             cam = cam
@@ -217,7 +219,7 @@ fn test_optimize() {
         let we = cam.worst_error(&mappings);
         eprintln!("WE {:.2} Camera {}", we, cam);
         for pm in mappings.iter() {
-            pm.show_error(&cam);
+            cam.show_pm_error(&pm);
         }
         if we < worst_data.0 {
             worst_data = (we, i, cam.clone(), cam.total_error(&mappings));
@@ -230,6 +232,7 @@ fn test_optimize() {
     assert!(false);
 }
 
+//ft test_calibrate
 fn test_calibrate() {
     let camera0 = LCamera::new(
         Rc::new(Polynomial::default()),
@@ -248,12 +251,12 @@ fn test_calibrate() {
         .get_best_direction(10000, &rotations, mappings.last().unwrap())
         .0;
     for pm in mappings.iter() {
-        pm.show_error(&camera0);
+        camera0.show_pm_error(&pm);
     }
     let mut cam = camera0.clone();
     cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
     for pm in mappings.iter() {
-        pm.show_error(&cam);
+        cam.show_pm_error(&pm);
     }
     assert!(false);
     // For the given direction and currrent estimate of position we can deduce the

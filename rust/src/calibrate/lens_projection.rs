@@ -1,5 +1,6 @@
 use super::CalcPoly;
 use super::LensProjection;
+use super::Point2D;
 use super::RollYaw;
 
 //a Trait
@@ -204,6 +205,7 @@ impl Polynomial {
     ///
     /// If the pixels or not quite square then the Y offset will be
     /// slightly different
+    #[inline]
     pub fn angle_to_offset(&self, angle: f64) -> f64 {
         self.inv_poly.calc(angle) // *focal_length/frame_width;
     }
@@ -211,6 +213,7 @@ impl Polynomial {
     //fp offset_to_angle
     /// Map an offset in pixels from
     /// the center in the X axis to an off-axis angle in radians
+    #[inline]
     pub fn offset_to_angle(&self, offset: f64) -> f64 {
         self.poly.calc(offset) // *focal_length/frame_width;
     }
@@ -218,15 +221,27 @@ impl Polynomial {
 
 //ip LensProjection for Polynomial
 impl LensProjection for Polynomial {
+    //fp px_rel_xy_to_px_abs_xy
+    #[inline]
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+        [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
+    }
+    //fp px_abs_xy_to_px_rel_xy
+    #[inline]
+    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
+        [xy[0] - self.px_centre[0], xy[1] - self.px_centre[1]].into()
+    }
     //fp ry_to_xy
-    fn ry_to_xy(&self, ry: RollYaw) -> [f64; 2] {
+    #[inline]
+    fn ry_to_px_rel_xy(&self, ry: RollYaw) -> Point2D {
         let offset = self.angle_to_offset(ry.yaw);
         let s = ry.roll.sin();
         let c = ry.roll.cos();
-        [offset * c, offset * s]
+        [offset * c, offset * s].into()
     }
-    //fp xy_to_ry
-    fn xy_to_ry(&self, xy: [f64; 2]) -> RollYaw {
+    //fp px_rel_xy_to_ry
+    #[inline]
+    fn px_rel_xy_to_ry(&self, xy: Point2D) -> RollYaw {
         let r = (xy[0] * xy[0] + xy[1] * xy[1]).sqrt();
         let roll = xy[1].atan2(xy[0]);
         let yaw = self.offset_to_angle(r);

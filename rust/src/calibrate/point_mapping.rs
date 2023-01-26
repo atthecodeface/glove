@@ -9,9 +9,9 @@ pub struct PointMapping {
     /// The 3D model coordinate this point corresponds to
     ///
     /// This is known for a calibration point!
-    model: Point3D,
+    pub model: Point3D,
     /// Screen coordinate
-    screen: Point2D,
+    pub screen: Point2D,
 }
 
 //ip PointMapping
@@ -30,7 +30,7 @@ impl PointMapping {
     }
 
     //fp show_error
-    pub fn show_error(&self, camera: &LCamera) {
+    pub fn old_show_error(&self, camera: &LCamera) {
         let camera_scr_xy = camera.to_scr_xy(&self.model);
         let dx = self.screen[0] - camera_scr_xy[0];
         let dy = self.screen[1] - camera_scr_xy[1];
@@ -42,7 +42,7 @@ impl PointMapping {
     }
 
     //fp get_sq_error
-    pub fn get_sq_error(&self, camera: &LCamera) -> f64 {
+    pub fn old_get_sq_error(&self, camera: &LCamera) -> f64 {
         let camera_scr_xy = camera.to_scr_xy(&self.model);
         let dx = self.screen[0] - camera_scr_xy[0];
         let dy = self.screen[1] - camera_scr_xy[1];
@@ -59,7 +59,7 @@ impl PointMapping {
         // view_xyz[i] = direction * (model[i] - position)
         let view_xyz = camera_est.to_camera_space(&self.model);
         dbg!(self);
-        dbg!(self.get_sq_error(camera_est));
+        dbg!(self.old_get_sq_error(camera_est));
         dbg!("Estimate of view_xyz for mapping's model is ", view_xyz);
         // That gives an estimate of 'z' for view_xyz
         let z_est = view_xyz[2];
