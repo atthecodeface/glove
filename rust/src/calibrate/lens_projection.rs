@@ -1,18 +1,8 @@
 use super::CalcPoly;
+use super::LensProjection;
 use super::RollYaw;
 
 //a Trait
-//tt LensProjection
-pub trait LensProjection {
-    /// Map a Roll/Yaw to a centre-relative XY pixel in the frame of
-    /// the camera
-    fn ry_to_xy(&self, ry: RollYaw) -> [f64; 2];
-
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    fn xy_to_ry(&self, xy: [f64; 2]) -> RollYaw;
-}
-
 //tp Polynomial
 /// A lens projection implemented with a polynomial mapping of radial offset to off-axis angle of the ray
 ///
