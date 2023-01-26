@@ -100,6 +100,6 @@ pub use camera::LCamera;
 mod model_data;
 pub use model_data::*;
 pub mod calc_poly;
-use calc_poly::CalcPoly;
+pub use calc_poly::{min_squares, CalcPoly};
 pub mod lens_projection;
-pub use lens_projection::Polynomial;
+pub use lens_projection::{Blah, Polynomial};

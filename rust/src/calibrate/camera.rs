@@ -206,10 +206,7 @@ impl LCamera {
     /// Map a world Point3D coordinate to camera-space coordinates,
     /// and then to tan(x)/tan(y)
     pub fn to_sph_xy(&self, model_xyz: &Point3D) -> Point2D {
-        let camera_xyz = self.to_camera_space(model_xyz);
-        let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
-        let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
-        [camera_as_sph_x, camera_as_sph_y].into()
+        self.world_xyz_to_txty(model_xyz)
     }
 
     //fp to_scr_xy
@@ -224,19 +221,9 @@ impl LCamera {
         //
         // If the FOV is smaller (telephoto) then tan(fov) is smaller, and scr_x should
         // be largerfor the same model x
-        let wh = self.screen_size();
-        let centre = self.centre_xy();
-        let camera_xyz = self.to_camera_space(model_xyz);
-        let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
-        let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
-        if camera_xyz[2].abs() < 0.00001 {
-            return [0., 0.].into();
-        }
-        [
-            centre[0] + camera_as_sph_x * wh[0] / 2.0 / self.tan_fov_x(),
-            centre[1] - camera_as_sph_y * wh[1] / 2.0 / self.tan_fov_y(),
-        ]
-        .into()
+        let txty = self.world_xyz_to_txty(model_xyz);
+        let px_rel_xy = self.projection.txty_to_px_rel_xy(txty);
+        self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 
     //fp show_pm_error

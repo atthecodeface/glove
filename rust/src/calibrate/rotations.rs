@@ -1,7 +1,7 @@
 //a Imports
-use super::{Point2D, Point3D, PointMapping, Projection, Quat};
+use super::Quat;
 
-use geo_nd::{quat, vector};
+use geo_nd::quat;
 
 //a Rotations
 //tp Rotations
