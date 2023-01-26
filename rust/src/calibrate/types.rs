@@ -3,7 +3,7 @@ pub type Point3D = geo_nd::FArray<f64, 3>;
 pub type Point4D = geo_nd::FArray<f64, 4>;
 pub type Quat = geo_nd::QArray<f64, Point3D, Point4D>;
 //tt LensProjection
-pub trait LensProjection {
+pub trait LensProjection: std::fmt::Debug {
     /// Map a Roll/Yaw to a centre-relative XY pixel in the frame of
     /// the camera
     fn ry_to_xy(&self, ry: RollYaw) -> [f64; 2];

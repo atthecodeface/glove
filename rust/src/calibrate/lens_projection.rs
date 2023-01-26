@@ -21,7 +21,7 @@ use super::RollYaw;
 /// For an 'orthographic' lens the polynomial is offset =  sin(angle) ( * fl / sw)
 ///
 /// For a rectilinear lens the polynomial is offset = tan(angle) ( * fl / sw); this keeps lines straight
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Polynomial {
     /// Centre pixel
     px_centre: [f64; 2],

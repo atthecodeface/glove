@@ -1,6 +1,9 @@
 //a Modules
+use std::rc::Rc;
+
 use glove::calibrate::PointMapping;
 // use glove::calibrate::Projection;
+use glove::calibrate::Polynomial;
 use glove::calibrate::*;
 use glove::calibrate::{LCamera, Rotations};
 use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
@@ -23,6 +26,7 @@ use geo_nd::{matrix, quat};
 // #[test]
 fn test_find_coarse_position() {
     let camera = LCamera::new(
+        Rc::new(Polynomial::default()),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
@@ -50,7 +54,7 @@ fn test_find_coarse_position() {
             .get_best_direction(10000, &fine_rotations, &mappings[0])
             .0;
     }
-    let mut worst_data = (1_000_000.0, 0, cam, 0.);
+    let mut worst_data = (1_000_000.0, 0, cam.clone(), 0.);
     for i in 0..100 {
         let mut last_n = cam.find_worst_error(&mappings).0;
         for i in 0..30 {
@@ -89,7 +93,7 @@ fn test_find_coarse_position() {
         eprintln!("WE {} {:.2}", i, we);
         if we < worst_data.0 {
             eprintln!("WE {} {:.2} Camera {}", i, we, cam);
-            worst_data = (we, i, cam, cam.total_error(&mappings));
+            worst_data = (we, i, cam.clone(), cam.total_error(&mappings));
         }
     }
     eprintln!(
@@ -111,6 +115,7 @@ fn test_optimize() {
         // for -201.77,-292.29,648.1
         // [54.10, -32.0, 781.].into(),
         // [-32.10, -7.0, 784.].into(),
+        Rc::new(Polynomial::default()),
         [-22., 32.0, 784.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
@@ -128,7 +133,7 @@ fn test_optimize() {
         cam = cam.get_best_direction(10000, &rotations, &mappings[0]).0;
     }
     let num = mappings.len();
-    let mut worst_data = (1_000_000.0, 0, cam, 0.);
+    let mut worst_data = (1_000_000.0, 0, cam.clone(), 0.);
     for i in 0..100 {
         let mut last_n = cam.find_worst_error(&mappings).0;
         for i in 0..30 {
@@ -193,7 +198,7 @@ fn test_optimize() {
             cam.total_error(&mappings),
             cam.worst_error(&mappings)
         );
-        dbg!(cam);
+        dbg!(&cam);
         for pm in mappings.iter() {
             pm.show_error(&cam);
         }
@@ -215,7 +220,7 @@ fn test_optimize() {
             pm.show_error(&cam);
         }
         if we < worst_data.0 {
-            worst_data = (we, i, cam, cam.total_error(&mappings));
+            worst_data = (we, i, cam.clone(), cam.total_error(&mappings));
         }
     }
     eprintln!(
@@ -227,6 +232,7 @@ fn test_optimize() {
 
 fn test_calibrate() {
     let camera0 = LCamera::new(
+        Rc::new(Polynomial::default()),
         [-10., 20., 540.].into(), // 540 mm fromm model
         quat::look_at(&[-33., -130., -540.], &[0.10, -1., -0.1]).into(),
     );

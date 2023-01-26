@@ -1,5 +1,7 @@
 //a Imports
-use super::{Point2D, Point3D, PointMapping, Projection, Quat, Rotations};
+use std::rc::Rc;
+
+use super::{LensProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations};
 
 use geo_nd::{quat, vector};
 
@@ -8,8 +10,9 @@ const MIN_ERROR: f64 = 0.5;
 
 //a LCamera
 //tp LCamera
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct LCamera {
+    projection: Rc<dyn LensProjection>,
     position: Point3D,
     direction: Quat,
 }
@@ -134,8 +137,9 @@ impl std::fmt::Display for LCamera {
 //ip LCamera
 impl LCamera {
     //fp new
-    pub fn new(position: Point3D, direction: Quat) -> Self {
+    pub fn new(projection: Rc<dyn LensProjection>, position: Point3D, direction: Quat) -> Self {
         Self {
+            projection,
             position,
             direction,
         }
@@ -143,11 +147,9 @@ impl LCamera {
 
     //fp moved_by
     pub fn moved_by(&self, dp: [f64; 3]) -> Self {
-        let position = self.position + Point3D::from(dp);
-        Self {
-            position,
-            direction: self.direction,
-        }
+        let mut cam = self.clone();
+        cam.position = self.position + Point3D::from(dp);
+        cam
     }
 
     //fp position
@@ -206,8 +208,8 @@ impl LCamera {
         pm: &PointMapping,
         q: &Quat,
     ) -> (Self, f64) {
-        let mut c = *self;
-        let mut tc = c;
+        let mut c = self.clone();
+        let mut tc = c.clone();
         let mut e = pm.get_sq_error(&c);
         for _ in 0..steps_per_rot {
             tc.direction = c.direction * *q;
@@ -215,7 +217,7 @@ impl LCamera {
             if ne > e {
                 break;
             }
-            c = tc;
+            c = tc.clone();
             e = ne;
         }
         return (c, e);
@@ -276,8 +278,8 @@ impl LCamera {
         // test_pm. We can find the surface for test_pm, which has normal n_pm.
         //
         // We want to move in direction - n x (n_pm x n)
-        let mut c = *self;
-        let mut tc = c;
+        let mut c = self.clone();
+        let mut tc = c.clone();
         let mut e = f(&c, mappings, test_pm);
         // dbg!("Preadjusted", e);
         for _i in 0..max_adj {
@@ -303,7 +305,7 @@ impl LCamera {
                 // dbg!("Adjusted to MIN ERROR", i, e);
                 return (c, e);
             }
-            c = tc;
+            c = tc.clone();
             e = ne;
         }
         dbg!("Adjusted BUT TOO MUCH!", e);
@@ -329,8 +331,8 @@ impl LCamera {
         // of model[keep_pm]
         let keep_v = self.to_camera_space(mappings[keep_pm].model());
         let mut rot: Quat = quat::of_axis_angle(keep_v.as_ref(), da).into();
-        let mut c = *self;
-        let mut tc = c;
+        let mut c = self.clone();
+        let mut tc = c.clone();
         let mut e = f(&c, mappings, test_pm);
         for _sc in 0..2 {
             // dbg!("Preadjusted", e);
@@ -346,7 +348,7 @@ impl LCamera {
                     // dbg!("Adjusted to MIN ERROR", i, e);
                     return (c, e);
                 }
-                c = tc;
+                c = tc.clone();
                 e = ne;
             }
             rot = quat::conjugate(rot.as_ref()).into();
@@ -403,7 +405,7 @@ impl LCamera {
         mappings: &[PointMapping],
         f: &F,
     ) -> (Self, f64) {
-        let mut cam = *self;
+        let mut cam = self.clone();
         let mut e = f(&cam, mappings);
         for _ in 0..10_000 {
             let cx = cam.moved_by([1., 0., 0.]);
@@ -423,7 +425,7 @@ impl LCamera {
                 return (cam, e);
             }
             e = en;
-            cam = cn
+            cam = cn.clone()
         }
         (cam, e)
     }
@@ -437,7 +439,7 @@ impl LCamera {
         // Map (0,0,1) to view space
         let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
         dbg!(dx, dy, dz);
-        let mut cam = *self;
+        let mut cam = self.clone();
         let mut e = f(&cam, mappings);
         for sc in [1., -1., 0.01, -0.01] {
             for _ in 0..10_000 {
@@ -447,7 +449,7 @@ impl LCamera {
                     break;
                 }
                 e = en;
-                cam = cn
+                cam = cn.clone();
             }
         }
         (cam, e)
@@ -463,7 +465,7 @@ impl LCamera {
         dbg!("Find coarse position", self, scales, n);
         let coarse_rotations = Rotations::new(1.0_f64.to_radians());
         let fine_rotations = Rotations::new(0.1_f64.to_radians());
-        let mut worst_data = (1_000_000.0, 0, *self, 0.);
+        let mut worst_data = (1_000_000.0, 0, self.clone(), 0.);
         let num = mappings.len();
         let map = |i, sc| ((i as f64) - (n as f64) / 2.0) * sc / (n as f64);
         for i in 0..(n * n * n) {
@@ -521,7 +523,7 @@ impl LCamera {
                 // dbg!(worst_data);
             }
         }
-        dbg!(worst_data);
+        dbg!(&worst_data);
         worst_data.2
     }
 

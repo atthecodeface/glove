@@ -102,3 +102,4 @@ pub use model_data::*;
 pub mod calc_poly;
 use calc_poly::CalcPoly;
 pub mod lens_projection;
+pub use lens_projection::Polynomial;
