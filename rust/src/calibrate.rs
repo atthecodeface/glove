@@ -88,7 +88,7 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 
 //a Modules
 mod types;
-pub use types::{Point2D, Point3D, Point4D, Quat};
+pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw};
 mod projection;
 pub use projection::Projection;
 mod point_mapping;
@@ -98,3 +98,5 @@ pub use camera::{LCamera, Rotations};
 mod model_data;
 pub use model_data::*;
 pub mod calc_poly;
+use calc_poly::CalcPoly;
+pub mod lens_projection;
