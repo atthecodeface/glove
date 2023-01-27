@@ -270,27 +270,6 @@ impl OldLensProjection for Polynomial {
         .into()
     }
 
-    //fp txty_to_ry - default (ry
-    #[inline]
-    fn txty_to_ry(&self, txty: Point2D) -> RollYaw {
-        let yaw = (txty[0] * txty[0] + txty[1] * txty[1]).sqrt().atan();
-        let roll = txty[1].atan2(txty[0]);
-        RollYaw { roll, yaw }
-    }
-
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
-    ///
-    /// This must apply the lens projection
-    ///
-    /// An implementation can improve the performance for some lenses
-    /// where this is a much simpler mapping than the two stages combined
-    #[inline]
-    fn txty_to_px_rel_xy(&self, txty: Point2D) -> Point2D {
-        let ry = self.txty_to_ry(txty);
-        self.ry_to_px_rel_xy(ry)
-    }
-
     /// Map an (X,Y,Z) to tan(x), tan(y)
     #[inline]
     fn rel_xyz_to_txty(&self, xyz: Point3D) -> Point2D {
