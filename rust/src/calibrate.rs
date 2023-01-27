@@ -99,6 +99,8 @@ mod point_mapping;
 pub use point_mapping::PointMapping;
 mod camera_sensor;
 pub use camera_sensor::RectSensor;
+mod camera_rectilinear;
+pub use camera_rectilinear::CameraRectilinear;
 mod camera;
 pub use camera::LCamera;
 mod model_data;

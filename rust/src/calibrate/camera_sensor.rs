@@ -133,6 +133,43 @@ impl RectSensor {
         self.pixel_aspect_ratio = self.mm_single_pixel_width / self.mm_single_pixel_height;
         self
     }
+
+    //ap mm_sensor_width
+    pub fn mm_sensor_width(&self) -> f64 {
+        self.mm_sensor_width
+    }
+
+    //ap mm_sensor_height
+    pub fn mm_sensor_height(&self) -> f64 {
+        self.mm_sensor_height
+    }
+
+    //ap mm_sensor_diagonal
+    pub fn mm_sensor_diagonal(&self) -> f64 {
+        (self.mm_sensor_height * self.mm_sensor_height
+            + self.mm_sensor_width * self.mm_sensor_width)
+            .sqrt()
+    }
+
+    //ap px_centre
+    pub fn px_centre(&self) -> Point2D {
+        self.px_centre.into()
+    }
+
+    //ap px_width
+    pub fn px_width(&self) -> f64 {
+        self.px_width
+    }
+    //ap px_height
+    pub fn px_height(&self) -> f64 {
+        self.px_height
+    }
+
+    //ap mm_aspect_ratio
+    pub fn mm_aspect_ratio(&self) -> f64 {
+        self.pixel_aspect_ratio
+    }
+    //zz All done
 }
 
 //ip CameraSensor for RectSensor

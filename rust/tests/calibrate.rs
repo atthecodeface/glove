@@ -4,7 +4,7 @@ use std::rc::Rc;
 use glove::calibrate::PointMapping;
 // use glove::calibrate::Projection;
 use glove::calibrate::*;
-use glove::calibrate::{Blah, Polynomial};
+use glove::calibrate::{Blah, CameraRectilinear, Polynomial};
 use glove::calibrate::{LCamera, Rotations};
 use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
@@ -29,7 +29,7 @@ use geo_nd::{matrix, quat};
 fn test_find_coarse_position() {
     let camera = LCamera::new(
         // Rc::new(Polynomial::default()),
-        Rc::new(Blah::default()),
+        Rc::new(CameraRectilinear::new_logitech_c270_640()),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
