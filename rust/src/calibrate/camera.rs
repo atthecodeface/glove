@@ -2,7 +2,7 @@
 use std::rc::Rc;
 
 use super::{
-    OldLensProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations, TanXTanY,
+    CameraProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations, TanXTanY,
 };
 
 use geo_nd::{quat, vector};
@@ -19,7 +19,7 @@ const MIN_ERROR: f64 = 0.5;
 pub struct LCamera {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
-    projection: Rc<dyn OldLensProjection>,
+    projection: Rc<dyn CameraProjection>,
     /// Position in world coordinates of the camera
     ///
     /// Subtract from world coords to get camera-relative world coordinates
@@ -151,7 +151,7 @@ impl std::fmt::Display for LCamera {
 //ip LCamera
 impl LCamera {
     //fp new
-    pub fn new(projection: Rc<dyn OldLensProjection>, position: Point3D, direction: Quat) -> Self {
+    pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
         Self {
             projection,
             position,

@@ -90,7 +90,7 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 mod types;
 pub use types::{Point2D, Point3D, Point4D, Quat, RollDist, RollYaw, TanXTanY};
 mod traits;
-pub use traits::{CameraProjection, CameraSensor, OldLensProjection};
+pub use traits::{CameraProjection, CameraSensor, LensProjection};
 mod rotations;
 pub use rotations::Rotations;
 mod projection;

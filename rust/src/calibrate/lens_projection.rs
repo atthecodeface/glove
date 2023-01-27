@@ -1,5 +1,5 @@
 use super::CalcPoly;
-use super::OldLensProjection;
+use super::CameraProjection;
 use super::RollYaw;
 use super::{Point2D, Point3D, TanXTanY};
 
@@ -250,8 +250,8 @@ impl Polynomial {
     //zz All done
 }
 
-//ip OldLensProjection for Polynomial
-impl OldLensProjection for Polynomial {
+//ip CameraProjection for Polynomial
+impl CameraProjection for Polynomial {
     //fp px_rel_xy_to_px_abs_xy
     #[inline]
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
@@ -426,8 +426,8 @@ impl Blah {
     }
 }
 
-//ip OldLensProjection for Blah
-impl OldLensProjection for Blah {
+//ip CameraProjection for Blah
+impl CameraProjection for Blah {
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
         xy + self.centre_xy()
     }

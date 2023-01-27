@@ -21,7 +21,7 @@ pub trait CameraSensor: std::fmt::Debug {
     fn rd_to_px_rel_xy(&self, rd: RollDist) -> Point2D;
 }
 
-//tt OldLensProjection
+//tt LensProjection
 /// The concept is that there are absolute pixel positions within a sensor,
 /// which can be converted to relative, which can be converted to an RollDist, RollYaw,
 /// which can be converted to tan(x)/tan(y) - in model space X/Z and Y/Z, which can be
@@ -29,7 +29,7 @@ pub trait CameraSensor: std::fmt::Debug {
 ///
 /// The lens projection is between RollYaw and
 /// tan(x)/tan(y). Essentially RollYaw is kinda internal
-pub trait OldLensProjection: std::fmt::Debug {
+pub trait LensProjection: std::fmt::Debug {
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D;
 
@@ -66,12 +66,14 @@ pub trait CameraProjection: std::fmt::Debug {
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
 
     /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a tanX/tanY direction vector
-    /// frame sizes etc
+    /// camera to a tan(x), tan(y)
+    ///
+    /// This must apply the lens projection
     fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY;
 
-    /// Map a tanX/tanY direction vector to a centre-relative XY pixel
-    /// in the frame of the the camera
-    /// frame sizes etc
+    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
+    /// pixel in the frame of the camera
+    ///
+    /// This must apply the lens projection
     fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
 }
