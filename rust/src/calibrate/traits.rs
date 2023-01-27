@@ -37,31 +37,13 @@ pub trait OldLensProjection: std::fmt::Debug {
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
 
     /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    ///
-    /// This generally does not use a lens projection but does need
-    /// frame sizes etc
-    fn px_rel_xy_to_ry(&self, xy: Point2D) -> RollYaw;
-
-    /// Map a Roll/Yaw to a centre-relative XY pixel in the frame of
-    /// the camera
-    ///
-    /// This generally does not use a lens projection but does need
-    /// frame sizes etc
-    fn ry_to_px_rel_xy(&self, ry: RollYaw) -> Point2D;
-
-    /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a tan(x), tan(y)
     ///
     /// This must apply the lens projection
     ///
     /// The default functions combines other mapping functions, so may
     /// not be fully optimized
-    #[inline]
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY {
-        let ry = self.px_rel_xy_to_ry(xy);
-        ry.into()
-    }
+    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY;
 
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
     /// pixel in the frame of the camera
@@ -70,11 +52,7 @@ pub trait OldLensProjection: std::fmt::Debug {
     ///
     /// An implementation can improve the performance for some lenses
     /// where this is a much simpler mapping than the two stages combined
-    #[inline]
-    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
-        let ry: RollYaw = txty.into();
-        self.ry_to_px_rel_xy(ry)
-    }
+    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
 }
 
 //tt CameraProjection

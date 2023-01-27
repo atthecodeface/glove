@@ -224,28 +224,6 @@ impl Polynomial {
     pub fn rel_px_y_to_mm(&self, px_y: f64) -> f64 {
         px_y * self.mm_single_pixel_height
     }
-}
-
-//ip OldLensProjection for Polynomial
-impl OldLensProjection for Polynomial {
-    //fp px_rel_xy_to_px_abs_xy
-    #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] + self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
-        }
-    }
-    //fp px_abs_xy_to_px_rel_xy
-    #[inline]
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] - self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] - self.px_centre[0], xy[1] - self.px_centre[1]].into()
-        }
-    }
     //fp px_rel_xy_to_ry
     #[inline]
     fn px_rel_xy_to_ry(&self, xy: Point2D) -> RollYaw {
@@ -268,6 +246,57 @@ impl OldLensProjection for Polynomial {
             x_frac * s * self.frac_x_to_px_y,
         ]
         .into()
+    }
+    //zz All done
+}
+
+//ip OldLensProjection for Polynomial
+impl OldLensProjection for Polynomial {
+    //fp px_rel_xy_to_px_abs_xy
+    #[inline]
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+        if self.flip_y {
+            [xy[0] + self.px_centre[0], -xy[1] + self.px_centre[1]].into()
+        } else {
+            [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
+        }
+    }
+    //fp px_abs_xy_to_px_rel_xy
+    #[inline]
+    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
+        if self.flip_y {
+            [xy[0] - self.px_centre[0], -xy[1] + self.px_centre[1]].into()
+        } else {
+            [xy[0] - self.px_centre[0], xy[1] - self.px_centre[1]].into()
+        }
+    }
+
+    //fp px_rel_xy_to_txty
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a tan(x), tan(y)
+    ///
+    /// This must apply the lens projection
+    ///
+    /// The default functions combines other mapping functions, so may
+    /// not be fully optimized
+    #[inline]
+    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY {
+        let ry = self.px_rel_xy_to_ry(xy);
+        ry.into()
+    }
+
+    //fp txty_to_px_rel_xy
+    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
+    /// pixel in the frame of the camera
+    ///
+    /// This must apply the lens projection
+    ///
+    /// An implementation can improve the performance for some lenses
+    /// where this is a much simpler mapping than the two stages combined
+    #[inline]
+    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
+        let ry: RollYaw = txty.into();
+        self.ry_to_px_rel_xy(ry)
     }
 }
 
@@ -406,26 +435,6 @@ impl OldLensProjection for Blah {
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
         xy - self.centre_xy()
-    }
-
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    fn px_rel_xy_to_ry(&self, xy: Point2D) -> RollYaw {
-        let txty = self.px_rel_xy_to_txty(xy);
-        let r = (txty[0] * txty[0] + txty[1] * txty[1]).sqrt();
-        let roll = txty[1].atan2(txty[0]);
-        let yaw = r.atan();
-        RollYaw { roll, yaw }
-    }
-
-    /// Map a Roll/Yaw to a centre-relative XY pixel in the frame of
-    /// the camera
-    fn ry_to_px_rel_xy(&self, ry: RollYaw) -> Point2D {
-        let offset = ry.yaw.tan();
-        let s = ry.roll.sin();
-        let c = ry.roll.cos();
-        let txty = [offset * c, offset * s].into();
-        self.txty_to_px_rel_xy(txty)
     }
 
     /// Map an actual centre-relative XY pixel in the frame of the
