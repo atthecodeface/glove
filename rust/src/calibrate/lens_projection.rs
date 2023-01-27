@@ -270,21 +270,6 @@ impl OldLensProjection for Polynomial {
         .into()
     }
 
-    //fp ry_to_txty
-    /// Map a roll/yaw to a tan(x), tan(y) (i.e. x/z, y/z)
-    ///
-    /// This must apply the lens projection
-    ///
-    /// The default function has a 'null' lens projection mapping,
-    /// which probably does not make sense
-    #[inline]
-    fn ry_to_txty(&self, ry: RollYaw) -> Point2D {
-        let r = ry.yaw.tan();
-        let c = ry.roll.cos();
-        let s = ry.roll.sin();
-        [r * c, r * s].into()
-    }
-
     //fp txty_to_ry - default (ry
     #[inline]
     fn txty_to_ry(&self, txty: Point2D) -> RollYaw {

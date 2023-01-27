@@ -50,20 +50,6 @@ pub trait OldLensProjection: std::fmt::Debug {
     /// frame sizes etc
     fn ry_to_px_rel_xy(&self, ry: RollYaw) -> Point2D;
 
-    /// Map a roll/yaw to a tan(x), tan(y) (i.e. x/z, y/z)
-    ///
-    /// This must apply the lens projection
-    ///
-    /// The default function has a 'null' lens projection mapping,
-    /// which probably does not make sense
-    #[inline]
-    fn ry_to_txty(&self, ry: RollYaw) -> Point2D {
-        let r = ry.yaw.tan();
-        let c = ry.roll.cos();
-        let s = ry.roll.sin();
-        [r * c, r * s].into()
-    }
-
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a roll/yaw
     ///
     /// This must apply the lens projection
@@ -87,7 +73,8 @@ pub trait OldLensProjection: std::fmt::Debug {
     #[inline]
     fn px_rel_xy_to_txty(&self, xy: Point2D) -> Point2D {
         let ry = self.px_rel_xy_to_ry(xy);
-        self.ry_to_txty(ry)
+        let txty: TanXTanY = ry.into();
+        txty.into()
     }
 
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
