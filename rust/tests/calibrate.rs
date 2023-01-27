@@ -4,7 +4,7 @@ use std::rc::Rc;
 use glove::calibrate::PointMapping;
 // use glove::calibrate::Projection;
 use glove::calibrate::*;
-use glove::calibrate::{Blah, CameraRectilinear, Polynomial};
+use glove::calibrate::{CameraRectilinear, Polynomial};
 use glove::calibrate::{LCamera, Rotations};
 use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
@@ -27,6 +27,46 @@ use geo_nd::{matrix, quat};
 // WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
 #[test]
 fn test_find_coarse_position() {
+    let camera = LCamera::new(
+        // Rc::new(Polynomial::default()),
+        Rc::new(CameraRectilinear::new_logitech_c270_640()),
+        [0., 0., 0.].into(),
+        quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
+    );
+    let mappings: Vec<PointMapping> = C1_DATA_ALL
+        .iter()
+        .map(|(model, screen)| {
+            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
+        })
+        .collect();
+    let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 2000.], 11);
+    let te = cam.total_error(&mappings);
+    let we = cam.worst_error(&mappings);
+    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
+    assert!(
+        we < 100.0,
+        "Worst error should be about 53.82 but was {}",
+        we
+    );
+    assert!(te < 250.0, "Total error should be about 220 but was {}", te);
+}
+
+//ft test_find_good
+// CAM 0
+// WE 28 4.12 20.86 Camera @[-197.71,-200.37,435.25] yaw -20.09 pitch -16.35 + [-0.33,-0.28,0.90]
+
+// CAM 1
+// WE 27 8.94 51.26 Camera @[-1.92,  -4.18,782.75] yaw -1.14 pitch -4.12 + [-0.02,-0.07,1.00]
+// WE 99 3.58 22.17 Camera @[-21.98,112.49,768.56] yaw -2.56 pitch 4.43 + [-0.04,0.08,1.00]
+// WE 92 5.81 31.90 Camera @[-29.29, 76.42,776.45] yaw -3.12 pitch 1.75 + [-0.05,0.03,1.00]
+// WE 62 4.26 26.16 Camera @[-26.37, 85.59,773.16] yaw -2.89 pitch 2.45 + [-0.05,0.04,1.00]
+// WE  6 1.30  7.18 Camera @[-74.46,180.50,741.43] yaw -6.54 pitch 9.71 + [-0.11,0.17,0.98]
+// WE 48 1.25  8.04 Camera @[-75.56,166.17,748.12] yaw -6.60 pitch 8.53 + [-0.11,0.15,0.98]
+// WE 17 1.09  7.37 Camera @[-75.64,172.25,745.83] yaw -6.61 pitch 9.02 + [-0.11,0.16,0.98]
+// WE    4.85       Camera @[-83.37,151.51,743.16] yaw -7.26 pitch 7.57 + [-0.13,0.13,0.98]
+// WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
+// #[test]
+fn test_find_good() {
     let camera = LCamera::new(
         // Rc::new(Polynomial::default()),
         Rc::new(CameraRectilinear::new_logitech_c270_640()),

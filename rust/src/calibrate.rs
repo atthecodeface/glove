@@ -108,4 +108,4 @@ pub use model_data::*;
 pub mod calc_poly;
 pub use calc_poly::{min_squares, CalcPoly};
 pub mod lens_projection;
-pub use lens_projection::{Blah, Polynomial};
+pub use lens_projection::Polynomial;

@@ -140,11 +140,15 @@ impl std::fmt::Display for TanXTanY {
 /// then yaw (rotate about +ve Y)
 #[derive(Debug, Clone, Copy)]
 pub struct RollYaw {
-    /// Angle in radians that the RollYaw direction is offset from [0,0,-1]
-    pub yaw: f64,
-    /// Angle in radians that yaw([0,0,-1]) must be rotated around the
+    /// Angle that the RollYaw direction is offset from [0,0,-1]
+    ///
+    /// Held as a tan
+    tan_yaw: f64,
+    /// Angle that yaw([0,0,-1]) must be rotated around the
     /// -ve Z axis to achieve the direction inndicated by this RollYaw
-    pub roll: f64,
+    ///
+    /// Held as sin and cos, with sin^2 + cos^2 = 1
+    roll: (f64, f64),
 }
 
 //ip RollYaw
@@ -160,9 +164,9 @@ impl RollYaw {
     /// Convert to tanx/tany (divide by Z) yieds (tanT.cosR, tanT.sinR)
     #[inline]
     pub fn to_txty(self) -> TanXTanY {
-        let r = self.yaw.tan();
-        let c = self.roll.cos();
-        let s = self.roll.sin();
+        let r = self.tan_yaw;
+        let c = self.roll.1;
+        let s = self.roll.0;
         [r * c, r * s].into()
     }
 
@@ -173,12 +177,53 @@ impl RollYaw {
     /// The direction vector txty is effectively (tanT.cosR, tanT.sinR, -1) (T=yaw)
     ///
     /// Hence roll = arctan(ty / tx); yaw = arctan(|txty|)
+    ///
+    /// sin(roll) = ty / |txty|
+    /// cos(roll) = tx / |txty|
     #[inline]
     pub fn from_txty(txty: TanXTanY) -> Self {
-        let yaw = vector::length(txty.as_ref()).atan();
-        let roll = txty[1].atan2(txty[0]);
-        Self { roll, yaw }
+        let tan_yaw = vector::length(txty.as_ref());
+        if tan_yaw < 1E-8 {
+            Self {
+                roll: (1., 0.),
+                tan_yaw: 0.,
+            }
+        } else {
+            let roll = (txty[1] / tan_yaw, txty[0] / tan_yaw);
+            Self { roll, tan_yaw }
+        }
     }
+    //cp from_roll_yaw
+    // Deprecated
+    pub fn from_roll_yaw(sin_roll: f64, cos_roll: f64, yaw: f64) -> Self {
+        let tan_yaw = yaw.tan();
+        let roll = (sin_roll, cos_roll);
+        Self { roll, tan_yaw }
+    }
+
+    //ap cos_roll
+    pub fn cos_roll(&self) -> f64 {
+        self.roll.1
+    }
+
+    //ap sin_roll
+    pub fn sin_roll(&self) -> f64 {
+        self.roll.0
+    }
+
+    //ap yaw
+    /// Not a high performance operation
+    pub fn yaw(&self) -> f64 {
+        self.tan_yaw.atan()
+    }
+
+    //ap roll
+    /// Not a high performance operation
+    pub fn roll(&self) -> f64 {
+        self.roll.0.atan2(self.roll.1)
+    }
+
+    //zz All done
 }
 
 //ip From<RollYaw> for TanXTanY
@@ -201,8 +246,8 @@ impl std::fmt::Display for RollYaw {
         write!(
             fmt,
             "[yaw {:0.4}:roll {:0.4}]",
-            self.yaw.to_degrees(),
-            self.roll.to_degrees()
+            self.tan_yaw.tan().to_degrees(),
+            self.roll().to_degrees()
         )
     }
 }
@@ -218,7 +263,12 @@ impl std::fmt::Display for RollYaw {
 /// An (x,y) (in mm) on the frame maps to (arctan(y/x), sqrt(x^2+y^2))
 #[derive(Debug, Clone, Copy)]
 pub struct RollDist {
-    pub roll: f64,
+    /// Angle that (dist,0) must be rotated around the
+    /// centre of the frame to place the point in the correct location
+    ///
+    /// Held as sin and cos, with sin^2 + cos^2 = 1
+    roll: (f64, f64),
+    /// mm on frame away from centre
     pub dist: f64,
 }
 //ip RollDist
@@ -226,8 +276,8 @@ impl RollDist {
     //fp to_mm_xy
     #[inline]
     pub fn to_mm_xy(self) -> Point2D {
-        let c = self.roll.cos();
-        let s = self.roll.sin();
+        let c = self.roll.1;
+        let s = self.roll.0;
         [self.dist * c, self.dist * s].into()
     }
 
@@ -235,9 +285,17 @@ impl RollDist {
     #[inline]
     pub fn from_mm_xy(mm_xy: Point2D) -> Self {
         let dist = vector::length(mm_xy.as_ref());
-        let roll = mm_xy[1].atan2(mm_xy[0]);
+        let roll = (mm_xy[1] / dist, mm_xy[0] / dist);
         Self { roll, dist }
     }
+    //ap roll
+    /// Not a high performance operation
+    #[inline]
+    pub fn roll(&self) -> f64 {
+        self.roll.0.atan2(self.roll.1)
+    }
+
+    //zz All done
 }
 
 //ip From<RollDist> for Point2D
@@ -261,7 +319,7 @@ impl std::fmt::Display for RollDist {
             fmt,
             "[{:0.4}mm @ {:0.4}]",
             self.dist,
-            self.roll.to_degrees()
+            self.roll().to_degrees()
         )
     }
 }
