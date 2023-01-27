@@ -1,13 +1,7 @@
 //a Modules
-use std::rc::Rc;
-
-use glove::calibrate::PointMapping;
 // use glove::calibrate::Projection;
 use glove::calibrate::min_squares;
-use glove::calibrate::*;
-use glove::calibrate::{CalcPoly, Polynomial};
-use glove::calibrate::{LCamera, Rotations};
-use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
+use glove::calibrate::CalcPoly;
 
 //a Tests
 #[test]

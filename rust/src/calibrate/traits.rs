@@ -2,6 +2,31 @@
 use super::{Point2D, Point3D, RollDist, RollYaw};
 
 //a Traits
+//tt CameraSensor
+/// The concept is that there are absolute pixel positions within a sensor,
+/// which can be converted to relative, which can be converted to a RollDist, which is a
+pub trait CameraSensor: std::fmt::Debug {
+    /// Map from absolute to centre-relative pixel
+    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D;
+
+    /// Map from centre-relative to absolute pixel
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
+
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    ///
+    /// This generally does not use a lens projection but does need
+    /// frame sizes etc
+    fn px_rel_xy_to_rd(&self, xy: Point2D) -> RollDist;
+
+    /// Map a Roll/Yaw to a centre-relative XY pixel in the frame of
+    /// the camera
+    ///
+    /// This generally does not use a lens projection but does need
+    /// frame sizes etc
+    fn rd_to_px_rel_xy(&self, rd: RollDist) -> Point2D;
+}
+
 //tt LensProjection
 /// The concept is that there are absolute pixel positions within a sensor,
 /// which can be converted to relative, which can be converted to an RollDist, RollYaw,
