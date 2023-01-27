@@ -1,7 +1,7 @@
 use super::CalcPoly;
 use super::OldLensProjection;
 use super::RollYaw;
-use super::{Point2D, Point3D};
+use super::{Point2D, Point3D, TanXTanY};
 
 //a Trait
 //tp Polynomial
@@ -430,7 +430,7 @@ impl OldLensProjection for Blah {
 
     /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a Roll/Yaw
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> Point2D {
+    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY {
         let wh = self.screen_size();
         [
             xy[0] / (wh[0] / 2.0) * self.tan_fov_x(),
@@ -443,7 +443,7 @@ impl OldLensProjection for Blah {
     /// pixel in the frame of the camera
     ///
     /// This must apply the lens projection
-    fn txty_to_px_rel_xy(&self, txty: Point2D) -> Point2D {
+    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
         let wh = self.screen_size();
         [
             txty[0] * wh[0] / 2.0 / self.tan_fov_x(),

@@ -58,10 +58,9 @@ pub trait OldLensProjection: std::fmt::Debug {
     /// The default functions combines other mapping functions, so may
     /// not be fully optimized
     #[inline]
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> Point2D {
+    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY {
         let ry = self.px_rel_xy_to_ry(xy);
-        let txty: TanXTanY = ry.into();
-        txty.into()
+        ry.into()
     }
 
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
@@ -72,9 +71,8 @@ pub trait OldLensProjection: std::fmt::Debug {
     /// An implementation can improve the performance for some lenses
     /// where this is a much simpler mapping than the two stages combined
     #[inline]
-    fn txty_to_px_rel_xy(&self, txty: Point2D) -> Point2D {
-        let txty: TanXTanY = (&txty).into();
-        let ry: RollYaw = txty.into(); // self.txty_to_ry(txty);
+    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
+        let ry: RollYaw = txty.into();
         self.ry_to_px_rel_xy(ry)
     }
 }

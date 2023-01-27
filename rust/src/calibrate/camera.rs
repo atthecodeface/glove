@@ -1,7 +1,9 @@
 //a Imports
 use std::rc::Rc;
 
-use super::{OldLensProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations};
+use super::{
+    OldLensProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations, TanXTanY,
+};
 
 use geo_nd::{quat, vector};
 
@@ -189,23 +191,15 @@ impl LCamera {
     //fp world_xyz_to_txty
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// coordinates (XYZ)
-    pub fn world_xyz_to_txty(&self, model_xyz: &Point3D) -> Point2D {
+    pub fn world_xyz_to_txty(&self, model_xyz: &Point3D) -> TanXTanY {
         let camera_xyz = self.to_camera_space(model_xyz);
-        if camera_xyz[2].abs() < 1.0E-4 {
-            let camera_as_sph_x = camera_xyz[0] / 1.0E-4;
-            let camera_as_sph_y = camera_xyz[1] / 1.0E-4;
-            [camera_as_sph_x, camera_as_sph_y].into()
-        } else {
-            let camera_as_sph_x = camera_xyz[0] / camera_xyz[2];
-            let camera_as_sph_y = camera_xyz[1] / camera_xyz[2];
-            [camera_as_sph_x, camera_as_sph_y].into()
-        }
+        camera_xyz.into()
     }
 
     //fp to_sph_xy
     /// Map a world Point3D coordinate to camera-space coordinates,
     /// and then to tan(x)/tan(y)
-    pub fn to_sph_xy(&self, model_xyz: &Point3D) -> Point2D {
+    pub fn to_sph_xy(&self, model_xyz: &Point3D) -> TanXTanY {
         self.world_xyz_to_txty(model_xyz)
     }
 

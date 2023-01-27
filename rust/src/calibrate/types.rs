@@ -76,6 +76,15 @@ impl From<&Point3D> for TanXTanY {
     }
 }
 
+//ip From<Point3D> for TanXTanY
+impl From<Point3D> for TanXTanY {
+    #[inline]
+    fn from(p: Point3D) -> TanXTanY {
+        let p: &[f64; 3] = p.as_ref();
+        TanXTanY::from(p)
+    }
+}
+
 //ip From<[f64; 2]> for TanXTanY
 impl From<[f64; 2]> for TanXTanY {
     #[inline]
