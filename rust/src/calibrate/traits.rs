@@ -77,12 +77,6 @@ pub trait OldLensProjection: std::fmt::Debug {
         let ry: RollYaw = txty.into(); // self.txty_to_ry(txty);
         self.ry_to_px_rel_xy(ry)
     }
-
-    /// Map an (X,Y,Z) to tan(x), tan(y)
-    #[inline]
-    fn rel_xyz_to_txty(&self, xyz: Point3D) -> Point2D {
-        [xyz[0] / xyz[2], xyz[1] / xyz[2]].into()
-    }
 }
 
 //tt CameraProjection

@@ -269,12 +269,6 @@ impl OldLensProjection for Polynomial {
         ]
         .into()
     }
-
-    /// Map an (X,Y,Z) to tan(x), tan(y)
-    #[inline]
-    fn rel_xyz_to_txty(&self, xyz: Point3D) -> Point2D {
-        [xyz[0] / xyz[2], xyz[1] / xyz[2]].into()
-    }
 }
 
 //a Lens polynomial
@@ -456,10 +450,5 @@ impl OldLensProjection for Blah {
             txty[1] * wh[1] / 2.0 / self.tan_fov_y(),
         ]
         .into()
-    }
-
-    /// Map an (X,Y,Z) to tan(x), tan(y)
-    fn rel_xyz_to_txty(&self, xyz: Point3D) -> Point2D {
-        [xyz[0] / xyz[2], xyz[1] / xyz[2]].into()
     }
 }
