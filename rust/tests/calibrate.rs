@@ -25,7 +25,7 @@ use geo_nd::{matrix, quat};
 // WE 17 1.09  7.37 Camera @[-75.64,172.25,745.83] yaw -6.61 pitch 9.02 + [-0.11,0.16,0.98]
 // WE    4.85       Camera @[-83.37,151.51,743.16] yaw -7.26 pitch 7.57 + [-0.13,0.13,0.98]
 // WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
-// #[test]
+#[test]
 fn test_find_coarse_position() {
     let camera = LCamera::new(
         // Rc::new(Polynomial::default()),

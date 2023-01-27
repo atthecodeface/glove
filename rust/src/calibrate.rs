@@ -97,6 +97,8 @@ mod projection;
 pub use projection::Projection;
 mod point_mapping;
 pub use point_mapping::PointMapping;
+mod camera_sensor;
+pub use camera_sensor::RectSensor;
 mod camera;
 pub use camera::LCamera;
 mod model_data;

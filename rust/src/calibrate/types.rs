@@ -71,6 +71,7 @@ impl From<&[f64; 3]> for TanXTanY {
 impl From<&Point3D> for TanXTanY {
     #[inline]
     fn from(p: &Point3D) -> TanXTanY {
+        let p: &[f64; 3] = p.as_ref();
         TanXTanY::from(p)
     }
 }
@@ -215,7 +216,7 @@ pub struct RollDist {
 impl RollDist {
     //fp to_mm_xy
     #[inline]
-    pub fn to_mmm_xy(self) -> Point2D {
+    pub fn to_mm_xy(self) -> Point2D {
         let c = self.roll.cos();
         let s = self.roll.sin();
         [self.dist * c, self.dist * s].into()
@@ -233,7 +234,7 @@ impl RollDist {
 //ip From<RollDist> for Point2D
 impl From<RollDist> for Point2D {
     fn from(rd: RollDist) -> Point2D {
-        rd.to_mmm_xy()
+        rd.to_mm_xy()
     }
 }
 
