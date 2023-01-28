@@ -164,13 +164,13 @@ impl CalibrationData {
     //fp tan_image
     fn tan_image(&self, dx: f64) -> f64 {
         let z = self.image_from_lens - dx * self.angle_of_image.sin();
-        let x = dx * self.angle_of_image.cos() + 0.3;
+        let x = dx * self.angle_of_image.cos();
         x / z
     }
     //fp tan_sensor
     fn tan_sensor(&self, pt: Point2D) -> f64 {
         let dx = self.sensor.px_abs_xy_to_px_rel_xy(pt)[0] * self.sensor.mm_single_pixel_width();
-        dbg!(pt, dx);
+        // dbg!(pt, dx);
         dx / self.lens_from_frame
     }
     //fp analyze
@@ -181,8 +181,8 @@ impl CalibrationData {
             ti.push(self.tan_image(*mm_image).abs());
             ts.push(self.tan_sensor(*pt_sensor).abs());
         }
-        dbg!(&ti);
-        dbg!(&ts);
+        // dbg!(&ti);
+        // dbg!(&ts);
         // let poly = min_squares::<8, 64>(&ti, &ts);
         // let poly = min_squares::<7, 49>(&ti, &ts);
         // let poly = min_squares::<6, 36>(&ti, &ts);
@@ -228,33 +228,105 @@ impl CalibrationData {
 fn find_poly_for_canon_50mm() {
     let sensor = RectSensor::new_35mm(6720, 4480);
     let mut calibration_data =
-//        CalibrationData::new(sensor, 57.5, 460.0 - 57.5, (1.88_f64).to_radians());
-        CalibrationData::new(sensor, 50.0, 460.0 - 50.0, (1.93_f64).to_radians());
+        CalibrationData::new(sensor, 50.0, 460.0 - 50.0, (1.83_f64).to_radians());
 
-    /// LEFT includes centre bar
-    const BARS_AT_57_5MM_LEFT: &[usize] = &[
-        246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368,
+    // first bar is at -140mm, centre offset of +0.35mm (3368.0-3360)/(3368 - 3140)*10.0?
+    const BARS_AT_50MM: &[usize] = &[
+        246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368, 3597,
+        3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560,
     ];
-    const BARS_AT_57_5MM_RIGHT: &[usize] = &[
-        3597, 3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560,
-    ];
+
+    for (i, px) in BARS_AT_50MM.iter().enumerate() {
+        calibration_data.add_data((i as f64 - 14.0) * 10. + 0.35, [*px as f64, 0.].into());
+    }
+    let (_, _, tot_e_sq) = calibration_data.analyze();
+    assert!(
+        tot_e_sq < 60.0,
+        "If all is working total error should be about 51.5"
+    );
+}
+
+//fp find_poly_for_canon_50mm_at_short
+#[test]
+fn find_poly_for_canon_50mm_at_short() {
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let mut calibration_data =
+        CalibrationData::new(sensor, 57.19, 460.0 - 57.19, (1.83_f64).to_radians());
+
+    // first bar is at -120mm, offset of +0.68mm (3378.0-3360)/(3378 - 3325)*2.0?
     const BARS_AT_57_5_MM: &[usize] = &[
         245, 495, 750, 1007, 1264, 1523, 1785, 2049, 2312, 2577, 2844, 3111, 3378, 3645, 3914,
         4181, 4449, 4716, 4985, 5250, 5516, 5781, 6045, 6306, 6567,
     ];
 
-    let mut bars = vec![];
-    for (i, px) in BARS_AT_57_5MM_LEFT.iter().rev().enumerate() {
-        bars.push((-(i as isize), (*px)));
-        calibration_data.add_data(-(i as f64) * 10., [*px as f64, 0.].into());
-    }
-    for (i, px) in BARS_AT_57_5MM_RIGHT.iter().enumerate() {
-        bars.push(((i as isize) + 1, (*px)));
-        calibration_data.add_data(((i + 1) as f64) * 10., [*px as f64, 0.].into());
+    for (i, px) in BARS_AT_57_5_MM.iter().enumerate() {
+        calibration_data.add_data((i as f64 - 12.0) * 10. + 0.68, [*px as f64, 0.].into());
     }
     let (_, _, tot_e_sq) = calibration_data.analyze();
     assert!(
-        tot_e_sq < 50.0,
-        "If all is working total error should be about 40.4"
+        tot_e_sq < 40.0,
+        "If all is working total error should be about 24.4"
+    );
+}
+//fp compare_polys_for_canon_50mm
+#[test]
+fn compare_polys_for_canon_50mm() {
+    let sensor = RectSensor::new_35mm(6720, 4480);
+
+    let mut calibration_data_50mm =
+        CalibrationData::new(sensor.clone(), 50.0, 460.0 - 50.0, (1.83_f64).to_radians());
+    let mut calibration_data_57mm = CalibrationData::new(
+        sensor.clone(),
+        57.201,
+        460.0 - 57.201,
+        (1.83_f64).to_radians(),
+    );
+
+    // first bar is at -140mm, centre offset of +0.35mm (3368.0-3360)/(3368 - 3140)*10.0?
+    const BARS_AT_50MM: &[usize] = &[
+        246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368, 3597,
+        3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560,
+    ];
+
+    for (i, px) in BARS_AT_50MM.iter().enumerate() {
+        calibration_data_50mm.add_data((i as f64 - 14.0) * 10. + 0.35, [*px as f64, 0.].into());
+    }
+
+    // first bar is at -120mm, offset of +0.68mm (3378.0-3360)/(3378 - 3325)*2.0?
+    const BARS_AT_57_5_MM: &[usize] = &[
+        245, 495, 750, 1007, 1264, 1523, 1785, 2049, 2312, 2577, 2844, 3111, 3378, 3645, 3914,
+        4181, 4449, 4716, 4985, 5250, 5516, 5781, 6045, 6306, 6567,
+    ];
+
+    for (i, px) in BARS_AT_57_5_MM.iter().enumerate() {
+        calibration_data_57mm.add_data((i as f64 - 12.0) * 10. + 0.68, [*px as f64, 0.].into());
+    }
+
+    let (p50, _, _) = calibration_data_50mm.analyze();
+    let (p57, _, _) = calibration_data_57mm.analyze();
+
+    // The polynomial should be good up to about 20 degrees (half horizontal FOV)
+    // which is 0.36 in tan() space
+    // For diagonal 50mm lens FOV, about 23.4 degrees (half diagonal FOV that is)
+    // which is 0.43 in tan() space
+    let mut tot_e_sq = 0.;
+    for i in 0..100 {
+        let ti = i as f64 * 0.0032;
+        let ts_50 = p50.calc(ti);
+        let ts_57 = p57.calc(ti);
+        let px_50 = ts_50 * 50.0 / sensor.mm_single_pixel_width();
+        let px_57 = ts_57 * 50.0 / sensor.mm_single_pixel_width();
+        let diff_px = px_57 - px_50;
+        let e_sq = diff_px * diff_px;
+        eprintln!(
+            "{} {} : {} {} : {} {} : {} : {}",
+            i, ti, ts_50, ts_50, px_50, px_57, diff_px, e_sq
+        );
+        tot_e_sq += e_sq;
+    }
+    assert!(
+        tot_e_sq < 10.,
+        "Total error should be < 100. but was {}",
+        tot_e_sq
     );
 }
