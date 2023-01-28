@@ -356,6 +356,46 @@ fn add_calibration_data_canon_50mm_y_inf(calibration_data: &mut CalibrationData)
     }
 }
 
+//fp add_calibration_data_canon_50mm_corners_inf
+fn add_calibration_data_canon_50mm_corners_inf(calibration_data: &mut CalibrationData) {
+    const BARS_AT_50MM: &[((usize, usize), (isize, isize))] = &[
+        ((1350, 4225), (-9, 9)),
+        ((1564, 4008), (-8, 8)),
+        ((1787, 3790), (-7, 7)),
+        ((2008, 3562), (-6, 6)),
+        ((2231, 3340), (-5, 5)),
+        ((2457, 3114), (-4, 4)),
+        ((2682, 2888), (-3, 3)),
+        ((2909, 2661), (-2, 2)),
+        ((3138, 2434), (-1, 1)),
+        ((3593, 1974), (1, -1)),
+        ((3826, 1743), (2, -2)),
+        ((4052, 1516), (3, -3)),
+        ((4283, 1282), (4, -4)),
+        ((4514, 1055), (5, -5)),
+        ((4742, 825), (6, -6)),
+        ((4968, 597), (7, -7)),
+        ((5195, 372), (8, -8)),
+        ((5419, 148), (9, -9)),
+        ((1335, 181), (-9, -9)),
+        ((1558, 399), (-8, -8)),
+        ((1776, 620), (-7, -7)),
+        ((2001, 840), (-6, -6)),
+        ((2225, 1064), (-5, -5)),
+        ((2454, 1291), (-4, -4)),
+        ((2680, 1518), (-3, -3)),
+        ((2910, 1746), (-2, -2)),
+        ((3136, 1975), (-1, -1)),
+    ];
+
+    for ((px, py), (bx, by)) in BARS_AT_50MM.iter() {
+        calibration_data.add_data(
+            [*bx as f64 * 10. + 0.32, *by as f64 * 10. - 1.65].into(),
+            [*px as f64, *py as f64].into(),
+        );
+    }
+}
+
 //a tests
 //fp find_poly_for_canon_50mm_x
 #[test]
@@ -402,6 +442,33 @@ fn find_poly_for_canon_50mm_y() {
     let tot_e_sq = tan_map.debug(focal_length);
     assert!(
         tot_e_sq < 50.0,
+        "If all is working total error should be about 44.8 (!) was {}",
+        tot_e_sq
+    );
+}
+
+//fp find_poly_for_canon_50mm_corners
+#[test]
+fn find_poly_for_canon_50mm_corners() {
+    let focal_length = 50.0;
+    // let focal_length = 49.77;
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let mut calibration_data = CalibrationData::new(
+        sensor.clone(),
+        focal_length,
+        460.0 - focal_length,
+        (1.83_f64).to_radians(), // vertical door (and vertical camera?)
+    );
+    add_calibration_data_canon_50mm_corners_inf(&mut calibration_data);
+    // add_calibration_data_canon_50mm_x_inf(&mut calibration_data);
+    // add_calibration_data_canon_50mm_y_inf(&mut calibration_data);
+
+    let mut tan_map = TanMap::new(sensor.clone());
+    tan_map.add_calibration_data(&calibration_data);
+    tan_map.analyze(5);
+    let tot_e_sq = tan_map.debug(focal_length);
+    assert!(
+        tot_e_sq < 5.0,
         "If all is working total error should be about 44.8 (!) was {}",
         tot_e_sq
     );
