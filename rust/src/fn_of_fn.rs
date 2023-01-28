@@ -23,19 +23,15 @@ impl<A: Arg> Function<A> for FunctionOfFunction<A> {
     //fp clone
     fn clone(&self) -> Node<A> {
         Node::new(FunctionOfFunction {
-            f: self.f.clone(),
+            f: self.f.clone_node(),
             f_arg: self.f_arg.clone(),
-            g: self.g.clone(),
+            g: self.g.clone_node(),
         })
     }
 
     //fp as_constant
     fn as_constant(&self) -> Option<f64> {
-        if let Some(c) = self.f.as_constant() {
-            Some(c)
-        } else {
-            None
-        }
+        self.f.as_constant()
     }
 
     //fp evaluate
@@ -55,18 +51,14 @@ impl<A: Arg> Function<A> for FunctionOfFunction<A> {
 
     //fp differentiate
     fn differentiate(&self, arg: &A) -> Option<Node<A>> {
-        let dg = self.g.differentiate(arg);
-        if dg.is_none() {
-            return None;
-        }
-        let dg = dg.unwrap();
+        let dg = self.g.differentiate(arg)?;
         if let Some(df) = self.f.differentiate(&self.f_arg) {
             let mut product = Product::default();
             product.add_fn(dg);
             product.add_fn(Node::new(FunctionOfFunction::new(
                 df,
                 &self.f_arg,
-                self.g.clone(),
+                self.g.clone_node(),
             )));
             Some(Node::new(product))
         } else {

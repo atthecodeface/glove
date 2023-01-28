@@ -49,7 +49,7 @@ impl<A: Arg> Node<A> {
     pub fn is_one(&self) -> bool {
         self.as_constant() == Some(1.)
     }
-    pub fn clone(&self) -> Node<A> {
+    pub fn clone_node(&self) -> Node<A> {
         self.bf.clone()
     }
     pub fn as_constant(&self) -> Option<f64> {
@@ -64,13 +64,13 @@ impl<A: Arg> Node<A> {
     pub fn evaluate(&self, arg_to_value: &dyn Fn(&A) -> f64) -> f64 {
         self.bf.evaluate(arg_to_value)
     }
-    pub fn simplified(self: Self) -> Node<A> {
+    pub fn simplified(self) -> Node<A> {
         self.bf.simplified()
     }
-    pub fn as_products(self: Self) -> (f64, Vec<Node<A>>) {
+    pub fn as_products(self) -> (f64, Vec<Node<A>>) {
         self.bf.as_products()
     }
-    pub fn as_sums(self: Self) -> Vec<Node<A>> {
+    pub fn as_sums(self) -> Vec<Node<A>> {
         self.bf.as_sums()
     }
 }

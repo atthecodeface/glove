@@ -247,10 +247,10 @@ impl LCamera {
     ) -> (Self, f64) {
         let mut c = self.clone();
         let mut tc = c.clone();
-        let mut e = c.get_pm_sq_error(&pm);
+        let mut e = c.get_pm_sq_error(pm);
         for _ in 0..max_steps {
             tc.direction = c.direction * *q;
-            let ne = tc.get_pm_sq_error(&pm);
+            let ne = tc.get_pm_sq_error(pm);
             if ne > e {
                 break;
             }
@@ -271,7 +271,7 @@ impl LCamera {
         let mut c = self.clone();
         let mut e = 0.;
         for q in rotations.quats.iter() {
-            (c, e) = c.apply_quat_to_get_min_sq_error(steps_per_rot, pm, &q);
+            (c, e) = c.apply_quat_to_get_min_sq_error(steps_per_rot, pm, q);
         }
         (c, e)
     }
@@ -299,6 +299,7 @@ impl LCamera {
     }
 
     //fp adjust_direction_while_keeping_one_okay
+    #[allow(clippy::too_many_arguments)]
     pub fn adjust_direction_while_keeping_one_okay<F: Fn(&Self, &[PointMapping], usize) -> f64>(
         &self,
         max_adj: usize,
@@ -347,7 +348,7 @@ impl LCamera {
             e = ne;
         }
         dbg!("Adjusted BUT TOO MUCH!", e);
-        return (c, e);
+        (c, e)
     }
 
     //fp adjust_direction_rotating_around_one_point
@@ -391,13 +392,13 @@ impl LCamera {
             }
             rot = quat::conjugate(rot.as_ref()).into();
         }
-        return (c, e);
+        (c, e)
     }
 
     //fp find_best_error
     pub fn find_best_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
         let mut n = 0;
-        let mut best_e = 1000_000_000.0;
+        let mut best_e = 1_000_000_000.0;
         for (i, pm) in mappings.iter().enumerate() {
             let e = self.get_pm_sq_error(pm);
             if e < best_e {
@@ -524,7 +525,7 @@ impl LCamera {
                     .adjust_direction_rotating_around_one_point(
                         // &|c, m, n| m[n].get_sq_error(c),
                         // &|c, m, n| c.total_error(&mappings),
-                        &|c, _m, _n| c.worst_error(&mappings),
+                        &|c, _m, _n| c.worst_error(mappings),
                         0.2_f64.to_radians(),
                         mappings,
                         i,

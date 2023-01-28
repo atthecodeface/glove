@@ -57,7 +57,7 @@ impl<A: Arg> Function<A> for Value<A> {
         Node::new(match self {
             Argument(name) => Value::new_arg(name),
             Constant(f) => Value::constant(*f),
-            Function(f) => Value::Function((*f).clone()),
+            Function(f) => Value::Function((*f).clone_node()),
         })
     }
 

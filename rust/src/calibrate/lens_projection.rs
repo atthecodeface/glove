@@ -1,11 +1,10 @@
 use super::CalcPoly;
-use super::CameraProjection;
-use super::RollYaw;
-use super::{Point2D, Point3D, TanXTanY};
+use super::LensProjection;
 
 //a Trait
 //tp Polynomial
-/// A lens projection implemented with a polynomial mapping of radial offset to off-axis angle of the ray
+/// A lens projection implemented with a polynomial mapping of
+/// tan(incoming angle) to tan(outgoing angle) of the ray
 ///
 /// Real lenses have a mapping from angle-from-centre to a
 /// distance-from-center on the sensor that is notionally standard
@@ -13,317 +12,194 @@ use super::{Point2D, Point3D, TanXTanY};
 /// lens-specific, and so this provides a polynomial mapping which
 /// can be generated from taking pictures of a grid
 ///
-/// For a stereographic lens the polynomial is offset = 2 tan(angle/2) ( * fl / sw)
+/// For a rectilinear lens the polynomial is tan(output) = tan(angle);
+/// this keeps lines straight, and is the standard 3D computer
+/// projection
 ///
-/// For an 'equidistant' or 'equiangular' lens the polynomial is offset = angle ( * fl / sw)
+/// For a stereographic lens the polynomial is tan(output) = 2 tan(angle/2)
 ///
-/// For an 'equisolid' lens the polynomial is offset =  2 sin(angle/2) ( * fl / sw)
+/// For an 'equidistant' or 'equiangular' lens the polynomial is tan(output) = angle
 ///
-/// For an 'orthographic' lens the polynomial is offset =  sin(angle) ( * fl / sw)
+/// For an 'equisolid' lens the polynomial is tan(output) =  2 sin(angle/2)
 ///
-/// For a rectilinear lens the polynomial is offset = tan(angle) ( * fl / sw); this keeps lines straight
+/// For an 'orthographic' lens the polynomial is tan(output) =  sin(angle)
 #[derive(Debug, Clone)]
 pub struct Polynomial {
-    /// Centre pixel
-    px_centre: [f64; 2],
-
-    /// Width of sensor in pixels (normally an int)
-    px_width: f64,
-
-    /// Height of sensor in pixels (normally an int)
-    px_height: f64,
-
-    /// Set to true if sensor absolute pixel coords have origin at top left
-    flip_y: bool,
-
-    // The width of the sensor in mm
-    //
-    // Assuming that the camera changes focal length purely by moving the lens
-    // away from the sensor, the offset onto the sensor will scale purely by
-    // mm_focal_length / mm_sensor_width
-    mm_sensor_width: f64,
-
-    // The height of the sensor in mm
-    mm_sensor_height: f64,
-
-    // The focal length in mm
-    mm_focal_length: f64,
+    /// Name
+    name: String,
 
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
     ///
     /// fractional Y-offset is px_rel_y / (px_height/2) / pixel_aspect_ratio
-    poly: Vec<f64>,
+    ftc_poly: Vec<f64>,
 
     /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
-    inv_poly: Vec<f64>,
-
-    /// Derived width of a sensor pixel in mm
-    ///
-    /// mm_sensor_width / px_width
-    mm_single_pixel_width: f64,
-
-    /// Derived width of a sensor pixel in mm
-    ///
-    /// mm_sensor_height / px_height
-    mm_single_pixel_height: f64,
-
-    /// Derived non-squareness of sensor pixel - X to Y ratio
-    ///
-    /// = mm_single_pixel_width / mm_single_pixel_height
-    pixel_aspect_ratio: f64,
-
-    /// Fractional X to relative pixel X scaling
-    frac_x_to_px_x: f64,
-
-    /// Fractional X to relative pixel Y scaling
-    frac_x_to_px_y: f64,
+    ctf_poly: Vec<f64>,
 }
 
 //ip default for Polynomial
-/// Sensor sizes:
-///   medium format 53.7 by 40.2mm
-///   medium format 43.8 by 32.9mm
-///   Full frame 35mm is 36.0 by 24.0mm
-///   Nikon APS-C 23.6 by 15.6mm
-///   Canon APS-C 22.3 by 14.9mm (or 22.2 by 14.8)
-///   Canon APS-H 28.7 by 19.0mm
 impl std::default::Default for Polynomial {
     fn default() -> Self {
-        (Self {
-            px_centre: [200., 150.],
-            px_width: 400.,
-            px_height: 300.,
-            flip_y: false,
-            mm_sensor_width: 36.,
-            mm_sensor_height: 24.,
-            mm_focal_length: 20.,
-            poly: vec![0., 1.],
-            inv_poly: vec![0., 1.],
-            pixel_aspect_ratio: 1.,
-            mm_single_pixel_width: 1.,
-            mm_single_pixel_height: 1.,
-            frac_x_to_px_x: 0.,
-            frac_x_to_px_y: 0.,
-        })
-        .derive()
+        Self {
+            name: String::new(),
+            ftc_poly: vec![0., 1.],
+            ctf_poly: vec![0., 1.],
+        }
     }
 }
 
 //ip Polynomial
 impl Polynomial {
     //fp new
-    pub fn new(
-        mm_focal_length: f64,
-        mm_sensor_width: f64,
-        px_width: usize,
-        px_height: usize,
-    ) -> Self {
-        Self::default()
-            .set_px_frame(px_width, px_height)
-            .set_sensor_width(mm_sensor_width)
-            .set_focal_length(mm_focal_length)
-            .derive()
+    pub fn new(name: &str) -> Self {
+        Self::default().set_name(name)
     }
 
-    //cp set_flip_y
-    pub fn set_flip_y(mut self, flip_y: bool) -> Self {
-        self.flip_y = flip_y;
+    //cp set_name
+    pub fn set_name<S: Into<String>>(mut self, name: S) -> Self {
+        self.name = name.into();
         self
     }
 
-    //cp set_focal_length
-    pub fn set_focal_length(mut self, mm_focal_length: f64) -> Self {
-        self.mm_focal_length = mm_focal_length;
+    //cp set_ftc_poly
+    pub fn set_ftc_poly(mut self, poly: &[f64]) -> Self {
+        self.ftc_poly = poly.to_vec();
         self
     }
 
-    //cp set_sensor_size
-    /// Set the sensor size
-    pub fn set_sensor_size(mut self, mm_sensor_width: f64, mm_sensor_height: f64) -> Self {
-        self.mm_sensor_width = mm_sensor_width;
-        self.mm_sensor_height = mm_sensor_height;
+    //cp set_ctf_poly
+    pub fn set_ctf_poly(mut self, poly: &[f64]) -> Self {
+        self.ctf_poly = poly.to_vec();
         self
     }
 
-    //cp set_sensor_width
-    /// Set the sensor width
-    pub fn set_sensor_width(mut self, mm_sensor_width: f64) -> Self {
-        self.mm_sensor_width = mm_sensor_width;
-        self.mm_sensor_height = mm_sensor_width / self.px_width * self.px_height;
-        self
+    //ap name
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
-    //cp set_sensor_height
-    /// Set the sensor height, setting the width also
-    pub fn set_sensor_height(mut self, mm_sensor_height: f64) -> Self {
-        self.mm_sensor_height = mm_sensor_height;
-        self.mm_sensor_width = mm_sensor_height / self.px_height * self.px_width;
-        self
-    }
-
-    //cp set_px_frame
-    pub fn set_px_frame(mut self, px_width: usize, px_height: usize) -> Self {
-        self.px_width = px_width as f64;
-        self.px_height = px_height as f64;
-        self.px_centre = [self.px_width / 2.0, self.px_height / 2.0];
-        self
-    }
-
-    //cp set_px_centre
-    pub fn set_px_centre(mut self, px_centre: [usize; 2]) -> Self {
-        self.px_centre = [px_centre[0] as f64, px_centre[1] as f64];
-        self
-    }
-
-    //cp set_poly
-    pub fn set_poly(mut self, poly: &[f64]) -> Self {
-        self.poly = poly.iter().map(|x| *x).collect();
-        self
-    }
-
-    //cp set_inv_poly
-    pub fn set_inv_poly(mut self, inv_poly: &[f64]) -> Self {
-        self.inv_poly = inv_poly.iter().map(|x| *x).collect();
-        self
-    }
-
-    //cp derive
-    pub fn derive(mut self) -> Self {
-        self.mm_single_pixel_width = self.mm_sensor_width / self.px_width;
-        self.mm_single_pixel_height = self.mm_sensor_height / self.px_height;
-        self.pixel_aspect_ratio = self.mm_single_pixel_width / self.mm_single_pixel_height;
-        self.frac_x_to_px_x = self.px_width / 2.;
-        self.frac_x_to_px_y = self.px_height / 2. * self.pixel_aspect_ratio;
-        self
-    }
-
-    //mp abs_px_x_to_mm
-    /// Convert an absolute X pixel (0 to width) to mm offset form centre
-    #[inline]
-    pub fn abs_px_x_to_mm(&self, px_x: usize) -> f64 {
-        self.rel_px_x_to_mm(px_x as f64 - self.px_centre[0])
-    }
-
-    //mp abs_px_y_to_mm
-    /// Convert an absolute Y pixel (0 to height) to mm offset form centre
-    #[inline]
-    pub fn abs_px_y_to_mm(&self, px_y: usize) -> f64 {
-        self.rel_px_y_to_mm(px_y as f64 - self.px_centre[1])
-    }
-
-    //mp rel_px_x_to_mm
-    /// Convert an absolute X pixel (0 to width) to mm offset form centre
-    #[inline]
-    pub fn rel_px_x_to_mm(&self, px_x: f64) -> f64 {
-        px_x * self.mm_single_pixel_width
-    }
-
-    //mp rel_px_y_to_mm
-    /// Convert an absolute Y pixel (0 to height) to mm offset form centre
-    #[inline]
-    pub fn rel_px_y_to_mm(&self, px_y: f64) -> f64 {
-        px_y * self.mm_single_pixel_height
-    }
-    //fp px_rel_xy_to_ry
-    #[inline]
-    fn px_rel_xy_to_ry(&self, xy: Point2D) -> RollYaw {
-        let frac_xy_x = xy[0] / self.frac_x_to_px_x;
-        let frac_xy_y = xy[1] / self.frac_x_to_px_y;
-        let r = (frac_xy_x * frac_xy_x + frac_xy_y * frac_xy_y).sqrt();
-        let sin_roll = frac_xy_y / r;
-        let cos_roll = frac_xy_x / r;
-        let yaw = self.poly.calc(r);
-        // Deprecated use of from_roll_yaw
-        RollYaw::from_roll_yaw(sin_roll, cos_roll, yaw)
-    }
-
-    //fp ry_to_px_rel_xy
-    #[inline]
-    fn ry_to_px_rel_xy(&self, ry: RollYaw) -> Point2D {
-        // Deprecated use of ry.yaw()
-        let x_frac = self.inv_poly.calc(ry.yaw());
-        let s = ry.sin_roll();
-        let c = ry.cos_roll();
-        [
-            x_frac * c * self.frac_x_to_px_y,
-            x_frac * s * self.frac_x_to_px_y,
-        ]
-        .into()
-    }
     //zz All done
 }
 
-//ip CameraProjection for Polynomial
-impl CameraProjection for Polynomial {
-    //fp px_rel_xy_to_px_abs_xy
+//ip LensProjection for Polynomial
+impl LensProjection for Polynomial {
     #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] + self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
-        }
+    fn frame_to_camera(&self, tan: f64) -> f64 {
+        self.ftc_poly.calc(tan)
     }
-    //fp px_abs_xy_to_px_rel_xy
     #[inline]
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] - self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] - self.px_centre[0], xy[1] - self.px_centre[1]].into()
-        }
-    }
-
-    //fp px_rel_xy_to_txty
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a tan(x), tan(y)
-    ///
-    /// This must apply the lens projection
-    ///
-    /// The default functions combines other mapping functions, so may
-    /// not be fully optimized
-    #[inline]
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY {
-        let ry = self.px_rel_xy_to_ry(xy);
-        ry.into()
-    }
-
-    //fp txty_to_px_rel_xy
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
-    ///
-    /// This must apply the lens projection
-    ///
-    /// An implementation can improve the performance for some lenses
-    /// where this is a much simpler mapping than the two stages combined
-    #[inline]
-    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
-        let ry: RollYaw = txty.into();
-        self.ry_to_px_rel_xy(ry)
+    fn camera_to_frame(&self, tan: f64) -> f64 {
+        self.ctf_poly.calc(tan)
     }
 }
-
 //a Lens polynomial
+/// Notes Jan 2023
+///
+/// On the Canon 50mm lens on the 5d mark IV (2160 == 4v3a6028). The 5D mark IV has a 35mm sensor 6720x4480
+///
+/// Calibration images (2157 - 2160) taken at a distance of roughly 43cm to focal plane from object
+///
+/// The four photos taken use focus on 4 steps from close up (minimum focus distance about 40cm) to infinity
+/// Hence the lens-to-frame distance is (see below) 57.5mm for 2157 to 50.0mm for 2160
+///
+/// The test photos of noughts and crosses (2161-2163, 2164-2166) are
+/// 3 images focused at infinity and 3 focused as close up as possible
+/// (presumably at 40cm)
+///
+/// Note 1/f = 1/u + 1/v or u = 1/(1/f - 1/v) = fv / v-f
+///
+/// Infinity is lens at 50mm from sensor; minimum focusing distance
+/// (object to focal plane) is about 44cm = 440mm; that is u+v
+///
+/// f = uv / u+v => uv = f*(u+v) = 50*440 = u*(440-u) =>
+///   u^2 - 440u + 50*440 = 0 -> u=1/2(440-sqrt(440^2-4*50*440))
+///   u = 57.5mm, v=402.5mm
+///
+/// If the object is K mm away then on from the sensor the sensor image size is propotional to u/K-u,
+/// and for two different sensor to lens distances u1 and u2 there is a relative scaling of
+///
+/// u1/u2 * (K-u2)/(K-u1)
+///
 /// Function of X-offset / (px_width/2) to angle
 ///
-/// From data captured on the 20-35mm lens at 20mm on Rebel2Ti
-pub const CANON_20_35_REBEL2TI_AT_20_POLY: [f64; 6] = [
-    -7.9469597546248994e-05,
-    0.94840242521694607,
-    -0.072647540142068201,
-    0.078163335684369506,
-    -0.26366976024895566,
-    0.064274376512159836,
+/// For 2160 (aka 4v3a6028) - focus at infinity, lens 50mm from fame -
+/// the lines (every centimeter in the source) are at X offsets of
+/// (with +-5 error):
+///
+/// 246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368, 3597, 3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560
+///
+/// The lines (every centimeter in the source) in 2156 (slightly better than 2157) (aka 4v3a604) are at X offsets of (with +-5 error) (note should be zoom by about 400/350):
+///
+/// 245, 495, 750, 1007, 1264, 1523, 1785, 2049, 2312, 2577, 2844, 3111, 3378, 3645, 3914, 4181, 4449, 4716, 4985, 5250, 5516, 5781, 6045, 6306, 6567,
+///
+/// At the centre (about 3360) the 1cm separation is 228 for '2160' and 267 for '2156', or a scaling of 1.17
+///
+/// If the object were K=450mm from the focus plane then u1/u2 * (K-u2)/(K-u1), with u1=50mm, u2=57.5mm,
+/// yields 1.1719
+///
+/// The separation on the source is 10mmm; this should map to
+/// 10*u/(K-u)mm on the sensor, which is 36mm wide for 6720 pixels
+/// (186.6px/mm), so it should be 10*50/(450-50)*186.6 = 233.25, and
+/// 10*57.5/(450-57.5)=273.36. These are somewhat larger than what was
+/// captured; that indicates an actual distance of K=460mm; this still
+/// works: 10.0*50/(460-50)*186.6 = 227.6 and 10.0*57.5/(460-57.5)*186.6=266.6
+///
+/// Assuming the center of the source is then indeed 460mm from the
+/// camera sensor, then we have to account for the source not being
+/// perfectly parallel to the plane of the camera - it was flat
+/// though, so the difference between the left and right in terms of
+/// distance from the camera should be a linear mapping from amount
+/// off-center. Hence distance from camera to source = 460+c*distance.
+///
+/// For the far left we have 13 to 14 cm from the centre as (457-246)=211px;
+/// on the right we have (6560-6336)=224px. Assuming the *same* lens mapping for both
+/// we know that px is proportional to mm, hence:
+///
+/// 57.5/(460+cd-57.5) is proportional to 224, and 57.5/(460-cd-57.5) is proportionaal to 211,
+///
+/// hence (460+cd-57.5)/(460-cd-57.5) = 211/224
+/// (402.5+cd)*224 = 211*(402.5-cd)
+///  402.5*224 + 224cd = 211*402.5 - 211cd
+///  402.5*(224-211) = -(211 + 224)cd
+///  cd = -402.5*(224-211) / (224+211)
+///  cd = -12
+/// Now d = 135mm (approx) hence c = -0.089mm / mm
+///
+/// as a check, at 65mm to the left we have a K of 460+-0.089*65 = 454.2mm to 465.8mm
+///
+/// A 10mm separation will therefore be expected to have a ratio of:
+///
+/// (454.2-57.5)/(465.8-57.5) = 0.972; we actually see 2003-1777=226 on the left and 4973-4745=228 on the right.
+/// We would expect to see 226 and 232.6 or 221.5 and 228 (basically a difference of about 6.5 pixels, not 2).
+///
+/// That is what we get for 7-8mm (223 on left, 229 on right).
+///
+/// Maybe the best approach is to try various values of cd in a best fit lens projection for the points,
+/// where we determine that, relative to the lens, we have:
+///
+/// z = 460 - distance*sin(angle of door); x = point num * 10mm * cos(angle of door) (possibly +0.3mm offset);
+/// distance from lens to frame = 57.5
+///
+/// The door looks to be at an angle of 1.88 degrees
+///
+/// From out-of-date data captured on the 20-35mm lens at 20mm on Rebel2Ti
+pub const CANON_20_35_REBEL2TI_AT_20_FTC_POLY: [f64; 6] = [
+    -7.94695975462489e-05,
+    0.9484024252169461,
+    -0.0726475401420682,
+    0.0781633356843695,
+    -0.2636697602489557,
+    0.06427437651215984,
 ];
 
 /// Function of angle to X-offset / (px_width/2)
 ///
 /// Inverse function
-pub const CANON_20_35_REBEL2TI_AT_20_INV_POLY: [f64; 6] = [
-    7.3033194404697801e-05,
+pub const CANON_20_35_REBEL2TI_AT_20_CTF_POLY: [f64; 6] = [
+    7.30331944046978e-05,
     1.0573355058624287,
     0.031719783990272865,
     0.25078854816002316,
-    -0.55629963398692217,
-    0.87342620262394521,
+    -0.5562996339869222,
+    0.8734262026239452,
 ];

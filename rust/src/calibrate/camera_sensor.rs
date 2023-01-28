@@ -80,6 +80,13 @@ impl RectSensor {
             .derive()
     }
 
+    //fp new_35mm
+    pub fn new_35mm(px_width: usize, px_height: usize) -> Self {
+        Self::new(36.0, px_width, px_height)
+            .set_sensor_size(36.0, 24.0)
+            .derive()
+    }
+
     //cp set_flip_y
     pub fn set_flip_y(mut self, flip_y: bool) -> Self {
         self.flip_y = flip_y;
@@ -149,6 +156,16 @@ impl RectSensor {
         (self.mm_sensor_height * self.mm_sensor_height
             + self.mm_sensor_width * self.mm_sensor_width)
             .sqrt()
+    }
+
+    //ap mm_single_pixel_width
+    pub fn mm_single_pixel_width(&self) -> f64 {
+        self.mm_single_pixel_width
+    }
+
+    //ap mm_single_pixel_height
+    pub fn mm_single_pixel_height(&self) -> f64 {
+        self.mm_single_pixel_height
     }
 
     //ap px_centre

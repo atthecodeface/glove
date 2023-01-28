@@ -58,7 +58,7 @@ impl<A: Arg> Product<A> {
 impl<A: Arg> Function<A> for Product<A> {
     //fp clone
     fn clone(&self) -> Node<A> {
-        let fns = self.fns.iter().map(|f| (*f).clone()).collect();
+        let fns = self.fns.iter().map(|f| (*f).clone_node()).collect();
         Node::new(Product { s: self.s, fns })
     }
 
@@ -91,7 +91,7 @@ impl<A: Arg> Function<A> for Product<A> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     //fp differentiate
@@ -105,7 +105,7 @@ impl<A: Arg> Function<A> for Product<A> {
                 };
                 for (j, f) in self.fns.iter().enumerate() {
                     if i != j {
-                        product.add_fn((*f).clone());
+                        product.add_fn((*f).clone_node());
                     }
                 }
                 product.add_fn(df);
@@ -121,7 +121,10 @@ impl<A: Arg> Function<A> for Product<A> {
 
     //fp as_products
     fn as_products(self: Box<Self>) -> (f64, Vec<Node<A>>) {
-        (self.s, self.fns.into_iter().map(|f| f.clone()).collect())
+        (
+            self.s,
+            self.fns.into_iter().map(|f| f.clone_node()).collect(),
+        )
     }
 
     //fp simplified
@@ -145,8 +148,7 @@ impl<A: Arg> Function<A> for Product<A> {
         if fns.is_empty() {
             Node::new(Value::constant(constant))
         } else if constant == 1. && fns.len() == 1 {
-            let f = fns.pop().unwrap();
-            f
+            fns.pop().unwrap()
         } else {
             let mut product = Product::default();
             product.scale(constant);

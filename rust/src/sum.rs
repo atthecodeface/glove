@@ -47,7 +47,7 @@ impl<A: Arg> std::fmt::Display for Sum<A> {
 impl<A: Arg> Function<A> for Sum<A> {
     //fp clone
     fn clone(&self) -> Node<A> {
-        let fns = self.fns.iter().map(|f| (*f).clone()).collect();
+        let fns = self.fns.iter().map(|f| (*f).clone_node()).collect();
         Node::new(Sum { fns })
     }
 
@@ -80,7 +80,7 @@ impl<A: Arg> Function<A> for Sum<A> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     //fp differentiate
@@ -116,8 +116,7 @@ impl<A: Arg> Function<A> for Sum<A> {
         if fns.is_empty() {
             Node::new(Value::constant(constant))
         } else if constant == 0. && fns.len() == 1 {
-            let f = fns.pop().unwrap();
-            f
+            fns.pop().unwrap()
         } else {
             let mut sum = Sum::default();
             sum.add_fn(Node::new(Value::constant(constant)));

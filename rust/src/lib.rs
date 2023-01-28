@@ -68,11 +68,11 @@ pub fn test_fn_of_fn() {
     let df_dqi = x_sq_2_qi.differentiate(&a).unwrap();
     println!("  f: {}", x_sq_2_qi);
     println!(" df: {}", df_dqi);
-    let df_dqi_simp = df_dqi.clone().simplified();
+    let df_dqi_simp = df_dqi.clone_node().simplified();
     println!("simp: {}", df_dqi_simp);
     let d2f_dqi = df_dqi.differentiate(&a).unwrap();
     println!("d2f: {}", d2f_dqi);
-    let d2f_dqi_simp = d2f_dqi.clone().simplified();
+    let d2f_dqi_simp = d2f_dqi.clone_node().simplified();
     println!("simp d2f: {}", d2f_dqi_simp);
     let d3f_dqi = d2f_dqi.differentiate(&a);
     assert!(d3f_dqi.is_none());

@@ -20,7 +20,7 @@ impl<A: Arg> Function<A> for PowerOf<A> {
     //fp clone
     fn clone(&self) -> Node<A> {
         Node::new(PowerOf {
-            x: self.x.clone(),
+            x: self.x.clone_node(),
             n: self.n,
         })
     }
@@ -37,18 +37,14 @@ impl<A: Arg> Function<A> for PowerOf<A> {
 
     //fp differentiate
     fn differentiate(&self, arg: &A) -> Option<Node<A>> {
-        let dx = self.x.differentiate(arg);
-        if dx.is_none() {
-            return None;
-        }
-        let dx = dx.unwrap();
+        let dx = self.x.differentiate(arg)?;
         let df = {
             match self.n {
                 1 => Node::new(Value::one()),
                 n => {
                     let mut f = Product::default();
                     f.add_fn(Node::new(Value::constant(n as f64)));
-                    f.add_fn(self.x.clone());
+                    f.add_fn(self.x.clone_node());
                     Node::new(f)
                 }
             }

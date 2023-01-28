@@ -1,9 +1,10 @@
 //a Modules
 // use glove::calibrate::Projection;
 use glove::calibrate::min_squares;
-use glove::calibrate::CalcPoly;
+use glove::calibrate::{CalcPoly, CameraSensor, Point2D, RectSensor};
 
 //a Tests
+//fp test_min_sq
 #[test]
 fn test_min_sq() {
     let xi = [1., 2., 3., 4.];
@@ -13,6 +14,7 @@ fn test_min_sq() {
     // assert!(false);
 }
 
+//fp find_poly_from_bars
 #[test]
 fn find_poly_from_bars() {
     let width_20 = 6230.0;
@@ -125,4 +127,134 @@ fn find_poly_from_bars() {
     dbg!(e_sq);
     //     assert!(false);
     // sample_data.sort(cmp=lambda x,y:cmp(x[3],y[3])) # Sort by pixels, in case a plots is needed
+}
+
+//tp CalibrationData
+pub struct CalibrationData {
+    sensor: RectSensor,
+    lens_from_frame: f64,
+    image_from_lens: f64,
+    /// For when the image was not quite parallel to camera
+    angle_of_image: f64,
+    /// Vec of image mm from centre to 2D point on sensor
+    data: Vec<(f64, Point2D)>,
+}
+//ip CalibrationData
+impl CalibrationData {
+    //fp new
+    fn new(
+        sensor: RectSensor,
+        lens_from_frame: f64,
+        image_from_lens: f64,
+        angle_of_image: f64,
+    ) -> Self {
+        let data = vec![];
+        Self {
+            sensor,
+            lens_from_frame,
+            image_from_lens,
+            angle_of_image,
+            data,
+        }
+    }
+    //fp add_data
+    fn add_data(&mut self, mm_image: f64, pt_sensor: Point2D) {
+        self.data.push((mm_image, pt_sensor));
+    }
+    //fp tan_image
+    fn tan_image(&self, dx: f64) -> f64 {
+        let z = self.image_from_lens - dx * self.angle_of_image.sin();
+        let x = dx * self.angle_of_image.cos() + 0.3;
+        x / z
+    }
+    //fp tan_sensor
+    fn tan_sensor(&self, pt: Point2D) -> f64 {
+        let dx = self.sensor.px_abs_xy_to_px_rel_xy(pt)[0] * self.sensor.mm_single_pixel_width();
+        dbg!(pt, dx);
+        dx / self.lens_from_frame
+    }
+    //fp analyze
+    fn analyze(&self) -> (Vec<f64>, Vec<f64>, f64) {
+        let mut ti = vec![];
+        let mut ts = vec![];
+        for (mm_image, pt_sensor) in self.data.iter() {
+            ti.push(self.tan_image(*mm_image).abs());
+            ts.push(self.tan_sensor(*pt_sensor).abs());
+        }
+        dbg!(&ti);
+        dbg!(&ts);
+        // let poly = min_squares::<8, 64>(&ti, &ts);
+        // let poly = min_squares::<7, 49>(&ti, &ts);
+        // let poly = min_squares::<6, 36>(&ti, &ts);
+        let poly = min_squares::<5, 25>(&ti, &ts);
+        let inv_poly = min_squares::<5, 25>(&ts, &ti);
+        // let poly = min_squares::<4, 16>(&ti, &ts);
+        // let inv_poly = min_squares::<4, 16>(&ts, &ti);
+        dbg!(poly);
+        let mut tot_e_sq = 0.;
+        for (i, tan_image) in ti.iter().enumerate() {
+            let tan_sensor = (&poly).calc(*tan_image);
+            let px_rel_sensor =
+                tan_sensor * self.lens_from_frame / self.sensor.mm_single_pixel_width();
+            let diff = tan_sensor - ts[i];
+            let diff_px = diff * self.lens_from_frame / self.sensor.mm_single_pixel_width();
+            let e_sq = diff_px * diff_px;
+            eprintln!(
+                "{} {} {} : {} : {} {} : {} v {} : {} : {}",
+                i,
+                ti[i],
+                ts[i],
+                tan_sensor,
+                self.data[i].0,
+                self.data[i].1,
+                self.sensor.px_centre()[0] + px_rel_sensor,
+                self.sensor.px_centre()[0] - px_rel_sensor,
+                diff_px,
+                e_sq,
+            );
+            if e_sq > 0. {
+                tot_e_sq += e_sq;
+            }
+        }
+        dbg!(tot_e_sq);
+        (poly.to_vec(), inv_poly.to_vec(), tot_e_sq)
+    }
+
+    //zz All done
+}
+
+//fp find_poly_for_canon_50mm
+#[test]
+fn find_poly_for_canon_50mm() {
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let mut calibration_data =
+//        CalibrationData::new(sensor, 57.5, 460.0 - 57.5, (1.88_f64).to_radians());
+        CalibrationData::new(sensor, 50.0, 460.0 - 50.0, (1.93_f64).to_radians());
+
+    /// LEFT includes centre bar
+    const BARS_AT_57_5MM_LEFT: &[usize] = &[
+        246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368,
+    ];
+    const BARS_AT_57_5MM_RIGHT: &[usize] = &[
+        3597, 3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560,
+    ];
+    const BARS_AT_57_5_MM: &[usize] = &[
+        245, 495, 750, 1007, 1264, 1523, 1785, 2049, 2312, 2577, 2844, 3111, 3378, 3645, 3914,
+        4181, 4449, 4716, 4985, 5250, 5516, 5781, 6045, 6306, 6567,
+    ];
+
+    let mut bars = vec![];
+    for (i, px) in BARS_AT_57_5MM_LEFT.iter().rev().enumerate() {
+        bars.push((-(i as isize), (*px)));
+        calibration_data.add_data(-(i as f64) * 10., [*px as f64, 0.].into());
+    }
+    for (i, px) in BARS_AT_57_5MM_RIGHT.iter().enumerate() {
+        bars.push(((i as isize) + 1, (*px)));
+        calibration_data.add_data(((i + 1) as f64) * 10., [*px as f64, 0.].into());
+    }
+    let (_, _, tot_e_sq) = calibration_data.analyze();
+    assert!(
+        tot_e_sq < 50.0,
+        "If all is working total error should be about 40.4"
+    );
 }

@@ -1,5 +1,5 @@
 //a Imports
-use super::{Point2D, Point3D, RollDist, RollYaw, TanXTanY};
+use super::{Point2D, RollDist, TanXTanY};
 
 //a Traits
 //tt CameraSensor
@@ -30,29 +30,8 @@ pub trait CameraSensor: std::fmt::Debug {
 /// The lens projection is between RollYaw and
 /// tan(x)/tan(y). Essentially RollYaw is kinda internal
 pub trait LensProjection: std::fmt::Debug {
-    /// Map from absolute to centre-relative pixel
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D;
-
-    /// Map from centre-relative to absolute pixel
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
-
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a tan(x), tan(y)
-    ///
-    /// This must apply the lens projection
-    ///
-    /// The default functions combines other mapping functions, so may
-    /// not be fully optimized
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY;
-
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
-    ///
-    /// This must apply the lens projection
-    ///
-    /// An implementation can improve the performance for some lenses
-    /// where this is a much simpler mapping than the two stages combined
-    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
+    fn frame_to_camera(&self, tan: f64) -> f64;
+    fn camera_to_frame(&self, tan: f64) -> f64;
 }
 
 //tt CameraProjection

@@ -6,11 +6,22 @@ use super::{
 
 //a CameraPolynomial
 //tp CameraPolynomial
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CameraPolynomial {
     sensor: RectSensor,
     lens: Polynomial,
+    /// Focal length of the lens
     mm_focal_length: f64,
+    /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
+    ///
+    /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
+    ///
+    /// the polynomial is calibrated at infinity then it is set for u = f
+    ///
+    /// For an actual 'd' we have u' = fd/(f-d); the image is magnified on the sensor by u'/u,
+    /// which is u'/f or d/(d-f)
+    mm_focus_distance: f64,
+    maginification_of_focus: f64,
     /// Convert from tan(angle) to x pixel
     ///
     /// This is sensor.mm_single_pixel_width / sensor.mm_sensor_width * mm_focal_length
@@ -20,19 +31,32 @@ pub struct CameraPolynomial {
 
 //ip CameraPolynomial
 impl CameraPolynomial {
-    pub fn new(sensor: RectSensor, lens: Polynomial, mm_focal_length: f64) -> Self {
-        let x_px_from_tan_sc =
-            sensor.mm_single_pixel_width() / sensor.mm_sensor_width() * mm_focal_length;
-        let y_px_from_tan_sc =
-            sensor.mm_single_pixel_height() / sensor.mm_sensor_height() * mm_focal_length;
-
-        Self {
+    pub fn new(
+        sensor: RectSensor,
+        lens: Polynomial,
+        mm_focal_length: f64,
+        mm_focus_distance: f64,
+    ) -> Self {
+        let mut cp = Self {
             sensor,
             lens,
             mm_focal_length,
-            x_px_from_tan_sc,
-            y_px_from_tan_sc,
-        }
+            mm_focus_distance,
+            maginification_of_focus: 1., // derived
+            x_px_from_tan_sc: 1.,        // derived
+            y_px_from_tan_sc: 1.,        // derived
+        };
+        cp.derive();
+        cp
+    }
+    pub fn derive(&mut self) {
+        self.maginification_of_focus =
+            self.mm_focus_distance / (self.mm_focus_distance - self.mm_focal_length);
+        let scale = self.mm_focal_length * self.maginification_of_focus;
+        self.x_px_from_tan_sc =
+            self.sensor.mm_single_pixel_width() / self.sensor.mm_sensor_width() * scale;
+        self.y_px_from_tan_sc =
+            self.sensor.mm_single_pixel_height() / self.sensor.mm_sensor_height() * scale;
     }
 }
 

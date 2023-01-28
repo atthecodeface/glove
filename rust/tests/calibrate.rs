@@ -159,7 +159,7 @@ fn test_optimize() {
         // for -201.77,-292.29,648.1
         // [54.10, -32.0, 781.].into(),
         // [-32.10, -7.0, 784.].into(),
-        Rc::new(Polynomial::default()),
+        Rc::new(CameraRectilinear::new_logitech_c270_640()),
         [-22., 32.0, 784.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
@@ -277,7 +277,7 @@ fn test_optimize() {
 //ft test_calibrate
 fn test_calibrate() {
     let camera0 = LCamera::new(
-        Rc::new(Polynomial::default()),
+        Rc::new(CameraRectilinear::new_logitech_c270_640()),
         [-10., 20., 540.].into(), // 540 mm fromm model
         quat::look_at(&[-33., -130., -540.], &[0.10, -1., -0.1]).into(),
     );

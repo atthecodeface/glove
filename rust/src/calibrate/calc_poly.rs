@@ -86,10 +86,10 @@ pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> [
     }
     let mut x_xt = [0.; P2]; // P by P matrix
     matrix::multiply_dyn(P, n, P, &xi_m_t, &xi_m, &mut x_xt);
-    dbg!(&x_xt);
+    // dbg!(&x_xt);
     let mut dm = nalgebra::base::DMatrix::from_element(P, P, 2.0);
     dm.copy_from_slice(&x_xt);
-    dbg!(&dm);
+    // dbg!(&dm);
     if !dm.try_inverse_mut() {
         panic!("Not invertible");
     }
@@ -99,6 +99,5 @@ pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> [
     for i in 0..P2 {
         dm_2[i] = dm[i];
     }
-    let r = matrix::multiply::<f64, P2, P, P, P, P, 1>(&dm_2, &xt_y); // P row vector
-    r
+    matrix::multiply::<f64, P2, P, P, P, P, 1>(&dm_2, &xt_y) // P row vector
 }

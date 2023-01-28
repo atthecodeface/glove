@@ -101,6 +101,8 @@ mod camera_sensor;
 pub use camera_sensor::RectSensor;
 mod camera_rectilinear;
 pub use camera_rectilinear::CameraRectilinear;
+mod camera_polynomial;
+pub use camera_polynomial::CameraPolynomial;
 mod camera;
 pub use camera::LCamera;
 mod model_data;

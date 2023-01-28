@@ -193,10 +193,17 @@ impl RollYaw {
             Self { roll, tan_yaw }
         }
     }
+
     //cp from_roll_yaw
     // Deprecated
     pub fn from_roll_yaw(sin_roll: f64, cos_roll: f64, yaw: f64) -> Self {
         let tan_yaw = yaw.tan();
+        let roll = (sin_roll, cos_roll);
+        Self { roll, tan_yaw }
+    }
+
+    //cp from_roll_tan_yaw
+    pub fn from_roll_tan_yaw(sin_roll: f64, cos_roll: f64, tan_yaw: f64) -> Self {
         let roll = (sin_roll, cos_roll);
         Self { roll, tan_yaw }
     }
@@ -209,6 +216,11 @@ impl RollYaw {
     //ap sin_roll
     pub fn sin_roll(&self) -> f64 {
         self.roll.0
+    }
+
+    //ap tan_yaw
+    pub fn tan_yaw(&self) -> f64 {
+        self.tan_yaw
     }
 
     //ap yaw
