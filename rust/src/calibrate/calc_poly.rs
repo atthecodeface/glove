@@ -1,3 +1,4 @@
+//a Documentation
 /*!
 
 Polynomial of best fit
@@ -33,7 +34,10 @@ or  (Xt.X).a = Xt.y
 or         a = (Xt.X)' . Xt.y (where M' = inverse of M)
 
 !*/
+//a Imports
+use geo_nd::matrix;
 
+//a CalcPoly
 //tt CalcPoly
 /// A simple trait for a polynomial calculation
 pub trait CalcPoly {
@@ -68,8 +72,7 @@ impl CalcPoly for Vec<f64> {
 }
 
 //a Find polynomial with minimum square error for data
-//ip MinSquares
-use geo_nd::matrix;
+//fp min_squares
 pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> [f64; P] {
     assert_eq!(P2, P * P);
     let n = xs.len();
@@ -100,4 +103,36 @@ pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> [
         dm_2[i] = dm[i];
     }
     matrix::multiply::<f64, P2, P, P, P, P, 1>(&dm_2, &xt_y) // P row vector
+}
+
+//fp min_squares_dyn
+pub fn min_squares_dyn(p: usize, xs: &[f64], ys: &[f64]) -> Vec<f64> {
+    let n = xs.len();
+    assert_eq!(ys.len(), xs.len());
+    let mut xi_m = vec![0.; n * p]; // N rows of P columns
+    let mut xi_m_t = vec![0.; n * p]; // P rows of N columns
+    for (i, x) in xs.iter().enumerate() {
+        let mut xn = 1.;
+        for j in 0..p {
+            xi_m[i * p + j] = xn;
+            xi_m_t[j * n + i] = xn;
+            xn *= x;
+        }
+    }
+    let mut x_xt = vec![0.; p * p]; // P by P matrix
+    matrix::multiply_dyn(p, n, p, &xi_m_t, &xi_m, &mut x_xt);
+    let mut dm = nalgebra::base::DMatrix::from_element(p, p, 2.0);
+    dm.copy_from_slice(&x_xt);
+    if !dm.try_inverse_mut() {
+        panic!("Not invertible");
+    }
+    let mut xt_y = vec![0.; p]; // P row vector
+    matrix::multiply_dyn(p, n, 1, &xi_m_t, ys, &mut xt_y);
+    let mut dm_2 = Vec::with_capacity(p * p); // P row vector
+    for i in 0..p * p {
+        dm_2.push(dm[i]);
+    }
+    let mut res = vec![0.; p]; // P row vector
+    matrix::multiply_dyn(p, p, 1, &dm_2, &xt_y, &mut res);
+    res
 }

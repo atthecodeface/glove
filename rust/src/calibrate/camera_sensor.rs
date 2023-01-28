@@ -84,6 +84,7 @@ impl RectSensor {
     pub fn new_35mm(px_width: usize, px_height: usize) -> Self {
         Self::new(36.0, px_width, px_height)
             .set_sensor_size(36.0, 24.0)
+            .set_flip_y(true)
             .derive()
     }
 

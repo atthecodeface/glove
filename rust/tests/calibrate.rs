@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use glove::calibrate::PointMapping;
 // use glove::calibrate::Projection;
+use glove::calibrate::CameraRectilinear;
 use glove::calibrate::*;
-use glove::calibrate::{CameraRectilinear, Polynomial};
 use glove::calibrate::{LCamera, Rotations};
 use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
@@ -65,6 +65,7 @@ fn test_find_coarse_position() {
 // WE 17 1.09  7.37 Camera @[-75.64,172.25,745.83] yaw -6.61 pitch 9.02 + [-0.11,0.16,0.98]
 // WE    4.85       Camera @[-83.37,151.51,743.16] yaw -7.26 pitch 7.57 + [-0.13,0.13,0.98]
 // WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
+#[allow(dead_code)]
 // #[test]
 fn test_find_good() {
     let camera = LCamera::new(
@@ -147,6 +148,7 @@ fn test_find_good() {
 }
 
 //ft test_optimize
+#[allow(dead_code)]
 // #[test]
 fn test_optimize() {
     // let camera0 = LCamera::new(
@@ -275,6 +277,8 @@ fn test_optimize() {
 }
 
 //ft test_calibrate
+// #[test]
+#[allow(dead_code)]
 fn test_calibrate() {
     let camera0 = LCamera::new(
         Rc::new(CameraRectilinear::new_logitech_c270_640()),

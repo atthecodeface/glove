@@ -1,6 +1,6 @@
 //a Modules
 // use glove::calibrate::Projection;
-use glove::calibrate::min_squares;
+use glove::calibrate::{min_squares, min_squares_dyn};
 use glove::calibrate::{CalcPoly, CameraSensor, Point2D, RectSensor};
 
 //a Tests
@@ -34,7 +34,7 @@ fn find_poly_from_bars() {
 
     let pixel_width = width_20;
     let equispaced_data = BARS_20MM;
-    let poly_degree = 5;
+    let _poly_degree = 5;
     let x_scale = x_scale_20;
 
     let cx_pix = pixel_width / 2.0;
@@ -77,7 +77,7 @@ fn find_poly_from_bars() {
         }
         // b_bar_num is 0 for the bar just to the left of center
         let b_bar_num = i as f64 - cl_index as f64; // Signed!
-        let b_mm = (b_bar_num - 0.5) * bar_width_mm + ofs_mm_center;
+        let _b_mm = (b_bar_num - 0.5) * bar_width_mm + ofs_mm_center;
         // Quite possible b_mm is perhaps a little tight on the left-hand side
         // and a bit wider on the right-hand side
         // Hence bar_width_mm is perhaps of the form a*bar_num+c
@@ -170,8 +170,10 @@ impl CalibrationData {
     //fp tan_sensor
     fn tan_sensor(&self, pt: Point2D) -> f64 {
         let dx = self.sensor.px_abs_xy_to_px_rel_xy(pt)[0] * self.sensor.mm_single_pixel_width();
+        let dy = self.sensor.px_abs_xy_to_px_rel_xy(pt)[1] * self.sensor.mm_single_pixel_height();
+        let d = (dx * dx + dy * dy).sqrt();
         // dbg!(pt, dx);
-        dx / self.lens_from_frame
+        d / self.lens_from_frame
     }
     //fp extract_tan_map_data
     fn extract_tan_map_data(&self) -> (Vec<f64>, Vec<f64>) {
@@ -214,8 +216,13 @@ impl TanMap {
         }
     }
 
+    //fp sort_data
+    pub fn sort_data(&mut self) {
+        self.data.sort_by(|a, b| a.0.partial_cmp(&(b.0)).unwrap());
+    }
+
     //fp analyze
-    fn analyze(&mut self) {
+    fn analyze(&mut self, poly_degree: usize) {
         let mut ti = vec![];
         let mut ts = vec![];
         for (tan_image, tan_sensor) in self.data.iter() {
@@ -224,8 +231,8 @@ impl TanMap {
         }
         // dbg!(&ti);
         // dbg!(&ts);
-        let its_poly = min_squares::<5, 25>(&ti, &ts);
-        let sti_poly = min_squares::<5, 25>(&ts, &ti);
+        let its_poly = min_squares_dyn(poly_degree, &ti, &ts);
+        let sti_poly = min_squares_dyn(poly_degree, &ts, &ti);
         self.its_poly = its_poly.to_vec();
         self.sti_poly = sti_poly.to_vec();
     }
@@ -282,9 +289,15 @@ impl TanMap {
 //fp find_poly_for_canon_50mm
 #[test]
 fn find_poly_for_canon_50mm() {
+    let focal_length = 50.0;
+    // let focal_length = 49.77;
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let mut calibration_data =
-        CalibrationData::new(sensor.clone(), 50.0, 460.0 - 50.0, (1.83_f64).to_radians());
+    let mut calibration_data = CalibrationData::new(
+        sensor.clone(),
+        focal_length,
+        460.0 - focal_length,
+        (1.83_f64).to_radians(),
+    );
 
     // first bar is at -140mm, centre offset of +0.35mm (3368.0-3360)/(3368 - 3140)*10.0?
     const BARS_AT_50MM: &[usize] = &[
@@ -297,11 +310,62 @@ fn find_poly_for_canon_50mm() {
     }
     let mut tan_map = TanMap::new(sensor.clone());
     tan_map.add_calibration_data(&calibration_data);
-    tan_map.analyze();
-    let tot_e_sq = tan_map.debug(50.0);
+    tan_map.analyze(5);
+    let tot_e_sq = tan_map.debug(focal_length);
     assert!(
-        tot_e_sq < 60.0,
-        "If all is working total error should be about 51.5"
+        tot_e_sq < 52.0,
+        "If all is working total error should be about 51.5 was {}",
+        tot_e_sq
+    );
+}
+
+//fp find_poly_for_canon_50mm_y
+#[test]
+fn find_poly_for_canon_50mm_y() {
+    let focal_length = 50.0;
+    // let focal_length = 49.77;
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let mut calibration_data = CalibrationData::new(
+        sensor.clone(),
+        focal_length,
+        460.0 - focal_length,
+        (0.0_f64).to_radians(), // vertical door (and vertical camera?)
+    );
+
+    // first bar is at -90mm, centre offset of +1.6mm 10.0+(2240.0-2434)/(2434 - 2203)*10.0?
+    const BARS_AT_50MM: &[usize] = &[
+        (171 + 132) / 2,
+        (363 + 395) / 2,
+        (588 + 623) / 2,
+        (813 + 845) / 2,
+        (1040 + 1076) / 2,
+        (1269 + 1302) / 2,
+        (1500 + 1539) / 2,
+        (1727 + 1763) / 2,
+        (1958 + 1994) / 2, // 1976
+        (2189 + 2217) / 2, // = 2203, at about 1.6mm
+        (2417 + 2451) / 2, // = 2434
+        (2645 + 2676) / 2,
+        (2871 + 2907) / 2,
+        (3101 + 3132) / 2,
+        (3360 + 3330) / 2,
+        (3557 + 3591) / 2,
+        (3786 + 3818) / 2,
+        (4010 + 4041) / 2,
+        (4230 + 4265) / 2,
+    ];
+
+    for (i, px) in BARS_AT_50MM.iter().enumerate() {
+        calibration_data.add_data((i as f64 - 9.0) * 10. - 1.7, [0., *px as f64].into());
+    }
+    let mut tan_map = TanMap::new(sensor.clone());
+    tan_map.add_calibration_data(&calibration_data);
+    tan_map.analyze(5);
+    let tot_e_sq = tan_map.debug(focal_length);
+    assert!(
+        tot_e_sq < 10.0,
+        "If all is working total error should be about 8.1 (!) was {}",
+        tot_e_sq
     );
 }
 
@@ -327,7 +391,7 @@ fn find_poly_for_canon_50mm_at_short() {
     }
     let mut tan_map = TanMap::new(sensor.clone());
     tan_map.add_calibration_data(&calibration_data);
-    tan_map.analyze();
+    tan_map.analyze(5);
     let tot_e_sq = tan_map.debug(57.19);
     assert!(
         tot_e_sq < 40.0,
@@ -337,10 +401,18 @@ fn find_poly_for_canon_50mm_at_short() {
 //fp compare_polys_for_canon_50mm
 #[test]
 fn compare_polys_for_canon_50mm() {
+    let do_sort = true;
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let mm_closeup = 57.213;
-    let mut calibration_data_50mm =
-        CalibrationData::new(sensor.clone(), 50.0, 460.0 - 50.0, (1.83_f64).to_radians());
+    // let mm_closeup = 57.212;
+    // let focal_length = 50.0;
+    let focal_length = 49.77;
+    let mm_closeup = 57.0;
+    let mut calibration_data_50mm = CalibrationData::new(
+        sensor.clone(),
+        focal_length,
+        460.0 - focal_length,
+        (1.83_f64).to_radians(),
+    );
     let mut calibration_data_57mm = CalibrationData::new(
         sensor.clone(),
         mm_closeup,
@@ -355,7 +427,7 @@ fn compare_polys_for_canon_50mm() {
     ];
 
     for (i, px) in BARS_AT_50MM.iter().enumerate() {
-        calibration_data_50mm.add_data((i as f64 - 14.0) * 10. + 0.35, [*px as f64, 0.].into());
+        calibration_data_50mm.add_data((i as f64 - 14.0) * 10. + 0.33, [*px as f64, 0.].into());
     }
 
     // first bar is at -120mm, offset of +0.68mm (3378.0-3360)/(3378 - 3325)*2.0?
@@ -365,27 +437,32 @@ fn compare_polys_for_canon_50mm() {
     ];
 
     for (i, px) in BARS_AT_57_5_MM.iter().enumerate() {
-        calibration_data_57mm.add_data((i as f64 - 12.0) * 10. + 0.68, [*px as f64, 0.].into());
+        calibration_data_57mm.add_data((i as f64 - 12.0) * 10. + 0.65, [*px as f64, 0.].into());
     }
 
     let mut tan_map_50 = TanMap::new(sensor.clone());
     tan_map_50.add_calibration_data(&calibration_data_50mm);
-    tan_map_50.analyze();
+    tan_map_50.sort_data();
+    tan_map_50.analyze(5);
 
     let mut tan_map_57 = TanMap::new(sensor.clone()); // use 50.0 to compare with 50 data
     tan_map_57.add_calibration_data(&calibration_data_57mm);
-    tan_map_57.analyze();
+    tan_map_57.sort_data();
+    tan_map_57.analyze(5);
 
     let mut tan_map = TanMap::new(sensor.clone());
     tan_map.add_calibration_data(&calibration_data_50mm);
     tan_map.add_calibration_data(&calibration_data_57mm);
-    tan_map.analyze();
-    let tot_e_sq = tan_map.debug(50.);
+    if do_sort {
+        tan_map.sort_data();
+    }
+    tan_map.analyze(6);
+    let tot_e_sq = tan_map.debug(focal_length);
     dbg!(tot_e_sq);
 
     eprintln!("\nUsing combined poly for focus-at-infinity data");
     tan_map_50.replace_polys(&tan_map.its_poly, &tan_map.sti_poly);
-    let tot_e_sq_50 = tan_map_50.debug(50.);
+    let tot_e_sq_50 = tan_map_50.debug(focal_length);
     dbg!(tot_e_sq_50);
 
     eprintln!("\nUsing combined poly for focus-closeup data");
@@ -394,7 +471,7 @@ fn compare_polys_for_canon_50mm() {
     dbg!(tot_e_sq_57);
 
     eprintln!("Tot err {} : {} : {}", tot_e_sq, tot_e_sq_50, tot_e_sq_57,);
-    assert!(false);
+    // assert!(false);
 
     // The polynomial should be good up to about 20 degrees (half horizontal FOV)
     // which is 0.36 in tan() space

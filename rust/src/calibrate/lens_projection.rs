@@ -115,6 +115,14 @@ impl LensProjection for Polynomial {
 ///   u^2 - 440u + 50*440 = 0 -> u=1/2(440-sqrt(440^2-4*50*440))
 ///   u = 57.5mm, v=402.5mm
 ///
+/// [ it seems from the Rust program that u is probably 57.212 for min focus, which means
+///   50 = 57.212*v / (57.212 + v) => 50v + 50*57.212 = 57.212*v => v = 396.644,
+///   hence u+v = 453mm and not 440mm. ]
+///
+/// [ If it is 440mm and u=57.212 then v=382.788 and f = 57.212*382.788 / 440 = 49.77mm ]
+/// [ If it is 445mm and u=57.212 then v=387.788 and f = 57.212*387.788 / 445 = 49.85mm ]
+/// [ If it is 450mm and u=57.212 then v=392.788 and f = 57.212*387.788 / 450 = 49.93mm ]
+///
 /// If the object is K mm away then on from the sensor the sensor image size is propotional to u/K-u,
 /// and for two different sensor to lens distances u1 and u2 there is a relative scaling of
 ///
