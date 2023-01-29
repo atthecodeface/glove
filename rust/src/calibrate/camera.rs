@@ -557,6 +557,7 @@ impl LCamera {
              */
             let te = cam.total_error(mappings);
             let we = cam.worst_error(mappings);
+            eprintln!("{},{},{}: {} : {}", x, y, z, we, te);
             if we < worst_data.0 {
                 worst_data = (we, i, cam, te);
                 // dbg!(worst_data);

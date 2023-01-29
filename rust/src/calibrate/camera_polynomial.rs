@@ -53,10 +53,11 @@ impl CameraPolynomial {
         self.maginification_of_focus =
             self.mm_focus_distance / (self.mm_focus_distance - self.mm_focal_length);
         let scale = self.mm_focal_length * self.maginification_of_focus;
+        // mm_sensor height/width / scale is a tan
         self.x_px_from_tan_sc =
-            self.sensor.mm_single_pixel_width() / self.sensor.mm_sensor_width() * scale;
+            self.sensor.px_width() / 2.0 * scale / self.sensor.mm_sensor_width();
         self.y_px_from_tan_sc =
-            self.sensor.mm_single_pixel_height() / self.sensor.mm_sensor_height() * scale;
+            self.sensor.px_height() / 2.0 * scale / self.sensor.mm_sensor_height() / 0.995;
     }
 }
 

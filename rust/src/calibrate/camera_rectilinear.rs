@@ -53,9 +53,12 @@ impl CameraRectilinear {
         (2.0 * tan_half_fov.atan()).to_degrees()
     }
 
+    //fp new_logitech_c270_640
     pub fn new_logitech_c270_640() -> Self {
         Self::new(55.03, 640, 480, 1., true)
     }
+
+    //zz All done
 }
 
 //ip Display for CameraRectilinear

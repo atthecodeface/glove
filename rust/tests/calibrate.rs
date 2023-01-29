@@ -12,6 +12,74 @@ use geo_nd::Vector;
 use geo_nd::{matrix, quat};
 
 //a Tests
+//ft test_find_coarse_position_canon
+// CAM 0
+// WE 28 4.12 20.86 Camera @[-197.71,-200.37,435.25] yaw -20.09 pitch -16.35 + [-0.33,-0.28,0.90]
+
+// CAM 1
+// WE 27 8.94 51.26 Camera @[-1.92,  -4.18,782.75] yaw -1.14 pitch -4.12 + [-0.02,-0.07,1.00]
+const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
+    ([0., 0., 0.], [3259.0, 2330.0]),
+    ([108., 0., 0.], [4854.0, 1646.0]),
+    ([0., 109., 0.], [2375.0, 1182.0]),
+    ([0., 0., 92.], [3257.0, 3331.0]),
+];
+#[test]
+fn test_find_coarse_position_canon() {
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let lens = Polynomial::new("rectinlinear");
+    let canon_50mm = CameraPolynomial::new(sensor, lens, 50., 1.0E8);
+    let camera = LCamera::new(
+        // Rc::new(CameraRectilinear::new_logitech_c270_640()),
+        Rc::new(canon_50mm),
+        [-100., -100., -100.].into(),
+        quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
+    );
+    let mappings: Vec<PointMapping> = C50MM_DATA_ALL
+        .iter()
+        .map(|(model, screen)| {
+            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
+        })
+        .collect();
+    let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 1000.], 31);
+    let cam = cam.find_coarse_position(&mappings, &[300., 300., 300.], 31);
+    let cam = cam.find_coarse_position(&mappings, &[100., 100., 100.], 31);
+    let cam = cam.find_coarse_position(&mappings, &[30., 30., 30.], 31);
+    let cam = cam.find_coarse_position(&mappings, &[10., 10., 10.], 31);
+    let cam = cam.find_coarse_position(&mappings, &[3., 3., 3.], 31);
+    let mut cam = cam;
+    let num = mappings.len();
+    // let coarse_rotations = Rotations::new(1.0_f64.to_radians());
+    for _ in 0..10 {
+        let fine_rotations = Rotations::new(0.1_f64.to_radians());
+        for _ in 0..100 {
+            cam = cam.get_best_direction(100, &fine_rotations, &mappings[0]).0;
+        }
+        let fine_rotations = Rotations::new(0.01_f64.to_radians());
+        for _ in 0..100 {
+            cam = cam.get_best_direction(100, &fine_rotations, &mappings[0]).0;
+        }
+        for _ in 0..0 {
+            cam = cam
+                .adjust_position_in_out(&mappings, &|c, m| c.worst_error(m))
+                .0;
+            cam = cam.adjust_position(&mappings, &|c, m| c.worst_error(m)).0;
+        }
+    }
+    let te = cam.total_error(&mappings);
+    let we = cam.worst_error(&mappings);
+    for pm in mappings.iter() {
+        cam.show_pm_error(pm);
+    }
+    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
+    assert!(
+        we < 100.0,
+        "Worst error should be about 53.82 but was {}",
+        we
+    );
+    assert!(te < 250.0, "Total error should be about 220 but was {}", te);
+}
+
 //ft test_find_coarse_position
 // CAM 0
 // WE 28 4.12 20.86 Camera @[-197.71,-200.37,435.25] yaw -20.09 pitch -16.35 + [-0.33,-0.28,0.90]
