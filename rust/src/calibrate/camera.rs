@@ -477,7 +477,7 @@ impl LCamera {
     ) -> (Self, f64) {
         // Map (0,0,1) to view space
         let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
-        dbg!(dx, dy, dz);
+        // dbg!(dx, dy, dz);
         let mut cam = self.clone();
         let mut e = f(&cam, mappings);
         for sc in [1., -1., 0.01, -0.01] {
@@ -501,12 +501,13 @@ impl LCamera {
         scales: &[f64; 3],
         n: usize,
     ) -> Self {
-        dbg!("Find coarse position", self, scales, n);
+        // dbg!("Find coarse position", self, scales, n);
         let coarse_rotations = Rotations::new(1.0_f64.to_radians());
         let fine_rotations = Rotations::new(0.1_f64.to_radians());
-        let mut worst_data = (1_000_000.0, 0, self.clone(), 0.);
+        let we = self.worst_error(mappings);
+        let mut worst_data = (we * 1.01, 0, self.clone(), 0.);
         let num = mappings.len();
-        let map = |i, sc| ((i as f64) - (n as f64) / 2.0) * sc / (n as f64);
+        let map = |i, sc| ((i as f64) - ((n - 1) as f64) / 2.0) * sc / ((n - 1) as f64);
         for i in 0..(n * n * n) {
             let x = map(i % n, scales[0]);
             let y = map((i / n) % n, scales[1]);
@@ -533,32 +534,11 @@ impl LCamera {
                     )
                     .0;
             }
-            /*
-            let mut last_n = cam.find_worst_error(mappings).0;
-            for i in 0..30 {
-                let n = cam.find_worst_error(mappings).0;
-                dbg!(i, n, last_n);
-                if n == last_n {
-                    last_n = (last_n + 1 + (i % (num - 1))) % num;
-                }
-                cam = cam
-                    .adjust_direction_while_keeping_one_okay(
-                        1000,
-                        0.5_f64.to_radians(),
-                        &fine_rotations,
-                        &|c, m, n| m[n].get_sq_error(c),
-                        mappings,
-                        last_n,
-                        n,
-                    )
-                    .0;
-                last_n = n;
-            }
-             */
             let te = cam.total_error(mappings);
             let we = cam.worst_error(mappings);
-            eprintln!("{},{},{}: {} : {}", x, y, z, we, te);
+            // eprintln!("{},{},{}: {} : {}", x, y, z, we, te);
             if we < worst_data.0 {
+                eprintln!("{}: {} : {}", cam, we, te);
                 worst_data = (we, i, cam, te);
                 // dbg!(worst_data);
             }

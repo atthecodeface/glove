@@ -1,6 +1,47 @@
 //a Imports
 use super::{LCamera, Point2D, Point3D, Projection};
 use geo_nd::matrix;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+//a NamedPoint
+//tp NamedPoint
+#[derive(Debug)]
+/// A point in model space, with a name
+pub struct NamedPoint {
+    name: String,
+    /// The 3D model coordinate this point corresponds to
+    ///
+    /// This is known for a calibration point!
+    pub model: Point3D,
+}
+impl NamedPoint {
+    pub fn new<S: Into<String>>(name: S, model: Point3D) -> Self {
+        let name = name.into();
+        Self { name, model }
+    }
+    pub fn model(&self) -> &Point3D {
+        &self.model
+    }
+}
+//a NamedPointSet
+#[derive(Default)]
+pub struct NamedPointSet {
+    points: HashMap<String, Rc<NamedPoint>>,
+}
+impl NamedPointSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn add_pt<S: Into<String>>(&mut self, name: S, model: Point3D) {
+        let name = name.into();
+        let pt = Rc::new(NamedPoint::new(name.clone(), model));
+        self.points.insert(name, pt);
+    }
+    pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
+        self.points.get(name).map(|a| a.clone())
+    }
+}
 
 //a PointMapping
 //tp PointMapping

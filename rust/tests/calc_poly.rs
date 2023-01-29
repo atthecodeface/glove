@@ -657,6 +657,7 @@ fn find_poly_for_canon_50mm_inf() {
 
     let tot_e_sq = tan_map.debug(focal_length);
     dbg!(&tan_map.sti_poly);
+    dbg!(&tan_map.its_poly);
     assert!(
         tot_e_sq < 1300.0,
         "If all is working total error should be about 1250.5 was {}",
