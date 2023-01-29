@@ -96,7 +96,7 @@ pub use rotations::Rotations;
 mod projection;
 pub use projection::Projection;
 mod point_mapping;
-pub use point_mapping::PointMapping;
+pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod camera_sensor;
 pub use camera_sensor::RectSensor;
 mod camera_rectilinear;

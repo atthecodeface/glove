@@ -222,17 +222,20 @@ impl LCamera {
 
     //fp show_pm_error
     pub fn show_pm_error(&self, pm: &PointMapping) {
-        let camera_scr_xy = self.to_scr_xy(&pm.model);
+        let camera_scr_xy = self.to_scr_xy(&pm.model());
         let esq = self.get_pm_sq_error(pm);
         eprintln!(
             "model {} has screen {}, camera maps it to {}, error {}",
-            pm.model, pm.screen, camera_scr_xy, esq
+            pm.model(),
+            pm.screen,
+            camera_scr_xy,
+            esq
         );
     }
 
     //fp get_pm_sq_error
     pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
-        let camera_scr_xy = self.to_scr_xy(&pm.model);
+        let camera_scr_xy = self.to_scr_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
         dx * dx + dy * dy

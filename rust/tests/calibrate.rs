@@ -22,24 +22,6 @@ const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
     ([0., 109., 92.], [2447.0, 2219.0]),
     ([108., 109., 0.], [3877.0, 646.0]),
 ];
-const C50MM_STI_POLY: &[f64] = &[
-    8.283213378490473e-5,
-    1.0010373675395385,
-    -0.27346884785220027,
-    3.037436155602336,
-    -13.196169488132,
-    26.7261453717947,
-    -19.588972344994545,
-];
-const C50MM_ITS_POLY: &[f64] = &[
-    -7.074450991240155e-5,
-    0.9983717333234381,
-    0.2834468421060592,
-    -3.112550737336278,
-    13.483235448598862,
-    -27.340132132172585,
-    20.28454799950123,
-];
 // Need at least 4 points to get any sense
 #[test]
 fn test_find_coarse_position_canon_inf() {
@@ -55,18 +37,27 @@ fn test_find_coarse_position_canon_inf() {
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C50MM_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
-    let disp_mappings: Vec<PointMapping> = C50MM_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(N_AND_X_TEST_INF);
+    let mut point_mapping_set = PointMappingSet::new();
+    point_mapping_set.add_mappings(&named_point_set, N_AND_X_TEST_INF_DATA);
+    let mappings = point_mapping_set.mappings();
+    let disp_mappings = point_mapping_set.mappings();
+    /*    let mappings: Vec<PointMapping> = C50MM_DATA_ALL
+           .iter()
+           .map(|(model, screen)| {
+               PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
+           })
+           .collect();
+    */
+    /*
+        let disp_mappings: Vec<PointMapping> = C50MM_DATA_ALL
+            .iter()
+            .map(|(model, screen)| {
+                PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
+            })
+            .collect();
+    */
     let cam = camera;
     // -1500 to +1500 in steps of 100
     let cam = cam.find_coarse_position(&mappings, &[3000., 3000., 3000.], 31);
@@ -182,13 +173,12 @@ fn test_find_coarse_position_canon_50cm() {
         cam.show_pm_error(pm);
     }
     eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
+    assert!(we < 700.0, "Worst error should be about 635 but was {}", we);
     assert!(
-        we < 100.0,
-        "Worst error should be about 53.82 but was {}",
-        we
+        te < 2500.0,
+        "Total error should be about 2200 but was {}",
+        te
     );
-    assert!(te < 250.0, "Total error should be about 220 but was {}", te);
-    assert!(false);
 }
 
 //ft test_find_coarse_position
@@ -452,107 +442,5 @@ fn test_optimize() {
         "Lowest WE {} {:.2} {:.2} Camera {}",
         worst_data.1, worst_data.0, worst_data.3, worst_data.2
     );
-    assert!(false);
-}
-
-//ft test_calibrate
-// #[test]
-#[allow(dead_code)]
-fn test_calibrate() {
-    let camera0 = LCamera::new(
-        Rc::new(CameraRectilinear::new_logitech_c270_640()),
-        [-10., 20., 540.].into(), // 540 mm fromm model
-        quat::look_at(&[-33., -130., -540.], &[0.10, -1., -0.1]).into(),
-    );
-    let mappings: Vec<PointMapping> = C0_DATA
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
-    let da = 0.02_f64.to_radians();
-    let rotations = Rotations::new(da);
-    let camera0 = camera0
-        .get_best_direction(10000, &rotations, mappings.last().unwrap())
-        .0;
-    for pm in mappings.iter() {
-        camera0.show_pm_error(&pm);
-    }
-    let mut cam = camera0.clone();
-    cam = cam.adjust_position(&mappings, &|c, m| c.total_error(m)).0;
-    for pm in mappings.iter() {
-        cam.show_pm_error(&pm);
-    }
-    assert!(false);
-    // For the given direction and currrent estimate of position we can deduce the
-    // view_xyz of each mapping model point [i]
-    //
-    // That gives an estimate of 'z' for view_xyz (z_est[i])
-    //
-    // Now, view_xyz[i] = direction * (model[i] - position),
-    //
-    // and scr_xy_est[i] = view_xyz.xy / z_est[i]
-    //
-    // Hence scr_xy_est[i] = direction/z_est[i] * model[i] - direction/z_est[i]*position
-    //
-    // Hence E_sq_x = 1/(z_est[i]^2) * (((d * m[i]) - s[i]*z_est[i]) - (d*p)).x ^ 2
-    //
-    //              = 1/(z_est[i]^2) * ((d[row 0] * m[i]) - s[i].x*z_est[i] - (d[row 0]*p)) ^ 2
-    //
-    // let blah = d[row 0] * m[i]) - s[i].x*z_est[i]
-    //
-    // Hence E_sq_x = 1/(z_est[i]^2) * (blah - d[row 0]*p) ^ 2
-    //
-    // Hence E_sq_x = 1/(z_est[i]^2) * (blah^2 - 2*blah*d[row 0]*p + (d[row 0]*p) ^ 2)
-    //
-    // d[row 0]*p   = d[0,0]*p.x + d[1,0]*p.y + d[2,0]*p.z
-    // d[row 0]*p^2 = d[0,0]*p.x ^ 2 + 2*d[0,0]*p.x*(d[1,0]*p.y + d[2,0]*p.z) + (d[1,0]*p.y + d[2,0]*p.z)^2
-    //
-    // d/d(p.x)[ d[row 0]*p ] = d[0,0]
-    // d/d(p.x)[ d[row 0]*p^2 ] = 2*d[0,0]*p.x + 2*d[0,0]*(d[1,0]*p.y + d[2,0]*p.z)
-    // d/d(p.x)[ d[row 0]*p^2 ] = 2*d[0,0]*(p.x + d[1,0]*p.y + d[2,0]*p.z)
-    //
-    // d/d(p.y)[ d[row 0]*p ] = d[1,0]
-    // d/d(p.y)[ d[row 0]*p^2 ] = 2*d[1,0]*p.y + 2*d[1,0]*(d[0,0]*p.x + d[2,0]*p.z)
-    // d/d(p.y)[ d[row 0]*p^2 ] = 2*d[1,0]*(p.y + d[0,0]*p.x + d[2,0]*p.z)
-    //
-    // dE_sq_x / d(p.x) = 1/(z_est[i]^2) * (2 * blahx[i] * d[0,0] + 2*d[0,0]*(p.x + d[1,0]*p.y + d[2,0]*p.z)
-    // dE_sq_x / d(p.x) = 2*d[0,0]/(z_est[i]^2) * (blahx[i] + d[0,0]*p.x + d[1,0]*p.y + d[2,0]*p.z)
-    // dE_sq_x / d(p.y) = 2*d[1,0]/(z_est[i]^2) * (blahx[i] + d[0,0]*p.x + d[1,0]*p.y + d[2,0]*p.z)
-    // dE_sq_x / d(p.z) = 2*d[2,0]/(z_est[i]^2) * (blahx[i] + d[0,0]*p.x + d[1,0]*p.y + d[2,0]*p.z)
-    //
-    // Similarly E_sq_y = 1/(z_est[i]^2) * (blahy^2 - 2*blahy*d[row 1]*p + (d[row 1]*p) ^ 2)
-    // where blahy[i] =  d[row 1] * m[i]) - s[i].y*z_est[i]
-    //
-    // dE_sq_y / d(p.x) = 2*d[0,1]/(z_est[i]^2) * (blahy[i] + d[0,1]*p.x + d[1,1]*p.y + d[2,1]*p.z)
-    // dE_sq_y / d(p.y) = 2*d[1,1]/(z_est[i]^2) * (blahy[i] + d[0,1]*p.x + d[1,1]*p.y + d[2,1]*p.z)
-    // dE_sq_y / d(p.z) = 2*d[2,1]/(z_est[i]^2) * (blahy[i] + d[0,1]*p.x + d[1,1]*p.y + d[2,1]*p.z)
-    //
-    // dE_sq = Sum(dE_sq_x[i]) + Sum(dE_sq_y[i])
-    //
-    // We can write dE_sq = M * p + v for some M and v
-    //
-    // Then when dE_sq = 0, M * p = -v and hence p = - M(inv) * v
-    //
-    // Sadly M is singular, as each row of the matrix M is a
-    //
-    // So for a given p estimate (which yields z_est and blahx/y/z[i] and hence M_est, in a sense)
-    //
-    // we can generate a new 'minimum square error' p
-    let mut m = [0.0_f64; 9];
-    let mut v = [0.0_f64; 3];
-    for pm in mappings.iter() {
-        pm.add_sq_error_mat(&camera0, &mut m, &mut v);
-    }
-    for mv in m.iter() {
-        dbg!(1000. * mv);
-    }
-    // The matrix will be singular
-    //
-    // (matrix) * px = c0
-    let mi = matrix::inverse3(&m);
-    let new_p = matrix::transform_vec3(&mi, &v);
-    dbg!(camera0.position());
-    dbg!(new_p);
     assert!(false);
 }

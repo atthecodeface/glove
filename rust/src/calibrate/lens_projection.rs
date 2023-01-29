@@ -106,6 +106,8 @@ impl LensProjection for Polynomial {
 /// 3 images focused at infinity and 3 focused as close up as possible
 /// (presumably at 40cm)
 ///
+/// Minimum focusing is 450mm!
+///
 /// Note 1/f = 1/u + 1/v or u = 1/(1/f - 1/v) = fv / v-f
 ///
 /// Infinity is lens at 50mm from sensor; minimum focusing distance
