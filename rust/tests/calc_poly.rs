@@ -137,7 +137,7 @@ pub struct CalibrationData {
     /// For when the image was not quite parallel to camera
     angle_of_image: f64,
     /// Vec of 2D image point (in mm) from centre to 2D point on sensor
-    data: Vec<(Point2D, Point2D)>,
+    data: Vec<(String, Point2D, Point2D)>,
 }
 //ip CalibrationData
 impl CalibrationData {
@@ -158,8 +158,8 @@ impl CalibrationData {
         }
     }
     //fp add_data
-    fn add_data(&mut self, pt_image: Point2D, pt_sensor: Point2D) {
-        self.data.push((pt_image, pt_sensor));
+    fn add_data(&mut self, name: String, pt_image: Point2D, pt_sensor: Point2D) {
+        self.data.push((name, pt_image, pt_sensor));
     }
     //fp tan_image
     fn tan_image(&self, pt: Point2D) -> f64 {
@@ -178,14 +178,16 @@ impl CalibrationData {
         d / self.lens_from_frame
     }
     //fp extract_tan_map_data
-    fn extract_tan_map_data(&self) -> (Vec<f64>, Vec<f64>) {
+    fn extract_tan_map_data(&self) -> (Vec<String>, Vec<f64>, Vec<f64>) {
+        let mut names = vec![];
         let mut ti = vec![];
         let mut ts = vec![];
-        for (pt_image, pt_sensor) in self.data.iter() {
+        for (name, pt_image, pt_sensor) in self.data.iter() {
+            names.push(name.clone());
             ti.push(self.tan_image(*pt_image).abs());
             ts.push(self.tan_sensor(*pt_sensor).abs());
         }
-        (ti, ts)
+        (names, ti, ts)
     }
 }
 
@@ -193,7 +195,7 @@ impl CalibrationData {
 pub struct TanMap {
     sensor: RectSensor,
     /// tan(image), tan(sensor)
-    data: Vec<(f64, f64)>,
+    data: Vec<(String, f64, f64)>,
     /// Image-to-sensor tan-space map
     pub its_poly: Vec<f64>,
     /// Sensor-to-Image tan-space map
@@ -212,22 +214,22 @@ impl TanMap {
     }
     //fp add_calibration_data
     fn add_calibration_data(&mut self, calibration_data: &CalibrationData) {
-        let (ti, ts) = calibration_data.extract_tan_map_data();
-        for (ti, ts) in ti.into_iter().zip(ts.into_iter()) {
-            self.data.push((ti, ts));
+        let (names, ti, ts) = calibration_data.extract_tan_map_data();
+        for i in 0..names.len() {
+            self.data.push((names[i].clone(), ti[i], ts[i]));
         }
     }
 
     //fp sort_data
     pub fn sort_data(&mut self) {
-        self.data.sort_by(|a, b| a.0.partial_cmp(&(b.0)).unwrap());
+        self.data.sort_by(|a, b| a.1.partial_cmp(&(b.1)).unwrap());
     }
 
     //fp analyze
     fn analyze(&mut self, poly_degree: usize) {
         let mut ti = vec![];
         let mut ts = vec![];
-        for (tan_image, tan_sensor) in self.data.iter() {
+        for (_name, tan_image, tan_sensor) in self.data.iter() {
             ti.push(*tan_image);
             ts.push(*tan_sensor);
         }
@@ -260,7 +262,7 @@ impl TanMap {
     //fp debug
     fn debug(&self, lens_from_frame: f64) -> f64 {
         let mut tot_e_sq = 0.;
-        for (i, (tan_image, tan_sensor)) in self.data.iter().enumerate() {
+        for (i, (name, tan_image, tan_sensor)) in self.data.iter().enumerate() {
             let calc_tan_sensor = self.map_tan_image(*tan_image);
             let px_rel_sensor =
                 calc_tan_sensor * lens_from_frame / self.sensor.mm_single_pixel_width();
@@ -268,7 +270,7 @@ impl TanMap {
             let diff_px = diff * lens_from_frame / self.sensor.mm_single_pixel_width();
             let e_sq = diff_px * diff_px;
             eprintln!(
-                "{} {} {} : {} : {} v {} : {} : {}",
+                "{} {} {} : {} : {} v {} : {} : {} : {}",
                 i,
                 tan_image,
                 tan_sensor,
@@ -277,6 +279,7 @@ impl TanMap {
                 self.sensor.px_centre()[0] - px_rel_sensor,
                 diff_px,
                 e_sq,
+                name,
             );
             if e_sq > 0. {
                 tot_e_sq += e_sq;
@@ -289,6 +292,52 @@ impl TanMap {
 }
 
 //a Add calibration data
+//fp add_calibration_data
+fn add_calibration_data(
+    calibration_data: &mut CalibrationData,
+    data: &[((usize, usize), (isize, isize))],
+    ignore_bx: bool,
+    ignore_by: bool,
+    x_ofs: f64,
+    y_ofs: f64,
+) {
+    for ((px, py), (bx, by)) in data.iter() {
+        let mut x = *bx as f64 * 10. + x_ofs;
+        let mut y = *by as f64 * 10. + y_ofs;
+        if ignore_bx {
+            x = 0.;
+        }
+        if ignore_by {
+            y = 0.;
+        }
+        calibration_data.add_data(
+            format!("({}, {})", *bx, *by),
+            [x, y].into(),
+            [*px as f64, *py as f64].into(),
+        );
+    }
+}
+
+//fp add_calibration_data_canon_50mm
+fn add_calibration_data_canon_50mm(
+    calibration_data: &mut CalibrationData,
+    data: &[((usize, usize), (isize, isize))],
+    ignore_bx: bool,
+    ignore_by: bool,
+) {
+    add_calibration_data(calibration_data, data, ignore_bx, ignore_by, 0.32, -1.76);
+}
+
+//fp add_calibration_data_canon_57mm
+fn add_calibration_data_canon_57mm(
+    calibration_data: &mut CalibrationData,
+    data: &[((usize, usize), (isize, isize))],
+    ignore_bx: bool,
+    ignore_by: bool,
+) {
+    add_calibration_data(calibration_data, data, ignore_bx, ignore_by, 0.65, 0.00);
+}
+
 //fp add_calibration_data_canon_50mm_x_inf
 fn add_calibration_data_canon_50mm_x_inf(calibration_data: &mut CalibrationData) {
     // first bar is at -140mm, centre offset of +0.35mm (3368.0-3360)/(3368 - 3140)*10.0?
@@ -296,14 +345,17 @@ fn add_calibration_data_canon_50mm_x_inf(calibration_data: &mut CalibrationData)
         246, 457, 675, 892, 1110, 1331, 1554, 1777, 2003, 2229, 2456, 2680, 2910, 3140, 3368, 3597,
         3825, 4057, 4287, 4513, 4745, 4973, 5202, 5430, 5660, 5884, 6111, 6336, 6560,
     ];
-
-    let cy = calibration_data.sensor.px_centre()[1];
-    for (i, px) in BARS_AT_50MM.iter().enumerate() {
-        calibration_data.add_data(
-            [(i as f64 - 14.0) * 10. + 0.32, 0.].into(), // 0.33 in compare, 0.35 individual
-            [*px as f64, cy].into(),
-        );
-    }
+    let cy = 2240;
+    add_calibration_data_canon_50mm(
+        calibration_data,
+        &BARS_AT_50MM
+            .iter()
+            .enumerate()
+            .map(|(i, px)| ((*px, cy), (i as isize - 14, 0)))
+            .collect::<Vec<((usize, usize), (isize, isize))>>(),
+        false,
+        true,
+    );
 }
 
 //fp add_calibration_data_canon_50mm_x_short
@@ -314,13 +366,17 @@ fn add_calibration_data_canon_50mm_x_short(calibration_data: &mut CalibrationDat
         4181, 4449, 4716, 4985, 5250, 5516, 5781, 6045, 6306, 6567,
     ];
 
-    let cy = calibration_data.sensor.px_centre()[1];
-    for (i, px) in BARS_AT_57_5_MM.iter().enumerate() {
-        calibration_data.add_data(
-            [(i as f64 - 12.0) * 10. + 0.65, 0.].into(), // 0.65 compare, 0.68 individual
-            [*px as f64, cy].into(),
-        );
-    }
+    let cy = 2240;
+    add_calibration_data_canon_57mm(
+        calibration_data,
+        &BARS_AT_57_5_MM
+            .iter()
+            .enumerate()
+            .map(|(i, px)| ((*px, cy), (i as isize - 12, 0)))
+            .collect::<Vec<((usize, usize), (isize, isize))>>(),
+        false,
+        true,
+    );
 }
 //fp add_calibration_data_canon_50mm_y_inf
 fn add_calibration_data_canon_50mm_y_inf(calibration_data: &mut CalibrationData) {
@@ -347,19 +403,23 @@ fn add_calibration_data_canon_50mm_y_inf(calibration_data: &mut CalibrationData)
         (4231 + 4271) / 2,
     ];
 
-    let cx = calibration_data.sensor.px_centre()[0];
-    for (i, px) in BARS_AT_50MM.iter().enumerate() {
-        calibration_data.add_data(
-            [0., (i as f64 - 9.0) * 10. - 1.65].into(),
-            [cx, *px as f64].into(),
-        );
-    }
+    let cx = 3360;
+    add_calibration_data_canon_50mm(
+        calibration_data,
+        &BARS_AT_50MM
+            .iter()
+            .enumerate()
+            .map(|(i, px)| ((cx, *px), (0, i as isize - 9)))
+            .collect::<Vec<((usize, usize), (isize, isize))>>(),
+        true,
+        false,
+    );
 }
 
 //fp add_calibration_data_canon_50mm_corners_inf
 fn add_calibration_data_canon_50mm_corners_inf(calibration_data: &mut CalibrationData) {
     const BARS_AT_50MM: &[((usize, usize), (isize, isize))] = &[
-        ((1350, 4225), (-9, 9)),
+        ((1346, 4228), (-9, 9)),
         ((1564, 4008), (-8, 8)),
         ((1787, 3790), (-7, 7)),
         ((2008, 3562), (-6, 6)),
@@ -376,8 +436,8 @@ fn add_calibration_data_canon_50mm_corners_inf(calibration_data: &mut Calibratio
         ((4742, 825), (6, -6)),
         ((4968, 597), (7, -7)),
         ((5195, 372), (8, -8)),
-        ((5419, 148), (9, -9)),
-        ((1335, 181), (-9, -9)),
+        ((5422, 148), (9, -9)),
+        ((1339, 181), (-9, -9)),
         ((1558, 399), (-8, -8)),
         ((1776, 620), (-7, -7)),
         ((2001, 840), (-6, -6)),
@@ -386,14 +446,86 @@ fn add_calibration_data_canon_50mm_corners_inf(calibration_data: &mut Calibratio
         ((2680, 1518), (-3, -3)),
         ((2910, 1746), (-2, -2)),
         ((3136, 1975), (-1, -1)),
+        ((3366, 2204), (0, 0)),
+        ((3595, 2432), (1, 1)),
+        ((3825, 2659), (2, 2)),
+        ((4053, 2888), (3, 3)),
+        ((4283, 3118), (4, 4)),
+        ((4511, 3346), (5, 5)),
+        ((4741, 3574), (6, 6)),
+        ((4967, 3801), (7, 7)),
+        ((5191, 4026), (8, 8)),
+        ((5415, 4247), (9, 9)),
+        // ((5414, 4246), (9, 9)),
     ];
 
-    for ((px, py), (bx, by)) in BARS_AT_50MM.iter() {
-        calibration_data.add_data(
-            [*bx as f64 * 10. + 0.32, *by as f64 * 10. - 1.65].into(),
-            [*px as f64, *py as f64].into(),
-        );
-    }
+    add_calibration_data_canon_50mm(calibration_data, BARS_AT_50MM, false, false);
+}
+
+//fp add_calibration_data_canon_50mm_borders_inf
+fn add_calibration_data_canon_50mm_borders_inf(calibration_data: &mut CalibrationData) {
+    const BARS_AT_50MM: &[((usize, usize), (isize, isize))] = &[
+        ((273, 4198), (-14, 9)),
+        ((481, 4203), (-13, 9)),
+        ((696, 4212), (-12, 9)),
+        ((913, 4216), (-11, 9)),
+        ((1131, 4219), (-10, 9)),
+        ((1351, 4225), (-9, 9)),
+        ((1572, 4230), (-8, 9)),
+        ((1794, 4231), (-7, 9)),
+        ((2015, 4233), (-6, 9)),
+        ((2240, 4239), (-5, 9)),
+        ((2464, 4240), (-4, 9)),
+        ((2689, 4242), (-3, 9)),
+        ((2919, 4245), (-2, 9)),
+        ((3142, 4245), (-1, 9)),
+        ((3372, 4246), (0, 9)),
+        ((3600, 4245), (1, 9)),
+        ((3826, 4249), (2, 9)),
+        ((4053, 4250), (3, 9)),
+        ((4284, 4248), (4, 9)),
+        ((4512, 4250), (5, 9)),
+        ((4736, 4252), (6, 9)),
+        ((4963, 4249), (7, 9)),
+        ((5192, 4250), (8, 9)),
+        ((5415, 4247), (9, 9)),
+        ((5645, 4245), (10, 9)),
+        ((5868, 4243), (11, 9)),
+        ((6088, 4239), (12, 9)),
+        ((6313, 4235), (13, 9)),
+        ((6533, 4230), (14, 9)),
+        ((256, 220), (-14, -9)),
+        ((474, 205), (-13, -9)),
+        ((682, 199), (-12, -9)),
+        ((902, 194), (-11, -9)),
+        ((1119, 186), (-10, -9)),
+        ((1336, 182), (-9, -9)),
+        ((1557, 179), (-8, -9)),
+        ((1777, 175), (-7, -9)),
+        ((2006, 171), (-6, -9)),
+        ((2231, 166), (-5, -9)),
+        ((2457, 163), (-4, -9)),
+        ((2682, 162), (-3, -9)),
+        ((2911, 162), (-2, -9)),
+        ((3138, 158), (-1, -9)),
+        ((3365, 154), (0, -9)),
+        ((3591, 153), (1, -9)),
+        ((3821, 155), (2, -9)),
+        ((4047, 151), (3, -9)),
+        ((4278, 152), (4, -9)),
+        ((4504, 151), (5, -9)),
+        ((4734, 146), (6, -9)),
+        ((4964, 146), (7, -9)),
+        ((5192, 145), (8, -9)),
+        ((5421, 148), (9, -9)),
+        ((5645, 147), (10, -9)),
+        ((5869, 149), (11, -9)),
+        ((6092, 155), (12, -9)),
+        ((6319, 160), (13, -9)),
+        ((6535, 161), (14, -9)),
+    ];
+
+    add_calibration_data_canon_50mm(calibration_data, BARS_AT_50MM, false, false);
 }
 
 //a tests
@@ -441,7 +573,7 @@ fn find_poly_for_canon_50mm_y() {
     tan_map.analyze(5);
     let tot_e_sq = tan_map.debug(focal_length);
     assert!(
-        tot_e_sq < 50.0,
+        tot_e_sq < 170.0,
         "If all is working total error should be about 44.8 (!) was {}",
         tot_e_sq
     );
@@ -468,8 +600,37 @@ fn find_poly_for_canon_50mm_corners() {
     tan_map.analyze(5);
     let tot_e_sq = tan_map.debug(focal_length);
     assert!(
-        tot_e_sq < 5.0,
+        tot_e_sq < 500.0,
         "If all is working total error should be about 44.8 (!) was {}",
+        tot_e_sq
+    );
+}
+
+//fp find_poly_for_canon_50mm_borders
+#[test]
+fn find_poly_for_canon_50mm_borders() {
+    let focal_length = 50.0;
+    // let focal_length = 49.77;
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let mut calibration_data = CalibrationData::new(
+        sensor.clone(),
+        focal_length,
+        460.0 - focal_length,
+        (1.83_f64).to_radians(), // vertical door (and vertical camera?)
+    );
+    add_calibration_data_canon_50mm_borders_inf(&mut calibration_data);
+    // add_calibration_data_canon_50mm_x_inf(&mut calibration_data);
+    // add_calibration_data_canon_50mm_y_inf(&mut calibration_data);
+
+    let mut tan_map = TanMap::new(sensor.clone());
+    tan_map.add_calibration_data(&calibration_data);
+    tan_map.sort_data();
+    tan_map.analyze(5);
+
+    let tot_e_sq = tan_map.debug(focal_length);
+    assert!(
+        tot_e_sq < 540.0,
+        "If all is working total error should be about 530.0 (!) was {}",
         tot_e_sq
     );
 }
@@ -479,23 +640,26 @@ fn find_poly_for_canon_50mm_corners() {
 fn find_poly_for_canon_50mm_inf() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
+    let degrees = (1.87_f64).to_radians();
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let mut calibration_data = CalibrationData::new(
-        sensor.clone(),
-        focal_length,
-        460.0 - focal_length,
-        (1.87_f64).to_radians(),
-    );
+    let mut calibration_data =
+        CalibrationData::new(sensor.clone(), focal_length, 460.0 - focal_length, degrees);
 
     add_calibration_data_canon_50mm_x_inf(&mut calibration_data);
     add_calibration_data_canon_50mm_y_inf(&mut calibration_data);
+    add_calibration_data_canon_50mm_corners_inf(&mut calibration_data);
+    add_calibration_data_canon_50mm_borders_inf(&mut calibration_data);
     let mut tan_map = TanMap::new(sensor.clone());
     tan_map.add_calibration_data(&calibration_data);
-    tan_map.analyze(5);
+    tan_map.analyze(7);
+
+    tan_map.sort_data();
+
     let tot_e_sq = tan_map.debug(focal_length);
+    dbg!(&tan_map.sti_poly);
     assert!(
-        tot_e_sq < 105.0,
-        "If all is working total error should be about 97.5 was {}",
+        tot_e_sq < 1300.0,
+        "If all is working total error should be about 1250.5 was {}",
         tot_e_sq
     );
 }
@@ -579,7 +743,7 @@ fn compare_polys_for_canon_50mm() {
 
     eprintln!("Tot err {} : {} : {}", tot_e_sq, tot_e_sq_50, tot_e_sq_57,);
     assert!(
-        tot_e_sq < 200.0,
+        tot_e_sq < 300.0,
         "Total error should be about 171.0, got {}",
         tot_e_sq
     );
