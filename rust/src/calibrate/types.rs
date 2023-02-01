@@ -26,6 +26,12 @@ impl TanXTanY {
     pub fn to_ry(self) -> RollYaw {
         RollYaw::from_txty(self)
     }
+    //fp to_unit_vector
+    /// Convert to a unit vector
+    #[inline]
+    pub fn to_unit_vector(self) -> Point3D {
+        vector::normalize([self.data[0], self.data[1], 1.0]).into()
+    }
 }
 impl std::convert::AsRef<[f64; 2]> for TanXTanY {
     fn as_ref(&self) -> &[f64; 2] {

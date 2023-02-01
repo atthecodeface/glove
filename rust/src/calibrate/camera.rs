@@ -2,7 +2,8 @@
 use std::rc::Rc;
 
 use super::{
-    CameraProjection, Point2D, Point3D, PointMapping, Projection, Quat, Rotations, TanXTanY,
+    CameraProjection, NamedPointSet, Point2D, Point3D, PointMapping, Projection, Quat, Rotations,
+    TanXTanY,
 };
 
 use geo_nd::{quat, vector};
@@ -188,6 +189,18 @@ impl LCamera {
         quat::apply3(self.direction.as_ref(), camera_relative_xyz.as_ref()).into()
     }
 
+    //fp from_camera_space
+    /// Convert a Point3D in camera space (XYZ) to model space
+    /// coordinates (XYZ)
+    pub fn from_camera_space(&self, camera_space_xyz: &Point3D) -> Point3D {
+        let camera_relative_xyz: Point3D = quat::apply3(
+            &quat::conjugate(self.direction.as_ref()),
+            camera_space_xyz.as_ref(),
+        )
+        .into();
+        camera_relative_xyz + self.position
+    }
+
     //fp world_xyz_to_txty
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// coordinates (XYZ)
@@ -196,11 +209,11 @@ impl LCamera {
         camera_xyz.into()
     }
 
-    //fp to_sph_xy
-    /// Map a world Point3D coordinate to camera-space coordinates,
-    /// and then to tan(x)/tan(y)
-    pub fn to_sph_xy(&self, model_xyz: &Point3D) -> TanXTanY {
-        self.world_xyz_to_txty(model_xyz)
+    //fp screen_xyz_to_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    pub fn screen_xyz_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
+        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
+        self.projection.px_rel_xy_to_txty(px_rel_xy)
     }
 
     //fp to_scr_xy
@@ -220,25 +233,79 @@ impl LCamera {
         self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 
-    //fp show_pm_error
-    pub fn show_pm_error(&self, pm: &PointMapping) {
-        let camera_scr_xy = self.to_scr_xy(&pm.model());
-        let esq = self.get_pm_sq_error(pm);
-        eprintln!(
-            "model {} has screen {}, camera maps it to {}, error {}",
-            pm.model(),
-            pm.screen,
-            camera_scr_xy,
-            esq
-        );
-    }
-
-    //fp get_pm_sq_error
-    pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
+    //fp get_pm_dxdy
+    #[inline]
+    pub fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
         let camera_scr_xy = self.to_scr_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
-        dx * dx + dy * dy
+        [dx, dy].into()
+    }
+
+    //fp get_pm_sq_error
+    #[inline]
+    pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
+        vector::length_sq(self.get_pm_dxdy(pm).as_ref())
+    }
+
+    //fp get_pm_model_error
+    pub fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D) {
+        let model_rel_xyz = self.to_camera_space(pm.model());
+        let model_dist = vector::length(model_rel_xyz.as_ref());
+        let model_vec = self.world_xyz_to_txty(pm.model()).to_unit_vector();
+        let screen_vec = self.screen_xyz_to_txty(pm.screen()).to_unit_vector();
+        let dxdy = self.from_camera_space(&((-screen_vec) * model_dist)) - *pm.model();
+        let axis = vector::cross_product3(model_vec.as_ref(), screen_vec.as_ref());
+        let sin_sep = vector::length(&axis);
+        let error = sin_sep * model_dist;
+        let angle = sin_sep.asin().to_degrees();
+        let axis = vector::normalize(axis);
+        if error < 0. {
+            (-error, dxdy, -angle, vector::scale(axis, -1.).into())
+        } else {
+            (error, dxdy, angle, axis.into())
+        }
+    }
+
+    //fp show_point_set
+    pub fn show_point_set(&self, nps: &NamedPointSet) {
+        for (name, model) in nps.iter() {
+            let camera_scr_xy = self.to_scr_xy(model.model());
+            eprintln!(
+                "model {} : {} maps to {}",
+                name,
+                model.model(),
+                camera_scr_xy,
+            );
+        }
+    }
+
+    //fp show_pm_error
+    pub fn show_pm_error(&self, pm: &PointMapping) {
+        let camera_scr_xy = self.to_scr_xy(pm.model());
+        let (model_error, model_dxdy, model_angle, model_axis) = self.get_pm_model_error(pm);
+        let dxdy = self.get_pm_dxdy(pm);
+        let esq = self.get_pm_sq_error(pm);
+        eprintln!(
+            "{} {} <> {:.2}: Maps to {:.2}, dxdy {:.2} esq {:.2} : model rot {:.2} by {:.2} dxdydz {:.2} dist {:.3}  ",
+            pm.name(),
+            pm.model(),
+            pm.screen,
+            camera_scr_xy,
+            dxdy,
+            esq,
+            model_axis,
+            model_angle,
+            model_dxdy,
+            model_error
+        );
+    }
+
+    //fp show_mappings
+    pub fn show_mappings(&self, mappings: &[PointMapping]) {
+        for pm in mappings {
+            self.show_pm_error(pm);
+        }
     }
 
     //fp apply_quat_to_get_min_sq_error

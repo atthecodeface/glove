@@ -12,6 +12,60 @@ use geo_nd::Vector;
 use geo_nd::{matrix, quat};
 
 //a Tests
+//ft test_find_coarse_position_canon_50_v2
+#[test]
+fn test_find_coarse_position_canon_50_v2() {
+    let sensor = RectSensor::new_35mm(6720, 4480);
+    let lens = Polynomial::new("50mm")
+        .set_ftc_poly(C50MM_STI_POLY)
+        .set_ctf_poly(C50MM_ITS_POLY);
+    let canon_50mm = CameraPolynomial::new(sensor, lens, 50., 453.0); // should be 450??
+    let camera = LCamera::new(
+        // Rc::new(CameraRectilinear::new_logitech_c270_640()),
+        Rc::new(canon_50mm),
+        [-250., -90., 250.].into(),
+        quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
+    );
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(NOUGHTS_AND_CROSSES_MODEL);
+    let mut point_mapping_set = PointMappingSet::new();
+    // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6040);
+    // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6041);
+    point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6042);
+    let mappings = point_mapping_set.mappings();
+    let cam = camera;
+    let cam = cam.find_coarse_position(mappings, &[3000., 3000., 3000.], 31);
+    let cam = cam.find_coarse_position(mappings, &[300., 300., 300.], 31);
+    let cam = cam.find_coarse_position(mappings, &[30., 30., 30.], 31);
+    let cam = cam.find_coarse_position(mappings, &[3., 3., 3.], 31);
+
+    let mut cam = cam;
+    let num = mappings.len();
+    for _ in 0..100 {
+        for i in 0..num {
+            cam = cam
+                .adjust_direction_rotating_around_one_point(
+                    &|c, m, _n| c.total_error(m),
+                    // &|c, m, _n| c.worst_error(m),
+                    0.1_f64.to_radians(),
+                    mappings,
+                    i,
+                    0,
+                )
+                .0;
+        }
+    }
+    let te = cam.total_error(mappings);
+    let we = cam.worst_error(mappings);
+    cam.show_mappings(mappings);
+    cam.show_point_set(&named_point_set);
+
+    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
+    assert!(we < 300.0, "Worst error should be about 250 but was {}", we);
+    assert!(te < 800.0, "Total error should be about 790 but was {}", te);
+    assert!(false);
+}
+
 //ft test_find_coarse_position_canon_inf
 const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
     ([0., 0., 0.], [3259.0, 2330.0]),

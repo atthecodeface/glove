@@ -1,35 +1,64 @@
 /// Noughts and crosses at 45mm
 pub const NOUGHTS_AND_CROSSES_MODEL: &[(&str, [f64; 3])] = &[
     ("0 bl game", [1.0, 0.0, 2.0]),
-    ("1 tl game", [0.0, 0.0, 93.0]),
+    ("ml game", [1.0, 0.0, 31.0]),
+    ("1 tl game", [1.0, 0.0, 93.0]),
     ("2 tr game", [108.0, 0.0, 90.0]),
     ("3 br game", [108.0, 0.0, 2.0]),
     ("4 bl text", [0., 106.0, 2.0]),
-    ("5 tl text", [0., 105.0, 89.0]),
+    ("5 tl text", [0., 106.0, 92.0]),
+    ("& mid-tip game", [72.0, 0.0, 76.0]),
+    ("& mid-tip text", [0.0, 35.5, 76.0]),
+    ("6cm ruler", [0., -9.0, 2.0]),
+    ("7cm ruler", [0., -19.0, 2.0]),
+    ("8cm ruler", [0., -29.0, 2.0]),
+    ("9cm ruler", [0., -39.0, 2.0]),
+    ("10cm ruler", [0., -49.0, 2.0]),
+    ("text star point above E", [0., -49.0, 2.0]),
 ];
 pub const NAC_4V3A6040: &[(&str, isize, isize)] = &[
-    ("0 bl game", 3185, 3758),
-    ("1 tl game", 3154, 1550),
-    ("2 tr game", 4955, 1188),
-    ("3 br game", 4879, 3085),
-    ("4 bl text", 1548, 1205),
-    ("5 tl text", 1673, 3089),
+    ("0 bl game", 3184, 3752),
+    ("ml game", 3194, 3072),
+    ("& mid-tip game", 4430, 1654),
+    ("& mid-tip text", 2544, 1795),
+    ("1 tl game", 3157, 1555),
+    ("2 tr game", 4955, 1200), // Wants to be about 1225
+    ("3 br game", 4881, 3060),
+    //     ("4 bl text", 1665, 3093), // Wants to be 1611 3039
+    //     ("5 tl text", 1538, 1194), // Wants to be 1557 1256
+    ("10cm ruler", 4061, 4164), // Wants to be about 4062, 4164
+                                // ("text star point above E", 2824, 2751),
 ];
 pub const NAC_4V3A6041: &[(&str, isize, isize)] = &[
-    ("0 bl game", 3120, 4023),
-    ("1 tl game", 3334, 1927),
-    ("2 tr game", 6189, 1514),
-    ("3 br game", 5807, 3511),
-    ("4 tl text", 2641, 407),
-    ("5 bl text", 2433, 2388),
+    ("0 bl game", 3115, 4024),
+    ("1 tl game", 3131, 1921),
+    ("ml game", 3131, 3424),
+    ("& mid-tip game", 5210, 2024),
+    ("& mid-tip text", 2822, 1751),
+    ("2 tr game", 6192, 1513),
+    ("3 br game", 5807, 3487),
+    ("4 tl text", 2399, 511),
+    ("5 bl text", 2436, 2381),
+    ("7cm ruler", 3252, 4421),
+    // ("text star point above E", 2937, 2881),
+    // ("text star point above E", 2937, 2881),
 ];
+// Camera estimate -264.70,-96.50,264.90
 pub const NAC_4V3A6042: &[(&str, isize, isize)] = &[
-    ("0 bl game", 4478, 3903),
-    ("1 tl game", 3738, 1896),
-    ("2 tr game", 4161, 396),
-    //     ("3 br game", ()),
-    ("4 tl text", 903, 2426),
-    ("5 bl text", 1868, 4205),
+    ("0 bl game", 4476, 3913),
+    ("1 tl game", 3741, 1899),
+    ("ml game", 4266, 3313),
+    ("& mid-tip game", 4174, 1143),
+    ("& mid-tip text", 2869, 2466),
+    // ("2 tr game", 4163, 392),
+    // ("3 br game",  further up than it seems
+    ("4 bl text", 1868, 4196),
+    // ("text star point above E", 3661, 3217),
+    // ("5 tl text", 911, 2432),
+    ("6cm ruler", 4732, 3911),
+    ("7cm ruler", 5003, 3876),
+    ("8cm ruler", 5277, 3843),
+    ("9cm ruler", 5555, 3807),
 ];
 pub const N_AND_X_TEST_INF: &[(&str, [f64; 3])] = &[
     ("0", [0., 0., 0.]),

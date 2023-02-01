@@ -1,6 +1,5 @@
 //a Imports
-use super::{LCamera, Point2D, Point3D, Projection};
-use geo_nd::matrix;
+use super::{Point2D, Point3D};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -48,6 +47,9 @@ impl NamedPointSet {
     }
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
         self.points.get(name).map(|a| a.clone())
+    }
+    pub fn iter(&self) -> std::collections::hash_map::Iter<String, Rc<NamedPoint>> {
+        self.points.iter()
     }
 }
 
@@ -114,6 +116,11 @@ impl PointMapping {
     //mp model
     pub fn model(&self) -> &Point3D {
         self.model.model()
+    }
+
+    //mp screen
+    pub fn screen(&self) -> &Point2D {
+        &self.screen
     }
 
     //mp name
