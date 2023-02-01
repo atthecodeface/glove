@@ -1,17 +1,17 @@
 //a Imports
 use super::{
-    CameraProjection, CameraSensor, LensProjection, Point2D, Polynomial, RectSensor, RollYaw,
-    TanXTanY,
+    CameraProjection, CameraSensor, Point2D, RectSensor, RollYaw, SphericalLensPoly,
+    SphericalLensProjection, TanXTanY,
 };
 
 //a CameraPolynomial
 //tp CameraPolynomial
 #[derive(Debug, Clone)]
 pub struct CameraPolynomial {
+    /// Description of the (rectangular) sensor of the camera
     sensor: RectSensor,
-    lens: Polynomial,
-    /// Focal length of the lens
-    mm_focal_length: f64,
+    /// The spherical lens mapping polynomial
+    lens: SphericalLensPoly,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     ///
     /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
@@ -31,16 +31,10 @@ pub struct CameraPolynomial {
 
 //ip CameraPolynomial
 impl CameraPolynomial {
-    pub fn new(
-        sensor: RectSensor,
-        lens: Polynomial,
-        mm_focal_length: f64,
-        mm_focus_distance: f64,
-    ) -> Self {
+    pub fn new(sensor: RectSensor, lens: SphericalLensPoly, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
             sensor,
             lens,
-            mm_focal_length,
             mm_focus_distance,
             maginification_of_focus: 1., // derived
             x_px_from_tan_sc: 1.,        // derived
@@ -50,9 +44,10 @@ impl CameraPolynomial {
         cp
     }
     pub fn derive(&mut self) {
+        let mm_focal_length = self.lens.mm_focal_length();
         self.maginification_of_focus =
-            self.mm_focus_distance / (self.mm_focus_distance - self.mm_focal_length);
-        let scale = self.mm_focal_length * self.maginification_of_focus;
+            self.mm_focus_distance / (self.mm_focus_distance - mm_focal_length);
+        let scale = mm_focal_length * self.maginification_of_focus;
         // mm_sensor height/width / scale is a tan
         // We want x_px = x_px_from_tan_sc * tan
         // But tan = x_px * mm_single_pixel_width / scale
@@ -71,7 +66,7 @@ impl std::fmt::Display for CameraPolynomial {
             self.sensor.px_width(),
             self.sensor.px_height(),
             self.lens.name(),
-            self.mm_focal_length,
+            self.lens.mm_focal_length(),
         )
     }
 }

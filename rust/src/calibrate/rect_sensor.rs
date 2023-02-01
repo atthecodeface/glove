@@ -1,11 +1,14 @@
 //a Imports
+use serde::{Deserialize, Serialize};
+
 use super::{CameraSensor, Point2D};
 
 //a RectSensor
 //tp RectSensor
 /// A rectangular camera sensor
 ///
-#[derive(Debug, Clone)]
+/// This provides an implementation of [CameraSensor], which allows mapping from a known point on an image (captured by the sensor) to relative positions
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RectSensor {
     /// Centre pixel
     px_centre: [f64; 2],

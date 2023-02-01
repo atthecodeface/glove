@@ -16,10 +16,10 @@ use geo_nd::{matrix, quat};
 #[test]
 fn test_find_coarse_position_canon_50_v2() {
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let lens = Polynomial::new("50mm")
+    let lens = SphericalLensPoly::new("50mm", 50.)
         .set_ftc_poly(C50MM_STI_POLY)
         .set_ctf_poly(C50MM_ITS_POLY);
-    let canon_50mm = CameraPolynomial::new(sensor, lens, 50., 453.0); // should be 450??
+    let canon_50mm = CameraPolynomial::new(sensor, lens, 453.0); // should be 450??
     let camera = LCamera::new(
         // Rc::new(CameraRectilinear::new_logitech_c270_640()),
         Rc::new(canon_50mm),
@@ -80,11 +80,11 @@ const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
 #[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let lens = Polynomial::new("rectilinear");
-    let lens = Polynomial::new("50mm")
+    let lens = SphericalLensPoly::new("rectilinear", 50.);
+    let lens = SphericalLensPoly::new("50mm", 50.)
         .set_ftc_poly(C50MM_STI_POLY)
         .set_ctf_poly(C50MM_ITS_POLY);
-    let canon_50mm = CameraPolynomial::new(sensor, lens, 50., 100_000_000.0);
+    let canon_50mm = CameraPolynomial::new(sensor, lens, 100_000_000.0);
     let camera = LCamera::new(
         // Rc::new(CameraRectilinear::new_logitech_c270_640()),
         Rc::new(canon_50mm),
@@ -176,11 +176,11 @@ const C50MM_50CM_DATA_TEST: &[([f64; 3], [f64; 2])] = &[
 #[test]
 fn test_find_coarse_position_canon_50cm() {
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let lens = Polynomial::new("rectilinear");
-    let lens = Polynomial::new("50mm")
+    let lens = SphericalLensPoly::new("rectilinear", 50.);
+    let lens = SphericalLensPoly::new("50mm", 50.)
         .set_ftc_poly(C50MM_STI_POLY)
         .set_ctf_poly(C50MM_ITS_POLY);
-    let canon_50mm = CameraPolynomial::new(sensor, lens, 50., 400.0); // 310.0 yields the best
+    let canon_50mm = CameraPolynomial::new(sensor, lens, 400.0); // 310.0 yields the best
     let camera = LCamera::new(
         Rc::new(canon_50mm),
         [0., 0., 0.].into(),
@@ -251,7 +251,7 @@ fn test_find_coarse_position_canon_50cm() {
 #[test]
 fn test_find_coarse_position() {
     let camera = LCamera::new(
-        // Rc::new(Polynomial::default()),
+        // Rc::new(SphericalLensPoly::default()),
         Rc::new(CameraRectilinear::new_logitech_c270_640()),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
@@ -292,7 +292,7 @@ fn test_find_coarse_position() {
 // #[test]
 fn test_find_good() {
     let camera = LCamera::new(
-        // Rc::new(Polynomial::default()),
+        // Rc::new(SphericalLensPoly::default()),
         Rc::new(CameraRectilinear::new_logitech_c270_640()),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
