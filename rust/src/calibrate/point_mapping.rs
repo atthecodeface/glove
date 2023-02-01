@@ -33,48 +33,69 @@ impl NamedPoint {
 }
 //a NamedPointSet
 //tp NamedPointSet
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct NamedPointSet {
     points: HashMap<String, Rc<NamedPoint>>,
 }
 
 //ip NamedPointSet
 impl NamedPointSet {
+    //fp new
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn from_toml(toml: &str) -> Result<Self, String> {
-        toml::from_str(toml).map_err(|e| {
+
+    //fp from_json
+    pub fn from_json(toml: &str) -> Result<Self, String> {
+        serde_json::from_str(toml).map_err(|e| {
             format!(
-                "Error in parsing toml at {:?}: {}",
-                e.span().unwrap(),
-                e.message()
+                "Error in parsing json at line {} column {}: {}",
+                e.line(),
+                e.column(),
+                e
             )
         })
     }
+
+    //fp to_json
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    }
+
+    //fp add_set
     pub fn add_set(&mut self, data: &[(&str, [f64; 3])]) {
         for (name, pt) in data {
             self.add_pt(*name, (*pt).into());
         }
     }
+
+    //fp add_pt
     pub fn add_pt<S: Into<String>>(&mut self, name: S, model: Point3D) {
         let name = name.into();
         let pt = Rc::new(NamedPoint::new(name.clone(), model));
         self.points.insert(name, pt);
     }
+
+    //fp get_pt
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
         self.points.get(name).map(|a| a.clone())
     }
+    //fp iter
     pub fn iter(&self) -> std::collections::hash_map::Iter<String, Rc<NamedPoint>> {
         self.points.iter()
     }
 }
+
+//ft test_json
 #[test]
-fn test_toml() -> Result<(), String> {
-    let nps = NamedPointSet::from_toml(
+fn test_json() -> Result<(), String> {
+    let mut nps = NamedPointSet::default();
+    nps.add_pt("fred", [1., 2., 3.].into());
+    let s = nps.to_json()?;
+    assert_eq!(s, r#"[["fred",[1.0,2.0,3.0]]]"#);
+    let nps = NamedPointSet::from_json(
         r#"
-[points]
-fred = {name = "fred", model = [1, 2, 3] }
+[["fred", [1, 2, 3]]]
 "#,
     )?;
     assert!(nps.get_pt("jim").is_none(), "Jim is not a point");
@@ -83,6 +104,36 @@ fred = {name = "fred", model = [1, 2, 3] }
     assert_eq!(nps.get_pt("fred").unwrap().model()[1], 2.0);
     assert_eq!(nps.get_pt("fred").unwrap().model()[2], 3.0);
     Ok(())
+}
+
+//ip Serialize for NamedPointSet
+impl Serialize for NamedPointSet {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.points.len()))?;
+        for (name, pt) in self.points.iter() {
+            seq.serialize_element(&(name, pt.model()))?;
+        }
+        seq.end()
+    }
+}
+
+//ip Deserialize for NamedPointSet
+impl<'de> Deserialize<'de> for NamedPointSet {
+    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        let array = Vec::<(String, Point3D)>::deserialize(deserializer)?;
+        let mut nps = NamedPointSet::default();
+        for (name, model) in array {
+            nps.add_pt(name, model);
+        }
+        Ok(nps)
+    }
 }
 
 //a PointMappingSet
