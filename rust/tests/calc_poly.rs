@@ -1,7 +1,7 @@
 //a Modules
 // use glove::calibrate::Projection;
-use glove::calibrate::{min_squares, min_squares_dyn};
-use glove::calibrate::{CalcPoly, CameraSensor, Point2D, RectSensor};
+use glove::calibrate::polynomial::{min_squares, min_squares_dyn, CalcPoly};
+use glove::calibrate::{CameraSensor, Point2D, RectSensor};
 
 //a Tests
 //fp test_min_sq

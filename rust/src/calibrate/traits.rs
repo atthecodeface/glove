@@ -3,16 +3,21 @@ use super::{Point2D, TanXTanY};
 
 //a Traits
 //tt CameraSensor
-/// A trait for a sensor in a digital camera, that maps
+/// A trait for a sensor in a digital camera, that maps absolute to
+/// centre-of-lens-pixel relative, still in units of pixels
 ///
 /// The concept is that there are absolute pixel positions within a sensor,
 /// which can be converted to relative, which can be converted to a RollDist, which is a
 pub trait CameraSensor: std::fmt::Debug {
     /// Map from absolute to centre-relative pixel
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D;
+    ///
+    /// The units are pixels in both coordinates
+    fn px_abs_xy_to_px_rel_xy(&self, px_xy: Point2D) -> Point2D;
 
     /// Map from centre-relative to absolute pixel
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
+    ///
+    /// The units are pixels in both coordinates
+    fn px_rel_xy_to_px_abs_xy(&self, px_xy: Point2D) -> Point2D;
 }
 
 //tt SphericalLensProjection
@@ -44,19 +49,23 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 /// focusing distance
 pub trait CameraProjection: std::fmt::Debug {
     /// Map from absolute to centre-relative pixel
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D;
+    ///
+    /// The units are pixels in both coordinates
+    fn px_abs_xy_to_px_rel_xy(&self, px_xy: Point2D) -> Point2D;
 
     /// Map from centre-relative to absolute pixel
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
+    ///
+    /// The units are pixels in both coordinates
+    fn px_rel_xy_to_px_abs_xy(&self, px_xy: Point2D) -> Point2D;
 
     /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a tan(x), tan(y)
+    /// camera to a world-space tan(x), tan(y)
     ///
     /// This must apply the lens projection
-    fn px_rel_xy_to_txty(&self, xy: Point2D) -> TanXTanY;
+    fn px_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY;
 
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
+    /// Map a world-space tan(x), tan(y) (i.e. x/z, y/z) to a
+    /// centre-relative XY pixel in the frame of the camera
     ///
     /// This must apply the lens projection
     fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;

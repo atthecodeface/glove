@@ -1,9 +1,11 @@
 //a Imports
+use serde::{Deserialize, Serialize};
+
 use super::{CameraProjection, CameraSensor, Point2D, RectSensor, TanXTanY};
 
 //a CameraRectilinear
 //tp CameraRectilinear
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CameraRectilinear {
     sensor: RectSensor,
     diag_fov_degrees: f64,

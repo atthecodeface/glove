@@ -108,6 +108,13 @@ impl LCamera {
         camera_relative_xyz + self.position
     }
 
+    //fp screen_xyz_to_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    pub fn screen_xyz_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
+        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
+        self.projection.px_rel_xy_to_txty(px_rel_xy)
+    }
+
     //fp world_xyz_to_txty
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// coordinates (XYZ)
@@ -116,26 +123,19 @@ impl LCamera {
         camera_xyz.into()
     }
 
-    //fp screen_xyz_to_txty
-    /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    pub fn screen_xyz_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
-        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
-        self.projection.px_rel_xy_to_txty(px_rel_xy)
-    }
-
-    //fp to_scr_xy
+    //fp world_xyz_to_scr_xy
     /// Map a world Point3D coordinate to camera-space coordinates,
     /// and then to tan(x)/tan(y)
     ///
     /// Then to camera sensor pixel X-Y coordinates
-    pub fn to_scr_xy(&self, model_xyz: &Point3D) -> Point2D {
+    pub fn world_xyz_to_scr_xy(&self, world_xyz: &Point3D) -> Point2D {
         // If x is about 300, and z about 540, and a FOV of 60 degress across
         // then this should map to the right-hand edge (i.e. about 640)
         // hence 320 + 640/2 * 300/540 / tan(fov/2)
         //
         // If the FOV is smaller (telephoto) then tan(fov) is smaller, and scr_x should
         // be largerfor the same model x
-        let txty = self.world_xyz_to_txty(model_xyz);
+        let txty = self.world_xyz_to_txty(world_xyz);
         let px_rel_xy = self.projection.txty_to_px_rel_xy(txty);
         self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
@@ -143,7 +143,7 @@ impl LCamera {
     //fp get_pm_dxdy
     #[inline]
     pub fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
-        let camera_scr_xy = self.to_scr_xy(pm.model());
+        let camera_scr_xy = self.world_xyz_to_scr_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
         [dx, dy].into()
@@ -177,7 +177,7 @@ impl LCamera {
     //fp show_point_set
     pub fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
-            let camera_scr_xy = self.to_scr_xy(model.model());
+            let camera_scr_xy = self.world_xyz_to_scr_xy(model.model());
             eprintln!(
                 "model {} : {} maps to {}",
                 name,
@@ -189,7 +189,7 @@ impl LCamera {
 
     //fp show_pm_error
     pub fn show_pm_error(&self, pm: &PointMapping) {
-        let camera_scr_xy = self.to_scr_xy(pm.model());
+        let camera_scr_xy = self.world_xyz_to_scr_xy(pm.model());
         let (model_error, model_dxdy, model_angle, model_axis) = self.get_pm_model_error(pm);
         let dxdy = self.get_pm_dxdy(pm);
         let esq = self.get_pm_sq_error(pm);

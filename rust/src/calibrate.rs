@@ -105,7 +105,6 @@ mod camera;
 pub use camera::LCamera;
 mod model_data;
 pub use model_data::*;
-pub mod calc_poly;
-pub use calc_poly::{min_squares, min_squares_dyn, CalcPoly};
+pub mod polynomial;
 pub mod spherical_lens;
 pub use spherical_lens::SphericalLensPoly;

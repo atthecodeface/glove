@@ -1,4 +1,6 @@
 //a Imports
+use serde::{Deserialize, Serialize};
+
 use super::{
     CameraProjection, CameraSensor, Point2D, RectSensor, RollYaw, SphericalLensPoly,
     SphericalLensProjection, TanXTanY,
@@ -6,7 +8,7 @@ use super::{
 
 //a CameraPolynomial
 //tp CameraPolynomial
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraPolynomial {
     /// Description of the (rectangular) sensor of the camera
     sensor: RectSensor,
@@ -21,12 +23,14 @@ pub struct CameraPolynomial {
     /// For an actual 'd' we have u' = fd/(f-d); the image is magnified on the sensor by u'/u,
     /// which is u'/f or d/(d-f)
     mm_focus_distance: f64,
+    /// Derived magnification due to focus distance
     maginification_of_focus: f64,
     /// Convert from tan(angle) to x pixel
     ///
     /// This is sensor.mm_single_pixel_width / sensor.mm_sensor_width * mm_focal_length
-    pub x_px_from_tan_sc: f64,
-    pub y_px_from_tan_sc: f64,
+    x_px_from_tan_sc: f64,
+    /// Convert from tan(angle) to y pixel
+    y_px_from_tan_sc: f64,
 }
 
 //ip CameraPolynomial
@@ -73,6 +77,7 @@ impl std::fmt::Display for CameraPolynomial {
 
 //ip CameraProjection for CameraPolynomial
 impl CameraProjection for CameraPolynomial {
+    /// Map from centre-relative to absolute pixel
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
         self.sensor.px_rel_xy_to_px_abs_xy(xy)
     }

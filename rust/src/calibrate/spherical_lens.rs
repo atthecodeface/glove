@@ -107,7 +107,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use super::CalcPoly;
+use super::polynomial::CalcPoly;
 use super::SphericalLensProjection;
 
 //a SphericalLensPoly
