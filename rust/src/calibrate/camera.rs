@@ -110,5 +110,16 @@ impl Camera {
         self
     }
 
+    //cp rotated_by
+    pub fn rotated_by(mut self, q: &Quat) -> Self {
+        self.direction = *q * self.direction;
+        self
+    }
+
+    //cp normalize
+    pub fn normalize(&mut self) {
+        self.direction = quat::normalize(*self.direction.as_ref()).into();
+    }
+
     //zz All done
 }

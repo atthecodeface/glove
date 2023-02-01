@@ -2,8 +2,8 @@
 use std::rc::Rc;
 
 use super::{
-    CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat, Rotations,
-    TanXTanY,
+    Camera, CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
+    Rotations, TanXTanY,
 };
 
 use geo_nd::{quat, vector};
@@ -11,95 +11,58 @@ use geo_nd::{quat, vector};
 //a Constants
 const MIN_ERROR: f64 = 0.5;
 
-//a LCamera
-//tp LCamera
+//a CameraMapping
+//tp CameraMapping
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
 #[derive(Debug, Clone)]
-pub struct LCamera {
-    /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
-    /// XY
-    projection: Rc<dyn CameraProjection>,
-    /// Position in world coordinates of the camera
-    ///
-    /// Subtract from world coords to get camera-relative world coordinates
-    position: Point3D,
-    /// Direction to be applied to camera-relative world coordinates
-    /// to convert to camera-space coordinates
-    ///
-    /// Camera-space XYZ = direction applied to (world - positionn)
-    direction: Quat,
+pub struct CameraMapping {
+    camera: Camera,
 }
 
-//ip Display for LCamera
-impl std::fmt::Display for LCamera {
+//ip Display for CameraMapping
+impl std::fmt::Display for CameraMapping {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let dxyz = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
-        // First rotation around Y axis (yaw)
-        let yaw = dxyz[0].atan2(dxyz[2]).to_degrees();
-        // Then rotation around X axis (elevation)
-        let pitch = dxyz[1]
-            .atan2((dxyz[0] * dxyz[0] + dxyz[2] * dxyz[2]).sqrt())
-            .to_degrees();
-        write!(
-            fmt,
-            "@[{:.2},{:.2},{:.2}] yaw {:.2} pitch {:.2} + [{:.2},{:.2},{:.2}]",
-            self.position[0],
-            self.position[1],
-            self.position[2],
-            yaw,
-            pitch,
-            dxyz[0],
-            dxyz[1],
-            dxyz[2]
-        )
+        self.camera.fmt(fmt)
     }
 }
 
-//ip CameraView for LCamera
-impl CameraView for LCamera {
-    //fp location
-    fn location(&self) -> Point3D {
-        self.position
-    }
-
-    //fp direction
-    fn direction(&self) -> Quat {
-        self.direction
-    }
-
-    //fp px_abs_xy_to_camera_txty
-    /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
-        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
-        self.projection.px_rel_xy_to_txty(px_rel_xy)
-    }
-
-    //fp camera_txty_to_px_abs_xy
-    /// Map a tan(x)/tan(y) to screen Point2D coordinate
-    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let px_rel_xy = self.projection.txty_to_px_rel_xy(*txty);
-        self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
+//ip Deref for CameraMapping
+impl std::ops::Deref for CameraMapping {
+    type Target = Camera;
+    fn deref(&self) -> &Camera {
+        &self.camera
     }
 }
 
-//ip LCamera
-impl LCamera {
+//ip DerefMut for CameraMapping
+impl std::ops::DerefMut for CameraMapping {
+    fn deref_mut(&mut self) -> &mut Camera {
+        &mut self.camera
+    }
+}
+
+//ip CameraMapping
+impl CameraMapping {
     //fp new
     pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
-        Self {
-            projection,
-            position,
-            direction,
-        }
+        let camera = Camera::new(projection, position, direction);
+        Self { camera }
     }
 
     //fp moved_by
     pub fn moved_by(&self, dp: [f64; 3]) -> Self {
-        let mut cam = self.clone();
-        cam.position = self.position + Point3D::from(dp);
-        cam
+        Self {
+            camera: self.camera.clone().moved_by(dp),
+        }
+    }
+
+    //fp rotated_by
+    pub fn rotated_by(&self, q: &Quat) -> Self {
+        Self {
+            camera: self.camera.clone().rotated_by(q),
+        }
     }
 
     //fp get_pm_dxdy
@@ -188,15 +151,15 @@ impl LCamera {
         let mut tc = c.clone();
         let mut e = c.get_pm_sq_error(pm);
         for _ in 0..max_steps {
-            tc.direction = c.direction * *q;
+            tc = tc.rotated_by(q);
             let ne = tc.get_pm_sq_error(pm);
             if ne > e {
                 break;
             }
-            c.direction = tc.direction;
+            c.camera = c.camera.with_direction(tc.camera.direction());
             e = ne;
         }
-        *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
+        c.normalize(); // Tidy the direction quaternion
         (c, e)
     }
 
@@ -218,9 +181,7 @@ impl LCamera {
     //fp error_with_quat
     #[inline]
     fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
-        let mut c = self.clone();
-        c.direction = self.direction * *quat;
-        c.get_pm_sq_error(pm)
+        self.rotated_by(quat).get_pm_sq_error(pm)
     }
 
     //fp error_surface_normal
@@ -257,7 +218,6 @@ impl LCamera {
         //
         // We want to move in direction - n x (n_pm x n)
         let mut c = self.clone();
-        let mut tc = c.clone();
         let mut e = f(&c, mappings, test_pm);
         // dbg!("Preadjusted", e);
         for _i in 0..max_adj {
@@ -272,18 +232,18 @@ impl LCamera {
             let q = quat::rotate_x(&quat::new(), da * k_x_k_x_t[0]);
             let q = quat::rotate_y(&q, da * k_x_k_x_t[1]);
             let q = quat::rotate_z(&q, da * k_x_k_x_t[2]);
-            tc.direction = c.direction * Quat::from(q);
+            let tc = c.rotated_by(&q.into());
             let ne = f(&tc, mappings, test_pm);
             if ne > e {
                 // dbg!("Adjusted", i, e, ne, k_x_k_x_t);
-                *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
+                c.normalize();
                 return (c, e);
             }
             if e < MIN_ERROR {
                 // dbg!("Adjusted to MIN ERROR", i, e);
                 return (c, e);
             }
-            c = tc.clone();
+            c = tc;
             e = ne;
         }
         dbg!("Adjusted BUT TOO MUCH!", e);
@@ -310,23 +270,23 @@ impl LCamera {
         let keep_v = self.world_xyz_to_camera_xyz(mappings[keep_pm].model());
         let mut rot: Quat = quat::of_axis_angle(keep_v.as_ref(), da).into();
         let mut c = self.clone();
-        let mut tc = c.clone();
         let mut e = f(&c, mappings, test_pm);
         for _sc in 0..2 {
             // dbg!("Preadjusted", e);
             for _i in 0..100_000 {
-                tc.direction = rot * c.direction;
+                let tc = c.rotated_by(&rot.into());
+                // was tc.direction = rot * c.direction;
                 let ne = f(&tc, mappings, test_pm);
                 if ne > e {
                     // dbg!("Adjusted", i, e, ne);
-                    *c.direction.as_mut() = quat::normalize(*c.direction.as_ref());
+                    c.normalize();
                     break;
                 }
                 if e < MIN_ERROR {
                     // dbg!("Adjusted to MIN ERROR", i, e);
                     return (c, e);
                 }
-                c = tc.clone();
+                c = tc;
                 e = ne;
             }
             rot = quat::conjugate(rot.as_ref()).into();
@@ -415,7 +375,7 @@ impl LCamera {
         f: &F,
     ) -> (Self, f64) {
         // Map (0,0,1) to view space
-        let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
+        let [dx, dy, dz] = quat::apply3(&quat::conjugate(self.direction().as_ref()), &[0., 0., 1.]);
         // dbg!(dx, dy, dz);
         let mut cam = self.clone();
         let mut e = f(&cam, mappings);

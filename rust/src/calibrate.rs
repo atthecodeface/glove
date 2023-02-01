@@ -91,20 +91,25 @@ mod types;
 pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 mod traits;
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
-mod rotations;
-pub use rotations::Rotations;
-mod point_mapping;
-pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod rect_sensor;
 pub use rect_sensor::RectSensor;
+mod spherical_lens;
+pub use spherical_lens::SphericalLensPoly;
 mod camera_rectilinear;
 pub use camera_rectilinear::CameraRectilinear;
 mod camera_polynomial;
 pub use camera_polynomial::CameraPolynomial;
+mod camera;
+pub use camera::Camera;
+
+mod rotations;
+pub use rotations::Rotations;
+mod point_mapping;
+pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod camera_mapping;
-pub use camera_mapping::LCamera;
+pub use camera_mapping::CameraMapping as LCamera;
+
 mod model_data;
 pub use model_data::*;
+
 pub mod polynomial;
-pub mod spherical_lens;
-pub use spherical_lens::SphericalLensPoly;
