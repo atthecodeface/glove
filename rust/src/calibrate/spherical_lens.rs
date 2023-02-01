@@ -143,10 +143,10 @@ pub struct SphericalLensPoly {
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
     ///
     /// fractional Y-offset is px_rel_y / (px_height/2) / pixel_aspect_ratio
-    ftc_poly: Vec<f64>,
+    stw_poly: Vec<f64>,
 
     /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
-    ctf_poly: Vec<f64>,
+    wts_poly: Vec<f64>,
 }
 
 //ip Default for SphericalLensPoly
@@ -155,8 +155,8 @@ impl std::default::Default for SphericalLensPoly {
         Self {
             name: String::new(),
             mm_focal_length: 20.,
-            ftc_poly: vec![0., 1.],
-            ctf_poly: vec![0., 1.],
+            stw_poly: vec![0., 1.],
+            wts_poly: vec![0., 1.],
         }
     }
 }
@@ -182,15 +182,15 @@ impl SphericalLensPoly {
         self
     }
 
-    //cp set_ftc_poly
-    pub fn set_ftc_poly(mut self, poly: &[f64]) -> Self {
-        self.ftc_poly = poly.to_vec();
+    //cp set_stw_poly
+    pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
+        self.stw_poly = poly.to_vec();
         self
     }
 
-    //cp set_ctf_poly
-    pub fn set_ctf_poly(mut self, poly: &[f64]) -> Self {
-        self.ctf_poly = poly.to_vec();
+    //cp set_wts_poly
+    pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
+        self.wts_poly = poly.to_vec();
         self
     }
 
@@ -210,10 +210,10 @@ impl SphericalLensProjection for SphericalLensPoly {
     }
     #[inline]
     fn sensor_to_world(&self, tan: f64) -> f64 {
-        self.ftc_poly.calc(tan)
+        self.stw_poly.calc(tan)
     }
     #[inline]
     fn world_to_sensor(&self, tan: f64) -> f64 {
-        self.ctf_poly.calc(tan)
+        self.wts_poly.calc(tan)
     }
 }

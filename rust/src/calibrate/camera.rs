@@ -1,12 +1,9 @@
 //a Imports
 use std::rc::Rc;
 
-use super::{
-    CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat, Rotations,
-    TanXTanY,
-};
+use super::{CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY};
 
-use geo_nd::{quat, vector};
+use geo_nd::quat;
 
 //a Camera
 //tp Camera

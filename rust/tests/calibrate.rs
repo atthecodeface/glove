@@ -17,8 +17,8 @@ use geo_nd::{matrix, quat};
 fn test_find_coarse_position_canon_50_v2() {
     let sensor = RectSensor::new_35mm(6720, 4480);
     let lens = SphericalLensPoly::new("50mm", 50.)
-        .set_ftc_poly(C50MM_STI_POLY)
-        .set_ctf_poly(C50MM_ITS_POLY);
+        .set_stw_poly(C50MM_STI_POLY)
+        .set_wts_poly(C50MM_ITS_POLY);
     let canon_50mm = CameraPolynomial::new(sensor, lens, 453.0); // should be 450??
     let camera = LCamera::new(
         // Rc::new(CameraRectilinear::new_logitech_c270_640()),
@@ -82,8 +82,8 @@ fn test_find_coarse_position_canon_inf() {
     let sensor = RectSensor::new_35mm(6720, 4480);
     let lens = SphericalLensPoly::new("rectilinear", 50.);
     let lens = SphericalLensPoly::new("50mm", 50.)
-        .set_ftc_poly(C50MM_STI_POLY)
-        .set_ctf_poly(C50MM_ITS_POLY);
+        .set_stw_poly(C50MM_STI_POLY)
+        .set_wts_poly(C50MM_ITS_POLY);
     let canon_50mm = CameraPolynomial::new(sensor, lens, 100_000_000.0);
     let camera = LCamera::new(
         // Rc::new(CameraRectilinear::new_logitech_c270_640()),
@@ -178,8 +178,8 @@ fn test_find_coarse_position_canon_50cm() {
     let sensor = RectSensor::new_35mm(6720, 4480);
     let lens = SphericalLensPoly::new("rectilinear", 50.);
     let lens = SphericalLensPoly::new("50mm", 50.)
-        .set_ftc_poly(C50MM_STI_POLY)
-        .set_ctf_poly(C50MM_ITS_POLY);
+        .set_stw_poly(C50MM_STI_POLY)
+        .set_wts_poly(C50MM_ITS_POLY);
     let canon_50mm = CameraPolynomial::new(sensor, lens, 400.0); // 310.0 yields the best
     let camera = LCamera::new(
         Rc::new(canon_50mm),
