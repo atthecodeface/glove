@@ -1,5 +1,7 @@
 //a Imports
-use super::{Point2D, TanXTanY};
+use geo_nd::quat;
+
+use super::{Point2D, Point3D, Quat, TanXTanY};
 
 //a Traits
 //tt CameraSensor
@@ -69,4 +71,61 @@ pub trait CameraProjection: std::fmt::Debug {
     ///
     /// This must apply the lens projection
     fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
+}
+
+//tt CameraView
+/// A camera view is a camera projection placed at a particular location in world space in a particular orientation
+pub trait CameraView: std::fmt::Debug {
+    //mp location
+    /// Get a Point3D indicating the placement of the camera in world space
+    fn location(&self) -> Point3D;
+
+    //mp direction
+    /// Get a quaternion indicating the direction of the camera
+    fn direction(&self) -> Quat;
+
+    //fp px_abs_xy_to_camera_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY;
+
+    //fp camera_txty_to_px_abs_xy
+    /// Map a tan(x)/tan(y) to screen Point2D coordinate
+    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D;
+
+    //fp world_xyz_to_camera_xyz (derived)
+    /// Convert a Point3D in world space (XYZ) to camera-space
+    /// coordinates (XYZ)
+    #[inline]
+    fn world_xyz_to_camera_xyz(&self, world_xyz: &Point3D) -> Point3D {
+        let camera_relative_xyz = *world_xyz - self.location();
+        quat::apply3(self.direction().as_ref(), camera_relative_xyz.as_ref()).into()
+    }
+
+    //fp camera_xyz_to_world_xyz (derived)
+    /// Convert a Point3D in camera space (XYZ) to world space
+    /// coordinates (XYZ)
+    fn camera_xyz_to_world_xyz(&self, camera_xyz: &Point3D) -> Point3D {
+        let camera_relative_xyz: Point3D = quat::apply3(
+            &quat::conjugate(self.direction().as_ref()),
+            camera_xyz.as_ref(),
+        )
+        .into();
+        camera_relative_xyz + self.location()
+    }
+
+    //fp world_xyz_to_camera_txty (derived)
+    /// Convert a Point3D in world space (XYZ) to camera-space
+    /// TanX/TanY coordinates (XY)
+    #[inline]
+    fn world_xyz_to_camera_txty(&self, world_xyz: &Point3D) -> TanXTanY {
+        self.world_xyz_to_camera_xyz(world_xyz).into()
+    }
+
+    //fp world_xyz_to_px_abs_xy (derived)
+    /// Map a world Point3D coordinate to camera-space coordinates,
+    /// and then to tan(x)/tan(y), then to camera sensor pixel X-Y coordinates
+    #[inline]
+    fn world_xyz_to_px_abs_xy(&self, world_xyz: &Point3D) -> Point2D {
+        self.camera_txty_to_px_abs_xy(&self.world_xyz_to_camera_txty(world_xyz))
+    }
 }

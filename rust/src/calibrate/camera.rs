@@ -2,7 +2,8 @@
 use std::rc::Rc;
 
 use super::{
-    CameraProjection, NamedPointSet, Point2D, Point3D, PointMapping, Quat, Rotations, TanXTanY,
+    CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat, Rotations,
+    TanXTanY,
 };
 
 use geo_nd::{quat, vector};
@@ -53,6 +54,33 @@ impl std::fmt::Display for LCamera {
             dxyz[1],
             dxyz[2]
         )
+    }
+}
+
+//ip CameraView for LCamera
+impl CameraView for LCamera {
+    //fp location
+    fn location(&self) -> Point3D {
+        self.position
+    }
+
+    //fp direction
+    fn direction(&self) -> Quat {
+        self.direction
+    }
+
+    //fp px_abs_xy_to_camera_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
+        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
+        self.projection.px_rel_xy_to_txty(px_rel_xy)
+    }
+
+    //fp camera_txty_to_px_abs_xy
+    /// Map a tan(x)/tan(y) to screen Point2D coordinate
+    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
+        let px_rel_xy = self.projection.txty_to_px_rel_xy(*txty);
+        self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 }
 
@@ -108,9 +136,9 @@ impl LCamera {
         camera_relative_xyz + self.position
     }
 
-    //fp screen_xyz_to_txty
+    //fp screen_xy_to_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    pub fn screen_xyz_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
+    pub fn screen_xy_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
         let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
         self.projection.px_rel_xy_to_txty(px_rel_xy)
     }
@@ -160,7 +188,7 @@ impl LCamera {
         let model_rel_xyz = self.to_camera_space(pm.model());
         let model_dist = vector::length(model_rel_xyz.as_ref());
         let model_vec = self.world_xyz_to_txty(pm.model()).to_unit_vector();
-        let screen_vec = self.screen_xyz_to_txty(pm.screen()).to_unit_vector();
+        let screen_vec = self.screen_xy_to_txty(pm.screen()).to_unit_vector();
         let dxdy = self.from_camera_space(&((-screen_vec) * model_dist)) - *pm.model();
         let axis = vector::cross_product3(model_vec.as_ref(), screen_vec.as_ref());
         let sin_sep = vector::length(&axis);
