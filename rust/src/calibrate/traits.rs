@@ -30,8 +30,8 @@ pub trait CameraSensor: std::fmt::Debug {
 /// The lens projection is between RollYaw and
 /// tan(x)/tan(y). Essentially RollYaw is kinda internal
 pub trait LensProjection: std::fmt::Debug {
-    fn frame_to_camera(&self, tan: f64) -> f64;
-    fn camera_to_frame(&self, tan: f64) -> f64;
+    fn sensor_to_world(&self, tan: f64) -> f64;
+    fn world_to_sensor(&self, tan: f64) -> f64;
 }
 
 //tt CameraProjection

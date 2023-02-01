@@ -99,7 +99,7 @@ impl CameraProjection for CameraPolynomial {
         let ry_camera = RollYaw::from_roll_tan_yaw(
             ry_frame.sin_roll(),
             ry_frame.cos_roll(),
-            self.lens.frame_to_camera(ry_frame.tan_yaw()),
+            self.lens.sensor_to_world(ry_frame.tan_yaw()),
         );
         ry_camera.into()
     }
@@ -113,7 +113,7 @@ impl CameraProjection for CameraPolynomial {
         let ry_frame = RollYaw::from_roll_tan_yaw(
             ry_camera.sin_roll(),
             ry_camera.cos_roll(),
-            self.lens.camera_to_frame(ry_camera.tan_yaw()),
+            self.lens.world_to_sensor(ry_camera.tan_yaw()),
         );
         let txty_frame: TanXTanY = ry_frame.into();
         [

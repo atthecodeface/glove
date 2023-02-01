@@ -84,14 +84,15 @@ impl Polynomial {
 //ip LensProjection for Polynomial
 impl LensProjection for Polynomial {
     #[inline]
-    fn frame_to_camera(&self, tan: f64) -> f64 {
+    fn sensor_to_world(&self, tan: f64) -> f64 {
         self.ftc_poly.calc(tan)
     }
     #[inline]
-    fn camera_to_frame(&self, tan: f64) -> f64 {
+    fn world_to_sensor(&self, tan: f64) -> f64 {
         self.ctf_poly.calc(tan)
     }
 }
+
 //a Lens polynomial
 /// Notes Jan 2023
 ///

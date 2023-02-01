@@ -93,8 +93,6 @@ mod traits;
 pub use traits::{CameraProjection, CameraSensor, LensProjection};
 mod rotations;
 pub use rotations::Rotations;
-mod projection;
-pub use projection::Projection;
 mod point_mapping;
 pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod camera_sensor;
