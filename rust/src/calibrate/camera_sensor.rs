@@ -1,5 +1,5 @@
 //a Imports
-use super::{CameraSensor, Point2D, RollDist};
+use super::{CameraSensor, Point2D};
 
 //a RectSensor
 //tp RectSensor
@@ -210,30 +210,5 @@ impl CameraSensor for RectSensor {
         } else {
             [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
         }
-    }
-
-    //fp px_rel_xy_to_rd
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a RollDist (mmm from centre and angle)
-    #[inline]
-    fn px_rel_xy_to_rd(&self, xy: Point2D) -> RollDist {
-        let mm_xy = [
-            xy[0] * self.mm_single_pixel_width,
-            xy[1] * self.mm_single_pixel_height,
-        ];
-        RollDist::from_mm_xy(mm_xy.into())
-    }
-
-    //fp rd_to_px_rel_xy
-    /// Map a RollDist to a centre-relative XY pixel in the frame of
-    /// the camera
-    #[inline]
-    fn rd_to_px_rel_xy(&self, rd: RollDist) -> Point2D {
-        let mm_xy = rd.to_mm_xy();
-        [
-            mm_xy[0] / self.mm_single_pixel_width,
-            mm_xy[1] / self.mm_single_pixel_height,
-        ]
-        .into()
     }
 }

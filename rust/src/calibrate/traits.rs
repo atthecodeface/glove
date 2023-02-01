@@ -1,8 +1,10 @@
 //a Imports
-use super::{Point2D, RollDist, TanXTanY};
+use super::{Point2D, TanXTanY};
 
 //a Traits
 //tt CameraSensor
+/// A trait for a sensor in a digital camera, that maps
+///
 /// The concept is that there are absolute pixel positions within a sensor,
 /// which can be converted to relative, which can be converted to a RollDist, which is a
 pub trait CameraSensor: std::fmt::Debug {
@@ -11,14 +13,6 @@ pub trait CameraSensor: std::fmt::Debug {
 
     /// Map from centre-relative to absolute pixel
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D;
-
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a RollDist (mmm from centre and angle)
-    fn px_rel_xy_to_rd(&self, xy: Point2D) -> RollDist;
-
-    /// Map a RollDist to a centre-relative XY pixel in the frame of
-    /// the camera
-    fn rd_to_px_rel_xy(&self, rd: RollDist) -> Point2D;
 }
 
 //tt LensProjection
