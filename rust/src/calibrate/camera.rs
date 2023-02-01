@@ -102,76 +102,10 @@ impl LCamera {
         cam
     }
 
-    //fp position
-    pub fn position(&self) -> &[f64; 3] {
-        self.position.as_ref()
-    }
-
-    //fp rotation_matrix
-    /// Get a rotation matrix that maps camera-relative world
-    /// coordinates to camera-space coordinates
-    pub fn rotation_matrix(&self) -> [f64; 9] {
-        let mut rot = [0.; 9];
-        quat::to_rotation3(self.direction.as_ref(), &mut rot);
-        rot
-    }
-
-    //fp to_camera_space
-    /// Convert a Point3D in world space (XYZ) to camera-space
-    /// coordinates (XYZ)
-    pub fn to_camera_space(&self, model_xyz: &Point3D) -> Point3D {
-        let camera_relative_xyz = *model_xyz - self.position;
-        quat::apply3(self.direction.as_ref(), camera_relative_xyz.as_ref()).into()
-    }
-
-    //fp from_camera_space
-    /// Convert a Point3D in camera space (XYZ) to model space
-    /// coordinates (XYZ)
-    pub fn from_camera_space(&self, camera_space_xyz: &Point3D) -> Point3D {
-        let camera_relative_xyz: Point3D = quat::apply3(
-            &quat::conjugate(self.direction.as_ref()),
-            camera_space_xyz.as_ref(),
-        )
-        .into();
-        camera_relative_xyz + self.position
-    }
-
-    //fp screen_xy_to_txty
-    /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    pub fn screen_xy_to_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
-        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
-        self.projection.px_rel_xy_to_txty(px_rel_xy)
-    }
-
-    //fp world_xyz_to_txty
-    /// Convert a Point3D in world space (XYZ) to camera-space
-    /// coordinates (XYZ)
-    pub fn world_xyz_to_txty(&self, model_xyz: &Point3D) -> TanXTanY {
-        let camera_xyz = self.to_camera_space(model_xyz);
-        camera_xyz.into()
-    }
-
-    //fp world_xyz_to_scr_xy
-    /// Map a world Point3D coordinate to camera-space coordinates,
-    /// and then to tan(x)/tan(y)
-    ///
-    /// Then to camera sensor pixel X-Y coordinates
-    pub fn world_xyz_to_scr_xy(&self, world_xyz: &Point3D) -> Point2D {
-        // If x is about 300, and z about 540, and a FOV of 60 degress across
-        // then this should map to the right-hand edge (i.e. about 640)
-        // hence 320 + 640/2 * 300/540 / tan(fov/2)
-        //
-        // If the FOV is smaller (telephoto) then tan(fov) is smaller, and scr_x should
-        // be largerfor the same model x
-        let txty = self.world_xyz_to_txty(world_xyz);
-        let px_rel_xy = self.projection.txty_to_px_rel_xy(txty);
-        self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
-    }
-
     //fp get_pm_dxdy
     #[inline]
     pub fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
-        let camera_scr_xy = self.world_xyz_to_scr_xy(pm.model());
+        let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
         [dx, dy].into()
@@ -185,11 +119,11 @@ impl LCamera {
 
     //fp get_pm_model_error
     pub fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D) {
-        let model_rel_xyz = self.to_camera_space(pm.model());
+        let model_rel_xyz = self.world_xyz_to_camera_xyz(pm.model());
         let model_dist = vector::length(model_rel_xyz.as_ref());
-        let model_vec = self.world_xyz_to_txty(pm.model()).to_unit_vector();
-        let screen_vec = self.screen_xy_to_txty(pm.screen()).to_unit_vector();
-        let dxdy = self.from_camera_space(&((-screen_vec) * model_dist)) - *pm.model();
+        let model_vec = self.world_xyz_to_camera_txty(pm.model()).to_unit_vector();
+        let screen_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
+        let dxdy = self.camera_xyz_to_world_xyz(&((-screen_vec) * model_dist)) - *pm.model();
         let axis = vector::cross_product3(model_vec.as_ref(), screen_vec.as_ref());
         let sin_sep = vector::length(&axis);
         let error = sin_sep * model_dist;
@@ -205,7 +139,7 @@ impl LCamera {
     //fp show_point_set
     pub fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
-            let camera_scr_xy = self.world_xyz_to_scr_xy(model.model());
+            let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model());
             eprintln!(
                 "model {} : {} maps to {}",
                 name,
@@ -217,7 +151,7 @@ impl LCamera {
 
     //fp show_pm_error
     pub fn show_pm_error(&self, pm: &PointMapping) {
-        let camera_scr_xy = self.world_xyz_to_scr_xy(pm.model());
+        let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let (model_error, model_dxdy, model_angle, model_axis) = self.get_pm_model_error(pm);
         let dxdy = self.get_pm_dxdy(pm);
         let esq = self.get_pm_sq_error(pm);
@@ -373,7 +307,7 @@ impl LCamera {
         //
         // Then da * (direction * model[keep_pm)]) does not impact the view position
         // of model[keep_pm]
-        let keep_v = self.to_camera_space(mappings[keep_pm].model());
+        let keep_v = self.world_xyz_to_camera_xyz(mappings[keep_pm].model());
         let mut rot: Quat = quat::of_axis_angle(keep_v.as_ref(), da).into();
         let mut c = self.clone();
         let mut tc = c.clone();
