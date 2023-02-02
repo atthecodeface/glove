@@ -35,16 +35,19 @@ pub struct RectSensor {
     /// Derived width of a sensor pixel in mm
     ///
     /// mm_sensor_width / px_width
+    #[serde(skip)]
     mm_single_pixel_width: f64,
 
     /// Derived width of a sensor pixel in mm
     ///
     /// mm_sensor_height / px_height
+    #[serde(skip)]
     mm_single_pixel_height: f64,
 
     /// Derived non-squareness of sensor pixel - X to Y ratio
     ///
     /// = mm_single_pixel_width / mm_single_pixel_height
+    #[serde(skip)]
     pixel_aspect_ratio: f64,
 }
 

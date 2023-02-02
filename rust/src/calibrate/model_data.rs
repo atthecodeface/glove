@@ -1,21 +1,23 @@
 /// Noughts and crosses at 45mm
-pub const NOUGHTS_AND_CROSSES_MODEL: &[(&str, [f64; 3])] = &[
-    ("0 bl game", [1.0, 0.0, 2.0]),
-    ("ml game", [1.0, 0.0, 31.0]),
-    ("1 tl game", [1.0, 0.0, 93.0]),
-    ("2 tr game", [108.0, 0.0, 90.0]),
-    ("3 br game", [108.0, 0.0, 2.0]),
-    ("4 bl text", [0., 106.0, 2.0]),
-    ("5 tl text", [0., 106.0, 92.0]),
-    ("& mid-tip game", [72.0, 0.0, 76.0]),
-    ("& mid-tip text", [0.0, 35.5, 76.0]),
-    ("6cm ruler", [0., -9.0, 2.0]),
-    ("7cm ruler", [0., -19.0, 2.0]),
-    ("8cm ruler", [0., -29.0, 2.0]),
-    ("9cm ruler", [0., -39.0, 2.0]),
-    ("10cm ruler", [0., -49.0, 2.0]),
-    ("text star point above E", [0., -49.0, 2.0]),
-];
+pub const NOUGHTS_AND_CROSSES_MODEL_JSON: &str = r#"
+[
+  ["0 bl game",[1.0,0.0,2.0]],
+  ["ml game",[1.0,0.0,31.0]],
+  ["1 tl game",[1.0,0.0,93.0]],
+  ["2 tr game",[108.0,0.0,90.0]],
+  ["3 br game",[108.0,0.0,2.0]],
+  ["4 bl text",[0.0,106.0,2.0]],
+  ["5 tl text",[0.0,106.0,92.0]],
+  ["& mid-tip text",[0.0,35.5,76.0]],
+  ["& mid-tip game",[72.0,0.0,76.0]],
+  ["6cm ruler",[0.0,-9.0,2.0]],
+  ["7cm ruler",[0.0,-19.0,2.0]],
+  ["8cm ruler",[0.0,-29.0,2.0]],
+  ["9cm ruler",[0.0,-39.0,2.0]],
+  ["10cm ruler",[0.0,-49.0,2.0]],
+  ["text star point above E",[0.0,-49.0,2.0]]
+]
+"#;
 pub const NAC_4V3A6040: &[(&str, isize, isize)] = &[
     ("0 bl game", 3184, 3752),
     ("ml game", 3194, 3072),
@@ -44,17 +46,31 @@ pub const NAC_4V3A6041: &[(&str, isize, isize)] = &[
     // ("text star point above E", 2937, 2881),
 ];
 // Camera estimate -264.70,-96.50,264.90
+// ("2 tr game", 4163, 392),
+// ("3 br game",  further up than it seems
+// ("text star point above E", 3661, 3217),
+// ("5 tl text", 911, 2432),
+pub const NAC_4V3A6042_JSON: &str = r#"
+[
+  ["0 bl game",[4476.0,3913.0]],
+  ["1 tl game",[3741.0,1899.0]],
+  ["ml game",[4266.0,3313.0]],
+  ["& mid-tip game",[4174.0,1143.0]],
+  ["& mid-tip text",[2869.0,2466.0]],
+  ["4 bl text",[1868.0,4196.0]],
+  ["6cm ruler",[4732.0,3911.0]],
+  ["7cm ruler",[5003.0,3876.0]],
+  ["8cm ruler",[5277.0,3843.0]],
+  ["9cm ruler",[5555.0,3807.0]]
+]
+"#;
 pub const NAC_4V3A6042: &[(&str, isize, isize)] = &[
     ("0 bl game", 4476, 3913),
     ("1 tl game", 3741, 1899),
     ("ml game", 4266, 3313),
     ("& mid-tip game", 4174, 1143),
     ("& mid-tip text", 2869, 2466),
-    // ("2 tr game", 4163, 392),
-    // ("3 br game",  further up than it seems
     ("4 bl text", 1868, 4196),
-    // ("text star point above E", 3661, 3217),
-    // ("5 tl text", 911, 2432),
     ("6cm ruler", 4732, 3911),
     ("7cm ruler", 5003, 3876),
     ("8cm ruler", 5277, 3843),

@@ -11,29 +11,49 @@ use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 use geo_nd::Vector;
 use geo_nd::{matrix, quat};
 
+//a Consts
+const CANON_50MM_JSON: &str = r#"
+{
+"sensor": {
+    "px_centre":[3360.0,2240.0],
+    "px_width":6720.0,
+    "px_height":4480.0,
+    "flip_y":true,
+    "mm_sensor_width":36.0,
+    "mm_sensor_height":24.0
+},
+"lens": {
+    "name":"50mm",
+    "mm_focal_length":50.0,
+    "stw_poly":[0.00008283213378490473,1.0010373675395385,-0.27346884785220027,3.037436155602336,-13.196169488132,26.7261453717947,-19.588972344994545],
+    "wts_poly":[-0.00007074450991240155,0.9983717333234381,0.2834468421060592,-3.112550737336278,13.483235448598862,-27.340132132172585,20.28454799950123]
+},
+"mm_focus_distance":100000000.0
+}
+"#;
+
 //a Tests
 //ft test_find_coarse_position_canon_50_v2
 #[test]
 fn test_find_coarse_position_canon_50_v2() {
-    let sensor = RectSensor::new_35mm(6720, 4480);
-    let lens = SphericalLensPoly::new("50mm", 50.)
-        .set_stw_poly(C50MM_STI_POLY)
-        .set_wts_poly(C50MM_ITS_POLY);
+    let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
     let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
-    canon_50mm.set_focus_distance(100_000_000.0); // should be 450??
-                                                  // let canon_50mm = CameraPolynomial::new(sensor, lens, 453.0);
+    canon_50mm.set_focus_distance(453.0); // should be 450??
     let camera = LCamera::new(
         // Rc::new(CameraRectilinear::new_logitech_c270_640()),
         Rc::new(canon_50mm),
         [-250., -90., 250.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mut named_point_set = NamedPointSet::new();
-    named_point_set.add_set(NOUGHTS_AND_CROSSES_MODEL);
-    let mut point_mapping_set = PointMappingSet::new();
+    // let mut point_mapping_set = PointMappingSet::new();
     // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6040);
     // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6041);
-    point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6042);
+    // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6042);
+    let point_mapping_set =
+        PointMappingSet::from_json(&named_point_set, NAC_4V3A6042_JSON).unwrap();
+
+    eprintln!("******************************************************************************************");
+    eprintln!("{}", serde_json::to_string(&point_mapping_set).unwrap());
     let mappings = point_mapping_set.mappings();
     let cam = camera;
     let cam = cam.find_coarse_position(mappings, &[3000., 3000., 3000.], 31);
@@ -79,30 +99,6 @@ const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
     ([108., 109., 0.], [3877.0, 646.0]),
 ];
 // Need at least 4 points to get any sense
-const CANON_50MM_JSON: &str = r#"
-{
-"sensor": {
-    "px_centre":[3360.0,2240.0],
-    "px_width":6720.0,
-    "px_height":4480.0,
-    "flip_y":true,
-    "mm_sensor_width":36.0,
-    "mm_sensor_height":24.0,
-    "mm_single_pixel_width":0.005357142857142857,
-    "mm_single_pixel_height":0.005357142857142857,
-    "pixel_aspect_ratio":1.0},
-"lens": {
-    "name":"50mm",
-    "mm_focal_length":50.0,
-    "stw_poly":[0.00008283213378490473,1.0010373675395385,-0.27346884785220027,3.037436155602336,-13.196169488132,26.7261453717947,-19.588972344994545],
-    "wts_poly":[-0.00007074450991240155,0.9983717333234381,0.2834468421060592,-3.112550737336278,13.483235448598862,-27.340132132172585,20.28454799950123]
-},
-"mm_focus_distance":100000000.0,
-"maginification_of_focus":1.0,
-"x_px_from_tan_sc":9333.338000002335,
-"y_px_from_tan_sc":9333.338000002335
-}
-"#;
 #[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = RectSensor::new_35mm(6720, 4480);

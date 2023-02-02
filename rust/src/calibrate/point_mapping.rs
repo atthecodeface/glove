@@ -36,6 +36,7 @@ impl NamedPoint {
 #[derive(Debug, Default)]
 pub struct NamedPointSet {
     points: HashMap<String, Rc<NamedPoint>>,
+    names: Vec<String>,
 }
 
 //ip NamedPointSet
@@ -73,7 +74,9 @@ impl NamedPointSet {
     pub fn add_pt<S: Into<String>>(&mut self, name: S, model: Point3D) {
         let name = name.into();
         let pt = Rc::new(NamedPoint::new(name.clone(), model));
-        self.points.insert(name, pt);
+        if self.points.insert(name.clone(), pt).is_none() {
+            self.names.push(name);
+        }
     }
 
     //fp get_pt
@@ -93,9 +96,10 @@ impl Serialize for NamedPointSet {
         S: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        let mut seq = serializer.serialize_seq(Some(self.points.len()))?;
-        for (name, pt) in self.points.iter() {
-            seq.serialize_element(&(name, pt.model()))?;
+        let mut seq = serializer.serialize_seq(Some(self.names.len()))?;
+        for name in self.names.iter() {
+            let model = self.points.get(name).unwrap().model();
+            seq.serialize_element(&(name, model))?;
         }
         seq.end()
     }

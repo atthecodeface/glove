@@ -24,12 +24,15 @@ pub struct CameraPolynomial {
     /// which is u'/f or d/(d-f)
     mm_focus_distance: f64,
     /// Derived magnification due to focus distance
+    #[serde(skip)]
     maginification_of_focus: f64,
     /// Convert from tan(angle) to x pixel
     ///
     /// This is sensor.mm_single_pixel_width / sensor.mm_sensor_width * mm_focal_length
+    #[serde(skip)]
     x_px_from_tan_sc: f64,
     /// Convert from tan(angle) to y pixel
+    #[serde(skip)]
     y_px_from_tan_sc: f64,
 }
 
