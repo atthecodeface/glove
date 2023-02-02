@@ -1,4 +1,4 @@
-use glove::calibrate::{CameraProjection, CameraRectilinear};
+use image_calibrate::{CameraProjection, CameraRectilinear};
 
 #[test]
 fn test() {

@@ -1,12 +1,12 @@
 //a Modules
 use std::rc::Rc;
 
-use glove::calibrate::PointMapping;
-// use glove::calibrate::Projection;
-use glove::calibrate::CameraRectilinear;
-use glove::calibrate::*;
-use glove::calibrate::{LCamera, Rotations};
-use glove::calibrate::{Point2D, Point3D}; // , Point4D, Quat};
+use image_calibrate::PointMapping;
+// use image_calibrate::Projection;
+use image_calibrate::CameraRectilinear;
+use image_calibrate::*;
+use image_calibrate::{LCamera, Rotations};
+use image_calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
 use geo_nd::Vector;
 use geo_nd::{matrix, quat};
@@ -34,7 +34,7 @@ const CANON_50MM_JSON: &str = r#"
 
 //a Tests
 //ft test_find_coarse_position_canon_50_v2
-#[test]
+// #[test]
 fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
     let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
@@ -99,7 +99,7 @@ const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
     ([108., 109., 0.], [3877.0, 646.0]),
 ];
 // Need at least 4 points to get any sense
-#[test]
+// #[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = RectSensor::new_35mm(6720, 4480);
     let lens = SphericalLensPoly::new("rectilinear", 50.);

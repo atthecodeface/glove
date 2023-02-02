@@ -12,8 +12,6 @@ pub use power_of::PowerOf;
 mod fn_of_fn;
 pub use fn_of_fn::FunctionOfFunction;
 
-pub mod calibrate;
-
 #[test]
 pub fn test_simple() {
     let a = "qi".to_string();

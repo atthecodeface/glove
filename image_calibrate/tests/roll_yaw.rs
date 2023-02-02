@@ -1,6 +1,6 @@
 //a Modules
 use geo_nd::vector;
-use glove::calibrate::{Point2D, RollYaw, TanXTanY};
+use image_calibrate::{Point2D, RollYaw, TanXTanY};
 
 //a Tests
 #[test]
