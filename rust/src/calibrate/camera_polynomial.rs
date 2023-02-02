@@ -47,7 +47,12 @@ impl CameraPolynomial {
         cp.derive();
         cp
     }
+    pub fn set_focus_distance(&mut self, mm_focus_distance: f64) {
+        self.mm_focus_distance = mm_focus_distance;
+        self.derive()
+    }
     pub fn derive(&mut self) {
+        self.sensor = self.sensor.clone().derive();
         let mm_focal_length = self.lens.mm_focal_length();
         self.maginification_of_focus =
             self.mm_focus_distance / (self.mm_focus_distance - mm_focal_length);
