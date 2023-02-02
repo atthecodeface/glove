@@ -50,10 +50,6 @@ impl CameraPolynomial {
         cp.derive();
         cp
     }
-    pub fn set_focus_distance(&mut self, mm_focus_distance: f64) {
-        self.mm_focus_distance = mm_focus_distance;
-        self.derive()
-    }
     pub fn derive(&mut self) {
         self.sensor = self.sensor.clone().derive();
         let mm_focal_length = self.lens.mm_focal_length();
@@ -85,6 +81,24 @@ impl std::fmt::Display for CameraPolynomial {
 
 //ip CameraProjection for CameraPolynomial
 impl CameraProjection for CameraPolynomial {
+    /// Get name of camera
+    fn camera_name(&self) -> &str {
+        self.sensor.name()
+    }
+
+    /// Get name of lens
+    fn lens_name(&self) -> &str {
+        self.lens.name()
+    }
+
+    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
+        self.mm_focus_distance = mm_focus_distance;
+        self.derive()
+    }
+    fn focus_distance(&self) -> f64 {
+        self.mm_focus_distance
+    }
+
     /// Map from centre-relative to absolute pixel
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
         self.sensor.px_rel_xy_to_px_abs_xy(xy)

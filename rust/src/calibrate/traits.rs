@@ -11,6 +11,9 @@ use super::{Point2D, Point3D, Quat, TanXTanY};
 /// The concept is that there are absolute pixel positions within a sensor,
 /// which can be converted to relative, which can be converted to a RollDist, which is a
 pub trait CameraSensor: std::fmt::Debug {
+    /// Name of the sensor (camera), for recording in files
+    fn name(&self) -> &str;
+
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates
@@ -50,6 +53,18 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 /// camera, which will depend on the lens in the camera and the
 /// focusing distance
 pub trait CameraProjection: std::fmt::Debug {
+    /// Name of the camera, for recording in files
+    fn camera_name(&self) -> &str;
+
+    /// Name of the lens, for recording in files
+    fn lens_name(&self) -> &str;
+
+    /// Set the distance from the sensor that the projection is focused on
+    fn set_focus_distance(&mut self, mm_focus_distance: f64);
+
+    /// Get the distance from the sensor that the projection is focused on
+    fn focus_distance(&self) -> f64;
+
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates

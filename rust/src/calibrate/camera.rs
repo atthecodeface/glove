@@ -1,19 +1,23 @@
 //a Imports
 use std::rc::Rc;
 
-use super::{CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY};
-
 use geo_nd::quat;
+use serde::{Deserialize, Serialize};
+
+use super::{CameraProjection, CameraRectilinear, CameraView, Point2D, Point3D, Quat, TanXTanY};
 
 //a Camera
 //tp Camera
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Camera {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
+    #[serde(serialize_with = "serialize_projection")]
+    #[serde(skip_deserializing)]
+    #[serde(default = "null_projection")]
     projection: Rc<dyn CameraProjection>,
     /// Position in world coordinates of the camera
     ///
@@ -24,6 +28,22 @@ pub struct Camera {
     ///
     /// Camera-space XYZ = direction applied to (world - positionn)
     direction: Quat,
+}
+fn null_projection() -> Rc<dyn CameraProjection> {
+    Rc::new(CameraRectilinear::new(55.0, 640, 480, 1.0, true))
+}
+fn serialize_projection<S>(
+    projection: &Rc<dyn CameraProjection>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::ser::Serializer,
+{
+    use serde::ser::SerializeTuple;
+    let mut seq = serializer.serialize_tuple(2)?;
+    seq.serialize_element(projection.camera_name())?;
+    seq.serialize_element(projection.lens_name())?;
+    seq.end()
 }
 
 //ip Display for Camera
@@ -87,6 +107,11 @@ impl Camera {
             position,
             direction,
         }
+    }
+
+    //mp set_projection
+    pub fn set_projection(&mut self, projection: Rc<dyn CameraProjection>) {
+        self.projection = projection;
     }
 
     //cp placed_at

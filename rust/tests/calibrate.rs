@@ -39,21 +39,21 @@ fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
     let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
     canon_50mm.set_focus_distance(453.0); // should be 450??
-    let camera = LCamera::new(
-        // Rc::new(CameraRectilinear::new_logitech_c270_640()),
-        Rc::new(canon_50mm),
-        [-250., -90., 250.].into(),
-        quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
-    );
+    let mut camera = serde_json::from_str::<LCamera>(
+        r#"{ "position":[-250.0,-90.0,250.0],"direction":[0.17,0.20,0.95,0.10]}"#,
+    )
+    .unwrap();
+    camera.set_projection(Rc::new(canon_50mm));
+    //    eprintln!("******************************************************************************************");
+    //    eprintln!("{}", serde_json::to_string(&camera).unwrap());
+
     // let mut point_mapping_set = PointMappingSet::new();
     // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6040);
     // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6041);
     // point_mapping_set.add_mappings(&named_point_set, NAC_4V3A6042);
     let point_mapping_set =
-        PointMappingSet::from_json(&named_point_set, NAC_4V3A6042_JSON).unwrap();
+        PointMappingSet::from_json(&named_point_set, NAC_4V3A6040_JSON).unwrap();
 
-    eprintln!("******************************************************************************************");
-    eprintln!("{}", serde_json::to_string(&point_mapping_set).unwrap());
     let mappings = point_mapping_set.mappings();
     let cam = camera;
     let cam = cam.find_coarse_position(mappings, &[3000., 3000., 3000.], 31);

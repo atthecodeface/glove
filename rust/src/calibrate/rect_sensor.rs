@@ -198,6 +198,11 @@ impl RectSensor {
 
 //ip CameraSensor for RectSensor
 impl CameraSensor for RectSensor {
+    //fp name
+    fn name(&self) -> &str {
+        "RectSensor"
+    }
+
     //fp px_abs_xy_to_px_rel_xy
     #[inline]
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {

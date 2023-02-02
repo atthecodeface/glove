@@ -79,6 +79,21 @@ impl std::fmt::Display for CameraRectilinear {
 
 //ip CameraProjection for CameraRectilinear
 impl CameraProjection for CameraRectilinear {
+    /// Get name of camera
+    fn camera_name(&self) -> &str {
+        self.sensor.name()
+    }
+
+    /// Get name of lens
+    fn lens_name(&self) -> &str {
+        "Rectilinear"
+    }
+
+    fn set_focus_distance(&mut self, mm_focus_distance: f64) {}
+    fn focus_distance(&self) -> f64 {
+        10.
+    }
+
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
         self.sensor.px_rel_xy_to_px_abs_xy(xy)
     }

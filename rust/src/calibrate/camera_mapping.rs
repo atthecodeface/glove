@@ -1,12 +1,13 @@
 //a Imports
 use std::rc::Rc;
 
+use geo_nd::{quat, vector};
+use serde::{Deserialize, Serialize};
+
 use super::{
     Camera, CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
     Rotations, TanXTanY,
 };
-
-use geo_nd::{quat, vector};
 
 //a Constants
 const MIN_ERROR: f64 = 0.5;
@@ -16,8 +17,9 @@ const MIN_ERROR: f64 = 0.5;
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraMapping {
+    #[serde(flatten)]
     camera: Camera,
 }
 
@@ -49,6 +51,11 @@ impl CameraMapping {
     pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
         let camera = Camera::new(projection, position, direction);
         Self { camera }
+    }
+
+    //ap camera
+    pub fn camera(&self) -> &Camera {
+        &self.camera
     }
 
     //fp moved_by
