@@ -3,6 +3,11 @@ name = "image_calibrate"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "thing"
+#test = false
+#bench = false
+
 [dependencies]
 nalgebra = "0.32.1"
 
@@ -17,3 +22,5 @@ version = "1.0.91"
 # version="0.1.5"
 path = "../../geo-nd-rs"
 
+[dependencies.clap]
+version = "4.1.4"

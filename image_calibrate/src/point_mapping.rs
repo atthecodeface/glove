@@ -160,6 +160,18 @@ impl PointMappingSet {
         Self::default()
     }
 
+    //mp merge
+    pub fn merge(&mut self, mut other: PointMappingSet) {
+        self.mappings.append(&mut other.mappings);
+    }
+
+    //mp read_json
+    pub fn read_json(&mut self, nps: &NamedPointSet, toml: &str) -> Result<(), String> {
+        let pms = Self::from_json(nps, toml)?;
+        self.merge(pms);
+        Ok(())
+    }
+
     //fp from_json
     pub fn from_json(nps: &NamedPointSet, toml: &str) -> Result<Self, String> {
         let mut pms: Self = serde_json::from_str(toml).map_err(|e| {

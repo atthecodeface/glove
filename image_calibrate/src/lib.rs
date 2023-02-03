@@ -1,3 +1,20 @@
+//a To do
+// Add json.rs with         let mut pms: Self = serde_json::from_str(toml).map_err(|e| {
+//            format!(
+//                "Error in parsing json at line {} column {}: {}",
+//                e.line(),
+//                e.column(),
+//                e
+//            )
+//        })?;
+// mapping
+//
+// Change rect_sensor to body
+//
+// Add lens and body database
+//
+// Add load camera using lens, body, focus distance
+
 //a Documentation
 /*! Documentation
 
@@ -107,7 +124,7 @@ pub use rotations::Rotations;
 mod point_mapping;
 pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod camera_mapping;
-pub use camera_mapping::CameraMapping as LCamera;
+pub use camera_mapping::CameraMapping;
 
 mod model_data;
 pub use model_data::*;

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Camera, CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
-    Rotations, TanXTanY,
+    Rotations,
 };
 
 //a Constants
@@ -50,6 +50,11 @@ impl CameraMapping {
     //fp new
     pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
         let camera = Camera::new(projection, position, direction);
+        Self { camera }
+    }
+
+    //fp of_camera
+    pub fn of_camera(camera: Camera) -> Self {
         Self { camera }
     }
 

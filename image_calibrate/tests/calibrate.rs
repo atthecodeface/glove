@@ -1,15 +1,14 @@
 //a Modules
 use std::rc::Rc;
 
-use image_calibrate::PointMapping;
-// use image_calibrate::Projection;
 use image_calibrate::CameraRectilinear;
+use image_calibrate::PointMapping;
 use image_calibrate::*;
 use image_calibrate::{LCamera, Rotations};
 use image_calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
+use geo_nd::quat;
 use geo_nd::Vector;
-use geo_nd::{matrix, quat};
 
 //a Consts
 const CANON_50MM_JSON: &str = r#"
@@ -34,7 +33,7 @@ const CANON_50MM_JSON: &str = r#"
 
 //a Tests
 //ft test_find_coarse_position_canon_50_v2
-// #[test]
+#[test]
 fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
     let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
@@ -102,7 +101,6 @@ const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
 // #[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = RectSensor::new_35mm(6720, 4480);
-    let lens = SphericalLensPoly::new("rectilinear", 50.);
     let lens = SphericalLensPoly::new("50mm", 50.)
         .set_stw_poly(C50MM_STI_POLY)
         .set_wts_poly(C50MM_ITS_POLY);

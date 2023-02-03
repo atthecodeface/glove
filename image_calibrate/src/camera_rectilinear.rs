@@ -89,7 +89,8 @@ impl CameraProjection for CameraRectilinear {
         "Rectilinear"
     }
 
-    fn set_focus_distance(&mut self, mm_focus_distance: f64) {}
+    fn set_focus_distance(&mut self, _mm_focus_distance: f64) {}
+
     fn focus_distance(&self) -> f64 {
         10.
     }
