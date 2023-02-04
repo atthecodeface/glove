@@ -1,11 +1,12 @@
-use image_calibrate::{CameraProjection, CameraRectilinear};
+use image_calibrate::{CameraPolynomial, CameraProjection, LOGITECH_C270_640_480_JSON};
 
 #[test]
 fn test() {
-    let x = CameraRectilinear::new_logitech_c270_640();
+    let mut x = serde_json::from_str::<CameraPolynomial>(LOGITECH_C270_640_480_JSON).unwrap();
+    x.derive();
     eprintln!("{}", x);
-    dbg!(x.x_px_from_tan_sc);
-    dbg!(x.y_px_from_tan_sc);
+    eprintln!("{:?}", x);
+    println!("{}", serde_json::to_string(&x).unwrap());
     assert_eq!(x.px_abs_xy_to_px_rel_xy([320., 240.].into())[0], 0.);
     assert_eq!(x.px_abs_xy_to_px_rel_xy([320., 240.].into())[1], 0.);
     assert_eq!(x.px_abs_xy_to_px_rel_xy([0., 0.].into())[0], -320.);
@@ -24,9 +25,9 @@ fn test() {
     }
     let txty = x.px_rel_xy_to_txty([320., 240.].into());
     let fov_x2 = txty[0].atan().to_degrees();
-    dbg!(fov_x2);
-    assert!(fov_x2 > 22.619);
-    assert!(fov_x2 < 22.631);
+    dbg!(txty, fov_x2);
+    assert!(fov_x2 > 22.6);
+    assert!(fov_x2 < 22.65);
     let xy_ratio = txty[0] / txty[1];
     dbg!(xy_ratio);
     assert!(xy_ratio > 1.332);

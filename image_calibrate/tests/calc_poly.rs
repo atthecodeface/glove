@@ -1,6 +1,6 @@
 //a Modules
 use image_calibrate::polynomial::{min_squares, min_squares_dyn, CalcPoly};
-use image_calibrate::{CameraSensor, Point2D, RectSensor};
+use image_calibrate::{CameraBody, CameraSensor, Point2D};
 
 //a Tests
 //fp test_min_sq
@@ -130,7 +130,7 @@ fn find_poly_from_bars() {
 
 //tp CalibrationData
 pub struct CalibrationData {
-    pub sensor: RectSensor,
+    pub sensor: CameraBody,
     lens_from_frame: f64,
     image_from_lens: f64,
     /// For when the image was not quite parallel to camera
@@ -142,7 +142,7 @@ pub struct CalibrationData {
 impl CalibrationData {
     //fp new
     fn new(
-        sensor: RectSensor,
+        sensor: CameraBody,
         lens_from_frame: f64,
         image_from_lens: f64,
         angle_of_image: f64,
@@ -192,7 +192,7 @@ impl CalibrationData {
 
 //tp TanMap
 pub struct TanMap {
-    sensor: RectSensor,
+    sensor: CameraBody,
     /// tan(image), tan(sensor)
     data: Vec<(String, f64, f64)>,
     /// Image-to-sensor tan-space map
@@ -203,7 +203,7 @@ pub struct TanMap {
 //ip TanMap
 impl TanMap {
     //fp new
-    fn new(sensor: RectSensor) -> Self {
+    fn new(sensor: CameraBody) -> Self {
         Self {
             sensor,
             data: vec![],
@@ -533,7 +533,7 @@ fn add_calibration_data_canon_50mm_borders_inf(calibration_data: &mut Calibratio
 fn find_poly_for_canon_50mm_x() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data = CalibrationData::new(
         sensor.clone(),
         focal_length,
@@ -558,7 +558,7 @@ fn find_poly_for_canon_50mm_x() {
 fn find_poly_for_canon_50mm_y() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data = CalibrationData::new(
         sensor.clone(),
         focal_length,
@@ -583,7 +583,7 @@ fn find_poly_for_canon_50mm_y() {
 fn find_poly_for_canon_50mm_corners() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data = CalibrationData::new(
         sensor.clone(),
         focal_length,
@@ -610,7 +610,7 @@ fn find_poly_for_canon_50mm_corners() {
 fn find_poly_for_canon_50mm_borders() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data = CalibrationData::new(
         sensor.clone(),
         focal_length,
@@ -640,7 +640,7 @@ fn find_poly_for_canon_50mm_inf() {
     let focal_length = 50.0;
     // let focal_length = 49.77;
     let degrees = (1.87_f64).to_radians();
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data =
         CalibrationData::new(sensor.clone(), focal_length, 460.0 - focal_length, degrees);
 
@@ -667,7 +667,7 @@ fn find_poly_for_canon_50mm_inf() {
 //fp find_poly_for_canon_50mm_at_short
 #[test]
 fn find_poly_for_canon_50mm_at_short() {
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mut calibration_data = CalibrationData::new(
         sensor.clone(),
         57.19,
@@ -689,7 +689,7 @@ fn find_poly_for_canon_50mm_at_short() {
 #[test]
 fn compare_polys_for_canon_50mm() {
     let do_sort = true;
-    let sensor = RectSensor::new_35mm(6720, 4480);
+    let sensor = CameraBody::new_35mm(6720, 4480);
     let mm_closeup = 57.212;
     let focal_length = 50.0;
     // let focal_length = 49.77;

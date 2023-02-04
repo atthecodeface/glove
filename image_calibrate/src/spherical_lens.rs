@@ -132,12 +132,20 @@ use super::SphericalLensProjection;
 /// For an 'equisolid' lens the polynomial is tan(output) =  2 sin(angle/2)
 ///
 /// For an 'orthographic' lens the polynomial is tan(output) =  sin(angle)
+///
+/// If a lens is rectilinear with a field-of-view of N degrees for
+/// a sensor that is S mm for that angle, then the N/2 degrees corresponds
+/// to S/2 mm on the sensor, and hence tan(N/2) = S/2 / mm_focal_length
+///
+/// Hence mm_focal_length =  S / (2tan(N/2)) = 2.1515mm
+///
+/// e.g. for N=55 degrees, S=2.24mm we have mm_focal_length =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SphericalLensPoly {
     /// Name
     name: String,
 
-    /// Focal length of the lens - should be part of the polynomial
+    /// Focal length of the lens
     mm_focal_length: f64,
 
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle

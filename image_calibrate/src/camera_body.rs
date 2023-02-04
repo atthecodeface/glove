@@ -3,13 +3,16 @@ use serde::{Deserialize, Serialize};
 
 use super::{CameraSensor, Point2D};
 
-//a RectSensor
-//tp RectSensor
+//a CameraBody
+//tp CameraBody
 /// A rectangular camera sensor
 ///
 /// This provides an implementation of [CameraSensor], which allows mapping from a known point on an image (captured by the sensor) to relative positions
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RectSensor {
+pub struct CameraBody {
+    /// Name
+    name: String,
+
     /// Centre pixel
     px_centre: [f64; 2],
 
@@ -51,7 +54,7 @@ pub struct RectSensor {
     pixel_aspect_ratio: f64,
 }
 
-//ip Default for RectSensor
+//ip Default for CameraBody
 /// Sensor sizes:
 ///   medium format 53.7 by 40.2mm
 ///   medium format 43.8 by 32.9mm
@@ -59,9 +62,11 @@ pub struct RectSensor {
 ///   Nikon APS-C 23.6 by 15.6mm
 ///   Canon APS-C 22.3 by 14.9mm (or 22.2 by 14.8)
 ///   Canon APS-H 28.7 by 19.0mm
-impl std::default::Default for RectSensor {
+///   Logitech C270 is 3.58 by 2.02mm (1280 x 720 @ 2.8umsq)
+impl std::default::Default for CameraBody {
     fn default() -> Self {
         (Self {
+            name: "CameraBody".into(),
             px_centre: [200., 150.],
             px_width: 400.,
             px_height: 300.,
@@ -76,8 +81,8 @@ impl std::default::Default for RectSensor {
     }
 }
 
-//ip RectSensor
-impl RectSensor {
+//ip CameraBody
+impl CameraBody {
     //fp new
     pub fn new(mm_sensor_width: f64, px_width: usize, px_height: usize) -> Self {
         Self::default()
@@ -89,9 +94,28 @@ impl RectSensor {
     //fp new_35mm
     pub fn new_35mm(px_width: usize, px_height: usize) -> Self {
         Self::new(36.0, px_width, px_height)
+            .set_name("35mm body")
+            .set_sensor_size(36.0, 24.0)
+            .set_name("35mm body")
             .set_sensor_size(36.0, 24.0)
             .set_flip_y(true)
             .derive()
+    }
+
+    //fp new_logitech_c270_640
+    pub fn new_logitech_c270_640() -> Self {
+        // diag fov 55.03
+        Self::new(3.58, 640, 480) // ignore first arg
+            .set_name("Logitech C270 @ 640x480")
+            .set_sensor_size(640.0 * 2.8, 480.0 * 2.8) // 2.8umsq pixels
+            .set_flip_y(true)
+            .derive()
+    }
+
+    //cp set_name
+    pub fn set_name<S: Into<String>>(mut self, name: S) -> Self {
+        self.name = name.into();
+        self
     }
 
     //cp set_flip_y
@@ -196,11 +220,11 @@ impl RectSensor {
     //zz All done
 }
 
-//ip CameraSensor for RectSensor
-impl CameraSensor for RectSensor {
+//ip CameraSensor for CameraBody
+impl CameraSensor for CameraBody {
     //fp name
     fn name(&self) -> &str {
-        "RectSensor"
+        &self.name
     }
 
     //fp px_abs_xy_to_px_rel_xy

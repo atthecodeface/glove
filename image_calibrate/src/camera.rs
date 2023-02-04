@@ -4,7 +4,7 @@ use std::rc::Rc;
 use geo_nd::quat;
 use serde::{Deserialize, Serialize};
 
-use super::{CameraProjection, CameraRectilinear, CameraView, Point2D, Point3D, Quat, TanXTanY};
+use super::{CameraPolynomial, CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY};
 
 //a Camera
 //tp Camera
@@ -30,7 +30,7 @@ pub struct Camera {
     direction: Quat,
 }
 fn null_projection() -> Rc<dyn CameraProjection> {
-    Rc::new(CameraRectilinear::new(55.0, 640, 480, 1.0, true))
+    Rc::new(CameraPolynomial::default()) // new(55.0, 640, 480, 1.0, true))
 }
 fn serialize_projection<S>(
     projection: &Rc<dyn CameraProjection>,

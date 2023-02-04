@@ -2,16 +2,16 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CameraProjection, CameraSensor, Point2D, RectSensor, RollYaw, SphericalLensPoly,
+    CameraBody, CameraProjection, CameraSensor, Point2D, RollYaw, SphericalLensPoly,
     SphericalLensProjection, TanXTanY,
 };
 
 //a CameraPolynomial
 //tp CameraPolynomial
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CameraPolynomial {
-    /// Description of the (rectangular) sensor of the camera
-    sensor: RectSensor,
+    /// Description of the camera body
+    body: CameraBody,
     /// The spherical lens mapping polynomial
     lens: SphericalLensPoly,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
@@ -38,9 +38,9 @@ pub struct CameraPolynomial {
 
 //ip CameraPolynomial
 impl CameraPolynomial {
-    pub fn new(sensor: RectSensor, lens: SphericalLensPoly, mm_focus_distance: f64) -> Self {
+    pub fn new(body: CameraBody, lens: SphericalLensPoly, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
-            sensor,
+            body,
             lens,
             mm_focus_distance,
             maginification_of_focus: 1., // derived
@@ -51,7 +51,7 @@ impl CameraPolynomial {
         cp
     }
     pub fn derive(&mut self) {
-        self.sensor = self.sensor.clone().derive();
+        self.body = self.body.clone().derive();
         let mm_focal_length = self.lens.mm_focal_length();
         self.maginification_of_focus =
             self.mm_focus_distance / (self.mm_focus_distance - mm_focal_length);
@@ -60,8 +60,8 @@ impl CameraPolynomial {
         // We want x_px = x_px_from_tan_sc * tan
         // But tan = x_px * mm_single_pixel_width / scale
         // hence x_px = tan * scale / mm_single_pixel_width
-        self.x_px_from_tan_sc = scale / self.sensor.mm_single_pixel_width();
-        self.y_px_from_tan_sc = scale / self.sensor.mm_single_pixel_height();
+        self.x_px_from_tan_sc = scale / self.body.mm_single_pixel_width();
+        self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
     }
 }
 
@@ -71,8 +71,8 @@ impl std::fmt::Display for CameraPolynomial {
         write!(
             fmt,
             "CamPoly[{}x{} lens {} @ {}mm]",
-            self.sensor.px_width(),
-            self.sensor.px_height(),
+            self.body.px_width(),
+            self.body.px_height(),
             self.lens.name(),
             self.lens.mm_focal_length(),
         )
@@ -83,7 +83,7 @@ impl std::fmt::Display for CameraPolynomial {
 impl CameraProjection for CameraPolynomial {
     /// Get name of camera
     fn camera_name(&self) -> &str {
-        self.sensor.name()
+        self.body.name()
     }
 
     /// Get name of lens
@@ -101,12 +101,12 @@ impl CameraProjection for CameraPolynomial {
 
     /// Map from centre-relative to absolute pixel
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        self.sensor.px_rel_xy_to_px_abs_xy(xy)
+        self.body.px_rel_xy_to_px_abs_xy(xy)
     }
 
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
-        self.sensor.px_abs_xy_to_px_rel_xy(xy)
+        self.body.px_abs_xy_to_px_rel_xy(xy)
     }
 
     /// Map an actual centre-relative XY pixel in the frame of the

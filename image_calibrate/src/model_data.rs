@@ -1,3 +1,46 @@
+//a Camera etc
+pub const CANON_50MM_JSON: &str = r#"
+{
+"body": {
+    "name": "Canon EOS 5D mark IV",
+    "px_centre":[3360.0,2240.0],
+    "px_width":6720.0,
+    "px_height":4480.0,
+    "flip_y":true,
+    "mm_sensor_width":36.0,
+    "mm_sensor_height":24.0
+},
+"lens": {
+    "name":"50mm",
+    "mm_focal_length":50.0,
+    "stw_poly":[0.00008283213378490473,1.0010373675395385,-0.27346884785220027,3.037436155602336,-13.196169488132,26.7261453717947,-19.588972344994545],
+    "wts_poly":[-0.00007074450991240155,0.9983717333234381,0.2834468421060592,-3.112550737336278,13.483235448598862,-27.340132132172585,20.28454799950123]
+},
+"mm_focus_distance":100000000.0
+}
+"#;
+
+pub const LOGITECH_C270_640_480_JSON: &str = r#"
+{
+"body": {
+    "name": "Logitech C270 640x480",
+    "px_centre":[320.0, 240.0],
+    "px_width":640.0,
+    "px_height":480.0,
+    "flip_y":true,
+    "mm_sensor_width":1.792,
+    "mm_sensor_height":1.344
+},
+"lens": {
+    "name":"standard",
+    "mm_focal_length":2.1515,
+    "stw_poly":[0.0, 1.0],
+    "wts_poly":[0.0, 1.0]
+},
+"mm_focus_distance":100000000.0
+}
+"#;
+
 //a Noughts and crosses
 //pc NOUGHTS_AND_CROSSES_MODEL_JSON
 /// Noughts and crosses at 45mm

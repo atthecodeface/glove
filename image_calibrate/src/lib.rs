@@ -9,11 +9,15 @@
 //        })?;
 // mapping
 //
-// Change rect_sensor to body
+// Move args from thing.rs
+//
+// Add image handling to src
 //
 // Add lens and body database
 //
 // Add load camera using lens, body, focus distance
+//
+// Add tan_fov_diag to camera_polynomial
 
 //a Documentation
 /*! Documentation
@@ -104,29 +108,26 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 !*/
 
 //a Modules
-mod types;
-pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
-mod traits;
-pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
-mod rect_sensor;
-pub use rect_sensor::RectSensor;
-mod spherical_lens;
-pub use spherical_lens::SphericalLensPoly;
-mod camera_rectilinear;
-pub use camera_rectilinear::CameraRectilinear;
-mod camera_polynomial;
-pub use camera_polynomial::CameraPolynomial;
 mod camera;
+mod camera_body;
+mod camera_polynomial;
+pub mod polynomial;
+mod spherical_lens;
+mod traits;
+mod types;
 pub use camera::Camera;
+pub use camera_body::CameraBody;
+pub use camera_polynomial::CameraPolynomial;
+pub use spherical_lens::SphericalLensPoly;
+pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
+pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
-mod rotations;
-pub use rotations::Rotations;
-mod point_mapping;
-pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
 mod camera_mapping;
+mod point_mapping;
+mod rotations;
 pub use camera_mapping::CameraMapping;
+pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
+pub use rotations::Rotations;
 
 mod model_data;
 pub use model_data::*;
-
-pub mod polynomial;
