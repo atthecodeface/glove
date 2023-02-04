@@ -16,8 +16,6 @@
 // Add lens and body database
 //
 // Add load camera using lens, body, focus distance
-//
-// Add tan_fov_diag to camera_polynomial
 
 //a Documentation
 /*! Documentation
@@ -131,3 +129,6 @@ pub use rotations::Rotations;
 
 mod model_data;
 pub use model_data::*;
+
+pub mod cmdline_args;
+pub mod json;
