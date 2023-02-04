@@ -1,7 +1,9 @@
 //a Imports
+use std::rc::Rc;
+
 use serde::{Deserialize, Serialize};
 
-use super::{
+use crate::{
     CameraBody, CameraProjection, CameraSensor, Point2D, RollYaw, SphericalLensPoly,
     SphericalLensProjection, TanXTanY,
 };
@@ -11,9 +13,9 @@ use super::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CameraPolynomial {
     /// Description of the camera body
-    body: CameraBody,
+    body: Rc<CameraBody>,
     /// The spherical lens mapping polynomial
-    lens: SphericalLensPoly,
+    lens: Rc<SphericalLensPoly>,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     ///
     /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
@@ -38,7 +40,7 @@ pub struct CameraPolynomial {
 
 //ip CameraPolynomial
 impl CameraPolynomial {
-    pub fn new(body: CameraBody, lens: SphericalLensPoly, mm_focus_distance: f64) -> Self {
+    pub fn new(body: Rc<CameraBody>, lens: Rc<SphericalLensPoly>, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
             body,
             lens,
@@ -51,7 +53,6 @@ impl CameraPolynomial {
         cp
     }
     pub fn derive(&mut self) {
-        self.body = self.body.clone().derive();
         let mm_focal_length = self.lens.mm_focal_length();
         self.maginification_of_focus =
             self.mm_focus_distance / (self.mm_focus_distance - mm_focal_length);

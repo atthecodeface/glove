@@ -15,8 +15,13 @@ use geo_nd::Vector;
 #[test]
 fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
-    let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
-    canon_50mm.set_focus_distance(453.0); // should be 450??
+
+    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
+    cdb.derive();
+    let mut canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
+    let mut lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
+    let canon_50mm = CameraPolynomial::new(canon_body, lens_50mm, 453.0);
+    // should be 450??
     let mut camera = serde_json::from_str::<CameraMapping>(
         r#"{ "position":[-250.0,-90.0,250.0],"direction":[0.17,0.20,0.95,0.10]}"#,
     )
@@ -77,7 +82,7 @@ fn test_find_coarse_position_canon_inf() {
     let lens = SphericalLensPoly::new("50mm", 50.)
         .set_stw_poly(C50MM_STI_POLY)
         .set_wts_poly(C50MM_ITS_POLY);
-    let canon_50mm = CameraPolynomial::new(sensor, lens, 100_000_000.0);
+    let canon_50mm = CameraPolynomial::new(sensor.into(), lens.into(), 100_000_000.0);
     eprintln!("******************************************************************************************");
     eprintln!("{}", serde_json::to_string(&canon_50mm).unwrap());
     let camera = CameraMapping::new(
@@ -154,8 +159,12 @@ const C50MM_50CM_DATA_TEST: &[([f64; 3], [f64; 2])] = &[
 // Final WE 886.82 3099.49 Camera @[-122.80,-187.80,-324.70] yaw 24.87 pitch 29.60 + [0.37,0.49,0.79]
 #[test]
 fn test_find_coarse_position_canon_50cm() {
-    let mut canon_50mm = serde_json::from_str::<CameraPolynomial>(CANON_50MM_JSON).unwrap();
-    canon_50mm.set_focus_distance(400.0); // 310.0 yields the best
+    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
+    cdb.derive();
+    let canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
+    let lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
+    let canon_50mm = CameraPolynomial::new(canon_body, lens_50mm, 400.0);
+    // 310.0 yields the best
     let camera = CameraMapping::new(
         Rc::new(canon_50mm),
         [0., 0., 0.].into(),
@@ -225,8 +234,11 @@ fn test_find_coarse_position_canon_50cm() {
 // WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
 #[test]
 fn test_find_coarse_position() {
-    let mut camera = serde_json::from_str::<CameraPolynomial>(LOGITECH_C270_640_480_JSON).unwrap();
-    camera.derive();
+    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
+    cdb.derive();
+    let logitech_body = cdb.get_body("Logitech C270 640x480").unwrap();
+    let logitech_lens = cdb.get_lens("Logitech C270").unwrap();
+    let camera = CameraPolynomial::new(logitech_body, logitech_lens, 1_000_000_000.0);
     let camera = CameraMapping::new(
         Rc::new(camera),
         [0., 0., 0.].into(),

@@ -4,8 +4,8 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    json, CameraBody, CameraInstance, CameraPolynomial, CameraProjection, NamedPointSet,
-    PointMappingSet, SphericalLensPoly,
+    json, CameraDatabase, CameraInstance, CameraPolynomial, CameraProjection, NamedPointSet,
+    PointMappingSet,
 };
 
 //a NamedPointSet
@@ -70,39 +70,66 @@ pub fn add_camera_projection_args(cmd: Command) -> Command {
         Arg::new("body")
             .long("body")
             .short('b')
-            .required(false)
-            .help("Camera body JSON")
+            .required(true)
+            .help("Camera body name")
             .action(ArgAction::Set),
     )
     .arg(
-        Arg::new("sph")
-            .long("spherical")
-            .short('s')
-            .required(false)
-            .help("Spherical camera lens mapping JSON")
+        Arg::new("lens")
+            .long("lens")
+            .short('l')
+            .required(true)
+            .help("Lens name")
             .action(ArgAction::Set),
     )
 }
 
 //fp get_camera_projection
-pub fn get_camera_projection(matches: &ArgMatches) -> Result<Rc<dyn CameraProjection>, String> {
+pub fn get_camera_projection(
+    matches: &ArgMatches,
+    db: &CameraDatabase,
+) -> Result<Rc<dyn CameraProjection>, String> {
     let mm_focus_distance = *matches
         .get_one::<f64>("focus")
         .ok_or("A mm focus distance is required (float)")?;
-    let body_filename = matches
+    let body_name = matches
         .get_one::<String>("body")
-        .ok_or("A camera body JSON is required")?;
-    let body_json = json::read_file(body_filename)?;
-    let body: CameraBody = json::from_json("camera body", &body_json)?;
+        .ok_or("A camera body name is required")?;
+    let lens_name = matches
+        .get_one::<String>("lens")
+        .ok_or("A lens name is required")?;
+    let body = db
+        .get_body(&body_name)
+        .ok_or(format!("Body '{}' was not in the database", body_name))?;
+    let lens = db
+        .get_lens(&lens_name)
+        .ok_or(format!("Lens '{}' was not in the database", lens_name))?;
+    let camera = CameraPolynomial::new(body, lens, mm_focus_distance);
+    Ok(Rc::new(camera))
+}
 
-    if let Some(lens_filename) = matches.get_one::<String>("sph") {
-        let lens_json = json::read_file(lens_filename)?;
-        let lens: SphericalLensPoly = json::from_json("camera lens", &lens_json)?;
-        let camera = CameraPolynomial::new(body, lens, mm_focus_distance);
-        Ok(Rc::new(camera))
-    } else {
-        Err("No camera lens JSON specified".into())
-    }
+//a CameraDatabase
+//fp add_camera_database_arg
+pub fn add_camera_database_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("camera_db")
+            .long("db")
+            .alias("database")
+            .required(required)
+            .help("Camera database JSON")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_camera_database
+pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase, String> {
+    let camera_db_filename = matches
+        .get_one::<String>("camera_db")
+        .ok_or("A camera database JSON is required")?;
+    let camera_db_json = json::read_file(camera_db_filename)?;
+    let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
+    camera_db.derive();
+    Ok(camera_db)
 }
 
 //a Camera

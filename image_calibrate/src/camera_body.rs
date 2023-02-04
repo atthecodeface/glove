@@ -65,7 +65,7 @@ pub struct CameraBody {
 ///   Logitech C270 is 3.58 by 2.02mm (1280 x 720 @ 2.8umsq)
 impl std::default::Default for CameraBody {
     fn default() -> Self {
-        (Self {
+        let mut s = Self {
             name: "CameraBody".into(),
             px_centre: [200., 150.],
             px_width: 400.,
@@ -76,8 +76,20 @@ impl std::default::Default for CameraBody {
             pixel_aspect_ratio: 1.,
             mm_single_pixel_width: 1.,
             mm_single_pixel_height: 1.,
-        })
-        .derive()
+        };
+        s.derive();
+        s
+    }
+}
+
+//ip Display for CameraBody
+impl std::fmt::Display for CameraBody {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "{}: {}x{} @ {} by {}",
+            self.name, self.px_width, self.px_height, self.mm_sensor_width, self.mm_sensor_height
+        )
     }
 }
 
@@ -85,31 +97,36 @@ impl std::default::Default for CameraBody {
 impl CameraBody {
     //fp new
     pub fn new(mm_sensor_width: f64, px_width: usize, px_height: usize) -> Self {
-        Self::default()
+        let mut s = Self::default()
             .set_px_frame(px_width, px_height)
-            .set_sensor_width(mm_sensor_width)
-            .derive()
+            .set_sensor_width(mm_sensor_width);
+        s.derive();
+        s
     }
 
     //fp new_35mm
     pub fn new_35mm(px_width: usize, px_height: usize) -> Self {
-        Self::new(36.0, px_width, px_height)
+        let mut s = Self::new(36.0, px_width, px_height)
             .set_name("35mm body")
             .set_sensor_size(36.0, 24.0)
             .set_name("35mm body")
             .set_sensor_size(36.0, 24.0)
-            .set_flip_y(true)
-            .derive()
+            .set_flip_y(true);
+
+        s.derive();
+        s
     }
 
     //fp new_logitech_c270_640
     pub fn new_logitech_c270_640() -> Self {
         // diag fov 55.03
-        Self::new(3.58, 640, 480) // ignore first arg
+        let mut s = Self::new(3.58, 640, 480) // ignore first arg
             .set_name("Logitech C270 @ 640x480")
             .set_sensor_size(640.0 * 2.8, 480.0 * 2.8) // 2.8umsq pixels
-            .set_flip_y(true)
-            .derive()
+            .set_flip_y(true);
+
+        s.derive();
+        s
     }
 
     //cp set_name
@@ -164,12 +181,11 @@ impl CameraBody {
         self
     }
 
-    //cp derive
-    pub fn derive(mut self) -> Self {
+    //mp derive
+    pub fn derive(&mut self) {
         self.mm_single_pixel_width = self.mm_sensor_width / self.px_width;
         self.mm_single_pixel_height = self.mm_sensor_height / self.px_height;
         self.pixel_aspect_ratio = self.mm_single_pixel_width / self.mm_single_pixel_height;
-        self
     }
 
     //ap mm_sensor_width

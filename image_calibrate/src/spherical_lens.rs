@@ -169,6 +169,13 @@ impl std::default::Default for SphericalLensPoly {
     }
 }
 
+//ip Display for SphericalLensPoly
+impl std::fmt::Display for SphericalLensPoly {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(fmt, "{}: {}mm", self.name, self.mm_focal_length)
+    }
+}
+
 //ip SphericalLensPoly
 impl SphericalLensPoly {
     //fp new
