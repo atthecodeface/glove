@@ -350,9 +350,26 @@ impl CameraMapping {
         sum_e
     }
 
+    //fp total_error_with_bar
+    pub fn total_error_with_bar(&self, mappings: &[PointMapping]) -> f64 {
+        let mut sum_e = 0.;
+        for pm in mappings.iter() {
+            let esq = self.get_pm_sq_error(pm);
+            let esq = 2.0 * esq * esq / (esq + 100.);
+            sum_e += esq;
+        }
+        sum_e
+    }
+
     //fp worst_error
     pub fn worst_error(&self, mappings: &[PointMapping]) -> f64 {
         self.find_worst_error(mappings).1
+    }
+
+    //fp worst_error_with_bar
+    pub fn worst_error_with_bar(&self, mappings: &[PointMapping]) -> f64 {
+        let esq = self.find_worst_error(mappings).1;
+        2.0 * esq * esq / (esq + 100.)
     }
 
     //fp adjust_position
@@ -412,9 +429,10 @@ impl CameraMapping {
     }
 
     //mp find_coarse_position
-    pub fn find_coarse_position(
+    pub fn find_coarse_position<F: Fn(&Self, &[PointMapping], usize) -> f64>(
         &self,
         mappings: &[PointMapping],
+        f: &F,
         scales: &[f64; 3],
         n: usize,
     ) -> Self {
@@ -441,9 +459,7 @@ impl CameraMapping {
             for i in 0..num {
                 cam = cam
                     .adjust_direction_rotating_around_one_point(
-                        // &|c, m, n| m[n].get_sq_error(c),
-                        // &|c, m, n| c.total_error(&mappings),
-                        &|c, _m, _n| c.worst_error(mappings),
+                        f,
                         0.2_f64.to_radians(),
                         mappings,
                         i,

@@ -47,10 +47,30 @@ fn test_find_coarse_position_canon_50_v2() {
 
     let mappings = point_mapping_set.mappings();
     let cam = camera;
-    let cam = cam.find_coarse_position(mappings, &[3000., 3000., 3000.], 31);
-    let cam = cam.find_coarse_position(mappings, &[300., 300., 300.], 31);
-    let cam = cam.find_coarse_position(mappings, &[30., 30., 30.], 31);
-    let cam = cam.find_coarse_position(mappings, &[3., 3., 3.], 31);
+    let cam = cam.find_coarse_position(
+        mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[3000., 3000., 3000.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[300., 300., 300.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[30., 30., 30.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[3., 3., 3.],
+        31,
+    );
 
     let mut cam = cam;
     let num = mappings.len();
@@ -106,10 +126,30 @@ fn test_find_coarse_position_canon_inf() {
     let disp_mappings = point_mapping_set.mappings();
     let cam = camera;
     // -1500 to +1500 in steps of 100
-    let cam = cam.find_coarse_position(&mappings, &[3000., 3000., 3000.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[300., 300., 300.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[30., 30., 30.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[3., 3., 3.], 31);
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[3000., 3000., 3000.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[300., 300., 300.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[30., 30., 30.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, _m, _n| c.worst_error(mappings),
+        &[3., 3., 3.],
+        31,
+    );
 
     let mut cam = cam;
     let num = mappings.len();
@@ -191,10 +231,25 @@ fn test_find_coarse_position_canon_50cm() {
         .collect();
     let cam = camera;
     // -1500 to +1500 in steps of 100
-    let cam = cam.find_coarse_position(&mappings, &[3000., 3000., 3000.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[300., 300., 300.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[30., 30., 30.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[3., 3., 3.], 31);
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[3000., 3000., 3000.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[300., 300., 300.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[30., 30., 30.],
+        31,
+    );
+    let cam = cam.find_coarse_position(&mappings, &|c, m, _n| c.worst_error(m), &[3., 3., 3.], 31);
 
     let mut cam = cam;
     let num = mappings.len();
@@ -256,7 +311,12 @@ fn test_find_coarse_position() {
             PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
         })
         .collect();
-    let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 2000.], 11);
+    let cam = camera.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[1000., 1000., 2000.],
+        11,
+    );
     let te = cam.total_error(&mappings);
     let we = cam.worst_error(&mappings);
     eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
@@ -302,11 +362,36 @@ fn test_find_good() {
         })
         .collect();
     // let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 2000.], 11);
-    let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 2000.], 51);
-    let cam = cam.find_coarse_position(&mappings, &[300., 300., 650.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[100., 100., 200.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[30., 30., 65.], 31);
-    let cam = cam.find_coarse_position(&mappings, &[10., 10., 20.], 31);
+    let cam = camera.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[1000., 1000., 2000.],
+        51,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[300., 300., 650.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[100., 100., 200.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[30., 30., 65.],
+        31,
+    );
+    let cam = cam.find_coarse_position(
+        &mappings,
+        &|c, m, _n| c.worst_error(m),
+        &[10., 10., 20.],
+        31,
+    );
     let te = cam.total_error(&mappings);
     let we = cam.worst_error(&mappings);
     eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);

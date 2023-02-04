@@ -2,9 +2,9 @@
 //
 // Add image handling to src
 //
-// Move CameraPolynomial to serialize body and lens as name?
+// Add error circle to point mapping
 //
-// Stop using cmdline args for camera body and lens name, use camera projection json file instaed
+// Add mapped line start/direction/error indication for each pms point
 
 //a Documentation
 /*! Documentation
