@@ -10,12 +10,12 @@ use crate::{
 
 //a NamedPointSet
 //fp add_nps_arg
-pub fn add_nps_arg(cmd: Command) -> Command {
+pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
             Arg::new("nps")
             .long("nps")
             .short('n')
-            .required(true)
+            .required(required)
             .help("Specifies a named point set json")
             .long_help("A filename of a JSON file that provides the named set of points and there 3D locations for a particular model")
             .action(ArgAction::Set),
@@ -31,12 +31,12 @@ pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet, String> {
 
 //a PointMappingSet
 //fp add_pms_arg
-pub fn add_pms_arg(cmd: Command) -> Command {
+pub fn add_pms_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
             Arg::new("pms")
                 .long("pms")
                 .short('p')
-                .required(true)
+                .required(required)
                 .help("point mapping set json")
             .long_help("A filename of a JSON file that provides a point mapping set, mapping named points (in an NPS) to XY coordinates in a camera image")
         .action(ArgAction::Set),
@@ -56,12 +56,12 @@ pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMapping
 //a CameraProjection
 // should move to using the camera database - need a new section - and body and lens names from within the database plus the focus distance
 //fp add_camera_projection_args
-pub fn add_camera_projection_args(cmd: Command) -> Command {
+pub fn add_camera_projection_args(cmd: Command, required: bool) -> Command {
     cmd.arg(
         Arg::new("focus")
             .long("focus")
             .short('f')
-            .required(true)
+            .required(required)
             .help("focussed distance")
             .value_parser(value_parser!(f64))
             .action(ArgAction::Set),
@@ -70,7 +70,7 @@ pub fn add_camera_projection_args(cmd: Command) -> Command {
         Arg::new("body")
             .long("body")
             .short('b')
-            .required(true)
+            .required(required)
             .help("Camera body name")
             .action(ArgAction::Set),
     )
@@ -78,7 +78,7 @@ pub fn add_camera_projection_args(cmd: Command) -> Command {
         Arg::new("lens")
             .long("lens")
             .short('l')
-            .required(true)
+            .required(required)
             .help("Lens name")
             .action(ArgAction::Set),
     )
@@ -88,7 +88,7 @@ pub fn add_camera_projection_args(cmd: Command) -> Command {
 pub fn get_camera_projection(
     matches: &ArgMatches,
     db: &CameraDatabase,
-) -> Result<Rc<dyn CameraProjection>, String> {
+) -> Result<Rc<CameraPolynomial>, String> {
     let mm_focus_distance = *matches
         .get_one::<f64>("focus")
         .ok_or("A mm focus distance is required (float)")?;
@@ -130,27 +130,22 @@ pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase, Strin
 
 //a Camera
 //fp add_camera_arg
-pub fn add_camera_arg(cmd: Command) -> Command {
+pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
         Arg::new("camera")
             .long("camera")
             .short('c')
-            .required(false)
+            .required(required)
             .help("Camera placement and orientation JSON")
             .action(ArgAction::Set),
     )
 }
 
 //fp get_camera
-pub fn get_camera(
-    matches: &ArgMatches,
-    camera_projection: Rc<dyn CameraProjection>,
-) -> Result<CameraInstance, String> {
+pub fn get_camera(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraInstance, String> {
     let camera_filename = matches
         .get_one::<String>("camera")
         .ok_or("A camera position/orientation JSON is required")?;
     let camera_json = json::read_file(camera_filename)?;
-    let mut camera: CameraInstance = json::from_json("camera", &camera_json)?;
-    camera.set_projection(camera_projection);
-    Ok(camera)
+    CameraInstance::from_json(cdb, &camera_json)
 }

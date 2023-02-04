@@ -17,15 +17,24 @@ fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
 
     let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
-    let canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
-    let lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
-    let canon_50mm = CameraPolynomial::new(canon_body, lens_50mm, 453.0);
-    // should be 450??
-    let mut camera = serde_json::from_str::<CameraMapping>(
-        r#"{ "position":[-250.0,-90.0,250.0],"direction":[0.17,0.20,0.95,0.10]}"#,
-    )
-    .unwrap();
-    camera.set_projection(Rc::new(canon_50mm));
+    // should be 450mm??
+    let mut camera = CameraMapping::of_camera(
+        CameraInstance::from_json(
+            &cdb,
+            r#"
+{
+ "camera": {
+"body":"Canon EOS 5D mark IV",
+"lens":"EF50mm f1.8",
+"mm_focus_distance":453.0
+},
+ "position":[-250.0,-90.0,250.0],
+ "direction":[0.17,0.20,0.95,0.10]
+}
+"#,
+        )
+        .unwrap(),
+    );
     //    eprintln!("******************************************************************************************");
     //    eprintln!("{}", serde_json::to_string(&camera).unwrap());
 

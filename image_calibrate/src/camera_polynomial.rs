@@ -82,10 +82,8 @@ impl CameraPolynomial {
         cp
     }
 
-    //cp from_json
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
-        let desc: CameraPolynomialDesc = serde_json::from_str(json)
-            .map_err(|e| format!("Error parsing camera descriptor JSON: {}", e))?;
+    //cp from_desc
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?;
         let lens = cdb.get_lens_err(&desc.lens)?;
         Ok(Self::new(body, lens, desc.mm_focus_distance))

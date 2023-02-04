@@ -4,21 +4,36 @@ use std::rc::Rc;
 use geo_nd::quat;
 use serde::{Deserialize, Serialize};
 
-use super::{CameraPolynomial, CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY};
+use super::{
+    CameraDatabase, CameraPolynomial, CameraPolynomialDesc, CameraProjection, CameraView, Point2D,
+    Point3D, Quat, TanXTanY,
+};
 
 //a CameraInstance
+//tp CameraInstanceDesc
+/// A struct that contains the fields required for deserializing a
+/// CameraInstance in conjnunction with a CameraDatabase
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CameraInstanceDesc {
+    camera: CameraPolynomialDesc,
+    /// Position in world coordinates of the camera
+    position: Point3D,
+    /// Direction to be applied to camera-relative world coordinates
+    /// to convert to camera-space coordinates
+    direction: Quat,
+}
+
 //tp CameraInstance
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CameraInstance {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
-    #[serde(serialize_with = "serialize_projection")]
     #[serde(skip_deserializing)]
     #[serde(default = "null_projection")]
-    projection: Rc<dyn CameraProjection>,
+    camera: Rc<CameraPolynomial>,
     /// Position in world coordinates of the camera
     ///
     /// Subtract from world coords to get camera-relative world coordinates
@@ -29,21 +44,8 @@ pub struct CameraInstance {
     /// Camera-space XYZ = direction applied to (world - positionn)
     direction: Quat,
 }
-fn null_projection() -> Rc<dyn CameraProjection> {
+fn null_projection() -> Rc<CameraPolynomial> {
     Rc::new(CameraPolynomial::default()) // new(55.0, 640, 480, 1.0, true))
-}
-fn serialize_projection<S>(
-    projection: &Rc<dyn CameraProjection>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::ser::Serializer,
-{
-    use serde::ser::SerializeTuple;
-    let mut seq = serializer.serialize_tuple(2)?;
-    seq.serialize_element(projection.camera_name())?;
-    seq.serialize_element(projection.lens_name())?;
-    seq.end()
 }
 
 //ip Display for CameraInstance
@@ -86,32 +88,45 @@ impl CameraView for CameraInstance {
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
     fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
-        let px_rel_xy = self.projection.px_abs_xy_to_px_rel_xy(*px_abs_xy);
-        self.projection.px_rel_xy_to_txty(px_rel_xy)
+        let px_rel_xy = self.camera.px_abs_xy_to_px_rel_xy(*px_abs_xy);
+        self.camera.px_rel_xy_to_txty(px_rel_xy)
     }
 
     //fp camera_txty_to_px_abs_xy
     /// Map a tan(x)/tan(y) to screen Point2D coordinate
     fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let px_rel_xy = self.projection.txty_to_px_rel_xy(*txty);
-        self.projection.px_rel_xy_to_px_abs_xy(px_rel_xy)
+        let px_rel_xy = self.camera.txty_to_px_rel_xy(*txty);
+        self.camera.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 }
 
 //ip CameraInstance
 impl CameraInstance {
     //fp new
-    pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
+    pub fn new(camera: Rc<CameraPolynomial>, position: Point3D, direction: Quat) -> Self {
         Self {
-            projection,
+            camera,
             position,
             direction,
         }
     }
 
+    //cp from_desc
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self, String> {
+        let camera = CameraPolynomial::from_desc(cdb, desc.camera)?;
+        Ok(Self::new(camera.into(), desc.position, desc.direction))
+    }
+
+    //cp from_json
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+        let desc: CameraInstanceDesc = serde_json::from_str(json)
+            .map_err(|e| format!("Error parsing camera instance descriptor JSON: {}", e))?;
+        Self::from_desc(cdb, desc)
+    }
+
     //mp set_projection
-    pub fn set_projection(&mut self, projection: Rc<dyn CameraProjection>) {
-        self.projection = projection;
+    pub fn set_projection(&mut self, camera: Rc<CameraPolynomial>) {
+        self.camera = camera;
     }
 
     //cp placed_at
