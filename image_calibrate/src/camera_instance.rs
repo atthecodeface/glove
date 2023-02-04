@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use super::{CameraPolynomial, CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY};
 
-//a Camera
-//tp Camera
+//a CameraInstance
+//tp CameraInstance
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Camera {
+pub struct CameraInstance {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
     #[serde(serialize_with = "serialize_projection")]
@@ -46,8 +46,8 @@ where
     seq.end()
 }
 
-//ip Display for Camera
-impl std::fmt::Display for Camera {
+//ip Display for CameraInstance
+impl std::fmt::Display for CameraInstance {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         let dxyz = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
         // First rotation around Y axis (yaw)
@@ -71,8 +71,8 @@ impl std::fmt::Display for Camera {
     }
 }
 
-//ip CameraView for Camera
-impl CameraView for Camera {
+//ip CameraView for CameraInstance
+impl CameraView for CameraInstance {
     //fp location
     fn location(&self) -> Point3D {
         self.position
@@ -98,8 +98,8 @@ impl CameraView for Camera {
     }
 }
 
-//ip Camera
-impl Camera {
+//ip CameraInstance
+impl CameraInstance {
     //fp new
     pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
         Self {

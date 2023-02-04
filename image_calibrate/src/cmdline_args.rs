@@ -4,8 +4,8 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    json, Camera, CameraBody, CameraPolynomial, CameraProjection, NamedPointSet, PointMappingSet,
-    SphericalLensPoly,
+    json, CameraBody, CameraInstance, CameraPolynomial, CameraProjection, NamedPointSet,
+    PointMappingSet, SphericalLensPoly,
 };
 
 //a NamedPointSet
@@ -122,12 +122,12 @@ pub fn add_camera_arg(cmd: Command) -> Command {
 pub fn get_camera(
     matches: &ArgMatches,
     camera_projection: Rc<dyn CameraProjection>,
-) -> Result<Camera, String> {
+) -> Result<CameraInstance, String> {
     let camera_filename = matches
         .get_one::<String>("camera")
         .ok_or("A camera position/orientation JSON is required")?;
     let camera_json = json::read_file(camera_filename)?;
-    let mut camera: Camera = json::from_json("camera", &camera_json)?;
+    let mut camera: CameraInstance = json::from_json("camera", &camera_json)?;
     camera.set_projection(camera_projection);
     Ok(camera)
 }

@@ -1,15 +1,4 @@
 //a To do
-// Add json.rs with         let mut pms: Self = serde_json::from_str(toml).map_err(|e| {
-//            format!(
-//                "Error in parsing json at line {} column {}: {}",
-//                e.line(),
-//                e.column(),
-//                e
-//            )
-//        })?;
-// mapping
-//
-// Move args from thing.rs
 //
 // Add image handling to src
 //
@@ -106,15 +95,15 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 !*/
 
 //a Modules
-mod camera;
 mod camera_body;
+mod camera_instance;
 mod camera_polynomial;
 pub mod polynomial;
 mod spherical_lens;
 mod traits;
 mod types;
-pub use camera::Camera;
 pub use camera_body::CameraBody;
+pub use camera_instance::CameraInstance;
 pub use camera_polynomial::CameraPolynomial;
 pub use spherical_lens::SphericalLensPoly;
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};

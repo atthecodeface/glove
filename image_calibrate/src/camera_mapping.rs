@@ -5,8 +5,8 @@ use geo_nd::{quat, vector};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Camera, CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
-    Rotations,
+    CameraInstance, CameraProjection, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
+    Quat, Rotations,
 };
 
 //a Constants
@@ -20,7 +20,7 @@ const MIN_ERROR: f64 = 0.5;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraMapping {
     #[serde(flatten)]
-    camera: Camera,
+    camera: CameraInstance,
 }
 
 //ip Display for CameraMapping
@@ -32,15 +32,15 @@ impl std::fmt::Display for CameraMapping {
 
 //ip Deref for CameraMapping
 impl std::ops::Deref for CameraMapping {
-    type Target = Camera;
-    fn deref(&self) -> &Camera {
+    type Target = CameraInstance;
+    fn deref(&self) -> &CameraInstance {
         &self.camera
     }
 }
 
 //ip DerefMut for CameraMapping
 impl std::ops::DerefMut for CameraMapping {
-    fn deref_mut(&mut self) -> &mut Camera {
+    fn deref_mut(&mut self) -> &mut CameraInstance {
         &mut self.camera
     }
 }
@@ -49,17 +49,17 @@ impl std::ops::DerefMut for CameraMapping {
 impl CameraMapping {
     //fp new
     pub fn new(projection: Rc<dyn CameraProjection>, position: Point3D, direction: Quat) -> Self {
-        let camera = Camera::new(projection, position, direction);
+        let camera = CameraInstance::new(projection, position, direction);
         Self { camera }
     }
 
     //fp of_camera
-    pub fn of_camera(camera: Camera) -> Self {
+    pub fn of_camera(camera: CameraInstance) -> Self {
         Self { camera }
     }
 
     //ap camera
-    pub fn camera(&self) -> &Camera {
+    pub fn camera(&self) -> &CameraInstance {
         &self.camera
     }
 
