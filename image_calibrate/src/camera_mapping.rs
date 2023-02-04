@@ -77,6 +77,12 @@ impl CameraMapping {
         }
     }
 
+    //fp map_model
+    #[inline]
+    pub fn map_model(&self, model: &Point3D) -> Point2D {
+        self.world_xyz_to_px_abs_xy(model)
+    }
+
     //fp get_pm_dxdy
     #[inline]
     pub fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
