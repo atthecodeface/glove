@@ -4,18 +4,32 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CameraBody, CameraProjection, CameraSensor, Point2D, RollYaw, SphericalLensPoly,
+    CameraBody, CameraDatabase, CameraLens, CameraProjection, CameraSensor, Point2D, RollYaw,
     SphericalLensProjection, TanXTanY,
 };
 
+//a CameraPolynomialDesc
+//tp CameraPolynomialDesc
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CameraPolynomialDesc {
+    /// Name of the camera body
+    body: String,
+    /// The spherical lens mapping polynomial
+    lens: String,
+    /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
+    mm_focus_distance: f64,
+}
+
 //a CameraPolynomial
 //tp CameraPolynomial
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CameraPolynomial {
     /// Description of the camera body
+    #[serde(serialize_with = "serialize_body_name")]
     body: Rc<CameraBody>,
     /// The spherical lens mapping polynomial
-    lens: Rc<SphericalLensPoly>,
+    #[serde(serialize_with = "serialize_lens_name")]
+    lens: Rc<CameraLens>,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     ///
     /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
@@ -38,9 +52,24 @@ pub struct CameraPolynomial {
     y_px_from_tan_sc: f64,
 }
 
+fn serialize_body_name<S: serde::Serializer>(
+    body: &Rc<CameraBody>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(body.name())
+}
+
+fn serialize_lens_name<S: serde::Serializer>(
+    lens: &Rc<CameraLens>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(lens.name())
+}
+
 //ip CameraPolynomial
 impl CameraPolynomial {
-    pub fn new(body: Rc<CameraBody>, lens: Rc<SphericalLensPoly>, mm_focus_distance: f64) -> Self {
+    //cp new
+    pub fn new(body: Rc<CameraBody>, lens: Rc<CameraLens>, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
             body,
             lens,
@@ -52,6 +81,17 @@ impl CameraPolynomial {
         cp.derive();
         cp
     }
+
+    //cp from_json
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+        let desc: CameraPolynomialDesc = serde_json::from_str(json)
+            .map_err(|e| format!("Error parsing camera descriptor JSON: {}", e))?;
+        let body = cdb.get_body_err(&desc.body)?;
+        let lens = cdb.get_lens_err(&desc.lens)?;
+        Ok(Self::new(body, lens, desc.mm_focus_distance))
+    }
+
+    //mp derive
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
         self.maginification_of_focus =

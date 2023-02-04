@@ -1,29 +1,35 @@
-use image_calibrate::{CameraPolynomial, CameraProjection, LOGITECH_C270_640_480_JSON};
+use image_calibrate::{CameraDatabase, CameraPolynomial, CameraProjection, CAMERA_DB_JSON};
 
-//zz #[test]
+#[test]
 fn test() {
-    let mut x = serde_json::from_str::<CameraPolynomial>(LOGITECH_C270_640_480_JSON).unwrap();
-    x.derive();
-    eprintln!("{}", x);
-    eprintln!("{:?}", x);
-    println!("{}", serde_json::to_string(&x).unwrap());
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([320., 240.].into())[0], 0.);
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([320., 240.].into())[1], 0.);
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([0., 0.].into())[0], -320.);
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([0., 0.].into())[1], 240.);
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([640., 480.].into())[0], 320.);
-    assert_eq!(x.px_abs_xy_to_px_rel_xy([640., 480.].into())[1], -240.);
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
+    let logitech_body = cdb.get_body("Logitech C270 640x480").unwrap();
+    let logitech_lens = cdb.get_lens("Logitech C270").unwrap();
+    let camera = CameraPolynomial::new(logitech_body, logitech_lens, 1_000_000_000.0);
+    eprintln!("{}", camera);
+    eprintln!("{:?}", camera);
+    println!("{}", serde_json::to_string(&camera).unwrap());
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([320., 240.].into())[0], 0.);
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([320., 240.].into())[1], 0.);
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([0., 0.].into())[0], -320.);
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([0., 0.].into())[1], 240.);
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([640., 480.].into())[0], 320.);
+    assert_eq!(camera.px_abs_xy_to_px_rel_xy([640., 480.].into())[1], -240.);
     for i in -100..100 {
         assert_eq!(
-            x.px_rel_xy_to_px_abs_xy(x.px_abs_xy_to_px_rel_xy([i as f64, i as f64 * 3.].into()))[0],
+            camera.px_rel_xy_to_px_abs_xy(
+                camera.px_abs_xy_to_px_rel_xy([i as f64, i as f64 * 3.].into())
+            )[0],
             i as f64
         );
         assert_eq!(
-            x.px_rel_xy_to_px_abs_xy(x.px_abs_xy_to_px_rel_xy([i as f64, i as f64 * 3.].into()))[1],
+            camera.px_rel_xy_to_px_abs_xy(
+                camera.px_abs_xy_to_px_rel_xy([i as f64, i as f64 * 3.].into())
+            )[1],
             i as f64 * 3.
         );
     }
-    let txty = x.px_rel_xy_to_txty([320., 240.].into());
+    let txty = camera.px_rel_xy_to_txty([320., 240.].into());
     let fov_x2 = txty[0].atan().to_degrees();
     dbg!(txty, fov_x2);
     assert!(fov_x2 > 22.6);

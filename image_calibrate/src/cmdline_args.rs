@@ -98,12 +98,8 @@ pub fn get_camera_projection(
     let lens_name = matches
         .get_one::<String>("lens")
         .ok_or("A lens name is required")?;
-    let body = db
-        .get_body(&body_name)
-        .ok_or(format!("Body '{}' was not in the database", body_name))?;
-    let lens = db
-        .get_lens(&lens_name)
-        .ok_or(format!("Lens '{}' was not in the database", lens_name))?;
+    let body = db.get_body_err(&body_name)?;
+    let lens = db.get_lens_err(&lens_name)?;
     let camera = CameraPolynomial::new(body, lens, mm_focus_distance);
     Ok(Rc::new(camera))
 }

@@ -13,6 +13,9 @@ pub struct CameraBody {
     /// Name
     name: String,
 
+    /// Aliases
+    aliases: Vec<String>,
+
     /// Centre pixel
     px_centre: [f64; 2],
 
@@ -67,6 +70,7 @@ impl std::default::Default for CameraBody {
     fn default() -> Self {
         let mut s = Self {
             name: "CameraBody".into(),
+            aliases: Vec::new(),
             px_centre: [200., 150.],
             px_width: 400.,
             px_height: 300.,
@@ -186,6 +190,20 @@ impl CameraBody {
         self.mm_single_pixel_width = self.mm_sensor_width / self.px_width;
         self.mm_single_pixel_height = self.mm_sensor_height / self.px_height;
         self.pixel_aspect_ratio = self.mm_single_pixel_width / self.mm_single_pixel_height;
+    }
+
+    //mp has_name
+    pub fn has_name(&self, name: &str) -> bool {
+        if name == self.name {
+            true
+        } else {
+            for a in self.aliases.iter() {
+                if name == a {
+                    return true;
+                }
+            }
+            false
+        }
     }
 
     //ap mm_sensor_width

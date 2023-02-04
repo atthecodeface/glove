@@ -16,10 +16,9 @@ use geo_nd::Vector;
 fn test_find_coarse_position_canon_50_v2() {
     let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
 
-    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
-    cdb.derive();
-    let mut canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
-    let mut lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
+    let canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
+    let lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
     let canon_50mm = CameraPolynomial::new(canon_body, lens_50mm, 453.0);
     // should be 450??
     let mut camera = serde_json::from_str::<CameraMapping>(
@@ -79,7 +78,7 @@ fn test_find_coarse_position_canon_50_v2() {
 #[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = CameraBody::new_35mm(6720, 4480);
-    let lens = SphericalLensPoly::new("50mm", 50.)
+    let lens = CameraLens::new("50mm", 50.)
         .set_stw_poly(C50MM_STI_POLY)
         .set_wts_poly(C50MM_ITS_POLY);
     let canon_50mm = CameraPolynomial::new(sensor.into(), lens.into(), 100_000_000.0);
@@ -159,8 +158,7 @@ const C50MM_50CM_DATA_TEST: &[([f64; 3], [f64; 2])] = &[
 // Final WE 886.82 3099.49 Camera @[-122.80,-187.80,-324.70] yaw 24.87 pitch 29.60 + [0.37,0.49,0.79]
 #[test]
 fn test_find_coarse_position_canon_50cm() {
-    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
-    cdb.derive();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
     let canon_body = cdb.get_body("Canon EOS 5D mark IV").unwrap();
     let lens_50mm = cdb.get_lens("EF50mm f1.8").unwrap();
     let canon_50mm = CameraPolynomial::new(canon_body, lens_50mm, 400.0);
@@ -234,8 +232,7 @@ fn test_find_coarse_position_canon_50cm() {
 // WE 63 7.25 20.16 Camera @[-95.45,156.38,737.22] yaw -8.19 pitch 7.99 + [-0.14,0.14,0.98]
 #[test]
 fn test_find_coarse_position() {
-    let mut cdb = serde_json::from_str::<CameraDatabase>(CAMERA_DB_JSON).unwrap();
-    cdb.derive();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
     let logitech_body = cdb.get_body("Logitech C270 640x480").unwrap();
     let logitech_lens = cdb.get_lens("Logitech C270").unwrap();
     let camera = CameraPolynomial::new(logitech_body, logitech_lens, 1_000_000_000.0);
@@ -279,10 +276,12 @@ fn test_find_coarse_position() {
 #[allow(dead_code)]
 // #[test]
 fn test_find_good() {
-    let mut camera = serde_json::from_str::<CameraPolynomial>(LOGITECH_C270_640_480_JSON).unwrap();
-    camera.derive();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
+    let logitech_body = cdb.get_body("Logitech C270 640x480").unwrap();
+    let logitech_lens = cdb.get_lens("Logitech C270").unwrap();
+    let camera = CameraPolynomial::new(logitech_body, logitech_lens, 1_000_000_000.0);
     let camera = CameraMapping::new(
-        // // Rc::new(SphericalLensPoly::default()),
+        // // Rc::new(CameraLens::default()),
         Rc::new(camera),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
@@ -368,8 +367,10 @@ fn test_optimize() {
     //     [-80., -120., 280.].into(), // 540 mm fromm model 280 for fov 35
     //     quat::look_at(&[-33., -30., -570.], &[0.10, -1., -0.1]).into(),
     // );
-    let mut camera = serde_json::from_str::<CameraPolynomial>(LOGITECH_C270_640_480_JSON).unwrap();
-    camera.derive();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
+    let logitech_body = cdb.get_body("Logitech C270 640x480").unwrap();
+    let logitech_lens = cdb.get_lens("Logitech C270").unwrap();
+    let camera = CameraPolynomial::new(logitech_body, logitech_lens, 1_000_000_000.0);
     let camera0 = CameraMapping::new(
         // for C0_DATA_ALL
         // [-196., -204., 435.].into(), // 540 mm fromm model origin?

@@ -4,6 +4,7 @@ pub const CAMERA_DB_JSON: &str = r#"
     "bodies": [
         {
             "name": "Canon EOS 5D mark IV",
+            "aliases": [],
             "px_centre":[3360.0,2240.0],
             "px_width":6720.0,
             "px_height":4480.0,
@@ -13,6 +14,7 @@ pub const CAMERA_DB_JSON: &str = r#"
         },
         {
             "name": "Logitech C270 640x480",
+            "aliases": [],
             "px_centre":[320.0, 240.0],
             "px_width":640.0,
             "px_height":480.0,
@@ -23,12 +25,14 @@ pub const CAMERA_DB_JSON: &str = r#"
     "lenses":[
         {
             "name":"EF50mm f1.8",
+            "aliases": [],
             "mm_focal_length":50.0,
             "stw_poly":[0.00008283213378490473,1.0010373675395385,-0.27346884785220027,3.037436155602336,-13.196169488132,26.7261453717947,-19.588972344994545],
             "wts_poly":[-0.00007074450991240155,0.9983717333234381,0.2834468421060592,-3.112550737336278,13.483235448598862,-27.340132132172585,20.28454799950123]
         },
         {
             "name": "Logitech C270",
+            "aliases": [],
             "mm_focal_length":2.1515,
             "stw_poly":[0.0, 1.0],
             "wts_poly":[0.0, 1.0]

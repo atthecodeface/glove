@@ -5,8 +5,6 @@
 // Move CameraPolynomial to serialize body and lens as name?
 //
 // Stop using cmdline args for camera body and lens name, use camera projection json file instaed
-//
-// Add aliases to camera body and lens
 
 //a Documentation
 /*! Documentation
@@ -100,16 +98,16 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 mod camera_body;
 mod camera_database;
 mod camera_instance;
+mod camera_lens;
 mod camera_polynomial;
 pub mod polynomial;
-mod spherical_lens;
 mod traits;
 mod types;
 pub use camera_body::CameraBody;
 pub use camera_database::CameraDatabase;
 pub use camera_instance::CameraInstance;
+pub use camera_lens::CameraLens;
 pub use camera_polynomial::CameraPolynomial;
-pub use spherical_lens::SphericalLensPoly;
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
 pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 

@@ -110,8 +110,8 @@ use serde::{Deserialize, Serialize};
 use super::polynomial::CalcPoly;
 use super::SphericalLensProjection;
 
-//a SphericalLensPoly
-//tp SphericalLensPoly
+//a CameraLens
+//tp CameraLens
 /// A lens projection implemented with a polynomial mapping of
 /// tan(incoming angle) to tan(outgoing angle) of the ray
 ///
@@ -141,9 +141,12 @@ use super::SphericalLensProjection;
 ///
 /// e.g. for N=55 degrees, S=2.24mm we have mm_focal_length =
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SphericalLensPoly {
+pub struct CameraLens {
     /// Name
     name: String,
+
+    /// Aliases
+    aliases: Vec<String>,
 
     /// Focal length of the lens
     mm_focal_length: f64,
@@ -157,11 +160,12 @@ pub struct SphericalLensPoly {
     wts_poly: Vec<f64>,
 }
 
-//ip Default for SphericalLensPoly
-impl std::default::Default for SphericalLensPoly {
+//ip Default for CameraLens
+impl std::default::Default for CameraLens {
     fn default() -> Self {
         Self {
             name: String::new(),
+            aliases: Vec::new(),
             mm_focal_length: 20.,
             stw_poly: vec![0., 1.],
             wts_poly: vec![0., 1.],
@@ -169,15 +173,15 @@ impl std::default::Default for SphericalLensPoly {
     }
 }
 
-//ip Display for SphericalLensPoly
-impl std::fmt::Display for SphericalLensPoly {
+//ip Display for CameraLens
+impl std::fmt::Display for CameraLens {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "{}: {}mm", self.name, self.mm_focal_length)
     }
 }
 
-//ip SphericalLensPoly
-impl SphericalLensPoly {
+//ip CameraLens
+impl CameraLens {
     //fp new
     pub fn new(name: &str, mm_focal_length: f64) -> Self {
         Self::default()
@@ -209,6 +213,20 @@ impl SphericalLensPoly {
         self
     }
 
+    //mp has_name
+    pub fn has_name(&self, name: &str) -> bool {
+        if name == self.name {
+            true
+        } else {
+            for a in self.aliases.iter() {
+                if name == a {
+                    return true;
+                }
+            }
+            false
+        }
+    }
+
     //ap name
     pub fn name(&self) -> &str {
         &self.name
@@ -217,8 +235,8 @@ impl SphericalLensPoly {
     //zz All done
 }
 
-//ip SphericalLensProjection for SphericalLensPoly
-impl SphericalLensProjection for SphericalLensPoly {
+//ip SphericalLensProjection for CameraLens
+impl SphericalLensProjection for CameraLens {
     #[inline]
     fn mm_focal_length(&self) -> f64 {
         self.mm_focal_length
