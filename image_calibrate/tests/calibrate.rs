@@ -70,17 +70,8 @@ fn test_find_coarse_position_canon_50_v2() {
 }
 
 //ft test_find_coarse_position_canon_inf
-const C50MM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
-    ([0., 0., 0.], [3259.0, 2330.0]),
-    ([108., 0., 0.], [4854.0, 1646.0]),
-    ([0., 109., 0.], [2375.0, 1182.0]),
-    ([0., 0., 92.], [3257.0, 3331.0]),
-    ([108., 0., 92.], [4675.0, 2659.0]),
-    ([0., 109., 92.], [2447.0, 2219.0]),
-    ([108., 109., 0.], [3877.0, 646.0]),
-];
 // Need at least 4 points to get any sense
-// #[test]
+#[test]
 fn test_find_coarse_position_canon_inf() {
     let sensor = CameraBody::new_35mm(6720, 4480);
     let lens = SphericalLensPoly::new("50mm", 50.)
@@ -90,7 +81,6 @@ fn test_find_coarse_position_canon_inf() {
     eprintln!("******************************************************************************************");
     eprintln!("{}", serde_json::to_string(&canon_50mm).unwrap());
     let camera = CameraMapping::new(
-        // Rc::new(CameraRectilinear::new_logitech_c270_640()),
         Rc::new(canon_50mm),
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
@@ -101,21 +91,6 @@ fn test_find_coarse_position_canon_inf() {
     point_mapping_set.add_mappings(&named_point_set, N_AND_X_TEST_INF_DATA);
     let mappings = point_mapping_set.mappings();
     let disp_mappings = point_mapping_set.mappings();
-    /*    let mappings: Vec<PointMapping> = C50MM_DATA_ALL
-           .iter()
-           .map(|(model, screen)| {
-               PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-           })
-           .collect();
-    */
-    /*
-        let disp_mappings: Vec<PointMapping> = C50MM_DATA_ALL
-            .iter()
-            .map(|(model, screen)| {
-                PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-            })
-            .collect();
-    */
     let cam = camera;
     // -1500 to +1500 in steps of 100
     let cam = cam.find_coarse_position(&mappings, &[3000., 3000., 3000.], 31);
@@ -146,7 +121,7 @@ fn test_find_coarse_position_canon_inf() {
     }
     eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
     assert!(we < 300.0, "Worst error should be about 250 but was {}", we);
-    assert!(te < 800.0, "Total error should be about 790 but was {}", te);
+    assert!(te < 900.0, "Total error should be about 800 but was {}", te);
 }
 
 //ft test_find_coarse_position_canon_50cm

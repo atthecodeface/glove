@@ -1,15 +1,11 @@
 //a Modules
-use std::path::Path;
 use std::rc::Rc;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
-use image::io::Reader as ImageReader;
-use image::GenericImage;
-use serde::Deserialize;
 
 use crate::{
-    json, Camera, CameraBody, CameraMapping, CameraPolynomial, CameraProjection, NamedPointSet,
-    Point2D, PointMappingSet, SphericalLensPoly,
+    json, Camera, CameraBody, CameraPolynomial, CameraProjection, NamedPointSet, PointMappingSet,
+    SphericalLensPoly,
 };
 
 //a NamedPointSet

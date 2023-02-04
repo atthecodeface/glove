@@ -81,7 +81,7 @@ impl NamedPointSet {
 
     //fp get_pt
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
-        self.points.get(name).map(|a| a.clone())
+        self.points.get(name).cloned()
     }
     //fp iter
     pub fn iter(&self) -> std::collections::hash_map::Iter<String, Rc<NamedPoint>> {

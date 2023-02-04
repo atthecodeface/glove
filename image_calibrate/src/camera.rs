@@ -128,7 +128,7 @@ impl Camera {
 
     //cp moved_by
     pub fn moved_by(mut self, dp: [f64; 3]) -> Self {
-        self.position = self.position + Point3D::from(dp);
+        self.position += Point3D::from(dp);
         self
     }
 

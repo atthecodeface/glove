@@ -292,7 +292,7 @@ impl CameraMapping {
         for _sc in 0..2 {
             // dbg!("Preadjusted", e);
             for _i in 0..100_000 {
-                let tc = c.rotated_by(&rot.into());
+                let tc = c.rotated_by(&rot);
                 // was tc.direction = rot * c.direction;
                 let ne = f(&tc, mappings, test_pm);
                 if ne > e {
