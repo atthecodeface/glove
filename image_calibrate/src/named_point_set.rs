@@ -119,3 +119,23 @@ impl<'de> Deserialize<'de> for NamedPointSet {
         Ok(nps)
     }
 }
+//a Tests
+//ft test_json_0
+#[test]
+fn test_json_0() -> Result<(), String> {
+    let mut nps = NamedPointSet::default();
+    nps.add_pt("fred", [1., 2., 3.].into());
+    let s = nps.to_json()?;
+    assert_eq!(s, r#"[["fred",[1.0,2.0,3.0]]]"#);
+    let nps = NamedPointSet::from_json(
+        r#"
+[["fred", [1, 2, 3]]]
+"#,
+    )?;
+    assert!(nps.get_pt("jim").is_none(), "Jim is not a point");
+    assert!(nps.get_pt("fred").is_some(), "Fred is a point");
+    assert_eq!(nps.get_pt("fred").unwrap().model()[0], 1.0);
+    assert_eq!(nps.get_pt("fred").unwrap().model()[1], 2.0);
+    assert_eq!(nps.get_pt("fred").unwrap().model()[2], 3.0);
+    Ok(())
+}

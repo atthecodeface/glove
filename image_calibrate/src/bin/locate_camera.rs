@@ -1,15 +1,32 @@
 //a Imports
-use clap::Command;
+use clap::{Arg, ArgAction, Command};
 use image_calibrate::{cmdline_args, image, CameraMapping};
 
 //fi main
 fn main() -> Result<(), String> {
-    let cmd = Command::new("stuff").about("about stuff").version("0.1.0");
+    let cmd = Command::new("locate_camera")
+        .about("Find location and orientation for a camera to map points to model")
+        .version("0.1.0")
+        .arg(
+            Arg::new("steps")
+                .long("steps")
+                .required(false)
+                .help("Number of steps per camera placement to try")
+                .value_parser(clap::value_parser!(usize))
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("size")
+                .required(true)
+                .help("Size of ")
+                .value_parser(clap::value_parser!(f64))
+                .action(ArgAction::Append),
+        );
     let cmd = cmdline_args::add_camera_database_arg(cmd, true);
     let cmd = cmdline_args::add_nps_arg(cmd, true);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_projection_args(cmd, false);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::add_errors_arg(cmd);
     let cmd = cmdline_args::add_image_read_arg(cmd, false);
     let cmd = cmdline_args::add_image_write_arg(cmd, false);
     let matches = cmd.get_matches();
@@ -17,34 +34,48 @@ fn main() -> Result<(), String> {
     let cdb = cmdline_args::get_camera_database(&matches)?;
     let nps = cmdline_args::get_nps(&matches)?;
     let pms = cmdline_args::get_pms(&matches, &nps)?;
-    // let camera_projection = cmdline_args::get_camera_projection(&matches, &cdb)?;
     let camera = cmdline_args::get_camera(&matches, &cdb)?;
     let mut camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
+    let error_method = cmdline_args::get_error_fn(&matches);
 
-    //    camera_mapping = camera_mapping.find_coarse_position(mappings, &[3000., 3000., 3000.], 31);
-    //    camera_mapping = camera_mapping.find_coarse_position(mappings, &[300., 300., 300.], 31);
-    camera_mapping = camera_mapping.find_coarse_position(
-        mappings,
-        &|c, m, _n| c.total_error(m),
-        // &|c, m, _n| c.worst_error(m),
-        &[30., 30., 30.],
-        31,
-    );
-    camera_mapping = camera_mapping.find_coarse_position(
-        mappings,
-        &|c, m, _n| c.total_error(m),
-        // &|c, m, _n| c.worst_error(m),
-        &[3., 3., 3.],
-        31,
-    );
+    let mut steps = 11;
+    if let Some(s) = matches.get_one::<usize>("steps") {
+        steps = *s;
+    }
+    if steps < 1 || steps > 101 {
+        return Err(format!(
+            "Steps value should be between 1 and 100: was given {}",
+            steps
+        ));
+    }
+    let mut sizes: Vec<f64> = matches
+        .get_many::<f64>("size")
+        .unwrap()
+        .map(|v| *v)
+        .collect();
+    sizes.sort_by(|a, b| b.partial_cmp(a).unwrap());
+
+    for s in sizes {
+        eprintln!(
+            "Adjusting position of camera using a size of {} and {} steps",
+            s, steps
+        );
+        camera_mapping = camera_mapping.find_coarse_position(
+            mappings,
+            &|c, m, _n| c.total_error(m),
+            // &|c, m, _n| c.worst_error(m),
+            &[s, s, s],
+            steps,
+        );
+    }
+
     let num = mappings.len();
     for _ in 0..100 {
         for i in 0..num {
             camera_mapping = camera_mapping
                 .adjust_direction_rotating_around_one_point(
-                    &|c, m, _n| c.total_error(m),
-                    // &|c, m, _n| c.worst_error(m),
+                    &error_method,
                     0.1_f64.to_radians(),
                     mappings,
                     i,
@@ -75,7 +106,7 @@ fn main() -> Result<(), String> {
         }
     }
 
-    println!("Final WE {:.2} {:.2} Camera {}", we, te, camera_mapping);
-    println!("{}", serde_json::to_string(&camera_mapping).unwrap());
+    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, camera_mapping);
+    println!("{}", serde_json::to_string_pretty(&camera_mapping).unwrap());
     Ok(())
 }

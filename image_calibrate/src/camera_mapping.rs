@@ -95,7 +95,8 @@ impl CameraMapping {
     //fp get_pm_sq_error
     #[inline]
     pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
-        vector::length_sq(self.get_pm_dxdy(pm).as_ref())
+        let esq = vector::length_sq(self.get_pm_dxdy(pm).as_ref());
+        esq * esq / (esq + pm.error() * pm.error())
     }
 
     //fp get_pm_model_error
@@ -312,20 +313,6 @@ impl CameraMapping {
         (c, e)
     }
 
-    //fp find_best_error
-    pub fn find_best_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
-        let mut n = 0;
-        let mut best_e = 1_000_000_000.0;
-        for (i, pm) in mappings.iter().enumerate() {
-            let e = self.get_pm_sq_error(pm);
-            if e < best_e {
-                n = i;
-                best_e = e;
-            }
-        }
-        (n, best_e)
-    }
-
     //fp find_worst_error
     pub fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
         let mut n = 0;
@@ -350,26 +337,9 @@ impl CameraMapping {
         sum_e
     }
 
-    //fp total_error_with_bar
-    pub fn total_error_with_bar(&self, mappings: &[PointMapping]) -> f64 {
-        let mut sum_e = 0.;
-        for pm in mappings.iter() {
-            let esq = self.get_pm_sq_error(pm);
-            let esq = 2.0 * esq * esq / (esq + 100.);
-            sum_e += esq;
-        }
-        sum_e
-    }
-
     //fp worst_error
     pub fn worst_error(&self, mappings: &[PointMapping]) -> f64 {
         self.find_worst_error(mappings).1
-    }
-
-    //fp worst_error_with_bar
-    pub fn worst_error_with_bar(&self, mappings: &[PointMapping]) -> f64 {
-        let esq = self.find_worst_error(mappings).1;
-        2.0 * esq * esq / (esq + 100.)
     }
 
     //fp adjust_position
@@ -476,7 +446,7 @@ impl CameraMapping {
                 // dbg!(worst_data);
             }
         }
-        dbg!(&worst_data);
+        // dbg!(&worst_data);
         worst_data.2
     }
 

@@ -4,7 +4,8 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    json, CameraDatabase, CameraInstance, CameraPolynomial, NamedPointSet, PointMappingSet,
+    json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial, NamedPointSet,
+    PointMapping, PointMappingSet,
 };
 
 //a NamedPointSet
@@ -147,4 +148,60 @@ pub fn get_camera(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraIn
         .ok_or("A camera position/orientation JSON is required")?;
     let camera_json = json::read_file(camera_filename)?;
     CameraInstance::from_json(cdb, &camera_json)
+}
+//a Image options
+//fp add_image_read_arg
+pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("read")
+            .long("read")
+            .short('r')
+            .required(required)
+            .help("Image to read")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp add_image_write_arg
+pub fn add_image_write_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("write")
+            .long("write")
+            .short('w')
+            .required(required)
+            .help("Image to write")
+            .action(ArgAction::Set),
+    )
+}
+
+//a Errors
+//fp add_errors_arg
+pub fn add_errors_arg(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("worst_error")
+            .long("worst")
+            .help("Use worst error for resolving")
+            .action(ArgAction::SetTrue),
+    )
+    .arg(
+        Arg::new("total_error")
+            .long("total")
+            .help("Use total error for resolving")
+            .action(ArgAction::SetTrue),
+    )
+}
+
+//fp get_error_fn
+pub fn get_error_fn(
+    matches: &ArgMatches,
+) -> for<'a, 'b> fn(&'a CameraMapping, &'b [PointMapping], usize) -> f64 {
+    if matches.get_flag("worst_error") {
+        let error_method: for<'a, 'b> fn(&'a CameraMapping, &'b [PointMapping], usize) -> f64 =
+            |c, m, _n| c.worst_error(m);
+        error_method
+    } else {
+        let error_method: for<'a, 'b> fn(&'a CameraMapping, &'b [PointMapping], usize) -> f64 =
+            |c, m, _n| c.total_error(m);
+        error_method
+    }
 }

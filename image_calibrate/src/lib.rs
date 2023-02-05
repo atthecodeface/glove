@@ -1,11 +1,5 @@
 //a To do
 //
-// Add image handling to src
-//
-// Add error circle to point mapping
-//
-// Move test of nps to nps
-//
 // Add mapped line start/direction/error indication for each pms point
 
 //a Documentation
@@ -126,4 +120,5 @@ mod model_data;
 pub use model_data::*;
 
 pub mod cmdline_args;
+pub mod image;
 pub mod json;
