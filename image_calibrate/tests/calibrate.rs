@@ -1,13 +1,10 @@
 //a Modules
 use std::rc::Rc;
 
-use image_calibrate::PointMapping;
 use image_calibrate::*;
 use image_calibrate::{CameraMapping, Rotations};
-use image_calibrate::{Point2D, Point3D}; // , Point4D, Quat};
 
 use geo_nd::quat;
-use geo_nd::Vector;
 
 //a Consts
 //a Tests
@@ -178,26 +175,6 @@ fn test_find_coarse_position_canon_inf() {
 }
 
 //ft test_find_coarse_position_canon_50cm
-const C50MM_50CM_DATA_ALL: &[([f64; 3], [f64; 2])] = &[
-    ([0., 0., 0.], [2996.0, 2886.0]),
-    ([109., 0., 0.], [5194.0, 1636.0]),
-    ([-1., 105., 0.], [1580.0, 1157.0]),
-    ([0., 0., 92.], [3002.0, 4023.0]),
-    ([108., 0., 89.], [4886.0, 2881.0]),
-    ([-1., 105., 90.], [1739.0, 2406.0]),
-    // ([108., 109., 0.], [3667.0, 134.0]),
-];
-const C50MM_50CM_DATA_TEST: &[([f64; 3], [f64; 2])] = &[
-    ([0., 0., 0.], [2996.0, 2886.0]),
-    ([109., 0., 0.], [5194.0, 1636.0]),
-    ([-1., 105., 0.], [1580.0, 1157.0]),
-    ([0., 0., 92.], [3002.0, 4023.0]),
-    ([108., 0., 89.], [4886.0, 2881.0]),
-    ([-1., 105., 90.], [1739.0, 2406.0]),
-    ([108., 109., 0.], [3667.0, 134.0]),
-    ([107., 109., 0.], [3667.0, 134.0]),
-    ([106., 109., 0.], [3667.0, 134.0]),
-];
 // Need at least 4 points to get any sense
 // Distance of 250 mm
 // Final WE 824.99 3061.18 Camera @[-137.00,-210.20,-363.40] yaw 24.44 pitch 29.52 + [0.36,0.49,0.79]
@@ -217,18 +194,13 @@ fn test_find_coarse_position_canon_50cm() {
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C50MM_50CM_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
-    let disp_mappings: Vec<PointMapping> = C50MM_50CM_DATA_TEST
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
+
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(N_AND_X_TEST_50);
+    let mut point_mapping_set = PointMappingSet::new();
+    point_mapping_set.add_mappings(&named_point_set, N_AND_X_TEST_50_DATA);
+    let mappings = point_mapping_set.mappings();
+    let disp_mappings = point_mapping_set.mappings();
     let cam = camera;
     // -1500 to +1500 in steps of 100
     let cam = cam.find_coarse_position(
@@ -305,12 +277,11 @@ fn test_find_coarse_position() {
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C1_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(XY_AXES);
+    let mut point_mapping_set = PointMappingSet::new();
+    point_mapping_set.add_mappings(&named_point_set, XY_AXES_C1_DATA_ALL);
+    let mappings = point_mapping_set.mappings();
     let cam = camera.find_coarse_position(
         &mappings,
         &|c, m, _n| c.worst_error(m),
@@ -355,12 +326,11 @@ fn test_find_good() {
         [0., 0., 0.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C1_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(XY_AXES);
+    let mut point_mapping_set = PointMappingSet::new();
+    point_mapping_set.add_mappings(&named_point_set, XY_AXES_C1_DATA_ALL);
+    let mappings = point_mapping_set.mappings();
     // let cam = camera.find_coarse_position(&mappings, &[1000., 1000., 2000.], 11);
     let cam = camera.find_coarse_position(
         &mappings,
@@ -475,12 +445,11 @@ fn test_optimize() {
         [-22., 32.0, 784.].into(),
         quat::look_at(&[-220., -310., -630.], &[0.10, -1., -0.1]).into(),
     );
-    let mappings: Vec<PointMapping> = C1_DATA_ALL
-        .iter()
-        .map(|(model, screen)| {
-            PointMapping::new(&Point3D::from_array(*model), &Point2D::from_array(*screen))
-        })
-        .collect();
+    let mut named_point_set = NamedPointSet::new();
+    named_point_set.add_set(XY_AXES);
+    let mut point_mapping_set = PointMappingSet::new();
+    point_mapping_set.add_mappings(&named_point_set, XY_AXES_C1_DATA_ALL);
+    let mappings = point_mapping_set.mappings();
 
     let da = 0.01_f64.to_radians();
     let rotations = Rotations::new(da);

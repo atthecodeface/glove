@@ -4,6 +4,8 @@
 //
 // Add error circle to point mapping
 //
+// Move test of nps to nps
+//
 // Add mapped line start/direction/error indication for each pms point
 
 //a Documentation

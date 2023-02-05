@@ -5,6 +5,89 @@ use serde::{Deserialize, Serialize};
 
 use crate::{NamedPoint, NamedPointSet, Point2D, Point3D};
 
+//a PointMapping
+//tp PointMapping
+#[derive(Debug)]
+pub struct PointMapping {
+    /// The 3D model coordinate this point corresponds to
+    ///
+    /// This is known for a calibration point!
+    pub model: Rc<NamedPoint>,
+    /// Screen coordinate
+    pub screen: Point2D,
+    /// Error in pixels
+    pub error: f64,
+}
+
+//ip Serialize for PointMapping
+impl Serialize for PointMapping {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut seq = serializer.serialize_tuple(3)?;
+        seq.serialize_element(self.model.name())?;
+        seq.serialize_element(&self.screen)?;
+        seq.serialize_element(&self.error)?;
+        seq.end()
+    }
+}
+
+//ip Deserialize for PointMapping
+impl<'de> Deserialize<'de> for PointMapping {
+    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        let (model_name, screen, error) = <(String, Point2D, f64)>::deserialize(deserializer)?;
+        let model = Rc::new(NamedPoint::new(model_name, [0., 0., 0.].into()));
+        Ok(Self {
+            model,
+            screen,
+            error,
+        })
+    }
+}
+
+//ip PointMapping
+impl PointMapping {
+    //fp new_npt
+    pub fn new_npt(model: Rc<NamedPoint>, screen: &Point2D, error: f64) -> Self {
+        PointMapping {
+            model,
+            screen: *screen,
+            error,
+        }
+    }
+
+    //fp within_named_point_set
+    pub fn within_named_point_set(&mut self, nps: &NamedPointSet) -> bool {
+        if let Some(model) = nps.get_pt(self.model.name()) {
+            self.model = model;
+            true
+        } else {
+            false
+        }
+    }
+
+    //mp model
+    pub fn model(&self) -> &Point3D {
+        self.model.model()
+    }
+
+    //mp screen
+    pub fn screen(&self) -> &Point2D {
+        &self.screen
+    }
+
+    //mp name
+    pub fn name(&self) -> &str {
+        self.model.name()
+    }
+
+    //zz All done
+}
 //a PointMappingSet
 //tp PointMappingSet
 #[derive(Default)]
@@ -103,14 +186,21 @@ impl PointMappingSet {
     //mp add_mappings
     pub fn add_mappings(&mut self, nps: &NamedPointSet, data: &[(&str, isize, isize)]) {
         for (name, px, py) in data {
-            self.add_mapping(nps, name, &[*px as f64, *py as f64].into());
+            self.add_mapping(nps, name, &[*px as f64, *py as f64].into(), 5.0);
         }
     }
 
     //mp add_mapping
-    pub fn add_mapping(&mut self, nps: &NamedPointSet, name: &str, screen: &Point2D) -> bool {
+    pub fn add_mapping(
+        &mut self,
+        nps: &NamedPointSet,
+        name: &str,
+        screen: &Point2D,
+        error: f64,
+    ) -> bool {
         if let Some(model) = nps.get_pt(name) {
-            self.mappings.push(PointMapping::new_npt(model, screen));
+            self.mappings
+                .push(PointMapping::new_npt(model, screen, error));
             true
         } else {
             false
@@ -122,87 +212,6 @@ impl PointMappingSet {
     }
 }
 
-//a PointMapping
-//tp PointMapping
-#[derive(Debug)]
-pub struct PointMapping {
-    /// The 3D model coordinate this point corresponds to
-    ///
-    /// This is known for a calibration point!
-    pub model: Rc<NamedPoint>,
-    /// Screen coordinate
-    pub screen: Point2D,
-}
-
-//ip Serialize for PointMapping
-impl Serialize for PointMapping {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeTuple;
-        let mut seq = serializer.serialize_tuple(2)?;
-        seq.serialize_element(self.model.name())?;
-        seq.serialize_element(&self.screen)?;
-        seq.end()
-    }
-}
-
-//ip Deserialize for PointMapping
-impl<'de> Deserialize<'de> for PointMapping {
-    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
-    where
-        DE: serde::Deserializer<'de>,
-    {
-        let (model_name, screen) = <(String, Point2D)>::deserialize(deserializer)?;
-        let model = Rc::new(NamedPoint::new(model_name, [0., 0., 0.].into()));
-        Ok(Self { model, screen })
-    }
-}
-
-//ip PointMapping
-impl PointMapping {
-    //fp new_npt
-    pub fn new_npt(model: Rc<NamedPoint>, screen: &Point2D) -> Self {
-        PointMapping {
-            model,
-            screen: *screen,
-        }
-    }
-
-    //fp within_named_point_set
-    pub fn within_named_point_set(&mut self, nps: &NamedPointSet) -> bool {
-        if let Some(model) = nps.get_pt(self.model.name()) {
-            self.model = model;
-            true
-        } else {
-            false
-        }
-    }
-
-    //fp new
-    pub fn new(model: &Point3D, screen: &Point2D) -> Self {
-        let model = Rc::new(NamedPoint::new("unnamed", *model));
-        Self::new_npt(model, screen)
-    }
-
-    //mp model
-    pub fn model(&self) -> &Point3D {
-        self.model.model()
-    }
-
-    //mp screen
-    pub fn screen(&self) -> &Point2D {
-        &self.screen
-    }
-
-    //mp name
-    pub fn name(&self) -> &str {
-        self.model.name()
-    }
-
-    //zz All done
-}
 //a Tests
 //ft test_json_0
 #[test]
@@ -230,13 +239,13 @@ fn test_json_1() -> Result<(), String> {
     let mut nps = NamedPointSet::default();
     nps.add_pt("fred", [1., 2., 3.].into());
     let mut pms = PointMappingSet::new();
-    pms.add_mapping(&nps, "fred", &[1., 2.].into());
+    pms.add_mapping(&nps, "fred", &[1., 2.].into(), 5.0);
     let s = pms.to_json()?;
-    assert_eq!(s, r#"[["fred",[1.0,2.0]]]"#);
+    assert_eq!(s, r#"[["fred",[1.0,2.0],5.0]]"#);
     let pms = PointMappingSet::from_json(
         &nps,
         r#"
-[["fred", [1, 2]]]
+[["fred", [1, 2], 5.0]]
 "#,
     )?;
     assert_eq!(pms.mappings().len(), 1);
