@@ -31,8 +31,6 @@ pub struct CameraInstanceDesc {
 pub struct CameraInstance {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
-    #[serde(skip_deserializing)]
-    #[serde(default = "null_projection")]
     camera: Rc<CameraPolynomial>,
     /// Position in world coordinates of the camera
     ///
@@ -43,9 +41,6 @@ pub struct CameraInstance {
     ///
     /// Camera-space XYZ = direction applied to (world - positionn)
     direction: Quat,
-}
-fn null_projection() -> Rc<CameraPolynomial> {
-    Rc::new(CameraPolynomial::default()) // new(55.0, 640, 480, 1.0, true))
 }
 
 //ip Display for CameraInstance

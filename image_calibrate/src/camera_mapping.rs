@@ -2,11 +2,11 @@
 use std::rc::Rc;
 
 use geo_nd::{quat, vector};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use super::{
-    CameraInstance, CameraPolynomial, CameraProjection, CameraView, NamedPointSet, Point2D,
-    Point3D, PointMapping, Quat, Rotations,
+use crate::{
+    CameraInstance, CameraPolynomial, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
+    Quat, Rotations,
 };
 
 //a Constants

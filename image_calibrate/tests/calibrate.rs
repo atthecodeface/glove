@@ -18,7 +18,7 @@ fn test_find_coarse_position_canon_50_v2() {
 
     let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
     // should be 450mm??
-    let mut camera = CameraMapping::of_camera(
+    let camera = CameraMapping::of_camera(
         CameraInstance::from_json(
             &cdb,
             r#"

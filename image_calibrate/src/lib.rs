@@ -112,10 +112,12 @@ pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjec
 pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod camera_mapping;
+mod named_point_set;
 mod point_mapping;
 mod rotations;
 pub use camera_mapping::CameraMapping;
-pub use point_mapping::{NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
+pub use named_point_set::{NamedPoint, NamedPointSet};
+pub use point_mapping::{PointMapping, PointMappingSet};
 pub use rotations::Rotations;
 
 mod model_data;
