@@ -107,6 +107,18 @@ pub trait CameraView: std::fmt::Debug {
     /// Map a tan(x)/tan(y) to screen Point2D coordinate
     fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D;
 
+    //fp camera_txty_to_world_dir (derived)
+    /// Convert a TanXTanY in camera space to a direction from the camera in world space
+    fn camera_txty_to_world_dir(&self, txty: &TanXTanY) -> Point3D {
+        let camera_xyz = txty.to_unit_vector();
+        quat::apply3(
+            &quat::conjugate(self.direction().as_ref()),
+            // self.direction().as_ref(),
+            camera_xyz.as_ref(),
+        )
+        .into()
+    }
+
     //fp world_xyz_to_camera_xyz (derived)
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// coordinates (XYZ)

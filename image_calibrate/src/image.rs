@@ -33,6 +33,9 @@ pub fn draw_cross(img: &mut image::DynamicImage, p: &Point2D, size: f64, color: 
     let s = size.ceil() as u32;
     let cx = p[0] as u32;
     let cy = p[1] as u32;
+    if cx + s >= img.width() || cx < s || cy + s >= img.height() || cy < s {
+        return;
+    }
     for i in 0..(2 * s + 1) {
         img.put_pixel(cx - s + i, cy, color);
         img.put_pixel(cx, cy - s + i, color);

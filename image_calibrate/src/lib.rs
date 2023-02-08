@@ -1,6 +1,18 @@
 //a To do
 //
 // Add mapped line start/direction/error indication for each pms point
+//
+//
+// From *nps* names, and a *pms* and *camera position* can generate rays with errors
+//
+// From multiple rays-with-errors can generate mode positions, errors and confidences
+//
+// A ray with error is a starting Point3D and a unit direction vector Point3D and a error tan ratio E
+//
+// The target area of the ray is a distance D from the starting point such that the error circle around the point of the target area has radius R such that E = R / D
+//
+// If the ray is generated from a picture without a model position then the error angle is perhaps more obvious
+//
 
 //a Documentation
 /*! Documentation
@@ -118,6 +130,9 @@ pub use rotations::Rotations;
 
 mod model_data;
 pub use model_data::*;
+
+mod ray;
+pub use ray::Ray;
 
 pub mod cmdline_args;
 pub mod image;

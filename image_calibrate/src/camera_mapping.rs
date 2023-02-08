@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::{
     CameraInstance, CameraPolynomial, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
-    Quat, Rotations,
+    Quat, Ray, Rotations,
 };
 
 //a Constants
@@ -118,6 +118,46 @@ impl CameraMapping {
         }
     }
 
+    //mp get_pm_as_ray
+    pub fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray {
+        // Can calculate 4 vectors for pm.screen() +- pm.error()
+        //
+        // Calculate dots wwith the actual vector - cos of angles
+        //
+        // tan^2 angle = sec^2 - 1
+        let screen_xy = pm.screen();
+        let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
+        let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
+
+        let mut min_cos = 1.0;
+        let error = pm.error();
+        for e in [(-1., 0.), (1., 0.), (0., -1.), (0., 1.)] {
+            let err_s_xy = [screen_xy[0] + e.0 * error, screen_xy[1] + e.1 * error];
+            let err_c_txty = self.px_abs_xy_to_camera_txty(&err_s_xy.into());
+            let world_err_vec = -self.camera_txty_to_world_dir(&err_c_txty);
+            let dot = vector::dot(world_pm_direction_vec.as_ref(), world_err_vec.as_ref());
+            if dot < min_cos {
+                min_cos = dot;
+            }
+        }
+        let tan_error_sq = 1.0 / (min_cos * min_cos) - 1.0;
+        let tan_error = tan_error_sq.sqrt();
+
+        if from_camera {
+            Ray::default()
+                .set_start(self.camera.location())
+                .set_direction(world_pm_direction_vec)
+                .set_tan_error(tan_error)
+        } else {
+            Ray::default()
+                .set_start(*pm.model())
+                .set_direction(-world_pm_direction_vec)
+                .set_tan_error(tan_error)
+        }
+    }
+
     //fp show_point_set
     pub fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
@@ -157,6 +197,15 @@ impl CameraMapping {
         for pm in mappings {
             self.show_pm_error(pm);
         }
+    }
+
+    //fp get_rays
+    pub fn get_rays(&self, mappings: &[PointMapping], from_camera: bool) -> Vec<(String, Ray)> {
+        let mut r = Vec::new();
+        for pm in mappings {
+            r.push((pm.name().into(), self.get_pm_as_ray(pm, from_camera)));
+        }
+        r
     }
 
     //fp apply_quat_to_get_min_sq_error
@@ -423,7 +472,7 @@ impl CameraMapping {
                     .get_best_direction(400, &coarse_rotations, &mappings[0])
                     .0;
             }
-            for _ in 0..5 {
+            for _ in 0..50 {
                 cam = cam.get_best_direction(400, &fine_rotations, &mappings[0]).0;
             }
             for i in 0..num {

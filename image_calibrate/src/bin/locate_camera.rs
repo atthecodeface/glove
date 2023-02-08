@@ -63,7 +63,8 @@ fn main() -> Result<(), String> {
         );
         camera_mapping = camera_mapping.find_coarse_position(
             mappings,
-            &|c, m, _n| c.total_error(m),
+            &error_method,
+            // &|c, m, _n| c.total_error(m),
             // &|c, m, _n| c.worst_error(m),
             &[s, s, s],
             steps,
