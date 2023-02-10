@@ -11,6 +11,46 @@ use image_calibrate::{
 //ti SubCmdFn
 type SubCmdFn = fn(CameraDatabase, NamedPointSet, &clap::ArgMatches) -> Result<(), String>;
 
+//a Images
+//fi image_cmd
+fn image_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("image").about("Read image and draw crosses on named and mapped points");
+    let cmd = cmdline_args::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::add_image_write_arg(cmd, true);
+    (cmd, image_fn)
+}
+
+//fi image_fn
+fn image_fn(
+    cdb: CameraDatabase,
+    nps: NamedPointSet,
+    matches: &clap::ArgMatches,
+) -> Result<(), String> {
+    let pms = cmdline_args::get_pms(&matches, &nps)?;
+    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let camera_mapping = CameraMapping::of_camera(camera);
+    let mappings = pms.mappings();
+
+    if let Some(read_filename) = matches.get_one::<String>("read") {
+        let mut img = image::read_image(read_filename)?;
+        let white = &[255, 255, 255, 255];
+        let red = &[255, 180, 255, 255];
+        if let Some(write_filename) = matches.get_one::<String>("write") {
+            for m in mappings {
+                image::draw_cross(&mut img, m.screen(), m.error(), white);
+            }
+            for (_name, p) in nps.iter() {
+                let mapped = camera_mapping.map_model(p.model());
+                image::draw_cross(&mut img, mapped, 5.0, &red);
+            }
+            image::write_image(&mut img, write_filename)?;
+        }
+    }
+    Ok(())
+}
+
 //a Locate V2
 //fi locate_v2_cmd
 fn locate_v2_cmd() -> (Command, SubCmdFn) {
@@ -324,7 +364,7 @@ fn adjust_model_fn(
                 let location = cam.get_location_given_direction(mappings);
                 cam = cam.placed_at(location);
             }
-            if let Some(pm) = pms.mapping_of_np(&np) {
+            if let Some(_pm) = pms.mapping_of_np(&np) {
                 let te = cam.total_error(mappings);
                 let we = cam.worst_error(mappings);
                 total_we += we;
@@ -355,6 +395,38 @@ fn adjust_model_fn(
     Ok(())
 }
 
+//a Get model points
+//fi get_model_points_cmd
+fn get_model_points_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("get_model_points").about("Get model points from camers and pms");
+    let cmd = cmdline_args::add_camera_pms_arg(cmd); // positional
+    (cmd, get_model_points_fn)
+}
+
+//fi get_model_points_fn
+fn get_model_points_fn(
+    cdb: CameraDatabase,
+    nps: NamedPointSet,
+    matches: &clap::ArgMatches,
+) -> Result<(), String> {
+    let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
+    for (name, np) in nps.iter() {
+        let mut ray_list = Vec::new();
+        for (camera, pms) in camera_pms.iter() {
+            if let Some(pm) = pms.mapping_of_np(np) {
+                let camera_mapping = CameraMapping::of_camera(camera.clone());
+                let ray = camera_mapping.get_pm_as_ray(pm, true);
+                ray_list.push(ray);
+            }
+        }
+        if ray_list.len() > 1 {
+            let p = Ray::closest_point(&ray_list, &|_r| 1.0).unwrap();
+            eprintln!("{}: {}", name, p);
+        }
+    }
+    Ok(())
+}
+
 //a Main
 //fi print_err
 fn print_err(s: String) -> String {
@@ -374,12 +446,14 @@ fn main() -> Result<(), String> {
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
     for (c, f) in [
+        image_cmd(),
         locate_v2_cmd(),
         combine_rays_from_model_cmd(),
         combine_rays_from_camera_cmd(),
         create_rays_from_model_cmd(),
         create_rays_from_camera_cmd(),
         adjust_model_cmd(),
+        get_model_points_cmd(),
     ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);

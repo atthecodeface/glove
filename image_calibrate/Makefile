@@ -1,5 +1,6 @@
 IMG_CAL = ./target/release/image_calibrate
 ICAL_LOC = locate_v2
+ICAL_IMG = image
 ICAL_RAYS_FROM_MODEL = create_rays_from_model
 ICAL_RAYS_FROM_CAMERA = create_rays_from_camera
 ICAL_COMB_MODEL = combine_rays_from_model
@@ -70,11 +71,21 @@ blah:
 
 .PHONY: do_both
 do_both:
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json --read ${IMAGE_DIR}/4v3a6040.JPG --write 40.png 
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json --read ${IMAGE_DIR}/4v3a6041.JPG --write 41.png
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json --read ${IMAGE_DIR}/4v3a6042.JPG --write 42.png
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json --read ${IMAGE_DIR}/4v3a6040.JPG --write 40.png > located_4v3a6040.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json --read ${IMAGE_DIR}/4v3a6041.JPG --write 41.png > located_4v3a6041.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json --read ${IMAGE_DIR}/4v3a6042.JPG --write 42.png > located_4v3a6042.json
+
+.PHONY: images_all
+images_all:
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_IMG} --camera located_4v3a6040.json --pms pms_nac_4v3a6040.json --read ${IMAGE_DIR}/4v3a6040.JPG --write 40.png
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_IMG} --camera located_4v3a6041.json --pms pms_nac_4v3a6041.json --read ${IMAGE_DIR}/4v3a6041.JPG --write 41.png
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_IMG} --camera located_4v3a6042.json --pms pms_nac_4v3a6042.json --read ${IMAGE_DIR}/4v3a6042.JPG --write 42.png
 
 .PHONY: wibble
 wibble: ${IMG_CAL}
 	# ${IMG_CAL} ${CAMERA_DB} ${NPS} adjust_model --np "1 tl game" camera_nac_4v3a6040.json pms_nac_4v3a6040_training.json camera_nac_4v3a6041.json pms_nac_4v3a6041_training.json camera_nac_4v3a6042.json pms_nac_4v3a6042_training.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} adjust_model --np "& mid-tip game" camera_nac_4v3a6040.json pms_nac_4v3a6040_training.json camera_nac_4v3a6041.json pms_nac_4v3a6041_training.json camera_nac_4v3a6042.json pms_nac_4v3a6042_training.json
+
+.PHONY: get_model_points
+get_model_points: ${IMG_CAL}
+	${IMG_CAL} ${CAMERA_DB} ${NPS} get_model_points located_4v3a6040.json pms_nac_4v3a6040.json located_4v3a6041.json pms_nac_4v3a6041.json located_4v3a6042.json pms_nac_4v3a6042.json
