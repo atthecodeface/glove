@@ -4,11 +4,11 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial, NamedPointSet,
-    PointMapping, PointMappingSet,
+    json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial, NamedPoint,
+    NamedPointSet, PointMapping, PointMappingSet,
 };
 
-//a NamedPointSet
+//a NamedPointSet / NamedPoint
 //fp add_nps_arg
 pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
@@ -27,6 +27,24 @@ pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet, String> {
     let nps_filename = matches.get_one::<String>("nps").unwrap();
     let nps_json = json::read_file(nps_filename)?;
     NamedPointSet::from_json(&nps_json)
+}
+
+//fp add_np_arg
+pub fn add_np_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("np")
+            .long("np")
+            .required(required)
+            .help("Specifies a named point")
+            .long_help("A named point within the named point set required for the command")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_np
+pub fn get_np(matches: &ArgMatches, nps: &NamedPointSet) -> Result<Rc<NamedPoint>, String> {
+    let np = matches.get_one::<String>("np").unwrap();
+    nps.get_pt_err(np)
 }
 
 //a PointMappingSet

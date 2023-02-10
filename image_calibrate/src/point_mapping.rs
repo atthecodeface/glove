@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{NamedPoint, NamedPointSet, Point2D, Point3D};
+use crate::{json, NamedPoint, NamedPointSet, Point2D, Point3D};
 
 //a PointMapping
 //tp PointMapping
@@ -149,15 +149,8 @@ impl PointMappingSet {
     }
 
     //fp from_json
-    pub fn from_json(nps: &NamedPointSet, toml: &str) -> Result<Self, String> {
-        let mut pms: Self = serde_json::from_str(toml).map_err(|e| {
-            format!(
-                "Error in parsing json at line {} column {}: {}",
-                e.line(),
-                e.column(),
-                e
-            )
-        })?;
+    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<Self, String> {
+        let mut pms: Self = json::from_json("reading point map set", json)?;
         let errs = pms.rebuild_with_named_point_set(nps);
         if errs.is_empty() {
             Ok(pms)

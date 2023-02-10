@@ -1,4 +1,5 @@
 //a Imports
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -15,18 +16,21 @@ pub struct NamedPoint {
     /// The 3D model coordinate this point corresponds to
     ///
     /// This is known for a calibration point!
-    model: Point3D,
+    model: RefCell<Point3D>,
 }
 
 //ip NamedPoint
 impl NamedPoint {
     pub fn new<S: Into<String>>(name: S, model: Point3D) -> Self {
         let name = name.into();
+        let model = model.into();
         Self { name, model }
     }
+    #[inline]
     pub fn model(&self) -> Point3D {
-        self.model
+        *self.model.borrow()
     }
+    #[inline]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -83,6 +87,13 @@ impl NamedPointSet {
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
         self.points.get(name).cloned()
     }
+
+    //fp get_pt_err
+    pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>, String> {
+        self.get_pt(name)
+            .ok_or_else(|| format!("Named point set does not contain name '{}'", name))
+    }
+
     //fp iter
     pub fn iter(&self) -> std::collections::hash_map::Iter<String, Rc<NamedPoint>> {
         self.points.iter()
