@@ -150,7 +150,7 @@ impl PointMappingSet {
 
     //fp from_json
     pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<Self, String> {
-        let mut pms: Self = json::from_json("reading point map set", json)?;
+        let mut pms: Self = json::from_json("point map set", json)?;
         let errs = pms.rebuild_with_named_point_set(nps);
         if errs.is_empty() {
             Ok(pms)
@@ -207,9 +207,20 @@ impl PointMappingSet {
             false
         }
     }
+
     //ap mappings
     pub fn mappings(&self) -> &[PointMapping] {
         &self.mappings
+    }
+
+    //ap mapping_of_np
+    pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
+        for pm in self.mappings.iter() {
+            if Rc::ptr_eq(np, &pm.model) {
+                return Some(pm);
+            }
+        }
+        None
     }
 }
 

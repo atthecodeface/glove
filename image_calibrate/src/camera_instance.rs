@@ -4,9 +4,9 @@ use std::rc::Rc;
 use geo_nd::quat;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    CameraDatabase, CameraPolynomial, CameraPolynomialDesc, CameraProjection, CameraView, Point2D,
-    Point3D, Quat, TanXTanY,
+use crate::{
+    json, CameraDatabase, CameraPolynomial, CameraPolynomialDesc, CameraProjection, CameraView,
+    Point2D, Point3D, Quat, TanXTanY,
 };
 
 //a CameraInstance
@@ -114,8 +114,7 @@ impl CameraInstance {
 
     //cp from_json
     pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
-        let desc: CameraInstanceDesc = serde_json::from_str(json)
-            .map_err(|e| format!("Error parsing camera instance descriptor JSON: {}", e))?;
+        let desc: CameraInstanceDesc = json::from_json("camera instance descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
 

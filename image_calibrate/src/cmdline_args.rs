@@ -167,6 +167,40 @@ pub fn get_camera(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraIn
     let camera_json = json::read_file(camera_filename)?;
     CameraInstance::from_json(cdb, &camera_json)
 }
+//a Camera and associated point maps - Positional
+//fp add_camera_pms_arg
+pub fn add_camera_pms_arg(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("camera_pms")
+            .required(true)
+            .help("Pairs of camera and JSON files to be read")
+            .action(ArgAction::Append),
+    )
+}
+
+//fp get_camera_pms
+pub fn get_camera_pms(
+    matches: &ArgMatches,
+    cdb: &CameraDatabase,
+    nps: &NamedPointSet,
+) -> Result<Vec<(CameraInstance, PointMappingSet)>, String> {
+    let mut result = vec![];
+    let mut cam = None;
+    for filename in matches.get_many::<String>("camera_pms").unwrap() {
+        if cam.is_none() {
+            let camera_json = json::read_file(filename)?;
+            cam = Some(CameraInstance::from_json(cdb, &camera_json)?);
+        } else {
+            let mut pms = PointMappingSet::new();
+            let pms_json = json::read_file(filename)?;
+            pms.read_json(nps, &pms_json)?;
+            result.push((cam.unwrap(), pms));
+            cam = None;
+        }
+    }
+    Ok(result)
+}
+
 //a Image options
 //fp add_image_read_arg
 pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {

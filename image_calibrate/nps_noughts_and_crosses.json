@@ -3,6 +3,7 @@
     // On 6041 Move a pink point up left without impacting 6040 add dxyz
     // 6041 has dxyz [-0.24,-0.78,0.58]
 
+    // 6, 7, ad 13 are used in training 6040 and 6041
     // -2.959,-8.947,1.912
     ["6cm ruler",[-3.0,-9.0,2.0]],
     ["7cm ruler",[-3.0,-19.0,2.0]],
@@ -13,9 +14,11 @@
     ["12cm ruler",[-3.0,-69.0,2.0]],
     ["13cm ruler",[-3.0,-79.0,2.0]],
 
-    ["& mid-tip game",[71.18,-5.54,76.34]],
-    ["1 tl game",[1.05,-2.1,93.9]],
-
+//     ["1 tl game",[1.255,-2.466,96.064]], // Before new dpx
+//        ["& mid-tip game",[73.468,-5.313,77.537]], // Before new dpx
+    ["1 tl game",[0.8103541649616705,-1.76737256160823,96.16956541921931]],
+    ["& mid-tip game",[73.74087301785508,-4.536625751624381,78.01068164311606]],
+    
     // Importing from combining really good 6040 and 6041
     ["0 bl game",[-1.8,-0.75,3.1]],
     ["ml game",[-0.3,1.0,31.3]],

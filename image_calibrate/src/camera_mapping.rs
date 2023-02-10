@@ -1,12 +1,12 @@
 //a Imports
 use std::rc::Rc;
 
-use geo_nd::{matrix, quat, vector};
+use geo_nd::{quat, vector};
 use serde::Serialize;
 
 use crate::{
-    CameraInstance, CameraPolynomial, CameraView, Mat3x3, NamedPointSet, Point2D, Point3D,
-    PointMapping, Quat, Ray, Rotations,
+    CameraInstance, CameraPolynomial, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
+    Quat, Ray, Rotations,
 };
 
 //a Constants
@@ -119,7 +119,7 @@ impl CameraMapping {
         let model_dist = vector::length(model_rel_xyz.as_ref());
         let model_vec = self.world_xyz_to_camera_txty(pm.model()).to_unit_vector();
         let screen_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
-        let dxdy = self.camera_xyz_to_world_xyz(((-screen_vec) * model_dist)) - pm.model();
+        let dxdy = self.camera_xyz_to_world_xyz((-screen_vec) * model_dist) - pm.model();
         let axis = vector::cross_product3(model_vec.as_ref(), screen_vec.as_ref());
         let sin_sep = vector::length(&axis);
         let error = sin_sep * model_dist;
@@ -268,12 +268,12 @@ impl CameraMapping {
                 let angle = base_angle + angle_range * ((i as f64) - (n as f64)) / (n as f64);
                 let q: Quat = quat::of_axis_angle(axis.as_ref(), angle).into();
                 let q = q * *q_base;
-                let mut tot_e_sq = 0.;
+                // let mut tot_e_sq = 0.;
                 let mut worst_e_sq = 0.0;
                 for (s, m) in scr_model_vecs.iter() {
                     let m = quat::apply3(q.as_ref(), &(*m).into());
                     let e_sq = vector::distance_sq(&m, &(*s).into());
-                    tot_e_sq += e_sq;
+                    // tot_e_sq += e_sq;
                     if e_sq > worst_e_sq {
                         worst_e_sq = e_sq;
                     }
@@ -334,7 +334,7 @@ impl CameraMapping {
     pub fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D {
         let named_rays = self.get_rays(mappings, false);
         let mut ray_list = Vec::new();
-        for (name, ray) in named_rays {
+        for (_name, ray) in named_rays {
             ray_list.push(ray);
         }
         Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap()
@@ -360,7 +360,7 @@ impl CameraMapping {
             let tc = self.rotated_by(&q);
             let named_rays = tc.get_rays(mappings, false);
             let mut ray_list = Vec::new();
-            for (name, ray) in named_rays {
+            for (_name, ray) in named_rays {
                 ray_list.push(ray);
             }
             let location = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();

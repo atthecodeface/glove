@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use clap::{Arg, ArgAction, Command};
 use geo_nd::quat;
 use image_calibrate::{
-    cmdline_args, image, json, CameraDatabase, CameraMapping, NamedPointSet, Ray,
+    cmdline_args, image, json, CameraDatabase, CameraMapping, NamedPointSet, Point3D, Ray,
 };
 
 //a Types
@@ -40,9 +40,9 @@ fn locate_v2_fn(
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(&matches, &nps)?;
     let camera = cmdline_args::get_camera(&matches, &cdb)?;
-    let mut camera_mapping = CameraMapping::of_camera(camera);
+    let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
-    let error_method = cmdline_args::get_error_fn(&matches);
+    // let error_method = cmdline_args::get_error_fn(&matches);
 
     let mut steps = 11;
     if let Some(s) = matches.get_one::<usize>("steps") {
@@ -111,11 +111,11 @@ fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
 
 //fi combine_rays_from_model_fn
 fn combine_rays_from_model_fn(
-    cdb: CameraDatabase,
-    nps: NamedPointSet,
+    _cdb: CameraDatabase,
+    _nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let mut ray_filenames: Vec<String> = matches
+    let ray_filenames: Vec<String> = matches
         .get_many::<String>("rays")
         .unwrap()
         .map(|v| v.into())
@@ -123,7 +123,7 @@ fn combine_rays_from_model_fn(
 
     for r in ray_filenames {
         let r_json = json::read_file(r)?;
-        let mut named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
+        let named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
         let mut names = Vec::new();
         let mut ray_list = Vec::new();
         for (name, ray) in named_rays {
@@ -157,11 +157,11 @@ fn combine_rays_from_camera_cmd() -> (Command, SubCmdFn) {
 
 //fi combine_rays_from_camera_fn
 fn combine_rays_from_camera_fn(
-    cdb: CameraDatabase,
+    _cdb: CameraDatabase,
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let mut ray_filenames: Vec<String> = matches
+    let ray_filenames: Vec<String> = matches
         .get_many::<String>("rays")
         .unwrap()
         .map(|v| v.into())
@@ -170,7 +170,7 @@ fn combine_rays_from_camera_fn(
     let mut named_point_rays = HashMap::new();
     for r in ray_filenames {
         let r_json = json::read_file(r)?;
-        let mut rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
+        let rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
         for (name, ray) in rays {
             if nps.get_pt(&name).is_none() {
                 eprintln!(
@@ -214,7 +214,7 @@ fn create_rays_from_model_fn(
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(&matches, &nps)?;
     let camera = cmdline_args::get_camera(&matches, &cdb)?;
-    let mut camera_mapping = CameraMapping::of_camera(camera);
+    let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
     println!(
@@ -241,7 +241,7 @@ fn create_rays_from_camera_fn(
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(&matches, &nps)?;
     let camera = cmdline_args::get_camera(&matches, &cdb)?;
-    let mut camera_mapping = CameraMapping::of_camera(camera);
+    let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
     println!(
@@ -251,7 +251,117 @@ fn create_rays_from_camera_fn(
     Ok(())
 }
 
+//a Adjust model
+//fi adjust_model_cmd
+fn adjust_model_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("adjust_model").about("Adjust *a* model point to get minimum error");
+    let cmd = cmdline_args::add_np_arg(cmd, true);
+    let cmd = cmdline_args::add_camera_pms_arg(cmd); // positional
+    (cmd, adjust_model_fn)
+}
+
+//fi adjust_model_fn
+#[derive(Default, Debug, Clone, Copy)]
+struct BestDirn {
+    pub we: f64,
+    pub te: f64,
+    pub dpx: Point3D,
+}
+impl BestDirn {
+    fn new() -> Self {
+        Self {
+            we: 1.0E8,
+            te: 1.0E8,
+            dpx: [0., 0., 0.].into(),
+        }
+    }
+    fn best(&mut self, we: f64, te: f64, dpx: &Point3D) {
+        if te < self.te {
+            self.we = we;
+            self.te = te;
+            self.dpx = *dpx;
+        }
+    }
+}
+fn adjust_model_fn(
+    cdb: CameraDatabase,
+    nps: NamedPointSet,
+    matches: &clap::ArgMatches,
+) -> Result<(), String> {
+    let np = cmdline_args::get_np(&matches, &nps)?;
+    let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
+    let steps = 30;
+    let orig = np.model();
+    let mut best_dirn = BestDirn::new();
+    let mut best_for_pts = vec![BestDirn::new(); camera_pms.len()];
+    for i in 0..100 {
+        let x0 = (i % 10) as f64 / 10.0;
+        let z0 = ((i / 10) % 10) as f64 / 10.0;
+        let ca = 0.3_f64.cos();
+        let sa = 0.3_f64.sin();
+        let x1 = 0.1 + x0 * ca - z0 * sa;
+        let z1 = 0.1 + z0 * ca + x0 * sa;
+        let x2 = if x1 > 1.0 { x1 - 1.0 } else { x1 };
+        let z2 = if z1 > 1.0 { z1 - 1.0 } else { z1 };
+        let theta = 2.0 * std::f64::consts::PI * x2;
+        let phi = (2.0 * z2 - 1.0).acos();
+        let dpx: Point3D = [theta.cos() * phi.sin(), theta.sin() * phi.sin(), phi.cos()].into();
+        np.set_model(orig + (dpx * 0.1));
+        let mut cp_data = vec![];
+        let mut total_we = 0.;
+        let mut total_te = 0.;
+        for (i, (camera, pms)) in camera_pms.iter().enumerate() {
+            let camera_mapping = CameraMapping::of_camera(camera.clone());
+            let mappings = pms.mappings();
+            let mut cam = camera_mapping.get_best_location(mappings, steps);
+            for _ in 0..10 {
+                let quats = cam.get_quats_for_mappings_given_one(mappings, 1);
+                let q_list: Vec<(f64, [f64; 4])> =
+                    quats.into_iter().map(|q| (1.0, q.into())).collect();
+
+                let qr = quat::weighted_average_many(&q_list).into();
+                cam = cam.with_direction(qr);
+                let location = cam.get_location_given_direction(mappings);
+                cam = cam.placed_at(location);
+            }
+            if let Some(pm) = pms.mapping_of_np(&np) {
+                let te = cam.total_error(mappings);
+                let we = cam.worst_error(mappings);
+                total_we += we;
+                total_te += te;
+                best_for_pts[i].best(we, te, &dpx);
+                cp_data.push((cam.clone(), we, te));
+            }
+        }
+        best_dirn.best(total_we, total_te, &dpx);
+    }
+    for (i, b) in best_for_pts.iter().enumerate() {
+        eprintln!(
+            "{} : {} : {} : {} : {} ",
+            i,
+            b.we,
+            b.te,
+            b.dpx,
+            orig + b.dpx * 0.1
+        );
+    }
+    eprintln!(
+        "{} : {} : {} : {} ",
+        best_dirn.we,
+        best_dirn.te,
+        best_dirn.dpx,
+        orig + best_dirn.dpx * 0.1
+    );
+    Ok(())
+}
+
 //a Main
+//fi print_err
+fn print_err(s: String) -> String {
+    eprintln!("{}", s);
+    s
+}
+
 //fi main
 fn main() -> Result<(), String> {
     let cmd = Command::new("image_calibrate")
@@ -269,6 +379,7 @@ fn main() -> Result<(), String> {
         combine_rays_from_camera_cmd(),
         create_rays_from_model_cmd(),
         create_rays_from_camera_cmd(),
+        adjust_model_cmd(),
     ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);
@@ -276,13 +387,13 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let cdb = cmdline_args::get_camera_database(&matches)?;
-    let nps = cmdline_args::get_nps(&matches)?;
+    let cdb = cmdline_args::get_camera_database(&matches).map_err(|e| print_err(e))?;
+    let nps = cmdline_args::get_nps(&matches).map_err(|e| print_err(e))?;
 
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return sub_cmd_fn(cdb, nps, submatches);
+            return sub_cmd_fn(cdb, nps, submatches).map_err(|e| print_err(e));
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

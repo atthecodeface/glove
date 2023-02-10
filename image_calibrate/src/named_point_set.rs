@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Point3D;
+use crate::{json, Point3D};
 
 //a NamedPoint
 //tp NamedPoint
@@ -31,6 +31,10 @@ impl NamedPoint {
         *self.model.borrow()
     }
     #[inline]
+    pub fn set_model(&self, model: Point3D) {
+        *self.model.borrow_mut() = model;
+    }
+    #[inline]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -51,15 +55,8 @@ impl NamedPointSet {
     }
 
     //fp from_json
-    pub fn from_json(toml: &str) -> Result<Self, String> {
-        serde_json::from_str(toml).map_err(|e| {
-            format!(
-                "Error in parsing json at line {} column {}: {}",
-                e.line(),
-                e.column(),
-                e
-            )
-        })
+    pub fn from_json(json: &str) -> Result<Self, String> {
+        json::from_json("named point set", json)
     }
 
     //fp to_json
