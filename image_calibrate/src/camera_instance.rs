@@ -55,7 +55,7 @@ impl std::fmt::Display for CameraInstance {
             .to_degrees();
         write!(
             fmt,
-            "@[{:.2},{:.2},{:.2}] yaw {:.2} pitch {:.2} + [{:.2},{:.2},{:.2}]",
+            "@[{:.2},{:.2},{:.2}] yaw {:.4} pitch {:.4} + [{:.2},{:.2},{:.2}]",
             self.position[0],
             self.position[1],
             self.position[2],

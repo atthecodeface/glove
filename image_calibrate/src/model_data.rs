@@ -60,6 +60,14 @@ pub const LOGITECH_C270_640_480_JSON: &str = r#"
 /// Noughts and crosses at 45mm
 pub const NOUGHTS_AND_CROSSES_MODEL_JSON: &str = r#"
 [
+  ["6cm ruler",[0.0,-9.5,2.0]],
+  ["7cm ruler",[0.0,-19.5,2.0]],
+  ["8cm ruler",[0.0,-29.5,2.0]],
+  ["9cm ruler",[0.0,-39.5,2.0]],
+  ["10cm ruler",[0.0,-49.5,2.0]],
+  ["11cm ruler",[0.0,-59.5,2.0]],
+  ["12cm ruler",[0.0,-69.5,2.0]],
+  ["13cm ruler",[0.0,-79.5,2.0]],
   ["0 bl game",[1.0,0.0,2.0]],
   ["ml game",[1.0,0.0,31.0]],
   ["1 tl game",[1.0,0.0,93.0]],
@@ -73,14 +81,6 @@ pub const NOUGHTS_AND_CROSSES_MODEL_JSON: &str = r#"
   ["& mid-tip text",[0.0,36.0,77.0]],
   ["T mid-tip text",[0.0,56.0,79.0]],
   ["R bottom-left text",[0.0,91.0,41.0]],
-  ["6cm ruler",[0.0,-9.5,2.0]],
-  ["7cm ruler",[0.0,-19.5,2.0]],
-  ["8cm ruler",[0.0,-29.5,2.0]],
-  ["9cm ruler",[0.0,-39.5,2.0]],
-  ["10cm ruler",[0.0,-49.5,2.0]],
-  ["11cm ruler",[0.0,-59.5,2.0]],
-  ["12cm ruler",[0.0,-69.5,2.0]],
-  ["13cm ruler",[0.0,-79.5,2.0]],
   ["text star point above E",[0.0,22.0,42.0]]
 ]
 "#;
@@ -93,14 +93,14 @@ pub const NOUGHTS_AND_CROSSES_MODEL_JSON: &str = r#"
 // ("text star point above E", 2824, 2751),
 pub const NAC_4V3A6040_JSON: &str = r#"
 [
+    ["6cm ruler", [3305, 3841], 7.0],
+    ["10cm ruler", [4059.0, 4164.0], 7.0],
     ["0 bl game", [3182.0, 3754.0], 5.0],
     ["ml game", [3180.0, 3075.0], 5.0],
     ["& mid-tip game", [4432.0, 1646.0], 10.0],
     ["1 tl game", [3155.0, 1553.0], 5.0],
     ["2 tr game", [4960.0, 1205.0], 10.0],
     ["3 br game", [4883.0, 3055.0], 10.0],
-    ["6cm ruler", [3305, 3841], 7.0],
-    ["10cm ruler", [4059.0, 4164.0], 7.0],
     ["R bottom-left game", [3493, 2733], 5.0],
     ["R bottom-left text", [1800, 2342], 7.0],
     ["& mid-tip text", [2542,1790], 5.0],

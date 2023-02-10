@@ -542,3 +542,111 @@ fn test_optimize() {
     );
     assert!(false);
 }
+//ft test_find_location
+#[test]
+fn test_find_location() {
+    let named_point_set = NamedPointSet::from_json(NOUGHTS_AND_CROSSES_MODEL_JSON).unwrap();
+    let cdb = CameraDatabase::from_json(CAMERA_DB_JSON).unwrap();
+    let camera = CameraInstance::from_json(
+        &cdb,
+        r#"
+{
+ "camera": {
+"body":"Canon EOS 5D mark IV",
+"lens":"EF50mm f1.8",
+"mm_focus_distance":430.0
+},
+ "position":[0, 0, 0],
+ "direction":[-0.2,0.55,0.75,0.29]
+}
+"#,
+    )
+    .unwrap();
+    let pms = PointMappingSet::from_json(&named_point_set, NAC_4V3A6040_JSON).unwrap();
+    let mappings = pms.mappings();
+
+    let cam = CameraMapping::of_camera(camera);
+
+    let cam = cam.get_best_location(mappings, 30);
+
+    let mut q = quat::identity().into(); // cam.direction();
+    let cam = cam.with_direction(q);
+    for _ in 0..2 {
+        for y in 0..10 {
+            let yy = (y as f64) / 10.0;
+            for z in 0..10 {
+                let zz = (z as f64) / 10.0;
+                let axis = [yy * zz, 1.0 - yy, zz].into();
+                let (err, angle, nq) = cam.find_best_angle(&q, axis, mappings);
+                q = nq;
+            }
+        }
+    }
+    let cam = cam.with_direction(q);
+
+    // Final WE 367.45 2174.75 Camera @[-259.20,-291.47,184.59]
+    // yaw -65.88 pitch -44.53 + [-0.65,-0.70,0.29]
+
+    // Final WE 969.50 4086.08 Camera @[-259.45,-291.47,184.84]
+    // yaw -65.9488 pitch -44.5039 + [-0.65,-0.70,0.29]
+    //  data: [
+    // -0.21607132896673997,
+    // -0.5549588183749916,
+    // 0.7467962163670995,
+    // -0.2960224686171042,
+    //                ],
+
+    let cam = cam.placed_at([-259.45, -291.47, 184.84].into());
+
+    let quats = cam.get_quats_for_mappings_given_one(mappings, 0);
+    let q_list: Vec<(f64, [f64; 4])> = quats.into_iter().map(|q| (1.0, q.into())).collect();
+
+    let qr = quat::weighted_average_many(&q_list).into();
+    let cam = cam.with_direction(qr);
+
+    dbg!(&cam);
+
+    let mut cam = cam;
+    let fine_rotations = Rotations::new(0.01_f64.to_radians());
+    let num = mappings.len();
+    for _ in 0..0 {
+        let named_rays = cam.get_rays(mappings, false);
+        let mut ray_list = Vec::new();
+        for (name, ray) in named_rays {
+            ray_list.push(ray);
+        }
+        let location = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
+        cam = cam.placed_at(location);
+        for _ in 0..100 {
+            for _ in 0..50 {
+                cam = cam.get_best_direction(400, &fine_rotations, &mappings[0]).0;
+            }
+            /* for i in 0..num {
+                cam = cam
+                    .adjust_direction_rotating_around_one_point(
+                        &|c, m, _n| c.total_error(m),
+                        //&|c, m, _n| c.worst_error(m),
+                        0.02_f64.to_radians(),
+                        mappings,
+                        i,
+                        0,
+                    )
+                    .0;
+            }
+             */
+        }
+    }
+    let te = cam.total_error(mappings);
+    let we = cam.worst_error(mappings);
+
+    cam.show_mappings(&mappings);
+    cam.show_point_set(&named_point_set);
+    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, cam);
+    assert!(we < 400.0, "Worst error should be about 288 but was {}", we);
+    assert!(
+        te < 1500.0,
+        "Total error should be about 1440 but was {}",
+        te
+    );
+    assert!(false);
+}

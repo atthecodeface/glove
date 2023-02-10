@@ -1,4 +1,11 @@
+IMG_CAL = ./target/release/image_calibrate
+ICAL_LOC = locate_v2
+ICAL_RAYS_FROM_MODEL = create_rays_from_model
+ICAL_RAYS_FROM_CAMERA = create_rays_from_camera
+ICAL_COMB_MODEL = combine_rays_from_model
+ICAL_COMB_CAMERA = combine_rays_from_camera
 LOCATE_CAMERA = ./target/release/locate_camera
+LOCATE2 = ./target/release/locate_v2
 CREATE_RAYS = ./target/release/create_rays
 COMBINE_RAYS = ./target/release/combine_rays
 
@@ -22,31 +29,33 @@ test:
 .PHONY: locate
 locate: located_${IMAGE}.json
 
-located_${IMAGE}.json: ${LOCATE_CAMERA} pms_nac_${IMAGE}.json camera_nac_${IMAGE}.json ${NPS_JSON}
-	${LOCATE_CAMERA} ${CAMERA_DB} ${NPS} --total ${LOCATE_STEPS} ${LOCATE_SIZES} --pms pms_nac_${IMAGE}.json --camera camera_nac_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write a.png > $@
+located_${IMAGE}.json: ${LOCATE2} pms_nac_${IMAGE}_training.json camera_nac_${IMAGE}.json ${NPS_JSON}
+	${LOCATE2} ${CAMERA_DB} ${NPS} --pms pms_nac_${IMAGE}_training.json --camera camera_nac_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${IMAGE}.png > $@
+	# ${LOCATE_CAMERA} ${CAMERA_DB} ${NPS} --total ${LOCATE_STEPS} ${LOCATE_SIZES} --pms pms_nac_${IMAGE}.json --camera camera_nac_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write a.png > $@
 
 .PHONY: create_rays
 create_rays: ${IMAGE}_rays.json
 
 .PHONY: ${IMAGE}_rays.json
-${IMAGE}_rays.json: ${CREATE_RAYS}
-	${CREATE_RAYS} ${CAMERA_DB} ${NPS} --pms pms_nac_${IMAGE}.json --camera located_${IMAGE}.json > $@
+${IMAGE}_rays.json: ${CREATE_RAYS} ${IMG_CAL}
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_RAYS_FROM_CAMERA} --pms pms_nac_${IMAGE}.json --camera located_${IMAGE}.json > $@
 
 .PHONY: combine_rays
 combine_rays:
-	${COMBINE_RAYS} ${NPS} 4v3a6040_rays.json 4v3a6041_rays.json 4v3a6042_rays.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_COMB_MODEL} 4v3a6040_rays.json 4v3a6041_rays.json
+	#4v3a6042_rays.json
 
 .PHONY: rays_from_model
 rays_from_model: ${IMAGE}_rays_from_model.json
 
 .PHONY: ${IMAGE}_rays_from_model.json
-${IMAGE}_rays_from_model.json: ${CREATE_RAYS}
-	${CREATE_RAYS} ${CAMERA_DB} ${NPS} --from_model --pms pms_nac_${IMAGE}.json --camera located_${IMAGE}.json > $@
+${IMAGE}_rays_from_model.json: ${CREATE_RAYS} ${IMG_CAL}
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_RAYS_FROM_MODEL} --pms pms_nac_${IMAGE}.json --camera located_${IMAGE}.json > $@
 
 .PHONY: blah
 blah:
 	# $(MAKE) build
-	$(MAKE) IMAGE=4v3a6040_rays locate
+	$(MAKE) IMAGE=4v3a6040 locate
 	$(MAKE) IMAGE=4v3a6041 locate
 	$(MAKE) IMAGE=4v3a6042 locate
 	$(MAKE) IMAGE=4v3a6040 create_rays
@@ -56,4 +65,9 @@ blah:
 	$(MAKE) IMAGE=4v3a6041 rays_from_model
 	$(MAKE) IMAGE=4v3a6042 rays_from_model
 	$(MAKE) combine_rays
+
+.PHONY: do_both
+do_both:
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json --read ${IMAGE_DIR}/4v3a6040.JPG --write 40.png 
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json --read ${IMAGE_DIR}/4v3a6041.JPG --write 41.png
 

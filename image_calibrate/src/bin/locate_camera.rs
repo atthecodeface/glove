@@ -61,14 +61,8 @@ fn main() -> Result<(), String> {
             "Adjusting position of camera using a size of {} and {} steps",
             s, steps
         );
-        camera_mapping = camera_mapping.find_coarse_position(
-            mappings,
-            &error_method,
-            // &|c, m, _n| c.total_error(m),
-            // &|c, m, _n| c.worst_error(m),
-            &[s, s, s],
-            steps,
-        );
+        camera_mapping =
+            camera_mapping.find_coarse_position(mappings, &error_method, &[s, s, s], steps);
     }
 
     let num = mappings.len();

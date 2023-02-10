@@ -1,12 +1,12 @@
 //a Imports
 use std::rc::Rc;
 
-use geo_nd::{quat, vector};
+use geo_nd::{matrix, quat, vector};
 use serde::Serialize;
 
 use crate::{
-    CameraInstance, CameraPolynomial, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
-    Quat, Ray, Rotations,
+    CameraInstance, CameraPolynomial, CameraView, Mat3x3, NamedPointSet, Point2D, Point3D,
+    PointMapping, Quat, Ray, Rotations,
 };
 
 //a Constants
@@ -63,14 +63,28 @@ impl CameraMapping {
         &self.camera
     }
 
-    //fp moved_by
+    //mp placed_at
+    pub fn placed_at(&self, location: Point3D) -> Self {
+        Self {
+            camera: self.camera.clone().placed_at(location),
+        }
+    }
+
+    //mp with_direction
+    pub fn with_direction(&self, direction: Quat) -> Self {
+        Self {
+            camera: self.camera.clone().with_direction(direction),
+        }
+    }
+
+    //mp moved_by
     pub fn moved_by(&self, dp: [f64; 3]) -> Self {
         Self {
             camera: self.camera.clone().moved_by(dp),
         }
     }
 
-    //fp rotated_by
+    //mp rotated_by
     pub fn rotated_by(&self, q: &Quat) -> Self {
         Self {
             camera: self.camera.clone().rotated_by(q),
@@ -122,12 +136,10 @@ impl CameraMapping {
     pub fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
-        // Calculate dots wwith the actual vector - cos of angles
+        // Calculate dots with the actual vector - cos of angles
         //
         // tan^2 angle = sec^2 - 1
         let screen_xy = pm.screen();
-        let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
-        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
         let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
         let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
 
@@ -229,6 +241,137 @@ impl CameraMapping {
         }
         c.normalize(); // Tidy the direction quaternion
         (c, e)
+    }
+
+    //fp find_best_angle
+    /// Find the best angle given an axis of rotation for the point mappings
+    pub fn find_best_angle(
+        &self,
+        q_base: &Quat,
+        axis: Point3D,
+        mappings: &[PointMapping],
+    ) -> (f64, f64, Quat) {
+        let mut scr_model_vecs = Vec::new();
+        for pm in mappings {
+            let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
+            let pm_model_vec: Point3D =
+                vector::normalize(*(self.camera.location() - *pm.model()).as_ref()).into();
+            scr_model_vecs.push((pm_scr_vec, pm_model_vec));
+        }
+        let n = 30;
+        let mut best = (1.0E8, 0.);
+        let mut base_angle = 0.;
+        let mut angle_range = 180.0_f64.to_radians();
+        for _ in 0..7 {
+            best = (1.0E8, 0.);
+            for i in 0..2 * n + 1 {
+                let angle = base_angle + angle_range * ((i as f64) - (n as f64)) / (n as f64);
+                let q: Quat = quat::of_axis_angle(axis.as_ref(), angle).into();
+                let q = q * *q_base;
+                let mut tot_e_sq = 0.;
+                let mut worst_e_sq = 0.0;
+                for (s, m) in scr_model_vecs.iter() {
+                    let m = quat::apply3(q.as_ref(), &(*m).into());
+                    let e_sq = vector::distance_sq(&m, &(*s).into());
+                    tot_e_sq += e_sq;
+                    if e_sq > worst_e_sq {
+                        worst_e_sq = e_sq;
+                    }
+                }
+                if worst_e_sq < best.0 {
+                    best = (worst_e_sq, angle);
+                }
+            }
+            angle_range = angle_range * 2.0 / (n as f64);
+            base_angle = best.1;
+        }
+        let (e_sq, angle) = best;
+        let q: Quat = quat::of_axis_angle(axis.as_ref(), angle).into();
+        let q = q * *q_base;
+        (e_sq, angle, q)
+    }
+
+    //fp get_quats_for_mappings_given_one
+    pub fn get_quats_for_mappings_given_one(
+        &self,
+        mappings: &[PointMapping],
+        n: usize,
+    ) -> Vec<Quat> {
+        let pivot_scr_vec = self
+            .px_abs_xy_to_camera_txty(mappings[n].screen())
+            .to_unit_vector();
+        let pivot_model_vec: Point3D =
+            vector::normalize(*(self.location() - *mappings[n].model()).as_ref()).into();
+        let q_s2z: Quat =
+            quat::get_rotation_of_vec_to_vec(pivot_scr_vec.as_ref(), &[0., 0., 1.]).into();
+        let q_m2s: Quat =
+            quat::get_rotation_of_vec_to_vec(pivot_model_vec.as_ref(), pivot_scr_vec.as_ref())
+                .into();
+        let q_m2z = q_s2z * q_m2s;
+        let mut result = Vec::new();
+        for (i, pm) in mappings.iter().enumerate() {
+            if i == n {
+                continue;
+            }
+            let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
+            let pm_model_vec: Point3D =
+                vector::normalize(*(self.location() - *pm.model()).as_ref()).into();
+            let m_mapped = quat::apply3(q_m2z.as_ref(), &pm_model_vec.into());
+            let scr_mapped = quat::apply3(q_s2z.as_ref(), &pm_scr_vec.into());
+            let m_mapped = [m_mapped[0] / m_mapped[2], m_mapped[1] / m_mapped[2]];
+            let scr_mapped = [scr_mapped[0] / scr_mapped[2], scr_mapped[1] / scr_mapped[2]];
+            let m_angle = m_mapped[1].atan2(m_mapped[0]);
+            let scr_angle = scr_mapped[1].atan2(scr_mapped[0]);
+            let qp5: Quat =
+                quat::of_axis_angle(pivot_scr_vec.as_ref(), -m_angle + scr_angle).into();
+            let q: Quat = qp5 * q_m2s;
+            result.push(q.into());
+        }
+        result
+    }
+
+    //fp get_location_given_direction
+    pub fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D {
+        let named_rays = self.get_rays(mappings, false);
+        let mut ray_list = Vec::new();
+        for (name, ray) in named_rays {
+            ray_list.push(ray);
+        }
+        Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap()
+    }
+
+    //fp get_best_location
+    /// Get the best location simply, by trying many orientations of
+    /// the model and getting the point of best intersection for rays
+    /// for the point mappings
+    pub fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> Self {
+        let mut best_dirn = (1.0E20, 1.0E20, self.clone());
+        for i in 0..steps * steps * steps {
+            let x = i % steps;
+            let y = (i / steps) % steps;
+            let z = (i / steps) / steps;
+            let qx: Quat =
+                quat::of_axis_angle(&[1., 0., 0.], (x as f64) * 6.282 / (steps as f64)).into();
+            let qy: Quat =
+                quat::of_axis_angle(&[0., 1., 0.], (y as f64) * 6.282 / (steps as f64)).into();
+            let qz: Quat =
+                quat::of_axis_angle(&[0., 0., 1.], (z as f64) * 6.282 / (steps as f64)).into();
+            let q = (qx * qy) * qz;
+            let tc = self.rotated_by(&q);
+            let named_rays = tc.get_rays(mappings, false);
+            let mut ray_list = Vec::new();
+            for (name, ray) in named_rays {
+                ray_list.push(ray);
+            }
+            let location = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
+            let tc = tc.placed_at(location);
+            let te = tc.total_error(mappings);
+            let we = tc.worst_error(mappings);
+            if te < best_dirn.1 {
+                best_dirn = (we, te, tc);
+            }
+        }
+        best_dirn.2
     }
 
     //fp get_best_direction

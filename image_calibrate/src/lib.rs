@@ -117,7 +117,7 @@ pub use camera_instance::CameraInstance;
 pub use camera_lens::CameraLens;
 pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
-pub use types::{Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
+pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod camera_mapping;
 mod named_point_set;

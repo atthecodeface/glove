@@ -78,7 +78,7 @@ The meeting line is then P0 to P1, with:
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use crate::{Point2D, Point3D};
+use crate::Point3D;
 
 use geo_nd::matrix;
 use geo_nd::vector;
@@ -93,6 +93,17 @@ pub struct Ray {
     pub direction: Point3D,
     /// Tan of error such that actual error radius = distance*tan_error
     pub tan_error: f64,
+}
+
+//ip Display for Ray
+impl std::fmt::Display for Ray {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "[Ray {}+k*{} @ {}]",
+            self.start, self.direction, self.tan_error
+        )
+    }
 }
 
 //ip Ray
@@ -392,7 +403,6 @@ fn test_ray3() -> Result<(), String> {
         (d0_sq.sqrt() * 2.0 - d1_sq.sqrt()) < 1E-4,
         "Point should be half the distance from ray 0 compared to ray 0"
     );
-    assert!(false);
 
     Ok(())
 }

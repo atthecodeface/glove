@@ -1,26 +1,35 @@
-[
-  ["0 bl game",[1.0,0.0,2.0]],
-  ["ml game",[1.0,0.0,31.0]],
-  ["1 tl game",[1.0,0.0,93.0]],
+[ // On 6040 Move a pink point to left make X smaller
+    // 6040 has dxyz [-0.65,-0.70,0.30]
+    // On 6041 Move a pink point up left without impacting 6040 add dxyz
+    // 6041 has dxyz [-0.24,-0.78,0.58]
+
+    // -2.959,-8.947,1.912
+    ["6cm ruler",[-3.0,-9.0,2.0]],
+    ["7cm ruler",[-3.0,-19.0,2.0]],
+    ["8cm ruler",[-3.0,-29.0,2.0]],
+    ["9cm ruler",[-3.0,-39.0,2.0]],
+    ["10cm ruler",[-3.0,-49.0,2.0]],
+    ["11cm ruler",[-3.0,-59.0,2.0]],
+    ["12cm ruler",[-3.0,-69.0,2.0]],
+    ["13cm ruler",[-3.0,-79.0,2.0]],
+
+    ["& mid-tip game",[71.18,-5.54,76.34]],
+    ["1 tl game",[1.05,-2.1,93.9]],
+
+    // Importing from combining really good 6040 and 6041
+    ["0 bl game",[-1.8,-0.75,3.1]],
+    ["ml game",[-0.3,1.0,31.3]],
+    
       ["2 tr game",[108.0,0.0,91.5]],
     // ["2 tr game",[114.0,-0.5,93.5]],    
   ["3 br game",[108.0,0.0,2.0]],
   ["4 bl text",[0.0,106.0,2.0]],
   ["5 tl text",[0.0,106.0,92.0]],
     // ["& mid-tip game",[74.0,0.0,77.0]],
-    ["& mid-tip game",[72.7,-1.3,77.4]], // From ray intersections
   ["T mid-tip game",[54.0,0.0,79.0]],
   ["R bottom-left game",[18.0,0.0,41.0]],
-  ["& mid-tip text",[0.0,36.0,77.0]],
+    ["& mid-tip text",[0.5,38.2,76.5]], // 0.5, 36, 76.5
   ["T mid-tip text",[0.0,56.0,79.0]],
   ["R bottom-left text",[0.0,91.0,41.0]],
-  ["6cm ruler",[-1.0,-9.5,2.0]],
-  ["7cm ruler",[-1.0,-19.5,2.0]],
-  ["8cm ruler",[-1.0,-29.5,2.0]],
-  ["9cm ruler",[-1.0,-39.5,2.0]],
-  ["10cm ruler",[-1.0,-49.5,2.0]],
-  ["11cm ruler",[-1.0,-59.5,2.0]],
-  ["12cm ruler",[-1.0,-69.5,2.0]],
-  ["13cm ruler",[-1.0,-79.5,2.0]],
   ["text star point above E",[0.0,22.0,42.0]]
 ]
