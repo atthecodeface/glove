@@ -190,13 +190,13 @@ impl CameraMapping {
         let dxdy = self.get_pm_dxdy(pm);
         let esq = self.get_pm_sq_error(pm);
         eprintln!(
-            "{} {} <> {:.2}: Maps to {:.2}, dxdy {:.2} esq {:.2} : model rot {:.2} by {:.2} dxdydz {:.2} dist {:.3}  ",
+            "esq {:.2} {} {} <> {:.2}: Maps to {:.2}, dxdy {:.2}: model rot {:.2} by {:.2} dxdydz {:.2} dist {:.3}  ",
+            esq,
             pm.name(),
             pm.model(),
             pm.screen,
             camera_scr_xy,
             dxdy,
-            esq,
             model_axis,
             model_angle,
             model_dxdy,

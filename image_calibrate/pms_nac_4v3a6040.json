@@ -12,5 +12,9 @@
     ["& mid-tip game", [4434.0, 1646.0], 10.0],
     ["& mid-tip text", [2542,1790], 5.0],
     ["T mid-tip text", [2240,1656], 10.0],
-    ["T mid-tip game",[4107,1670], 5.0]
+    ["T mid-tip game",[4104,1670], 5.0],
+    ["text star point above E", [2826, 2743], 5.0],
+    ["M top of box", [3138, 1185], 5.0],
+    ["M middle", [4097, 1179], 5.0],
+  ["tape measure", [ 83, 3179], 5.0]
 ]

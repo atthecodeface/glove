@@ -51,6 +51,36 @@ fn image_fn(
     Ok(())
 }
 
+//a Interrogate (show_mappings etc)
+//fi show_mappings_cmd
+fn show_mappings_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("show_mappings")
+        .about("Find location and orientation for a camera to map points to model");
+    let cmd = cmdline_args::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    (cmd, show_mappings_fn)
+}
+
+//fi show_mappings_fn
+fn show_mappings_fn(
+    cdb: CameraDatabase,
+    nps: NamedPointSet,
+    matches: &clap::ArgMatches,
+) -> Result<(), String> {
+    let pms = cmdline_args::get_pms(&matches, &nps)?;
+    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let camera_mapping = CameraMapping::of_camera(camera);
+    let mappings = pms.mappings();
+
+    let te = camera_mapping.total_error(mappings);
+    let we = camera_mapping.worst_error(mappings);
+    camera_mapping.show_mappings(mappings);
+    camera_mapping.show_point_set(&nps);
+    println!("WE {:.2} TE {:.2}", we, te);
+
+    Ok(())
+}
+
 //a Locate V2
 //fi locate_v2_cmd
 fn locate_v2_cmd() -> (Command, SubCmdFn) {
@@ -63,12 +93,17 @@ fn locate_v2_cmd() -> (Command, SubCmdFn) {
                 .help("Number of steps per camera placement to try")
                 .value_parser(clap::value_parser!(usize))
                 .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("orientations")
+                .long("orientations")
+                .required(false)
+                .help("Number of orientation adjustments to try")
+                .value_parser(clap::value_parser!(usize))
+                .action(ArgAction::Set),
         );
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
-    let cmd = cmdline_args::add_errors_arg(cmd);
-    let cmd = cmdline_args::add_image_read_arg(cmd, false);
-    let cmd = cmdline_args::add_image_write_arg(cmd, false);
     (cmd, locate_v2_fn)
 }
 
@@ -82,11 +117,14 @@ fn locate_v2_fn(
     let camera = cmdline_args::get_camera(&matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
-    // let error_method = cmdline_args::get_error_fn(&matches);
 
     let mut steps = 11;
     if let Some(s) = matches.get_one::<usize>("steps") {
         steps = *s;
+    }
+    let mut orientations = 11;
+    if let Some(o) = matches.get_one::<usize>("orientations") {
+        orientations = *o;
     }
     if steps < 1 || steps > 101 {
         return Err(format!(
@@ -94,10 +132,16 @@ fn locate_v2_fn(
             steps
         ));
     }
+    if orientations < 1 || orientations > 101 {
+        return Err(format!(
+            "Orientations value should be between 1 and 100: was given {}",
+            orientations
+        ));
+    }
 
     let mut cam = camera_mapping.get_best_location(mappings, steps);
 
-    for _ in 0..10 {
+    for _ in 0..orientations {
         let quats = cam.get_quats_for_mappings_given_one(mappings, 1);
         let q_list: Vec<(f64, [f64; 4])> = quats.into_iter().map(|q| (1.0, q.into())).collect();
 
@@ -113,22 +157,6 @@ fn locate_v2_fn(
     let we = camera_mapping.worst_error(mappings);
     camera_mapping.show_mappings(mappings);
     // camera_mapping.show_point_set(&nps);
-
-    if let Some(read_filename) = matches.get_one::<String>("read") {
-        let mut img = image::read_image(read_filename)?;
-        let white = &[255, 255, 255, 255];
-        let red = &[255, 180, 255, 255];
-        if let Some(write_filename) = matches.get_one::<String>("write") {
-            for m in mappings {
-                image::draw_cross(&mut img, m.screen(), m.error(), white);
-            }
-            for (_name, p) in nps.iter() {
-                let mapped = camera_mapping.map_model(p.model());
-                image::draw_cross(&mut img, mapped, 5.0, &red);
-            }
-            image::write_image(&mut img, write_filename)?;
-        }
-    }
 
     eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, camera_mapping);
     println!("{}", serde_json::to_string_pretty(&camera_mapping).unwrap());
@@ -447,6 +475,7 @@ fn main() -> Result<(), String> {
     let mut cmd = cmd;
     for (c, f) in [
         image_cmd(),
+        show_mappings_cmd(),
         locate_v2_cmd(),
         combine_rays_from_model_cmd(),
         combine_rays_from_camera_cmd(),
