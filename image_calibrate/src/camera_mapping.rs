@@ -93,7 +93,7 @@ impl CameraMapping {
 
     //fp map_model
     #[inline]
-    pub fn map_model(&self, model: &Point3D) -> Point2D {
+    pub fn map_model(&self, model: Point3D) -> Point2D {
         self.world_xyz_to_px_abs_xy(model)
     }
 
@@ -119,7 +119,7 @@ impl CameraMapping {
         let model_dist = vector::length(model_rel_xyz.as_ref());
         let model_vec = self.world_xyz_to_camera_txty(pm.model()).to_unit_vector();
         let screen_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
-        let dxdy = self.camera_xyz_to_world_xyz(&((-screen_vec) * model_dist)) - *pm.model();
+        let dxdy = self.camera_xyz_to_world_xyz(((-screen_vec) * model_dist)) - pm.model();
         let axis = vector::cross_product3(model_vec.as_ref(), screen_vec.as_ref());
         let sin_sep = vector::length(&axis);
         let error = sin_sep * model_dist;
@@ -147,7 +147,7 @@ impl CameraMapping {
         let error = pm.error();
         for e in [(-1., 0.), (1., 0.), (0., -1.), (0., 1.)] {
             let err_s_xy = [screen_xy[0] + e.0 * error, screen_xy[1] + e.1 * error];
-            let err_c_txty = self.px_abs_xy_to_camera_txty(&err_s_xy.into());
+            let err_c_txty = self.px_abs_xy_to_camera_txty(err_s_xy.into());
             let world_err_vec = -self.camera_txty_to_world_dir(&err_c_txty);
             let dot = vector::dot(world_pm_direction_vec.as_ref(), world_err_vec.as_ref());
             if dot < min_cos {
@@ -164,7 +164,7 @@ impl CameraMapping {
                 .set_tan_error(tan_error)
         } else {
             Ray::default()
-                .set_start(*pm.model())
+                .set_start(pm.model())
                 .set_direction(-world_pm_direction_vec)
                 .set_tan_error(tan_error)
         }
@@ -255,7 +255,7 @@ impl CameraMapping {
         for pm in mappings {
             let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
             let pm_model_vec: Point3D =
-                vector::normalize(*(self.camera.location() - *pm.model()).as_ref()).into();
+                vector::normalize(*(self.camera.location() - pm.model()).as_ref()).into();
             scr_model_vecs.push((pm_scr_vec, pm_model_vec));
         }
         let n = 30;
@@ -301,7 +301,7 @@ impl CameraMapping {
             .px_abs_xy_to_camera_txty(mappings[n].screen())
             .to_unit_vector();
         let pivot_model_vec: Point3D =
-            vector::normalize(*(self.location() - *mappings[n].model()).as_ref()).into();
+            vector::normalize(*(self.location() - mappings[n].model()).as_ref()).into();
         let q_s2z: Quat =
             quat::get_rotation_of_vec_to_vec(pivot_scr_vec.as_ref(), &[0., 0., 1.]).into();
         let q_m2s: Quat =
@@ -315,7 +315,7 @@ impl CameraMapping {
             }
             let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
             let pm_model_vec: Point3D =
-                vector::normalize(*(self.location() - *pm.model()).as_ref()).into();
+                vector::normalize(*(self.location() - pm.model()).as_ref()).into();
             let m_mapped = quat::apply3(q_m2z.as_ref(), &pm_model_vec.into());
             let scr_mapped = quat::apply3(q_s2z.as_ref(), &pm_scr_vec.into());
             let m_mapped = [m_mapped[0] / m_mapped[2], m_mapped[1] / m_mapped[2]];

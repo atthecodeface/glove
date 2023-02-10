@@ -82,8 +82,8 @@ impl CameraView for CameraInstance {
 
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY {
-        let px_rel_xy = self.camera.px_abs_xy_to_px_rel_xy(*px_abs_xy);
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
+        let px_rel_xy = self.camera.px_abs_xy_to_px_rel_xy(px_abs_xy);
         self.camera.px_rel_xy_to_txty(px_rel_xy)
     }
 

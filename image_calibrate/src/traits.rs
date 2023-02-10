@@ -101,7 +101,7 @@ pub trait CameraView: std::fmt::Debug {
 
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: &Point2D) -> TanXTanY;
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY;
 
     //fp camera_txty_to_px_abs_xy
     /// Map a tan(x)/tan(y) to screen Point2D coordinate
@@ -123,15 +123,15 @@ pub trait CameraView: std::fmt::Debug {
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// coordinates (XYZ)
     #[inline]
-    fn world_xyz_to_camera_xyz(&self, world_xyz: &Point3D) -> Point3D {
-        let camera_relative_xyz = *world_xyz - self.location();
+    fn world_xyz_to_camera_xyz(&self, world_xyz: Point3D) -> Point3D {
+        let camera_relative_xyz = world_xyz - self.location();
         quat::apply3(self.direction().as_ref(), camera_relative_xyz.as_ref()).into()
     }
 
     //fp camera_xyz_to_world_xyz (derived)
     /// Convert a Point3D in camera space (XYZ) to world space
     /// coordinates (XYZ)
-    fn camera_xyz_to_world_xyz(&self, camera_xyz: &Point3D) -> Point3D {
+    fn camera_xyz_to_world_xyz(&self, camera_xyz: Point3D) -> Point3D {
         let camera_relative_xyz: Point3D = quat::apply3(
             &quat::conjugate(self.direction().as_ref()),
             camera_xyz.as_ref(),
@@ -144,7 +144,7 @@ pub trait CameraView: std::fmt::Debug {
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// TanX/TanY coordinates (XY)
     #[inline]
-    fn world_xyz_to_camera_txty(&self, world_xyz: &Point3D) -> TanXTanY {
+    fn world_xyz_to_camera_txty(&self, world_xyz: Point3D) -> TanXTanY {
         self.world_xyz_to_camera_xyz(world_xyz).into()
     }
 
@@ -152,7 +152,7 @@ pub trait CameraView: std::fmt::Debug {
     /// Map a world Point3D coordinate to camera-space coordinates,
     /// and then to tan(x)/tan(y), then to camera sensor pixel X-Y coordinates
     #[inline]
-    fn world_xyz_to_px_abs_xy(&self, world_xyz: &Point3D) -> Point2D {
+    fn world_xyz_to_px_abs_xy(&self, world_xyz: Point3D) -> Point2D {
         self.camera_txty_to_px_abs_xy(&self.world_xyz_to_camera_txty(world_xyz))
     }
 }

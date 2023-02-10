@@ -73,14 +73,14 @@ impl PointMapping {
 
     //mp model
     #[inline]
-    pub fn model(&self) -> &Point3D {
+    pub fn model(&self) -> Point3D {
         self.model.model()
     }
 
     //mp screen
     #[inline]
-    pub fn screen(&self) -> &Point2D {
-        &self.screen
+    pub fn screen(&self) -> Point2D {
+        self.screen
     }
 
     //mp error

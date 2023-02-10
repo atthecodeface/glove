@@ -28,7 +28,7 @@ pub fn write_image(img: &mut image::DynamicImage, filename: &str) -> Result<(), 
 }
 
 //fp draw_cross
-pub fn draw_cross(img: &mut image::DynamicImage, p: &Point2D, size: f64, color: &[u8; 4]) {
+pub fn draw_cross(img: &mut image::DynamicImage, p: Point2D, size: f64, color: &[u8; 4]) {
     let color = image::Rgba(*color);
     let s = size.ceil() as u32;
     let cx = p[0] as u32;

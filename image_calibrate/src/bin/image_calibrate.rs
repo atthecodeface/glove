@@ -84,7 +84,7 @@ fn locate_v2_fn(
             }
             for (_name, p) in nps.iter() {
                 let mapped = camera_mapping.map_model(p.model());
-                image::draw_cross(&mut img, &mapped, 5.0, &red);
+                image::draw_cross(&mut img, mapped, 5.0, &red);
             }
             image::write_image(&mut img, write_filename)?;
         }

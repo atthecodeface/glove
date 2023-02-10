@@ -24,8 +24,8 @@ impl NamedPoint {
         let name = name.into();
         Self { name, model }
     }
-    pub fn model(&self) -> &Point3D {
-        &self.model
+    pub fn model(&self) -> Point3D {
+        self.model
     }
     pub fn name(&self) -> &str {
         &self.name
