@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use clap::{Arg, ArgAction, Command};
 use geo_nd::{quat, vector};
 use image_calibrate::{
-    cmdline_args, image, json, BestMapping, CameraDatabase, CameraMapping, NamedPointSet, Point3D,
-    Ray,
+    cmdline_args, image, json, BestMapping, CameraDatabase, CameraMapping, CameraView,
+    NamedPointSet, Point3D, Ray,
 };
 
 //a Types
@@ -82,10 +82,10 @@ fn show_mappings_fn(
     Ok(())
 }
 
-//a Locate V2
-//fi locate_v2_cmd
-fn locate_v2_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("locate_v2")
+//a Locate
+//fi locate_cmd
+fn locate_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("locate")
         .about("Find location and orientation for a camera to map points to model")
         .arg(
             Arg::new("steps")
@@ -94,22 +94,14 @@ fn locate_v2_cmd() -> (Command, SubCmdFn) {
                 .help("Number of steps per camera placement to try")
                 .value_parser(clap::value_parser!(usize))
                 .action(ArgAction::Set),
-        )
-        .arg(
-            Arg::new("orientations")
-                .long("orientations")
-                .required(false)
-                .help("Number of orientation adjustments to try")
-                .value_parser(clap::value_parser!(usize))
-                .action(ArgAction::Set),
         );
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
-    (cmd, locate_v2_fn)
+    (cmd, locate_fn)
 }
 
-//fi locate_v2_fn
-fn locate_v2_fn(
+//fi locate_fn
+fn locate_fn(
     cdb: CameraDatabase,
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
@@ -123,43 +115,71 @@ fn locate_v2_fn(
     if let Some(s) = matches.get_one::<usize>("steps") {
         steps = *s;
     }
-    let mut orientations = 11;
-    if let Some(o) = matches.get_one::<usize>("orientations") {
-        orientations = *o;
-    }
     if steps < 1 || steps > 101 {
         return Err(format!(
             "Steps value should be between 1 and 100: was given {}",
             steps
         ));
     }
-    if orientations < 1 || orientations > 10001 {
-        return Err(format!(
-            "Orientations value should be between 1 and 100: was given {}",
-            orientations
-        ));
-    }
 
-    let mut cam = camera_mapping.get_best_location(mappings, steps);
+    let best_mapping = camera_mapping.get_best_location(mappings, steps);
 
-    for _ in 0..orientations {
-        let quats = cam.get_quats_for_mappings_given_one(mappings, 1);
-        let q_list: Vec<(f64, [f64; 4])> = quats.into_iter().map(|q| (1.0, q.into())).collect();
+    eprintln!("Best location {}", best_mapping);
+    let camera_mapping = best_mapping.into_data();
+    camera_mapping.show_mappings(mappings);
+    // camera_mapping.show_point_set(&nps);
 
+    println!("{}", serde_json::to_string_pretty(&camera_mapping).unwrap());
+    Ok(())
+}
+
+//a Reorient
+//fi reorient_cmd
+fn reorient_cmd() -> (Command, SubCmdFn) {
+    let cmd =
+        Command::new("reorient").about("Improve orientation for a camera to map points to model");
+    let cmd = cmdline_args::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    (cmd, reorient_fn)
+}
+
+//fi reorient_fn
+fn reorient_fn(
+    cdb: CameraDatabase,
+    nps: NamedPointSet,
+    matches: &clap::ArgMatches,
+) -> Result<(), String> {
+    let pms = cmdline_args::get_pms(&matches, &nps)?;
+    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let camera_mapping = CameraMapping::of_camera(camera);
+    let mappings = pms.mappings();
+
+    // use worst error
+    let mut cam = camera_mapping.clone();
+    let mut best_mapping = BestMapping::new(true, camera_mapping);
+    loop {
+        let mut q_list: Vec<(f64, [f64; 4])> = vec![];
+        for i in 0..mappings.len() {
+            for q in cam.get_quats_for_mappings_given_one(mappings, i) {
+                q_list.push((1.0, q.into()));
+            }
+        }
         let qr = quat::weighted_average_many(&q_list).into();
         cam = cam.with_direction(qr);
+        let we = cam.worst_error(mappings);
+        let te = cam.total_error(mappings);
+        if !best_mapping.update_best(we, te, &cam) {
+            break;
+        }
         let location = cam.get_location_given_direction(mappings);
         cam = cam.placed_at(location);
     }
 
-    let camera_mapping = cam;
-
-    let te = camera_mapping.total_error(mappings);
-    let we = camera_mapping.worst_error(mappings);
+    eprintln!("Best mapping {}", best_mapping);
+    let camera_mapping = best_mapping.into_data();
     camera_mapping.show_mappings(mappings);
     // camera_mapping.show_point_set(&nps);
 
-    eprintln!("Final WE {:.2} {:.2} Camera {}", we, te, camera_mapping);
     println!("{}", serde_json::to_string_pretty(&camera_mapping).unwrap());
     Ok(())
 }
@@ -339,9 +359,9 @@ fn adjust_model_fn(
     let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
     let steps = 30;
     let orig = np.model();
-    let mut best_dirn: BestMapping<Point3D> = BestMapping::new(true, [0., 0., 0.]);
+    let mut best_dirn: BestMapping<Point3D> = BestMapping::new(true, [0., 0., 0.].into());
     let mut best_for_pts: Vec<BestMapping<Point3D>> =
-        vec![BestMapping::new(true, [0., 0., 0.]); camera_pms.len()];
+        vec![BestMapping::new(true, [0., 0., 0.].into()); camera_pms.len()];
     for i in 0..100 {
         let x0 = (i % 10) as f64 / 10.0;
         let z0 = ((i / 10) % 10) as f64 / 10.0;
@@ -353,7 +373,9 @@ fn adjust_model_fn(
         for (i, (camera, pms)) in camera_pms.iter().enumerate() {
             let camera_mapping = CameraMapping::of_camera(camera.clone());
             let mappings = pms.mappings();
-            let mut cam = camera_mapping.get_best_location(mappings, steps);
+            let mut cam = camera_mapping
+                .get_best_location(mappings, steps)
+                .into_data();
             for _ in 0..10 {
                 let quats = cam.get_quats_for_mappings_given_one(mappings, 1);
                 let q_list: Vec<(f64, [f64; 4])> =
@@ -369,11 +391,11 @@ fn adjust_model_fn(
                 let we = cam.worst_error(mappings);
                 total_we += we;
                 total_te += te;
-                best_for_pts[i].best(we, te, dpx);
+                best_for_pts[i].update_best(we, te, &dpx);
                 cp_data.push((cam.clone(), we, te));
             }
         }
-        best_dirn.best(total_we, total_te, dpx);
+        best_dirn.update_best(total_we, total_te, &dpx);
     }
     for (i, b) in best_for_pts.iter().enumerate() {
         eprintln!("{} : {} : {} ", i, b, orig + (*b.data()) * 0.1);
@@ -408,7 +430,7 @@ fn get_model_points_fn(
         }
         if ray_list.len() > 1 {
             let p = Ray::closest_point(&ray_list, &|_r| 1.0).unwrap();
-            eprintln!("{}: {}", name, p);
+            eprintln!(r#"["{}", [{},{},{}]],"#, name, p[0], p[1], p[2]);
         }
     }
     Ok(())
@@ -435,7 +457,8 @@ fn main() -> Result<(), String> {
     for (c, f) in [
         image_cmd(),
         show_mappings_cmd(),
-        locate_v2_cmd(),
+        locate_cmd(),
+        reorient_cmd(),
         combine_rays_from_model_cmd(),
         combine_rays_from_camera_cmd(),
         create_rays_from_model_cmd(),

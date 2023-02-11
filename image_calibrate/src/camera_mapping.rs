@@ -15,27 +15,29 @@ const MIN_ERROR: f64 = 0.5;
 //a BestMapping
 //tp BestMapping
 /// A means for tracking the best mapping
-#[derive(Debug, Clone, Copy)]
-pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Copy> {
+#[derive(Debug, Clone)]
+pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Clone> {
     use_we: bool,
     we: f64,
     te: f64,
     data: T,
 }
 
+impl<T> Copy for BestMapping<T> where T: std::fmt::Debug + std::fmt::Display + Copy {}
+
 //ip BestMapping
 impl<T> BestMapping<T>
 where
-    T: std::fmt::Debug + std::fmt::Display + Copy,
+    T: std::fmt::Debug + std::fmt::Display + Clone,
 {
     //fp new
     /// Create a new best mapping
-    pub fn new<I: Into<T>>(use_we: bool, data: I) -> Self {
+    pub fn new(use_we: bool, data: T) -> Self {
         Self {
             use_we,
             we: f64::MAX,
             te: f64::MAX,
-            data: data.into(),
+            data: data,
         }
     }
 
@@ -54,25 +56,45 @@ where
         &self.data
     }
 
-    //mp best
+    //ap into_data
+    pub fn into_data(self) -> T {
+        self.data
+    }
+
+    //mp update_best
     /// Update the mapping with data if this is better
-    pub fn best<I: Into<T>>(&mut self, we: f64, te: f64, data: I) {
+    pub fn update_best(&mut self, we: f64, te: f64, data: &T) -> bool {
         if self.use_we && we > self.we {
-            return;
+            return false;
         }
         if !self.use_we && te > self.te {
-            return;
+            return false;
         }
         self.we = we;
         self.te = te;
-        self.data = data.into();
+        self.data = data.clone();
+        true
     }
+
+    //cp best_of_both
+    /// Pick the best of both
+    pub fn best_of_both(self, other: Self) -> Self {
+        if self.use_we && other.we > self.we {
+            self
+        } else if !self.use_we && other.te > self.te {
+            self
+        } else {
+            other
+        }
+    }
+
+    //zz All done
 }
 
 //ip Display for Best
 impl<T> std::fmt::Display for BestMapping<T>
 where
-    T: std::fmt::Debug + std::fmt::Display + Copy,
+    T: std::fmt::Debug + std::fmt::Display + Clone,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "we: {:.4} te: {:.4} : {}", self.we, self.te, self.data,)
@@ -409,36 +431,78 @@ impl CameraMapping {
 
     //fp get_best_location
     /// Get the best location simply, by trying many orientations of
-    /// the model and getting the point of best intersection for rays
-    /// for the point mappings
-    pub fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> Self {
-        let mut best_dirn = (1.0E20, 1.0E20, self.clone());
-        for i in 0..steps * steps * steps {
-            let x = i % steps;
-            let y = (i / steps) % steps;
-            let z = (i / steps) / steps;
-            let qx: Quat =
-                quat::of_axis_angle(&[1., 0., 0.], (x as f64) * 6.282 / (steps as f64)).into();
-            let qy: Quat =
-                quat::of_axis_angle(&[0., 1., 0.], (y as f64) * 6.282 / (steps as f64)).into();
-            let qz: Quat =
-                quat::of_axis_angle(&[0., 0., 1.], (z as f64) * 6.282 / (steps as f64)).into();
-            let q = (qx * qy) * qz;
-            let tc = self.rotated_by(&q);
-            let named_rays = tc.get_rays(mappings, false);
-            let mut ray_list = Vec::new();
-            for (_name, ray) in named_rays {
-                ray_list.push(ray);
+    /// the model and getting the point of intersection for rays
+    /// for the point mappings and placing cameras there.
+    ///
+    /// For each orientation of the model with respect to the camera
+    /// this yields a 'best location' for the camera, and placing the
+    /// camera there allows the error in mappings for that orientation
+    /// to be determined.
+    ///
+    /// It is important to try a wide range of orientations - so a
+    /// uniform mapping of points in the unit sphere to [0,0,1] each
+    /// with many rotations around the Z axis is good.
+    pub fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self> {
+        let mut best_mapping = BestMapping::new(false, self.clone()); // use total error
+        for xy in 0..steps * steps {
+            let x = xy % steps;
+            let y = (xy / steps) % steps;
+            let dirn = vector::uniform_dist_sphere3(
+                [y as f64 / (steps as f64), x as f64 / (steps as f64)],
+                true,
+            );
+            // Note: this may be overkill as it is effectively mapping
+            // a uniform xyz to a similarly uniform ijk?
+            //
+            // qxy places [0., 0., 1.] at dirn. Can choose rijk to have r=0
+            //
+            // (qxy * (0,0,0,1)) * qxy' = (0, dx, dy, dz)
+            // ((0,i,j,k) * (0,0,0,1)) * (0,-i,-j,-k) = (0, dx, dy, dz)
+            // (-k, j, -i, 0) * (0,-i,-j,-k) = (0, dx, dy, dz)
+            //
+            // ik + ik = dx => i = dx / 2k
+            // jk + jk = dy => j = dy / 2k
+            // k^2 - j^2 -i^2 = dz => k^2 = (dz +1) / 2
+            //
+            // i^2 + j^2 + k^2 = (dx^2 + dy^2) / 4k^2 + dz/2 + 1/2
+            // i^2 + j^2 + k^2 = (1-dz^2) / 2(1+dz) + dz/2 + 1/2
+            // i^2 + j^2 + k^2 = (1-dz) / 2 + dz/2 + 1/2 = 1
+            let k = ((dirn[2] + 1.0) / 2.0).sqrt();
+            let (i, j) = if k < 1.0E-6 {
+                // this implies dz=-1 i.e. go for 180 around X
+                (1., 0.)
+            } else {
+                (dirn[0] / 2.0 / k, dirn[1] / 2.0 / k)
+            };
+            let qxy: Quat = quat::of_rijk(0., -i, -j, -k).into();
+            // let qxy: Quat = quat::of_rijk(0., dirn[0], dirn[1], dirn[2]).into();
+            // Map our 'unit sphere direction' to [0,0,1]
+            let mut cam = self.rotated_by(&qxy);
+            // Find best rotation around Z axis for this basic orientation
+            let mut angle_range = 6.282;
+            let mut best_of_axis: BestMapping<Self> = BestMapping::new(false, self.clone()); // use total error
+            for _ in 0..6 {
+                for z in 0..(steps * 2 + 1) {
+                    let zf = (z as f64) / (steps as f64) - 1.0;
+                    let qz: Quat = quat::of_axis_angle(&[0., 0., 1.], zf * angle_range).into();
+                    let tc = cam.rotated_by(&qz);
+
+                    let location = tc.get_location_given_direction(mappings);
+                    let tc = tc.placed_at(location);
+                    let te = tc.total_error(mappings);
+                    let we = tc.worst_error(mappings);
+                    best_of_axis.update_best(we, te, &tc);
+                }
+                cam = best_of_axis.data().clone();
+                angle_range = angle_range / (steps as f64);
+                if angle_range < 1.0E-4 {
+                    break;
+                }
             }
-            let location = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
-            let tc = tc.placed_at(location);
-            let te = tc.total_error(mappings);
-            let we = tc.worst_error(mappings);
-            if te < best_dirn.1 {
-                best_dirn = (we, te, tc);
-            }
+            best_mapping = best_mapping.best_of_both(best_of_axis);
         }
-        best_dirn.2
+        eprintln!("=> {}", best_mapping);
+        best_mapping
     }
 
     //fp get_best_direction
