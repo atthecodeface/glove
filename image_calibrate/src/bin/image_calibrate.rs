@@ -132,7 +132,7 @@ fn locate_v2_fn(
             steps
         ));
     }
-    if orientations < 1 || orientations > 101 {
+    if orientations < 1 || orientations > 10001 {
         return Err(format!(
             "Orientations value should be between 1 and 100: was given {}",
             orientations

@@ -1,5 +1,5 @@
 IMG_CAL = ./target/release/image_calibrate
-ICAL_LOC = locate_v2
+ICAL_LOC = locate_v2 --orientations=25
 ICAL_IMG = image
 ICAL_RAYS_FROM_MODEL = create_rays_from_model
 ICAL_RAYS_FROM_CAMERA = create_rays_from_camera
@@ -74,6 +74,12 @@ locate_all:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json > located_4v3a6040.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json > located_4v3a6042.json
+
+.PHONY: locate_all_untraining
+locate_all_untraining:
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040.json > located_4v3a6040.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041.json > located_4v3a6041.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042.json > located_4v3a6042.json
 
 .PHONY: images_all
 images_all:
