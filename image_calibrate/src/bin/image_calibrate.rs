@@ -2,9 +2,10 @@
 use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
-use geo_nd::quat;
+use geo_nd::{quat, vector};
 use image_calibrate::{
-    cmdline_args, image, json, CameraDatabase, CameraMapping, NamedPointSet, Point3D, Ray,
+    cmdline_args, image, json, BestMapping, CameraDatabase, CameraMapping, NamedPointSet, Point3D,
+    Ray,
 };
 
 //a Types
@@ -329,28 +330,6 @@ fn adjust_model_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi adjust_model_fn
-#[derive(Default, Debug, Clone, Copy)]
-struct BestDirn {
-    pub we: f64,
-    pub te: f64,
-    pub dpx: Point3D,
-}
-impl BestDirn {
-    fn new() -> Self {
-        Self {
-            we: 1.0E8,
-            te: 1.0E8,
-            dpx: [0., 0., 0.].into(),
-        }
-    }
-    fn best(&mut self, we: f64, te: f64, dpx: &Point3D) {
-        if te < self.te {
-            self.we = we;
-            self.te = te;
-            self.dpx = *dpx;
-        }
-    }
-}
 fn adjust_model_fn(
     cdb: CameraDatabase,
     nps: NamedPointSet,
@@ -360,20 +339,13 @@ fn adjust_model_fn(
     let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
     let steps = 30;
     let orig = np.model();
-    let mut best_dirn = BestDirn::new();
-    let mut best_for_pts = vec![BestDirn::new(); camera_pms.len()];
+    let mut best_dirn: BestMapping<Point3D> = BestMapping::new(true, [0., 0., 0.]);
+    let mut best_for_pts: Vec<BestMapping<Point3D>> =
+        vec![BestMapping::new(true, [0., 0., 0.]); camera_pms.len()];
     for i in 0..100 {
         let x0 = (i % 10) as f64 / 10.0;
         let z0 = ((i / 10) % 10) as f64 / 10.0;
-        let ca = 0.3_f64.cos();
-        let sa = 0.3_f64.sin();
-        let x1 = 0.1 + x0 * ca - z0 * sa;
-        let z1 = 0.1 + z0 * ca + x0 * sa;
-        let x2 = if x1 > 1.0 { x1 - 1.0 } else { x1 };
-        let z2 = if z1 > 1.0 { z1 - 1.0 } else { z1 };
-        let theta = 2.0 * std::f64::consts::PI * x2;
-        let phi = (2.0 * z2 - 1.0).acos();
-        let dpx: Point3D = [theta.cos() * phi.sin(), theta.sin() * phi.sin(), phi.cos()].into();
+        let dpx: Point3D = vector::uniform_dist_sphere3([x0, z0], true).into();
         np.set_model(orig + (dpx * 0.1));
         let mut cp_data = vec![];
         let mut total_we = 0.;
@@ -397,29 +369,16 @@ fn adjust_model_fn(
                 let we = cam.worst_error(mappings);
                 total_we += we;
                 total_te += te;
-                best_for_pts[i].best(we, te, &dpx);
+                best_for_pts[i].best(we, te, dpx);
                 cp_data.push((cam.clone(), we, te));
             }
         }
-        best_dirn.best(total_we, total_te, &dpx);
+        best_dirn.best(total_we, total_te, dpx);
     }
     for (i, b) in best_for_pts.iter().enumerate() {
-        eprintln!(
-            "{} : {} : {} : {} : {} ",
-            i,
-            b.we,
-            b.te,
-            b.dpx,
-            orig + b.dpx * 0.1
-        );
+        eprintln!("{} : {} : {} ", i, b, orig + (*b.data()) * 0.1);
     }
-    eprintln!(
-        "{} : {} : {} : {} ",
-        best_dirn.we,
-        best_dirn.te,
-        best_dirn.dpx,
-        orig + best_dirn.dpx * 0.1
-    );
+    eprintln!("{} : {} ", best_dirn, orig + (*best_dirn.data()) * 0.1);
     Ok(())
 }
 

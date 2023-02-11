@@ -12,6 +12,73 @@ use crate::{
 //a Constants
 const MIN_ERROR: f64 = 0.5;
 
+//a BestMapping
+//tp BestMapping
+/// A means for tracking the best mapping
+#[derive(Debug, Clone, Copy)]
+pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Copy> {
+    use_we: bool,
+    we: f64,
+    te: f64,
+    data: T,
+}
+
+//ip BestMapping
+impl<T> BestMapping<T>
+where
+    T: std::fmt::Debug + std::fmt::Display + Copy,
+{
+    //fp new
+    /// Create a new best mapping
+    pub fn new<I: Into<T>>(use_we: bool, data: I) -> Self {
+        Self {
+            use_we,
+            we: f64::MAX,
+            te: f64::MAX,
+            data: data.into(),
+        }
+    }
+
+    //ap we
+    pub fn we(&self) -> f64 {
+        self.we
+    }
+
+    //ap te
+    pub fn te(&self) -> f64 {
+        self.te
+    }
+
+    //ap data
+    pub fn data(&self) -> &T {
+        &self.data
+    }
+
+    //mp best
+    /// Update the mapping with data if this is better
+    pub fn best<I: Into<T>>(&mut self, we: f64, te: f64, data: I) {
+        if self.use_we && we > self.we {
+            return;
+        }
+        if !self.use_we && te > self.te {
+            return;
+        }
+        self.we = we;
+        self.te = te;
+        self.data = data.into();
+    }
+}
+
+//ip Display for Best
+impl<T> std::fmt::Display for BestMapping<T>
+where
+    T: std::fmt::Debug + std::fmt::Display + Copy,
+{
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(fmt, "we: {:.4} te: {:.4} : {}", self.we, self.te, self.data,)
+    }
+}
+
 //a CameraMapping
 //tp CameraMapping
 /// A camera that allows mapping a world point to camera relative XYZ,

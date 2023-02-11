@@ -123,7 +123,7 @@ mod camera_mapping;
 mod named_point_set;
 mod point_mapping;
 mod rotations;
-pub use camera_mapping::CameraMapping;
+pub use camera_mapping::{BestMapping, CameraMapping};
 pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
 pub use rotations::Rotations;
