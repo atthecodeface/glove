@@ -567,7 +567,7 @@ fn test_find_location() {
 
     let cam = CameraMapping::of_camera(camera);
 
-    let cam = cam.get_best_location(mappings, 30);
+    let cam = cam.get_best_location(mappings, 30).into_data();
 
     let mut q = quat::identity().into(); // cam.direction();
     let cam = cam.with_direction(q);
