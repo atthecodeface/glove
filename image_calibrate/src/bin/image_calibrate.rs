@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use clap::{Arg, ArgAction, Command};
 use geo_nd::{quat, vector};
 use image_calibrate::{
-    cmdline_args, image, json, BestMapping, CameraDatabase, CameraMapping, CameraView,
-    NamedPointSet, Point3D, Ray,
+    cmdline_args, image, json, BestMapping, CameraDatabase, CameraMapping, NamedPointSet, Point3D,
+    Ray,
 };
 
 //a Types
@@ -29,8 +29,8 @@ fn image_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -44,7 +44,7 @@ fn image_fn(
             }
             for (_name, p) in nps.iter() {
                 let mapped = camera_mapping.map_model(p.model());
-                image::draw_cross(&mut img, mapped, 5.0, &red);
+                image::draw_cross(&mut img, mapped, 5.0, red);
             }
             image::write_image(&mut img, write_filename)?;
         }
@@ -68,8 +68,8 @@ fn show_mappings_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -106,8 +106,8 @@ fn locate_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -115,7 +115,7 @@ fn locate_fn(
     if let Some(s) = matches.get_one::<usize>("steps") {
         steps = *s;
     }
-    if steps < 1 || steps > 101 {
+    if !(1..100).contains(&steps) {
         return Err(format!(
             "Steps value should be between 1 and 100: was given {}",
             steps
@@ -149,8 +149,8 @@ fn reorient_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -301,8 +301,8 @@ fn create_rays_from_model_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -328,8 +328,8 @@ fn create_rays_from_camera_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(&matches, &nps)?;
-    let camera = cmdline_args::get_camera(&matches, &cdb)?;
+    let pms = cmdline_args::get_pms(matches, &nps)?;
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
@@ -355,8 +355,8 @@ fn adjust_model_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let np = cmdline_args::get_np(&matches, &nps)?;
-    let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
+    let np = cmdline_args::get_np(matches, &nps)?;
+    let camera_pms = cmdline_args::get_camera_pms(matches, &cdb, &nps)?;
     let steps = 30;
     let orig = np.model();
     let mut best_dirn: BestMapping<Point3D> = BestMapping::new(true, [0., 0., 0.].into());
@@ -418,7 +418,7 @@ fn get_model_points_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let camera_pms = cmdline_args::get_camera_pms(&matches, &cdb, &nps)?;
+    let camera_pms = cmdline_args::get_camera_pms(matches, &cdb, &nps)?;
     for (name, np) in nps.iter() {
         let mut ray_list = Vec::new();
         for (camera, pms) in camera_pms.iter() {
@@ -472,13 +472,13 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let cdb = cmdline_args::get_camera_database(&matches).map_err(|e| print_err(e))?;
-    let nps = cmdline_args::get_nps(&matches).map_err(|e| print_err(e))?;
+    let cdb = cmdline_args::get_camera_database(&matches).map_err(print_err)?;
+    let nps = cmdline_args::get_nps(&matches).map_err(print_err)?;
 
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return sub_cmd_fn(cdb, nps, submatches).map_err(|e| print_err(e));
+            return sub_cmd_fn(cdb, nps, submatches).map_err(print_err);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

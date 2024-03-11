@@ -215,12 +215,7 @@ impl PointMappingSet {
 
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
-        for pm in self.mappings.iter() {
-            if Rc::ptr_eq(np, &pm.model) {
-                return Some(pm);
-            }
-        }
-        None
+        self.mappings.iter().find(|pm| Rc::ptr_eq(np, &pm.model))
     }
 }
 

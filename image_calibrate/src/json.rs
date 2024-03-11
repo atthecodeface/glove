@@ -44,5 +44,5 @@ fn json_error(reason: &str, json: &str, err: serde_json::Error) -> String {
 
 //fp from_json
 pub fn from_json<'de, P: Deserialize<'de>>(reason: &str, json: &'de str) -> Result<P, String> {
-    serde_json::from_str(&json).map_err(|e| json_error(reason, json, e))
+    serde_json::from_str(json).map_err(|e| json_error(reason, json, e))
 }

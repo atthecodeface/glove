@@ -237,12 +237,15 @@ impl Ray {
     }
 
     //mp intersect
-    pub fn intersect(&self, other: &Self) -> () {
+    /// Intersect two rays
+    ///
+    /// Output data for debug
+    pub fn intersect(&self, other: &Self) {
         let d_n = self.direction.cross_product(&other.direction);
         let l_d_n_sq = d_n.length_sq();
 
         // dbg!(d_n, l_d_n_sq);
-        if l_d_n_sq < 1.0E-8 {}
+        // if l_d_n_sq < 1.0E-8 {}
         let a_diff = self.start - other.start;
         let dot_ds = self.direction.dot(&other.direction);
         let a_diff_dot_d0 = self.direction.dot(&a_diff);

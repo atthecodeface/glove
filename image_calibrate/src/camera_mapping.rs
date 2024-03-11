@@ -17,12 +17,17 @@ const MIN_ERROR: f64 = 0.5;
 /// A means for tracking the best mapping
 #[derive(Debug, Clone)]
 pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Clone> {
+    /// Asserted if the worst error should be used in evaluating error totals
     use_we: bool,
+    /// The worst error
     we: f64,
+    /// The total error
     te: f64,
+    /// Associated data
     data: T,
 }
 
+//ip Copy for BestMapping<T>
 impl<T> Copy for BestMapping<T> where T: std::fmt::Debug + std::fmt::Display + Copy {}
 
 //ip BestMapping
@@ -37,7 +42,7 @@ where
             use_we,
             we: f64::MAX,
             te: f64::MAX,
-            data: data,
+            data,
         }
     }
 
@@ -79,9 +84,12 @@ where
     //cp best_of_both
     /// Pick the best of both
     pub fn best_of_both(self, other: Self) -> Self {
-        if self.use_we && other.we > self.we {
-            self
-        } else if !self.use_we && other.te > self.te {
+        let pick_self = if self.use_we {
+            other.we > self.we
+        } else {
+            other.te > self.te
+        };
+        if pick_self {
             self
         } else {
             other
@@ -360,7 +368,7 @@ impl CameraMapping {
                 let mut worst_e_sq = 0.0;
                 for (s, m) in scr_model_vecs.iter() {
                     let m = q.apply3(m);
-                    let e_sq = m.distance_sq(&s);
+                    let e_sq = m.distance_sq(s);
                     // tot_e_sq += e_sq;
                     if e_sq > worst_e_sq {
                         worst_e_sq = e_sq;
@@ -407,7 +415,7 @@ impl CameraMapping {
             let scr_angle = scr_mapped[1].atan2(scr_mapped[0]);
             let qp5 = Quat::of_axis_angle(&pivot_scr_vec, -m_angle + scr_angle);
             let q = qp5 * q_m2s;
-            result.push(q.into());
+            result.push(q);
         }
         result
     }
@@ -487,7 +495,7 @@ impl CameraMapping {
                     best_of_axis.update_best(we, te, &tc);
                 }
                 cam = best_of_axis.data().clone();
-                angle_range = angle_range / (steps as f64);
+                angle_range /= steps as f64;
                 if angle_range < 1.0E-4 {
                     break;
                 }
@@ -568,7 +576,7 @@ impl CameraMapping {
             let q = Quat::unit().rotate_x(da * k_x_k_x_t[0]);
             let q = q.rotate_y(da * k_x_k_x_t[1]);
             let q = q.rotate_z(da * k_x_k_x_t[2]);
-            let tc = c.rotated_by(&q.into());
+            let tc = c.rotated_by(&q);
             let ne = f(&tc, mappings, test_pm);
             if ne > e {
                 // dbg!("Adjusted", i, e, ne, k_x_k_x_t);
