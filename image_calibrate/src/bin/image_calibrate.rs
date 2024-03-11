@@ -164,7 +164,7 @@ fn reorient_fn(
                 q_list.push((1.0, q.into()));
             }
         }
-        let qr = quat::weighted_average_many(&q_list).into();
+        let qr = quat::weighted_average_many(q_list.into_iter()).into();
         cam = cam.with_direction(qr);
         let we = cam.worst_error(mappings);
         let te = cam.total_error(mappings);
@@ -381,7 +381,7 @@ fn adjust_model_fn(
                 let q_list: Vec<(f64, [f64; 4])> =
                     quats.into_iter().map(|q| (1.0, q.into())).collect();
 
-                let qr = quat::weighted_average_many(&q_list).into();
+                let qr = quat::weighted_average_many(q_list.into_iter()).into();
                 cam = cam.with_direction(qr);
                 let location = cam.get_location_given_direction(mappings);
                 cam = cam.placed_at(location);

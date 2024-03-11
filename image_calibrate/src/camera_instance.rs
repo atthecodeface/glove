@@ -136,8 +136,8 @@ impl CameraInstance {
     }
 
     //cp moved_by
-    pub fn moved_by(mut self, dp: [f64; 3]) -> Self {
-        self.position += Point3D::from(dp);
+    pub fn moved_by(mut self, dp: Point3D) -> Self {
+        self.position += dp;
         self
     }
 

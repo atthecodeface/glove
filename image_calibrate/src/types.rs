@@ -1,5 +1,5 @@
 //a Imports
-use geo_nd::vector;
+use geo_nd::Vector;
 
 //a Type aliases
 pub type Point2D = geo_nd::FArray<f64, 2>;
@@ -31,19 +31,26 @@ impl TanXTanY {
     /// Convert to a unit vector
     #[inline]
     pub fn to_unit_vector(self) -> Point3D {
-        vector::normalize([self.data[0], self.data[1], 1.0]).into()
+        let p: Point3D = [self.data[0], self.data[1], 1.0].into();
+        p.normalize()
     }
 }
+
+//ip AsRef<[f64; 2]> for TanXTanY
 impl std::convert::AsRef<[f64; 2]> for TanXTanY {
     fn as_ref(&self) -> &[f64; 2] {
         self.data.as_ref()
     }
 }
+
+//ip std::convert::AsMut<[f64; 2]> for TanXTanY
 impl std::convert::AsMut<[f64; 2]> for TanXTanY {
     fn as_mut(&mut self) -> &mut [f64; 2] {
         self.data.as_mut()
     }
 }
+
+//ip std::ops::Index<usize> for TanXTanY
 impl std::ops::Index<usize> for TanXTanY {
     type Output = f64;
     fn index(&self, index: usize) -> &f64 {
@@ -189,7 +196,7 @@ impl RollYaw {
     /// cos(roll) = tx / |txty|
     #[inline]
     pub fn from_txty(txty: TanXTanY) -> Self {
-        let tan_yaw = vector::length(txty.as_ref());
+        let tan_yaw = txty.data.length();
         if tan_yaw < 1E-8 {
             Self {
                 roll: (1., 0.),

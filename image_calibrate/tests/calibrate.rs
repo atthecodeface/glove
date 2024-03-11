@@ -601,7 +601,7 @@ fn test_find_location() {
     let quats = cam.get_quats_for_mappings_given_one(mappings, 0);
     let q_list: Vec<(f64, [f64; 4])> = quats.into_iter().map(|q| (1.0, q.into())).collect();
 
-    let qr = quat::weighted_average_many(&q_list).into();
+    let qr = quat::weighted_average_many(q_list.into_iter()).into();
     let cam = cam.with_direction(qr);
 
     dbg!(&cam);

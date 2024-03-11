@@ -80,8 +80,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Point3D;
 
-use geo_nd::matrix;
-use geo_nd::vector;
+use geo_nd::{matrix, Vector, Vector3};
 
 //a Ray
 //tp Ray
@@ -118,7 +117,7 @@ impl Ray {
     //cp set_direction
     #[inline]
     pub fn set_direction(mut self, direction: Point3D) -> Self {
-        self.direction = vector::normalize(*direction.as_ref()).into();
+        self.direction = direction.normalize();
         self
     }
 
@@ -231,23 +230,23 @@ impl Ray {
     /// D^2 = |(p-a)^b| ^ 2
     pub fn distances(&self, pt: &Point3D) -> (f64, f64) {
         let p_minus_a = *pt - self.start;
-        let k = vector::dot(p_minus_a.as_ref(), self.direction.as_ref());
-        let cross = vector::cross_product3(p_minus_a.as_ref(), self.direction.as_ref());
-        let d_sq = vector::length_sq(&cross);
+        let k = p_minus_a.dot(&self.direction);
+        let cross = p_minus_a.cross_product(&self.direction);
+        let d_sq = cross.length_sq();
         (k, d_sq)
     }
 
     //mp intersect
     pub fn intersect(&self, other: &Self) -> () {
-        let d_n = vector::cross_product3(self.direction.as_ref(), other.direction.as_ref());
-        let l_d_n_sq = vector::length_sq(&d_n);
+        let d_n = self.direction.cross_product(&other.direction);
+        let l_d_n_sq = d_n.length_sq();
 
         // dbg!(d_n, l_d_n_sq);
         if l_d_n_sq < 1.0E-8 {}
         let a_diff = self.start - other.start;
-        let dot_ds = vector::dot(self.direction.as_ref(), other.direction.as_ref());
-        let a_diff_dot_d0 = vector::dot(self.direction.as_ref(), a_diff.as_ref());
-        let a_diff_dot_d1 = vector::dot(other.direction.as_ref(), a_diff.as_ref());
+        let dot_ds = self.direction.dot(&other.direction);
+        let a_diff_dot_d0 = self.direction.dot(&a_diff);
+        let a_diff_dot_d1 = other.direction.dot(&a_diff);
 
         // dbg!(a_diff, dot_ds, a_diff_dot_d0, a_diff_dot_d1);
 
@@ -262,7 +261,7 @@ impl Ray {
         let p0 = self.start + self.direction * k0;
         let p1 = other.start + other.direction * k1;
 
-        let l = vector::dot(a_diff.as_ref(), &d_n) / l_d_n_sq.sqrt();
+        let l = a_diff.dot(&d_n) / l_d_n_sq.sqrt();
         // dbg!(p0, p1, l);
         dbg!(k0, k1, r0, r1, l);
 

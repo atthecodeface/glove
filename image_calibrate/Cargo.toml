@@ -20,8 +20,8 @@ features = ["derive", "rc"]
 version = "1.0.91"
 
 [dependencies.geo-nd]
-# version="0.1.5"
-path = "../../geo-nd-rs"
+version="0.5"
+# path = "../../geo-nd-rs"
 
 [dependencies.clap]
 version = "4.1.4"
