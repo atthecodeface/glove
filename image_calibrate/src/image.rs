@@ -29,7 +29,7 @@ impl TryFrom<&str> for Color {
     fn try_from(s: &str) -> Result<Color, String> {
         if s == "None" {
             Ok(Color::none())
-        } else if s.starts_with("#") {
+        } else if s.starts_with('#') {
             let l = s.len();
             if l != 4 && l != 5 && l != 7 && l != 9 {
                 Err(format!(
@@ -83,10 +83,19 @@ impl TryFrom<&str> for Color {
     }
 }
 impl Color {
-    fn none() -> Self {
+    #[inline]
+    pub fn none() -> Self {
         Color([0, 0, 0, 0].into())
     }
-    fn to_string(&self) -> String {
+    #[inline]
+    pub fn black() -> Self {
+        Color([0, 0, 0, 255].into())
+    }
+    #[inline]
+    pub fn color_eq(&self, other: &Self) -> bool {
+        self.0[0] == other.0[0] && self.0[1] == other.0[1] && self.0[2] == other.0[2]
+    }
+    pub fn to_string(&self) -> String {
         if self.0[3] == 255 {
             format!("#{:02x}{:02x}{:02x}", self.0[0], self.0[1], self.0[2],)
         } else if self.0[3] == 0 {

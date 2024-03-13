@@ -2,7 +2,7 @@
 use std::collections::{HashMap, HashSet};
 
 use clap::Command;
-use image::{Color, DynamicImage, GenericImage, GenericImageView, Image};
+use image::{Color, DynamicImage, GenericImageView, Image};
 use image_calibrate::{cmdline_args, image, polynomial};
 use polynomial::CalcPoly;
 use serde::Serialize;
@@ -28,10 +28,25 @@ struct Region {
     x_sum: usize,
     /// Sum of Y coords
     y_sum: usize,
+    /// Color
+    color: Color,
 }
 
 //ip Region
 impl Region {
+    fn color(&self) -> Color {
+        self.color
+    }
+    fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+    fn of_color(color: Color) -> Self {
+        Self::default().with_color(color)
+    }
+    fn is_of_color(&self, color: &Color) -> bool {
+        self.color.color_eq(color)
+    }
     fn cog(&self) -> (f64, f64) {
         (
             (self.x_sum as f64) / (self.n as f64),
@@ -93,7 +108,7 @@ where
                     region
                 } else {
                     let n = regions.len();
-                    regions.push(Region::default());
+                    regions.push(Region::of_color(c));
                     n
                 }
             };
@@ -138,7 +153,10 @@ where
     let mut merged_regions = vec![];
     for regions_to_merge in regions_that_adjoin {
         let mut mr = Region::default();
-        for r in regions_to_merge {
+        for (i, r) in regions_to_merge.into_iter().enumerate() {
+            if i == 0 {
+                mr = mr.with_color(regions[r].color());
+            }
             mr.merge(&regions[r]);
         }
         merged_regions.push(mr);
@@ -366,31 +384,6 @@ impl PolyGrid {
     }
 }
 
-//fi pts_as_grid
-fn pts_as_grid(
-    pts: &[(f64, f64)],
-    origin: usize,
-    spacings: (f64, f64),
-) -> Result<Vec<((f64, f64), (f64, f64))>, String> {
-    let mut grid = vec![];
-    let (cx, cy) = pts[origin];
-    for (n, (px, py)) in pts.iter().enumerate() {
-        let px_o = px - cx;
-        let py_o = py - cy;
-        let px_o = px_o / spacings.0;
-        let py_o = py_o / spacings.1;
-        let px_n = (px_o + 0.5).floor();
-        let py_n = (py_o + 0.5).floor();
-        let dx = (px_o - px_n).abs();
-        let dy = (py_o - py_n).abs();
-        if dx > 0.4 || dy > 0.4 {
-            return Err(format!("Point {n} at {px}, {py} is off-grid {dx},{dy}"));
-        }
-        grid.push(((*px, *py), (px_n, py_n)));
-    }
-    Ok(grid)
-}
-
 //a Calibrate
 //fi find_regions_cmd
 fn find_regions_cmd() -> (Command, SubCmdFn) {
@@ -404,9 +397,10 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 //fi find_regions_fn
 fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let img = base_args.image;
-    let bg = img.get(0, 0);
-    let regions = regions_of_image(&img, &|c| c != bg);
-    let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
+    let bg = base_args.bg_color.unwrap_or(Color::black());
+    let regions = regions_of_image(&img, &|c| !c.color_eq(&bg));
+    let cogs: Vec<(Color, (f64, f64))> =
+        regions.into_iter().map(|x| (x.color(), x.cog())).collect();
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
     Ok(())
 }
@@ -420,10 +414,10 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi find_grid_points_fn
-fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let mut img = base_args.image;
-    let bg = img.get(0, 0);
-    let regions = regions_of_image(&img, &|c| c != bg);
+    let bg = base_args.bg_color.unwrap_or(Color::black());
+    let regions = regions_of_image(&img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     let (xsz, ysz) = img.dimensions();
     let xsz = xsz as f64;
@@ -497,9 +491,6 @@ fn main() -> Result<(), String> {
         write_filename,
         bg_color,
     };
-
-    let write_filename = matches.get_one::<String>("write");
-    let bg_color = matches.get_one::<String>("write");
 
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {

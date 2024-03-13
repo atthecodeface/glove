@@ -7,7 +7,7 @@ use crate::{
     image, json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial,
     CameraPolynomialCalibrate, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
 };
-use image::DynamicImage;
+use image::{Color, DynamicImage};
 
 //a NamedPointSet / NamedPoint
 //fp add_nps_arg
@@ -279,9 +279,10 @@ pub fn add_image_bg_color_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_opt_image_bg_color
-pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<image::Color>, String> {
+pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<Color>, String> {
     if let Some(bg) = matches.get_one::<String>("bg") {
-        Err(format!("Cannot parse bg color {bg} yet"))
+        let c: Color = bg.as_str().try_into()?;
+        Ok(Some(c))
     } else {
         Ok(None)
     }

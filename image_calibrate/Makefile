@@ -139,10 +139,10 @@ y:
 	${CAMERA_CALIBRATE} ${CAMERA_DB} calibrate --camera camera_calibrate_6028.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
 
 # This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
-find_regions:
+find_regions: ${IMG_CAL} 
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
 
 # This finds the grid points from non-black pixels in image_with_corners.png, determines the centre, and outputs a mapping file
-grid_points:
+grid_points: ${IMG_CAL} 
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/${IMAGE_GRID}_with_corners.png --write corners.png find_grid_points > grid_${IMAGE_GRID}.json
 
