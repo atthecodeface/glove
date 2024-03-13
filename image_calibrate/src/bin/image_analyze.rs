@@ -2,9 +2,10 @@
 use std::collections::{HashMap, HashSet};
 
 use clap::Command;
-use image::{DynamicImage, GenericImage, GenericImageView, Rgba};
+use image::{Color, DynamicImage, GenericImage, GenericImageView, Image};
 use image_calibrate::{cmdline_args, image, polynomial};
 use polynomial::CalcPoly;
+use serde::Serialize;
 
 //a Types
 //ti SubCmdFn
@@ -14,12 +15,11 @@ type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<(), String>
 struct BaseArgs {
     image: DynamicImage,
     write_filename: Option<String>,
-    bg_color: Option<image::Rgba<u8>>,
+    bg_color: Option<image::Color>,
 }
 
 //a Regions
 //ti Region
-use serde::Serialize;
 #[derive(Debug, Default, Clone, Serialize)]
 struct Region {
     /// Number of pixels
@@ -53,7 +53,7 @@ impl Region {
 //fi regions_of_image
 fn regions_of_image<F>(img: &DynamicImage, is_region: &F) -> Vec<Region>
 where
-    F: Fn(Rgba<u8>) -> bool,
+    F: Fn(Color) -> bool,
 {
     let (xsz, ysz) = img.dimensions();
     let xsz = xsz as usize;
@@ -65,7 +65,7 @@ where
         let regions_py = regions_x;
         regions_x = vec![None; xsz];
         for x in 0..xsz {
-            let c = img.get_pixel(x as u32, y as u32);
+            let c = img.get(x as u32, y as u32);
             if !is_region(c) {
                 regions_x[x] = None;
                 continue;
@@ -404,7 +404,7 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 //fi find_regions_fn
 fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let img = base_args.image;
-    let bg = img.get_pixel(0, 0);
+    let bg = img.get(0, 0);
     let regions = regions_of_image(&img, &|c| c != bg);
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
@@ -422,7 +422,7 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 //fi find_grid_points_fn
 fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let mut img = base_args.image;
-    let bg = img.get_pixel(0, 0);
+    let bg = img.get(0, 0);
     let regions = regions_of_image(&img, &|c| c != bg);
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     let (xsz, ysz) = img.dimensions();
@@ -445,18 +445,18 @@ fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> 
     let mappings = grid.as_grid();
 
     if let Some(write_filename) = &base_args.write_filename {
-        let b = Rgba([0_u8, 0, 0, 255]);
+        let b = [0_u8, 0, 0, 255].into();
         for y in 0..img.height() {
             for x in 0..img.width() {
-                img.put_pixel(x, y, b);
+                img.put(x, y, &b);
             }
         }
 
         let c = &[255, 0, 0, 255];
         for (_gx, _gy, px, py) in &mappings {
-            image::draw_cross(&mut img, [*px as f64, *py as f64].into(), 5.0, c);
+            img.draw_cross([*px as f64, *py as f64].into(), 5.0, c);
         }
-        image::write_image(&mut img, write_filename)?;
+        img.write(write_filename)?;
     }
 
     println!("{}", serde_json::to_string_pretty(&mappings).unwrap());

@@ -1,5 +1,6 @@
 //a Imports
 use clap::Command;
+use image::Image;
 use image_calibrate::{cmdline_args, image, CameraMapping};
 
 //fi main
@@ -65,13 +66,13 @@ fn main() -> Result<(), String> {
         let red = &[255, 180, 255, 255];
         if let Some(write_filename) = matches.get_one::<String>("write") {
             for m in mappings {
-                image::draw_cross(&mut img, m.screen(), m.error(), white);
+                img.draw_cross(m.screen(), m.error(), white);
             }
             for (_name, p) in nps.iter() {
                 let mapped = camera_mapping.map_model(p.model());
-                image::draw_cross(&mut img, mapped, 5.0, red);
+                img.draw_cross(mapped, 5.0, red);
             }
-            image::write_image(&mut img, write_filename)?;
+            img.write(write_filename)?;
         }
     }
 

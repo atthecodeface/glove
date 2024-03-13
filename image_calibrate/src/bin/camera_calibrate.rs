@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use clap::Command;
 use geo_nd::quat;
+use image::Image;
 use image_calibrate::{
     cmdline_args, image, polynomial, CameraDatabase, CameraMapping, CameraView, Point3D, RollYaw,
     TanXTanY,
@@ -41,7 +42,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         if false {
             eprintln!(
                 "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {pxy_ry} : camera_rel_ty {} : pxy_ty {}",
-                210 | #![cfg_attr(error_generic_member_access, feature(error_generic_member_access))]_                camera_rel_ry.tan_yaw(),
+                camera_rel_ry.tan_yaw(),
                 pxy_ry.tan_yaw()
             );
         }
@@ -91,7 +92,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         for x in 0..=n {
             let x_f = (x as f64 - c_f) * 10.;
             let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba = [255, 255, 255, 255];
+            let rgba = [255, 255, 255, 255]; // .into();
             pts.push((pt, rgba));
         }
     }
@@ -100,7 +101,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         if let Some(write_filename) = matches.get_one::<String>("write") {
             let c = &[255, 0, 0, 0];
             for (_g, p) in &xy_pairs {
-                image::draw_cross(&mut img, *p, 5.0, c);
+                img.draw_cross(*p, 5.0, c);
             }
             for (p, c) in &pts {
                 let mapped = camera_mapping.map_model(*p);
@@ -109,9 +110,9 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
                     let txy = camera_mapping.world_xyz_to_camera_txty(*p);
                     eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
                 }
-                image::draw_cross(&mut img, mapped, 5.0, c);
+                img.draw_cross(mapped, 5.0, c);
             }
-            image::write_image(&mut img, write_filename)?;
+            img.write(write_filename)?;
         }
     }
     Ok(())
@@ -156,9 +157,9 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
             for (p, c) in &pts {
                 let mapped = camera_mapping.map_model(*p);
                 // eprintln!("{mapped} {p} {c:?}");
-                image::draw_cross(&mut img, mapped, 5.0, c);
+                img.draw_cross(mapped, 5.0, c);
             }
-            image::write_image(&mut img, write_filename)?;
+            img.write(write_filename)?;
         }
     }
     Ok(())

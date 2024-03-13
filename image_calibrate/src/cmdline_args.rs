@@ -279,7 +279,7 @@ pub fn add_image_bg_color_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_opt_image_bg_color
-pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<image::Rgba<u8>>, String> {
+pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<image::Color>, String> {
     if let Some(bg) = matches.get_one::<String>("bg") {
         Err(format!("Cannot parse bg color {bg} yet"))
     } else {
