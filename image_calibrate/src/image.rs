@@ -1,5 +1,5 @@
 //a Imports
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use image::io::Reader as ImageReader;
 pub use image::{DynamicImage, GenericImage, GenericImageView};
@@ -119,6 +119,17 @@ impl Serialize for Color {
     }
 }
 
+//ip Deserialize for Color
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let color_str = String::deserialize(deserializer)?;
+        color_str.as_str().try_into().map_err(DE::Error::custom)
+    }
+}
 //a Public functions
 //fp read_image
 pub fn read_image(filename: &str) -> Result<DynamicImage, String> {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{json, NamedPoint, NamedPointSet, Point2D, Point3D};
+use crate::{json, Color, NamedPoint, NamedPointSet, Point2D, Point3D};
 
 //a PointMapping
 //tp PointMapping
@@ -41,7 +41,11 @@ impl<'de> Deserialize<'de> for PointMapping {
         DE: serde::Deserializer<'de>,
     {
         let (model_name, screen, error) = <(String, Point2D, f64)>::deserialize(deserializer)?;
-        let model = Rc::new(NamedPoint::new(model_name, [0., 0., 0.].into()));
+        let model = Rc::new(NamedPoint::new(
+            model_name,
+            Color::black(),
+            [0., 0., 0.].into(),
+        ));
         Ok(Self {
             model,
             screen,

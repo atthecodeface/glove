@@ -131,6 +131,9 @@ pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
 pub use rotations::Rotations;
 
+mod regions;
+pub use regions::{regions_of_image, Region};
+
 mod model_data;
 pub use model_data::*;
 
@@ -140,3 +143,4 @@ pub use ray::Ray;
 pub mod cmdline_args;
 pub mod image;
 pub mod json;
+pub use image::Color;

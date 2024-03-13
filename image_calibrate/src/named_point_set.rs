@@ -5,14 +5,17 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{json, Point3D};
+use crate::{json, Color, Point3D};
 
 //a NamedPoint
 //tp NamedPoint
 /// A point in model space, with a name
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NamedPoint {
+    /// Name of the point
     name: String,
+    /// Color of the point in calibration images
+    color: Color,
     /// The 3D model coordinate this point corresponds to
     ///
     /// This is known for a calibration point!
@@ -21,14 +24,18 @@ pub struct NamedPoint {
 
 //ip NamedPoint
 impl NamedPoint {
-    pub fn new<S: Into<String>>(name: S, model: Point3D) -> Self {
+    pub fn new<S: Into<String>>(name: S, color: Color, model: Point3D) -> Self {
         let name = name.into();
         let model = model.into();
-        Self { name, model }
+        Self { name, color, model }
     }
     #[inline]
     pub fn model(&self) -> Point3D {
         *self.model.borrow()
+    }
+    #[inline]
+    pub fn color(&self) -> &Color {
+        &self.color
     }
     #[inline]
     pub fn set_model(&self, model: Point3D) {
@@ -65,16 +72,18 @@ impl NamedPointSet {
     }
 
     //fp add_set
-    pub fn add_set(&mut self, data: &[(&str, [f64; 3])]) {
-        for (name, pt) in data {
-            self.add_pt(*name, (*pt).into());
+    /*
+        pub fn add_set(&mut self, data: &[(&str, [f64; 3])]) {
+            for (name, pt) in data {
+                self.add_pt(*name, (*pt).into());
+            }
         }
-    }
+    */
 
     //fp add_pt
-    pub fn add_pt<S: Into<String>>(&mut self, name: S, model: Point3D) {
+    pub fn add_pt<S: Into<String>>(&mut self, name: S, color: Color, model: Point3D) {
         let name = name.into();
-        let pt = Rc::new(NamedPoint::new(name.clone(), model));
+        let pt = Rc::new(NamedPoint::new(name.clone(), color, model));
         if self.points.insert(name.clone(), pt).is_none() {
             self.names.push(name);
         }
@@ -106,8 +115,10 @@ impl Serialize for NamedPointSet {
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(self.names.len()))?;
         for name in self.names.iter() {
-            let model = self.points.get(name).unwrap().model();
-            seq.serialize_element(&(name, model))?;
+            let np = self.points.get(name).unwrap();
+            let color = np.color();
+            let model = np.model();
+            seq.serialize_element(&(name, color, model))?;
         }
         seq.end()
     }
@@ -119,14 +130,15 @@ impl<'de> Deserialize<'de> for NamedPointSet {
     where
         DE: serde::Deserializer<'de>,
     {
-        let array = Vec::<(String, Point3D)>::deserialize(deserializer)?;
+        let array = Vec::<(String, Color, Point3D)>::deserialize(deserializer)?;
         let mut nps = NamedPointSet::default();
-        for (name, model) in array {
-            nps.add_pt(name, model);
+        for (name, color, model) in array {
+            nps.add_pt(name, color, model);
         }
         Ok(nps)
     }
 }
+
 //a Tests
 //ft test_json_0
 #[test]

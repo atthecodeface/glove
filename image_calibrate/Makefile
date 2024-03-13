@@ -87,7 +87,7 @@ blah2:
 .PHONY: locate_all
 locate_all:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json > located_4v3a6040.json
-	${IMG_CALG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json > located_4v3a6042.json
 
 .PHONY: locate_all_untraining
@@ -140,9 +140,11 @@ y:
 
 # This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
 find_regions: ${IMG_CAL} 
-	${IMAGE_ANALYZE} --bg_color '#123' --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
 
 # This finds the grid points from non-black pixels in image_with_corners.png, determines the centre, and outputs a mapping file
 grid_points: ${IMG_CAL} 
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/${IMAGE_GRID}_with_corners.png --write corners.png find_grid_points > grid_${IMAGE_GRID}.json
 
+find_regions_image: ${IMG_CAL} 
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6042_pms.png find_regions

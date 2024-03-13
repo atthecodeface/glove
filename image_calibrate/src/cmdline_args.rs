@@ -5,9 +5,9 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
     image, json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial,
-    CameraPolynomialCalibrate, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
+    CameraPolynomialCalibrate, Color, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
 };
-use image::{Color, DynamicImage};
+use image::DynamicImage;
 
 //a NamedPointSet / NamedPoint
 //fp add_nps_arg
