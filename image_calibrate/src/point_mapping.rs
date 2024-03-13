@@ -146,28 +146,37 @@ impl PointMappingSet {
     }
 
     //mp read_json
-    pub fn read_json(&mut self, nps: &NamedPointSet, toml: &str) -> Result<(), String> {
-        let pms = Self::from_json(nps, toml)?;
-        self.merge(pms);
-        Ok(())
+    pub fn read_json(
+        &mut self,
+        nps: &NamedPointSet,
+        toml: &str,
+        allow_not_found: bool,
+    ) -> Result<String, String> {
+        let (pms, nf) = Self::from_json(nps, toml)?;
+        if !allow_not_found && nf != "" {
+            Err(nf)
+        } else {
+            self.merge(pms);
+            Ok(nf)
+        }
     }
 
     //fp from_json
-    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<Self, String> {
+    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String), String> {
         let mut pms: Self = json::from_json("point map set", json)?;
-        let errs = pms.rebuild_with_named_point_set(nps);
-        if errs.is_empty() {
-            Ok(pms)
+        let not_found = pms.rebuild_with_named_point_set(nps);
+        if not_found.is_empty() {
+            Ok((pms, "".into()))
         } else {
             let mut r = String::new();
             let mut sep = "";
-            for e in errs {
-                r.push_str(&format!("{}'{}'", sep, e));
+            for nf in not_found {
+                r.push_str(&format!("{}'{}'", sep, nf));
                 sep = ", ";
             }
-            Err(format!(
-                "Failed to find points {} to map in named point set",
-                r
+            Ok((
+                pms,
+                format!("Failed to find points {} to map in named point set", r),
             ))
         }
     }
@@ -178,12 +187,19 @@ impl PointMappingSet {
     }
 
     //mp rebuild_with_named_point_set
+    /// This rebuilds the point mapping set by *removing* the entries
+    /// that are not in the named point set
     pub fn rebuild_with_named_point_set(&mut self, nps: &NamedPointSet) -> Vec<String> {
-        let mut unmapped = Vec::new();
-        for p in self.mappings.iter_mut() {
+        let mut unmapped = vec![];
+        let mut remove = vec![];
+        for (n, p) in self.mappings.iter_mut().enumerate() {
             if !p.within_named_point_set(nps) {
                 unmapped.push(p.name().into());
+                remove.push(n);
             }
+        }
+        for i in remove.into_iter().rev() {
+            self.mappings.remove(i);
         }
         unmapped
     }

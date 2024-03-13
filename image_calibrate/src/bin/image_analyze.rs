@@ -1,9 +1,9 @@
 //a Imports
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use clap::Command;
 use image::{DynamicImage, GenericImageView, Image};
-use image_calibrate::{cmdline_args, image, polynomial, regions_of_image, Color, Region};
+use image_calibrate::{cmdline_args, image, polynomial, Color, Region};
 use polynomial::CalcPoly;
 
 //a Types
@@ -83,10 +83,13 @@ fn spacing_of_coords(pts: &[(usize, f64)]) -> Result<f64, String> {
 //tp PolyIntercept
 struct PolyIntercept {
     /// Degress of polynomial
+    #[allow(dead_code)]
     poly_degree: usize,
     /// True if this is horizontal
+    #[allow(dead_code)]
     y_intercept: bool,
     /// Y grid value if this is horizontal; else X grid value
+    #[allow(dead_code)]
     intercept: f64,
     /// Polynomial to yield px from X grid value if horiz (else Y)
     px_of_g: Vec<f64>,
@@ -238,12 +241,21 @@ impl PolyGrid {
 }
 
 //a Calibrate
+//hi FIND_REGIONS_LONG_HELP
+const FIND_REGIONS_LONG_HELP: &str = "\
+This treats the image file read in as a set of non-background color
+regions.
+
+A region is a contiguous set of non-background pixels. The
+centre-of-gravity of each region is determined, and the result is a
+JSON file containing a list of pairs of floats of those cogs.";
+
 //fi find_regions_cmd
 fn find_regions_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("find_regions")
         .about("Read image and find regions")
-        .long_about("This treats the image file read in as a set of non-background color regions. A region is a contiguous set of non-background pixels. The centre-of-gravity of each region is determined, and the result is a JSON file containing a list of pairs of floats of those cogs."
-        );
+        .long_about(FIND_REGIONS_LONG_HELP);
+
     (cmd, find_regions_fn)
 }
 
@@ -251,18 +263,38 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let img = base_args.image;
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = regions_of_image(&img, &|c| !c.color_eq(&bg));
+    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(Color, (f64, f64))> =
         regions.into_iter().map(|x| (x.color(), x.cog())).collect();
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
     Ok(())
 }
 
+//hi FIND_GRID_POINTS_LONG_HELP
+const FIND_GRID_POINTS_LONG_HELP: &str = "\
+This treats the image file read in as a set of non-background color
+regions each of which should be centred on a (cm,cm) grid point from a
+square-on photo of a piece of graph paper.
+
+A region is a contiguous set of non-background pixels. The
+centre-of-gravity of each region is determined. The region closest to
+the centre of the photograph is deemed to be (0cm, 0cm). The grid
+should be horizontal and vertical, and the X and Y axes are
+determined, with the approximate 1cm spacing determined in X and
+Y. Horizontal and vertical curves are generated internally using
+points with similar Y and X values, to produce approximations to the
+grid lines on the image, using least-square error polynomial
+approximations. From this approximate grid points are redetermined,
+and a JSON file of a list of tuples of (grid xmm, grid ymm, frame x,
+frame y) is produced. If a 'write' image filename is provided then an
+image is generated that is black background with red crosses at each
+grid point.";
+
 //fi find_grid_points_cmd
 fn find_grid_points_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("find_grid_points")
         .about("Read image and find grid points")
-        .long_about("This treats the image file read in as a set of non-background color regions each of which should be centred on a (cm,cm) grid point from a square-on photo of a piece of graph paper. A region is a contiguous set of non-background pixels. The centre-of-gravity of each region is determined. The region closest to the centre of the photograph is deemed to be (0cm, 0cm). The grid should be horizontal and vertical, and the X and Y axes are determined, with the approximate 1cm spacing determined in X and Y. Horizontal and vertical curves are generated internally using points with similar Y and X values, to produce approximations to the grid lines on the image, using least-square error polynomial approximations. From this approximate grid points are redetermined, and a JSON file of a list of tuples of (grid xmm, grid ymm, frame x, frame y) is produced. If a 'write' image filename is provided then an image is generated that is black background with red crosses at each grid point.");
+        .long_about(FIND_GRID_POINTS_LONG_HELP);
     (cmd, find_grid_points_fn)
 }
 
@@ -270,7 +302,7 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let mut img = base_args.image;
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = regions_of_image(&img, &|c| !c.color_eq(&bg));
+    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     let (xsz, ysz) = img.dimensions();
     let xsz = xsz as f64;

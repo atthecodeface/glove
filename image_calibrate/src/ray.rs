@@ -162,10 +162,48 @@ impl Ray {
     ///
     /// Summing this for a single point p and multiple rays (a and b)
     /// yields a total square error; differentiating with respect to
-    /// the coordinates of p yields
+    /// the coordinates of p yields a vector of 0s when p the error is minimized
     ///
-    /// d(Esq)/dpx = (by^2 + bz^2). 2px + 2bz.(ay.bz-az.by) - 2by(ay.bx - bx.ay)
-    /// etc
+    /// First, multiplying out etc:
+    ///
+    /// p^b = (py.bz - pz.by, pz.bx - px.bz, px.by - bx.py)
+    ///
+    /// a^b = (ay.bz - az.by, az.bx - ax.bz, ax.by - ax.py)
+    ///
+    /// p^b . p^b = (py.bz - pz.by) ^ 2 + (pz.bx - px.bz) ^ 2 + (px.by - bx.py) ^ 2
+    ///
+    /// d/dpx (p^b . p^b) = -2.bz.pz.bx + 2.px.bz.bz + 2.px.by.by - 2.bx.by.py
+    ///                   = 2px(bz.bz + by.by) - 2bx(bz.pz+by.py)
+    ///                   = 2px(by^2 + bz^2) - 2bx(bz.pz+by.py)
+    /// d/dpy (p^b . p^b) = 2py(bx^2 + by^2) - 2by(bx.px+bz.pz)
+    /// d/dpz (p^b . p^b) = 2pz(bz^2 + bx^2) - 2bz(by.py+bx.px)
+    ///
+    /// a^b . p^b = (ay.bz - az.by)(py.bz - pz.by) +
+    ///             (az.bx - ax.bz)(pz.bx - px.bz) +
+    ///             (ax.by - ay.bx)(px.by - py.bx)
+    ///
+    /// d/dpx (a^b . p^b) = -bz.(az.bx - ax.bz) + by.(ax.by - ay.bx)
+    ///                   = -bz.az.bx + bz.ax.bz + by.ax.by - by.ay.bx
+    ///                   = ax.(by^2+bz^2) - bx.(ay.by + az.bz)
+    /// d/dpy (a^b . p^b) = -bx.(ax.by - ay.bx) + bz.(ay.bz - az.by)
+    /// d/dpz (a^b . p^b) = -by.(ay.bz - az.by) + bx.(az.bx - ax.bz)
+    ///
+    ///
+    /// Now, remembering:
+    ///
+    /// D^2 = (p^b.p^b) - 2(a^b.p^b) + (a^b.a^b)
+    ///
+    /// d(D^2)/dpx = d/dpx (p^b.p^b) - 2d/dpx (a^b.p^b) + 0
+    ///            = 2px(by^2 + bz^2) - 2bx(bz.pz+by.py) -2ax.(by^2+bz^2) + 2bx.(ay.by + az.bz)
+    ///            = 2[ px(by^2 + bz^2) - bx(bz.pz+by.py) - ax.(by^2+bz^2) + bx.(ay.by + az.bz) ]
+    ///
+    /// When this sums to 0 for all the points we can drop the factor of 2
+    ///
+    /// Hence...
+    ///
+    /// d(Esq)/dpx = +px.(by^2 + bz^2) -py.bx.by         -pz.bx.bz         + ay.bx.by + az.bx.bz - ax.(by^2+bz^2)
+    /// d(Esq)/dpy = -px.bx.by         +py.(bx^2 + bz^2) -pz.by.bz         + az.by.bz + ax.by.bx - ay.(bz^2+bx^2)
+    /// d(Esq)/dpz = -px.bx.bz         -py.bz.by         +pz.(bx^2 + by^2) + ax.bx.bx + ay.bz.by - az.(bx^2+by^2)
     ///
     /// and we can find M such that M . (px py pz) = V, invert M, and find (px py pz)
     ///
@@ -188,17 +226,17 @@ impl Ray {
             m[0] += w * (by * by + bz * bz);
             m[1] += w * (-bx * by);
             m[2] += w * (-bx * bz);
-            v[0] += w * (bz * (ax * bz - az * bx) - by * (ay * bx - ax * by));
+            v[0] += w * (ax * (by * by + bz * bz) - ay * bx * by - az * bx * bz);
 
             m[3] += w * (-by * bx);
             m[4] += w * (bx * bx + bz * bz);
             m[5] += w * (-by * bz);
-            v[1] += w * (bx * (ay * bx - ax * by) - bz * (az * by - ay * bz));
+            v[1] += w * (ay * (bx * bx + bz * bz) - ax * bx * by - az * by * bz);
 
             m[6] += w * (-bz * bx);
             m[7] += w * (-bz * by);
             m[8] += w * (by * by + bx * bx);
-            v[2] += w * (by * (az * by - ay * bz) - bx * (ax * bz - az * bx));
+            v[2] += w * (az * (by * by + bx * bx) - ax * bx * bz - ay * by * bz);
         }
 
         let mut dm = nalgebra::base::DMatrix::from_element(3, 3, 2.0);

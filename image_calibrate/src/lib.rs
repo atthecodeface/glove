@@ -132,7 +132,7 @@ pub use point_mapping::{PointMapping, PointMappingSet};
 pub use rotations::Rotations;
 
 mod regions;
-pub use regions::{regions_of_image, Region};
+pub use regions::Region;
 
 mod model_data;
 pub use model_data::*;

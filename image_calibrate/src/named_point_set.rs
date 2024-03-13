@@ -89,6 +89,15 @@ impl NamedPointSet {
         }
     }
 
+    //fp of_color
+    pub fn of_color(&self, color: &Color) -> Vec<Rc<NamedPoint>> {
+        self.points
+            .values()
+            .filter(|v| color.color_eq(v.color()))
+            .cloned()
+            .collect()
+    }
+
     //fp get_pt
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
         self.points.get(name).cloned()
