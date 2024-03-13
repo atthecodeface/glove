@@ -86,18 +86,25 @@ where
                 continue;
             }
             let mut region = None;
-            if x > 0 && regions_x[x - 1].is_some() {
+            if x > 0
+                && regions_x[x - 1].is_some()
+                && regions[regions_x[x - 1].unwrap()].is_of_color(&c)
+            {
                 region = regions_x[x - 1];
             }
             region = {
                 if let Some(py_region) = regions_py[x] {
-                    if let Some(region) = region {
-                        if py_region != region {
-                            regions_to_merge.push((py_region, region));
+                    if regions[py_region].is_of_color(&c) {
+                        if let Some(region) = region {
+                            if py_region != region {
+                                regions_to_merge.push((py_region, region));
+                            }
+                            Some(region)
+                        } else {
+                            Some(py_region)
                         }
-                        Some(region)
                     } else {
-                        Some(py_region)
+                        region
                     }
                 } else {
                     region

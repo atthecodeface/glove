@@ -140,7 +140,7 @@ y:
 
 # This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
 find_regions: ${IMG_CAL} 
-	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
+	${IMAGE_ANALYZE} --bg_color '#123' --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
 
 # This finds the grid points from non-black pixels in image_with_corners.png, determines the centre, and outputs a mapping file
 grid_points: ${IMG_CAL} 
