@@ -115,7 +115,10 @@ pub use camera_body::CameraBody;
 pub use camera_database::CameraDatabase;
 pub use camera_instance::CameraInstance;
 pub use camera_lens::CameraLens;
-pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
+pub use camera_polynomial::{
+    CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc,
+    CameraPolynomialDesc,
+};
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 

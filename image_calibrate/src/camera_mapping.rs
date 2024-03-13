@@ -189,6 +189,7 @@ impl CameraMapping {
     }
 
     //fp map_model
+    /// Map a model coordinate to an absolute XY camera coordinate
     #[inline]
     pub fn map_model(&self, model: Point3D) -> Point2D {
         self.world_xyz_to_px_abs_xy(model)

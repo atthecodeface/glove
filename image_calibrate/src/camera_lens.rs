@@ -189,6 +189,12 @@ impl CameraLens {
             .set_focal_length(mm_focal_length)
     }
 
+    //mp set_polys
+    pub fn set_polys(&mut self, stw_poly: Vec<f64>, wts_poly: Vec<f64>) {
+        self.stw_poly = stw_poly;
+        self.wts_poly = wts_poly;
+    }
+
     //cp set_name
     pub fn set_name<S: Into<String>>(mut self, name: S) -> Self {
         self.name = name.into();

@@ -1,12 +1,178 @@
 //a Imports
 use std::rc::Rc;
 
+use geo_nd::{quat, Quaternion};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CameraBody, CameraDatabase, CameraLens, CameraProjection, CameraSensor, Point2D, RollYaw,
-    SphericalLensProjection, TanXTanY,
+    json, CameraBody, CameraDatabase, CameraInstance, CameraLens, CameraProjection, CameraSensor,
+    CameraView, Point2D, Point3D, Quat, RollYaw, SphericalLensProjection, TanXTanY,
 };
+
+//a CameraPolynomialCalibrateDesc
+//tp CameraPolynomialCalibrateDesc
+/// A description of a calibration for a camera and a lens, for an
+/// image of a grid (e.g. graph paper)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CameraPolynomialCalibrateDesc {
+    /// Camera description (body, lens, min focus distance)
+    camera: CameraPolynomialDesc,
+    /// Distance of the camera from the graph paper for the photograph
+    distance: f64,
+    /// Grid point the camera is centred on
+    centred_on: (f64, f64),
+    /// Rotation around the X axis (after accounting for z-rotation),
+    /// i.e. how much the camera is off left-right from straight-on
+    x_rotation: f64,
+    /// Rotation around the X axis (after accounting for z-rotation),
+    /// i.e. how much the camera is off left-right from straight-on
+    y_rotation: f64,
+    /// Rotation around the Z axis, i.e. how much off-horiztonal the
+    /// camera was
+    z_rotation: f64,
+    /// Mappings from grid coordinates to absolute camera pixel values
+    mappings: Vec<(isize, isize, usize, usize)>,
+}
+
+//tp CameraPolynomialCalibrate
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct CameraPolynomialCalibrate {
+    /// Description of the camera body
+    #[serde(serialize_with = "serialize_body_name")]
+    body: Rc<CameraBody>,
+    /// The spherical lens mapping polynomial
+    #[serde(serialize_with = "serialize_lens_name")]
+    lens: Rc<CameraLens>,
+    /// Distance of the focus of the camera in the image
+    mm_focus_distance: f64,
+    /// Distance of the camera from the graph paper for the photograph
+    distance: f64,
+    /// Grid point the camera is centred on
+    centred_on: (f64, f64),
+    /// Rotation around the X axis (after accounting for z-rotation),
+    /// i.e. how much the camera is off left-right from straight-on
+    x_rotation: f64,
+    /// Rotation around the X axis (after accounting for z-rotation),
+    /// i.e. how much the camera is off left-right from straight-on
+    y_rotation: f64,
+    /// Rotation around the Z axis, i.e. how much off-horiztonal the
+    /// camera was
+    z_rotation: f64,
+    /// Mappings from grid coordinates to absolute camera pixel values
+    mappings: Vec<(isize, isize, usize, usize)>,
+    /// Derived camera polynomial
+    #[serde(skip)]
+    camera_poly: Rc<CameraPolynomial>,
+    /// Derived camera instance
+    #[serde(skip)]
+    camera: CameraInstance,
+}
+
+//ip CameraPolynomialCalibrate
+impl CameraPolynomialCalibrate {
+    //ap camera
+    pub fn camera(&self) -> &CameraInstance {
+        &self.camera
+    }
+
+    //ap camera_poly
+    pub fn camera_poly(&self) -> &Rc<CameraPolynomial> {
+        &self.camera_poly
+    }
+
+    //ap distance
+    pub fn distance(&self) -> f64 {
+        self.distance
+    }
+
+    //cp from_desc
+    pub fn from_desc(
+        cdb: &CameraDatabase,
+        desc: CameraPolynomialCalibrateDesc,
+    ) -> Result<Self, String> {
+        let body = cdb.get_body_err(&desc.camera.body)?;
+        let lens = cdb.get_lens_err(&desc.camera.lens)?;
+        let camera_poly = Rc::new(CameraPolynomial::new(
+            body.clone(),
+            lens.clone(),
+            desc.camera.mm_focus_distance,
+        ));
+        let position = [desc.centred_on.0, desc.centred_on.1, desc.distance].into();
+        let direction: Quat = quat::look_at(&[0., 0., -1.], &[0., 1., 0.]).into();
+        let rotate_x: Quat = quat::of_axis_angle(&[1., 0., 0.], desc.x_rotation).into();
+        let rotate_y: Quat = quat::of_axis_angle(&[0., 1., 0.], desc.y_rotation).into();
+        let rotate_z: Quat = quat::of_axis_angle(&[0., 0., 1.], desc.z_rotation).into();
+        let direction = direction * rotate_z;
+        let direction = direction * rotate_x;
+        let direction = direction * rotate_y;
+        let position: Point3D = rotate_y.conjugate().apply3(&position).into();
+        let position: Point3D = rotate_x.conjugate().apply3(&position).into();
+        let camera = CameraInstance::new(camera_poly.clone(), position, direction);
+        // eprintln!("{camera}");
+        // let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -desc.distance].into());
+        // eprintln!("Camera {camera} focused on {m}");
+        let s = Self {
+            body,
+            lens,
+            camera_poly,
+            camera,
+            mm_focus_distance: desc.camera.mm_focus_distance,
+            centred_on: desc.centred_on,
+            distance: desc.distance,
+            x_rotation: desc.x_rotation,
+            y_rotation: desc.y_rotation,
+            z_rotation: desc.z_rotation,
+            mappings: desc.mappings,
+        };
+        Ok(s)
+    }
+
+    //cp from_json
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+        let desc: CameraPolynomialCalibrateDesc =
+            json::from_json("camera calibration descriptor", json)?;
+        Self::from_desc(cdb, desc)
+    }
+
+    //mp grid_as_model
+    /*
+    pub fn grid_as_model(&self, grid: Point2D) -> Point3D {
+        let xy_rel = self.camera_poly.px_abs_xy_to_px_rel_xy(xy);
+        let ry = self.camera_poly.px_rel_xy_to_ry(&self, xy_rel);
+    }
+     */
+
+    //ap get_pairings
+    /// Get pairings between grid points, their camera-relative Point3Ds, and the roll-yaw described by
+    /// the camera focus distance and lens type (not using its
+    /// polynomial)
+    pub fn get_pairings(&self) -> Vec<(Point2D, Point3D, RollYaw)> {
+        let mut result = vec![];
+        for (kx, ky, vx, vy) in &self.mappings {
+            let grid: Point2D = [*kx as f64, *ky as f64].into();
+            let grid_world: Point3D = [*kx as f64, *ky as f64, 0.].into();
+            let grid_camera = self.camera.world_xyz_to_camera_xyz(grid_world);
+            let pxy_abs: Point2D = [*vx as f64, *vy as f64].into();
+            let pxy_rel = self.camera_poly.px_abs_xy_to_px_rel_xy(pxy_abs);
+            // eprintln!("{grid} : {grid_camera} : {pxy_abs} : {pxy_rel}");
+            let ry = self.camera_poly.px_rel_xy_to_ry(pxy_rel);
+            result.push((grid, grid_camera, ry));
+        }
+        result
+    }
+
+    //ap get_xy_pairings
+    /// Get XY pairings
+    pub fn get_xy_pairings(&self) -> Vec<(Point2D, Point2D)> {
+        let mut result = vec![];
+        for (kx, ky, vx, vy) in &self.mappings {
+            let grid: Point2D = [*kx as f64, *ky as f64].into();
+            let pxy_abs: Point2D = [*vx as f64, *vy as f64].into();
+            result.push((grid, pxy_abs));
+        }
+        result
+    }
+}
 
 //a CameraPolynomialDesc
 //tp CameraPolynomialDesc
@@ -68,6 +234,11 @@ fn serialize_lens_name<S: serde::Serializer>(
 
 //ip CameraPolynomial
 impl CameraPolynomial {
+    //ap lens
+    pub fn lens(&self) -> &Rc<CameraLens> {
+        &self.lens
+    }
+
     //cp new
     pub fn new(body: Rc<CameraBody>, lens: Rc<CameraLens>, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
@@ -89,6 +260,12 @@ impl CameraPolynomial {
         Ok(Self::new(body, lens, desc.mm_focus_distance))
     }
 
+    //mp set_lens
+    pub fn set_lens(&mut self, lens: Rc<CameraLens>) {
+        self.lens = lens.clone();
+        self.derive();
+    }
+
     //mp derive
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
@@ -101,6 +278,18 @@ impl CameraPolynomial {
         // hence x_px = tan * scale / mm_single_pixel_width
         self.x_px_from_tan_sc = scale / self.body.mm_single_pixel_width();
         self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
+    }
+
+    //mp px_rel_xy_to_ry
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    pub fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
+        let txty_frame: TanXTanY = [
+            px_xy[0] / self.x_px_from_tan_sc,
+            px_xy[1] / self.y_px_from_tan_sc,
+        ]
+        .into();
+        txty_frame.into()
     }
 }
 

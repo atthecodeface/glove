@@ -11,6 +11,9 @@ LOCATE2 = ./target/release/locate_v2
 CREATE_RAYS = ./target/release/create_rays
 COMBINE_RAYS = ./target/release/combine_rays
 
+CAMERA_CALIBRATE = ./target/release/camera_calibrate
+IMAGE_ANALYZE = ./target/release/image_analyze
+
 CAMERA_DB = --db camera_db.json
 NPS_JSON = nps_noughts_and_crosses.json
 NPS = --nps ${NPS_JSON}
@@ -19,6 +22,7 @@ LOCATE_STEPS = --steps 31
 LOCATE_SIZES = 100 50 10 5 1
 
 IMAGE = 4v3a6042
+IMAGE_GRID = 4v3a6028
 
 ${IMG_CAL}: build
 
@@ -46,8 +50,7 @@ ${IMAGE}_rays.json: ${IMG_CAL}
 
 .PHONY: combine_rays
 combine_rays: ${IMG_CAL}
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_COMB_MODEL} 4v3a6040_rays.json 4v3a6041_rays.json
-	#4v3a6042_rays.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_COMB_CAMERA} 4v3a6040_rays.json 4v3a6041_rays.json 4v3a6042_rays.json
 
 .PHONY: rays_from_model
 rays_from_model: ${IMAGE}_rays_from_model.json
@@ -70,10 +73,21 @@ blah:
 	$(MAKE) IMAGE=4v3a6042 rays_from_model
 	$(MAKE) combine_rays
 
+.PHONY: blah2
+blah2:
+	# $(MAKE) build
+	$(MAKE) IMAGE=4v3a6040 create_rays
+	$(MAKE) IMAGE=4v3a6041 create_rays
+	$(MAKE) IMAGE=4v3a6042 create_rays
+	$(MAKE) IMAGE=4v3a6040 rays_from_model
+	$(MAKE) IMAGE=4v3a6041 rays_from_model
+	$(MAKE) IMAGE=4v3a6042 rays_from_model
+	$(MAKE) combine_rays
+
 .PHONY: locate_all
 locate_all:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json > located_4v3a6040.json
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
+	${IMG_CALG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json > located_4v3a6042.json
 
 .PHONY: locate_all_untraining
@@ -114,3 +128,21 @@ wibble: ${IMG_CAL}
 .PHONY: get_model_points
 get_model_points: ${IMG_CAL}
 	${IMG_CAL} ${CAMERA_DB} ${NPS} get_model_points oriented_4v3a6040.json pms_nac_4v3a6040.json located_4v3a6041.json pms_nac_4v3a6041.json located_4v3a6042.json pms_nac_4v3a6042.json
+
+
+.PHONY: x
+x:
+	${CAMERA_CALIBRATE} ${CAMERA_DB} image_grid --camera camera_nac_canon.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
+.PHONY: x
+
+y:
+	${CAMERA_CALIBRATE} ${CAMERA_DB} calibrate --camera camera_calibrate_6028.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
+
+# This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
+find_regions:
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
+
+# This finds the grid points from non-black pixels in image_with_corners.png, determines the centre, and outputs a mapping file
+grid_points:
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/${IMAGE_GRID}_with_corners.png --write corners.png find_grid_points > grid_${IMAGE_GRID}.json
+

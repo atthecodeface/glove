@@ -4,9 +4,10 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial, NamedPoint,
-    NamedPointSet, PointMapping, PointMappingSet,
+    image, json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial,
+    CameraPolynomialCalibrate, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
 };
+use image::DynamicImage;
 
 //a NamedPointSet / NamedPoint
 //fp add_nps_arg
@@ -17,7 +18,7 @@ pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
             .short('n')
             .required(required)
             .help("Specifies a named point set json")
-            .long_help("A filename of a JSON file that provides the named set of points and there 3D locations for a particular model")
+            .long_help("A filename of a JSON file that provides the named set of points and their 3D locations for a particular model")
             .action(ArgAction::Set),
     )
 }
@@ -167,6 +168,32 @@ pub fn get_camera(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraIn
     let camera_json = json::read_file(camera_filename)?;
     CameraInstance::from_json(cdb, &camera_json)
 }
+
+//a CameraCalibrate
+//fp add_camera_calibrate_arg
+pub fn add_camera_calibrate_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("camera")
+            .long("camera")
+            .short('c')
+            .required(required)
+            .help("Camera calibration placement and orientation JSON")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_camera_calibrate
+pub fn get_camera_calibrate(
+    matches: &ArgMatches,
+    cdb: &CameraDatabase,
+) -> Result<CameraPolynomialCalibrate, String> {
+    let camera_filename = matches
+        .get_one::<String>("camera")
+        .ok_or("A camera calibration position/orientation JSON is required")?;
+    let camera_json = json::read_file(camera_filename)?;
+    CameraPolynomialCalibrate::from_json(cdb, &camera_json)
+}
+
 //a Camera and associated point maps - Positional
 //fp add_camera_pms_arg
 pub fn add_camera_pms_arg(cmd: Command) -> Command {
@@ -214,6 +241,15 @@ pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {
     )
 }
 
+//fp get_image_read
+pub fn get_image_read(matches: &ArgMatches) -> Result<DynamicImage, String> {
+    let read_filename = matches
+        .get_one::<String>("read")
+        .ok_or("An image filename to read is required")?;
+    let img = image::read_image(read_filename)?;
+    Ok(img)
+}
+
 //fp add_image_write_arg
 pub fn add_image_write_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
@@ -224,6 +260,31 @@ pub fn add_image_write_arg(cmd: Command, required: bool) -> Command {
             .help("Image to write")
             .action(ArgAction::Set),
     )
+}
+
+//fp get_opt_image_write_filename
+pub fn get_opt_image_write_filename(matches: &ArgMatches) -> Result<Option<String>, String> {
+    Ok(matches.get_one::<String>("write").cloned())
+}
+
+//fp add_image_bg_color_arg
+pub fn add_image_bg_color_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("bg")
+            .long("bg_color")
+            .required(required)
+            .help("Image background color")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_opt_image_bg_color
+pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<image::Rgba<u8>>, String> {
+    if let Some(bg) = matches.get_one::<String>("bg") {
+        Err(format!("Cannot parse bg color {bg} yet"))
+    } else {
+        Ok(None)
+    }
 }
 
 //a Errors

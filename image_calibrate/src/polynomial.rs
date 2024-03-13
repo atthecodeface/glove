@@ -136,3 +136,21 @@ pub fn min_squares_dyn(p: usize, xs: &[f64], ys: &[f64]) -> Vec<f64> {
     matrix::multiply_dyn(p, p, 1, &dm_2, &xt_y, &mut res);
     res
 }
+
+//fp square_error_in_y
+pub fn square_error_in_y(poly: &[f64], xs: &[f64], ys: &[f64]) -> (f64, usize, f64) {
+    assert_eq!(ys.len(), xs.len());
+    let mut sq_err = 0.0;
+    let mut max_sq_err: f64 = 0.0;
+    let mut max_n = 0;
+    for (n, (x, y)) in xs.iter().zip(ys.iter()).enumerate() {
+        let dy = poly.calc(*x) - y;
+        let dy2 = dy * dy;
+        if dy2 > max_sq_err {
+            max_n = n;
+        }
+        max_sq_err = max_sq_err.max(dy * dy);
+        sq_err += dy * dy;
+    }
+    (max_sq_err, max_n, sq_err)
+}

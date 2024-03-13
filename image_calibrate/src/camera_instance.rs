@@ -27,7 +27,7 @@ pub struct CameraInstanceDesc {
 /// A camera that allows mapping a world point to camera relative XYZ,
 /// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
 /// relative XY (relative to the center of the camera sensor)
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CameraInstance {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY

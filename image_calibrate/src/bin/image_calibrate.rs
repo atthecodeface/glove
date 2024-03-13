@@ -56,7 +56,7 @@ fn image_fn(
 //fi show_mappings_cmd
 fn show_mappings_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("show_mappings")
-        .about("Find location and orientation for a camera to map points to model");
+        .about("Show the total and worst error for a point mapping set");
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
     (cmd, show_mappings_fn)
@@ -115,7 +115,7 @@ fn locate_fn(
     if let Some(s) = matches.get_one::<usize>("steps") {
         steps = *s;
     }
-    if !(1..100).contains(&steps) {
+    if !(1..=100).contains(&steps) {
         return Err(format!(
             "Steps value should be between 1 and 100: was given {}",
             steps
@@ -407,7 +407,7 @@ fn adjust_model_fn(
 //a Get model points
 //fi get_model_points_cmd
 fn get_model_points_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("get_model_points").about("Get model points from camers and pms");
+    let cmd = Command::new("get_model_points").about("Get model points from camera and pms");
     let cmd = cmdline_args::add_camera_pms_arg(cmd); // positional
     (cmd, get_model_points_fn)
 }
