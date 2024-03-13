@@ -146,8 +146,9 @@ where
     merged_regions
 }
 
-//fi find_center
-fn find_center((cx, cy): (f64, f64), pts: &[(f64, f64)]) -> usize {
+//fi find_center_point
+/// Find the point closest to the center
+fn find_center_point((cx, cy): (f64, f64), pts: &[(f64, f64)]) -> usize {
     let mut min_dsq = f64::MAX;
     let mut min = 0;
     for (n, (px, py)) in pts.iter().enumerate() {
@@ -393,7 +394,10 @@ fn pts_as_grid(
 //a Calibrate
 //fi find_regions_cmd
 fn find_regions_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("find_regions").about("Read image and find regions");
+    let cmd = Command::new("find_regions")
+        .about("Read image and find regions")
+        .long_about("This treats the image file read in as a set of non-background color regions. A region is a contiguous set of non-background pixels. The centre-of-gravity of each region is determined, and the result is a JSON file containing a list of pairs of floats of those cogs."
+        );
     (cmd, find_regions_fn)
 }
 
@@ -409,7 +413,9 @@ fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(
 
 //fi find_grid_points_cmd
 fn find_grid_points_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("find_grid_points").about("Read image and find grid points");
+    let cmd = Command::new("find_grid_points")
+        .about("Read image and find grid points")
+        .long_about("This treats the image file read in as a set of non-background color regions each of which should be centred on a (cm,cm) grid point from a square-on photo of a piece of graph paper. A region is a contiguous set of non-background pixels. The centre-of-gravity of each region is determined. The region closest to the centre of the photograph is deemed to be (0cm, 0cm). The grid should be horizontal and vertical, and the X and Y axes are determined, with the approximate 1cm spacing determined in X and Y. Horizontal and vertical curves are generated internally using points with similar Y and X values, to produce approximations to the grid lines on the image, using least-square error polynomial approximations. From this approximate grid points are redetermined, and a JSON file of a list of tuples of (grid xmm, grid ymm, frame x, frame y) is produced. If a 'write' image filename is provided then an image is generated that is black background with red crosses at each grid point.");
     (cmd, find_grid_points_fn)
 }
 
@@ -422,7 +428,7 @@ fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> 
     let (xsz, ysz) = img.dimensions();
     let xsz = xsz as f64;
     let ysz = ysz as f64;
-    let origin = find_center((xsz / 2.0, ysz / 2.0), &cogs);
+    let origin = find_center_point((xsz / 2.0, ysz / 2.0), &cogs);
     eprintln!("{origin} {:?}", cogs[origin]);
     let x_axis = find_axis_pts(true, 50.0, cogs[origin], &cogs).unwrap();
     eprintln!("{:?}", x_axis);

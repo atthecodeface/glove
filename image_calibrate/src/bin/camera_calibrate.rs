@@ -16,7 +16,11 @@ type SubCmdFn = fn(CameraDatabase, &clap::ArgMatches) -> Result<(), String>;
 //a Calibrate
 //fi calibrate_cmd
 fn calibrate_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("calibrate").about("Read image and draw crosses on grid coordinates");
+    let cmd = Command::new("calibrate")
+        .about("Read image and draw crosses on grid coordinates")
+        .long_about(
+            "This uses the camera calibration JSON file in conjunction with a camera body/lens and focus distance to generate the tan-tan mapping for the lens as world-to-screen (and vice-versa) polynomials. The camera calibration JSON file includes 'mappings' that is a list of (grid xmm, grid ymm, x pixel, y pixel) tuples each being the mapping of a grid x,y to a frame pixel x,y on an image. If read and write imnages are provided then the immage is read and red crosses superimposed on the image at the post-calibrated points using the provided grid x,y points as sources (so they should align with the actual grid points on the image)"
+        );
     let cmd = cmdline_args::add_camera_calibrate_arg(cmd, true);
     let cmd = cmdline_args::add_image_read_arg(cmd, true);
     let cmd = cmdline_args::add_image_write_arg(cmd, true);
@@ -37,7 +41,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         if false {
             eprintln!(
                 "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {pxy_ry} : camera_rel_ty {} : pxy_ty {}",
-                camera_rel_ry.tan_yaw(),
+                210 | #![cfg_attr(error_generic_member_access, feature(error_generic_member_access))]_                camera_rel_ry.tan_yaw(),
                 pxy_ry.tan_yaw()
             );
         }
