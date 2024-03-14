@@ -281,52 +281,53 @@ is the point generated.
 fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("combine_rays_from_model")
         .about("Combine rays from a model")
-        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP)
-        .arg(
-            Arg::new("rays")
-                .required(true)
-                .help("Ray JSON files to be combined")
-                .action(ArgAction::Append),
-        );
+        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
+    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(
+        Arg::new("rays")
+            .required(true)
+            .long("rays")
+            .help("Model ray JSON file")
+            .action(ArgAction::Append),
+    );
     (cmd, combine_rays_from_model_fn)
 }
 
 //fi combine_rays_from_model_fn
 fn combine_rays_from_model_fn(
-    _cdb: CameraDatabase,
+    cdb: CameraDatabase,
     _nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let ray_filenames: Vec<String> = matches
-        .get_many::<String>("rays")
-        .unwrap()
-        .map(|v| v.into())
-        .collect();
+    let camera = cmdline_args::get_camera(matches, &cdb)?;
+    let ray_filename = matches.get_one::<String>("rays").unwrap();
 
-    for r in ray_filenames {
-        let r_json = json::read_file(r)?;
-        let named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
-        let mut names = Vec::new();
-        let mut ray_list = Vec::new();
-        for (name, ray) in named_rays {
-            names.push(name);
-            ray_list.push(ray);
-        }
-        if ray_list.len() > 1 {
-            let p = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
-            println!(
-                "The rays from the model converge at the camera focal point at {}",
-                p
-            );
-            let mut tot_d_sq = 0.0;
-            for (_name, ray) in names.iter().zip(ray_list.iter()) {
-                let (_k, d_sq) = ray.distances(&p);
-                // eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
-                tot_d_sq += d_sq;
-            }
-            eprintln!("Total dsq {tot_d_sq}");
-        }
+    let r_json = json::read_file(ray_filename)?;
+    let named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
+    let mut names = Vec::new();
+    let mut ray_list = Vec::new();
+    for (name, ray) in named_rays {
+        names.push(name);
+        ray_list.push(ray);
     }
+    if ray_list.len() <= 1 {
+        return Err(format!(
+            "Not enough rays ({}) to combine to generate a position for the camera",
+            ray_list.len()
+        ));
+    }
+
+    let position = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
+    eprintln!("The rays from the model converge at the camera focal point at {position}",);
+    let mut tot_d_sq = 0.0;
+    for (_name, ray) in names.iter().zip(ray_list.iter()) {
+        let (_k, d_sq) = ray.distances(&position);
+        // eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
+        tot_d_sq += d_sq;
+    }
+    eprintln!("Total dsq {tot_d_sq}");
+    let camera = camera.placed_at(position);
+    println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
 }
 

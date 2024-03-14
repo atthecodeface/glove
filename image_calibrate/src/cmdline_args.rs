@@ -292,9 +292,9 @@ pub fn get_opt_image_write_filename(matches: &ArgMatches) -> Result<Option<Strin
 pub fn add_color_arg(cmd: Command, prefix: &str, help: &str, required: bool) -> Command {
     let (id, long) = {
         if prefix.is_empty() {
-            ("c".to_string(), "--color".to_string())
+            ("c".to_string(), "color".to_string())
         } else {
-            (prefix.to_string(), format!("--{prefix}"))
+            (prefix.to_string(), format!("{prefix}"))
         }
     };
     cmd.arg(

@@ -230,6 +230,19 @@ impl CameraMapping {
         }
     }
 
+    //mp get_pm_direction
+    pub fn get_pm_direction(&self, pm: &PointMapping) -> Point3D {
+        // Can calculate 4 vectors for pm.screen() +- pm.error()
+        //
+        // Calculate dots with the actual vector - cos of angles
+        //
+        // tan^2 angle = sec^2 - 1
+        let screen_xy = pm.screen();
+        let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
+        world_pm_direction_vec
+    }
+
     //mp get_pm_as_ray
     pub fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
