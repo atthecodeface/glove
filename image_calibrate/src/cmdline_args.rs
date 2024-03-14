@@ -19,15 +19,18 @@ pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
             .required(required)
             .help("Specifies a named point set json")
             .long_help("A filename of a JSON file that provides the named set of points and their 3D locations for a particular model")
-            .action(ArgAction::Set),
+            .action(ArgAction::Append),
     )
 }
 
 //fp get_nps
 pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet, String> {
-    let nps_filename = matches.get_one::<String>("nps").unwrap();
-    let nps_json = json::read_file(nps_filename)?;
-    NamedPointSet::from_json(&nps_json)
+    let mut nps = NamedPointSet::new();
+    for nps_filename in matches.get_many::<String>("nps").unwrap() {
+        let nps_json = json::read_file(nps_filename)?;
+        nps.merge(&NamedPointSet::from_json(&nps_json)?);
+    }
+    Ok(nps)
 }
 
 //fp add_np_arg

@@ -24,9 +24,8 @@ NPS_ALL_JSON  = ${DATA_DIR}nps_all.json
 
 NPS = --nps ${NPS_JSON}
 NPS_BASE = --nps ${NPS_BASE_JSON}
-NPS_ALL = --nps ${NPS_ALL_JSON}
-NPS_GPM = --nps ${OUTPUT_DIR}nps_gpm.json
-NPS_GPM2 = --nps ${OUTPUT_DIR}nps_gpm2.json
+NPS_ALL = --nps ${NPS_BASE_JSON} --nps ${NPS_ALL_JSON}
+NPS_GPM = --nps ${NPS_BASE_JSON} --nps ${OUTPUT_DIR}nps_gpm.json
 
 IMAGE = 4v3a6042
 IMAGE_GRID = 4v3a6028
@@ -138,11 +137,11 @@ get_model_points: ${IMG_CAL}
 
 .PHONY: x
 x:
-	${CAMERA_CALIBRATE} ${CAMERA_DB} image_grid --camera camera_nac_canon.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
+	${CAMERA_CALIBRATE} ${CAMERA_DB} image_grid --camera ${DATA_DIR}camera_nac_canon.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
 .PHONY: x
 
 y:
-	${CAMERA_CALIBRATE} ${CAMERA_DB} calibrate --camera camera_calibrate_6028.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
+	${CAMERA_CALIBRATE} ${CAMERA_DB} calibrate --camera ${DATA_DIR}camera_calibrate_6028.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
 
 # This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
 find_regions: ${IMG_CAL} 
@@ -192,13 +191,13 @@ create_model_rays_gpm:
 	@echo "********************************************************************************"
 	@echo "Creating rays from model based on camera ${IMAGE} "
 	@echo "********************************************************************************"
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_RAYS_FROM_MODEL} --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --camera ${OUTPUT_DIR}located_${IMAGE}.json > ${OUTPUT_DIR}rays_fm_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_RAYS_FROM_MODEL} --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --camera ${OUTPUT_DIR}${LOC_OR_ORIENT}_${IMAGE}.json > ${OUTPUT_DIR}rays_fm_${IMAGE}.json
 
 combine_model_rays_gpm:
 	@echo "********************************************************************************"
 	@echo "Trying to determine better location for cameras ${IMAGE} using rays from models"
 	@echo "********************************************************************************"
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_COMB_MODEL} --camera ${OUTPUT_DIR}located_${IMAGE}.json --rays ${OUTPUT_DIR}rays_fm_${IMAGE}.json > ${OUTPUT_DIR}relocated_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_COMB_MODEL} --camera ${OUTPUT_DIR}${LOC_OR_ORIENT}_${IMAGE}.json --rays ${OUTPUT_DIR}rays_fm_${IMAGE}.json > ${OUTPUT_DIR}relocated_${IMAGE}.json
 
 # Orient using all
 #
@@ -215,16 +214,18 @@ image2_gpm:
 cp_reorient_gpm:
 	cp ${OUTPUT_DIR}reoriented_${IMAGE}.json ${OUTPUT_DIR}oriented_${IMAGE}.json
 
-all_gpm: ${IMG_CAL}
-	# $(MAKE) IMAGE=4v3a6040 get_point_mappings
-	# $(MAKE) IMAGE=4v3a6041 get_point_mappings
-	# $(MAKE) IMAGE=4v3a6042 get_point_mappings
-	# $(MAKE) IMAGE=4v3a6040 locate_gpm
-	# $(MAKE) IMAGE=4v3a6041 locate_gpm
-	# $(MAKE) IMAGE=4v3a6042 locate_gpm
-	# $(MAKE) IMAGE=4v3a6040 orient_gpm
-	# $(MAKE) IMAGE=4v3a6041 orient_gpm
-	# $(MAKE) IMAGE=4v3a6042 orient_gpm
+start_gpm: ${IMG_CAL}
+	$(MAKE) IMAGE=4v3a6040 get_point_mappings
+	$(MAKE) IMAGE=4v3a6041 get_point_mappings
+	$(MAKE) IMAGE=4v3a6042 get_point_mappings
+	$(MAKE) IMAGE=4v3a6040 locate_gpm
+	$(MAKE) IMAGE=4v3a6041 locate_gpm
+	$(MAKE) IMAGE=4v3a6042 locate_gpm
+	$(MAKE) IMAGE=4v3a6040 orient_gpm
+	$(MAKE) IMAGE=4v3a6041 orient_gpm
+	$(MAKE) IMAGE=4v3a6042 orient_gpm
+
+do_gpm: ${IMG_CAL}
 	$(MAKE) get_model_points_gpm
 	$(MAKE) IMAGE=4v3a6040 image_gpm
 	$(MAKE) IMAGE=4v3a6041 image_gpm
@@ -247,3 +248,8 @@ cp_gpm:
 	$(MAKE) IMAGE=4v3a6041 cp_reorient_gpm
 	$(MAKE) IMAGE=4v3a6042 cp_reorient_gpm
 
+all_gpm:
+	$(MAKE) start_gpm
+	$(MAKE) do_gpm
+	$(MAKE) cp_gpm
+	$(MAKE) do_gpm

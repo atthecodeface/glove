@@ -71,14 +71,15 @@ impl NamedPointSet {
         serde_json::to_string(self).map_err(|e| format!("{}", e))
     }
 
-    //fp add_set
-    /*
-        pub fn add_set(&mut self, data: &[(&str, [f64; 3])]) {
-            for (name, pt) in data {
-                self.add_pt(*name, (*pt).into());
+    //mp merge
+    /// Merge another NPS into this one
+    pub fn merge(&mut self, other: &Self) {
+        for np in other.points.values() {
+            if !self.points.contains_key(&np.name) {
+                self.add_pt(np.name.clone(), np.color, *np.model.borrow());
             }
         }
-    */
+    }
 
     //fp add_pt
     pub fn add_pt<S: Into<String>>(&mut self, name: S, color: Color, model: Point3D) {
