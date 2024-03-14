@@ -231,6 +231,7 @@ impl CameraMapping {
     }
 
     //mp get_pm_direction
+    /// Get the direction vector for the frame point of a mapping
     pub fn get_pm_direction(&self, pm: &PointMapping) -> Point3D {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
@@ -239,8 +240,7 @@ impl CameraMapping {
         // tan^2 angle = sec^2 - 1
         let screen_xy = pm.screen();
         let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
-        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
-        world_pm_direction_vec
+        -self.camera_txty_to_world_dir(&camera_pm_txty)
     }
 
     //mp get_pm_as_ray
@@ -251,8 +251,7 @@ impl CameraMapping {
         //
         // tan^2 angle = sec^2 - 1
         let screen_xy = pm.screen();
-        let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
-        let world_pm_direction_vec = -self.camera_txty_to_world_dir(&camera_pm_txty);
+        let world_pm_direction_vec = self.get_pm_direction(pm);
 
         let mut min_cos = 1.0;
         let error = pm.error();

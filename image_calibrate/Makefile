@@ -163,7 +163,7 @@ get_point_mappings: ${IMG_CAL}
 #
 # Generate the located_${IMAGE}.json
 locate_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC} --camera camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC} --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
 
 # Orient using all
 #
@@ -206,11 +206,14 @@ combine_model_rays_gpm:
 reorient_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}relocated_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}reoriented_${IMAGE}.json
 
+reorient2_gpm:
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} reorient2 --camera ${OUTPUT_DIR}relocated_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json >  ${OUTPUT_DIR}reoriented_${IMAGE}.json
+
 image2_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_IMG} --camera ${OUTPUT_DIR}reoriented_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${OUTPUT_DIR}gpm2_${IMAGE}.png
 
-get_model_points2_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} get_model_points oriented2_4v3a6040.json pms_all_4v3a6040.json oriented2_4v3a6041.json pms_all_4v3a6041.json oriented2_4v3a6042.json pms_all_4v3a6042.json > nps_gpm2.json
+cp_reorient_gpm:
+	cp ${OUTPUT_DIR}reoriented_${IMAGE}.json ${OUTPUT_DIR}oriented_${IMAGE}.json
 
 all_gpm: ${IMG_CAL}
 	# $(MAKE) IMAGE=4v3a6040 get_point_mappings
@@ -222,22 +225,25 @@ all_gpm: ${IMG_CAL}
 	# $(MAKE) IMAGE=4v3a6040 orient_gpm
 	# $(MAKE) IMAGE=4v3a6041 orient_gpm
 	# $(MAKE) IMAGE=4v3a6042 orient_gpm
-	# $(MAKE) get_model_points_gpm
-	# $(MAKE) IMAGE=4v3a6040 image_gpm
-	# $(MAKE) IMAGE=4v3a6041 image_gpm
-	# $(MAKE) IMAGE=4v3a6042 image_gpm
+	$(MAKE) get_model_points_gpm
+	$(MAKE) IMAGE=4v3a6040 image_gpm
+	$(MAKE) IMAGE=4v3a6041 image_gpm
+	$(MAKE) IMAGE=4v3a6042 image_gpm
 	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 reorient_gpm
-	$(MAKE) IMAGE=4v3a6041 reorient_gpm
-	$(MAKE) IMAGE=4v3a6042 reorient_gpm
+	$(MAKE) IMAGE=4v3a6040 reorient2_gpm
+	$(MAKE) IMAGE=4v3a6041 reorient2_gpm
+	$(MAKE) IMAGE=4v3a6042 reorient2_gpm
 	$(MAKE) IMAGE=4v3a6040 image2_gpm
 	$(MAKE) IMAGE=4v3a6041 image2_gpm
 	$(MAKE) IMAGE=4v3a6042 image2_gpm
 
-all_gpm2: ${IMG_CAL}
-	$(MAKE) get_model_points2_gpm
+cp_gpm:
+	$(MAKE) IMAGE=4v3a6040 cp_reorient_gpm
+	$(MAKE) IMAGE=4v3a6041 cp_reorient_gpm
+	$(MAKE) IMAGE=4v3a6042 cp_reorient_gpm
+
