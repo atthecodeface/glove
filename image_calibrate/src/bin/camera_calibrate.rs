@@ -92,14 +92,14 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         for x in 0..=n {
             let x_f = (x as f64 - c_f) * 10.;
             let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba = [255, 255, 255, 255]; // .into();
+            let rgba = [255, 255, 255, 255].into();
             pts.push((pt, rgba));
         }
     }
     if let Some(read_filename) = matches.get_one::<String>("read") {
         let mut img = image::read_image(read_filename)?;
         if let Some(write_filename) = matches.get_one::<String>("write") {
-            let c = &[255, 0, 0, 0];
+            let c = &[255, 0, 0, 0].into();
             for (_g, p) in &xy_pairs {
                 img.draw_cross(*p, 5.0, c);
             }
@@ -147,7 +147,7 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
         for x in 0..=n {
             let x_f = (x as f64 - c_f) * 10.;
             let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba = [255, 255, 255, 255];
+            let rgba = [255, 255, 255, 255].into();
             pts.push((pt, rgba));
         }
     }

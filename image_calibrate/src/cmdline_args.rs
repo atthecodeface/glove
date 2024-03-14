@@ -68,7 +68,7 @@ pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMapping
     for pms_filename in matches.get_many::<String>("pms").unwrap() {
         let pms_json = json::read_file(pms_filename)?;
         let nf = pms.read_json(nps, &pms_json, true)?;
-        if nf != "" {
+        if !nf.is_empty() {
             eprintln!("Warning: {}", nf);
         }
     }
@@ -224,7 +224,7 @@ pub fn get_camera_pms(
             let mut pms = PointMappingSet::new();
             let pms_json = json::read_file(filename)?;
             let nf = pms.read_json(nps, &pms_json, true)?;
-            if nf != "" {
+            if !nf.is_empty() {
                 eprintln!("Warning: {}", nf);
             }
             result.push((cam.unwrap(), pms));
@@ -256,6 +256,20 @@ pub fn get_image_read(matches: &ArgMatches) -> Result<DynamicImage, String> {
     Ok(img)
 }
 
+//fp get_image_read_or_create
+pub fn get_image_read_or_create(
+    matches: &ArgMatches,
+    camera: &CameraInstance,
+) -> Result<DynamicImage, String> {
+    let read_filename = matches.get_one::<String>("read");
+    let img = image::read_or_create_image(
+        camera.body().px_width() as usize,
+        camera.body().px_height() as usize,
+        read_filename.map(|x| x.as_str()),
+    )?;
+    Ok(img)
+}
+
 //fp add_image_write_arg
 pub fn add_image_write_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(
@@ -273,25 +287,43 @@ pub fn get_opt_image_write_filename(matches: &ArgMatches) -> Result<Option<Strin
     Ok(matches.get_one::<String>("write").cloned())
 }
 
-//fp add_image_bg_color_arg
-pub fn add_image_bg_color_arg(cmd: Command, required: bool) -> Command {
+//a Colors
+//fp add_color_arg
+pub fn add_color_arg(cmd: Command, prefix: &str, help: &str, required: bool) -> Command {
+    let (id, long) = {
+        if prefix.is_empty() {
+            ("c".to_string(), "--color".to_string())
+        } else {
+            (prefix.to_string(), format!("--{prefix}"))
+        }
+    };
     cmd.arg(
-        Arg::new("bg")
-            .long("bg_color")
+        Arg::new(id)
+            .long(long)
             .required(required)
-            .help("Image background color")
+            .help(help.to_string())
             .action(ArgAction::Set),
     )
 }
 
-//fp get_opt_image_bg_color
-pub fn get_opt_image_bg_color(matches: &ArgMatches) -> Result<Option<Color>, String> {
-    if let Some(bg) = matches.get_one::<String>("bg") {
+//fp get_opt_color
+pub fn get_opt_color(matches: &ArgMatches, prefix: &str) -> Result<Option<Color>, String> {
+    if let Some(bg) = matches.get_one::<String>(prefix) {
         let c: Color = bg.as_str().try_into()?;
         Ok(Some(c))
     } else {
         Ok(None)
     }
+}
+
+//fp add_bg_color_arg
+pub fn add_bg_color_arg(cmd: Command, required: bool) -> Command {
+    add_color_arg(cmd, "bg", "Image background color", required)
+}
+
+//fp get_opt_bg_color
+pub fn get_opt_bg_color(matches: &ArgMatches) -> Result<Option<Color>, String> {
+    get_opt_color(matches, "bg")
 }
 
 //a Errors

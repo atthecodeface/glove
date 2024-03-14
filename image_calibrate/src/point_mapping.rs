@@ -153,7 +153,7 @@ impl PointMappingSet {
         allow_not_found: bool,
     ) -> Result<String, String> {
         let (pms, nf) = Self::from_json(nps, toml)?;
-        if !allow_not_found && nf != "" {
+        if !allow_not_found && !nf.is_empty() {
             Err(nf)
         } else {
             self.merge(pms);

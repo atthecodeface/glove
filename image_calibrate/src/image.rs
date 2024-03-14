@@ -6,6 +6,8 @@ pub use image::{DynamicImage, GenericImage, GenericImageView};
 
 use crate::Point2D;
 
+//a Color
+//tp Color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color(image::Rgba<u8>);
 impl std::default::Default for Color {
@@ -14,16 +16,28 @@ impl std::default::Default for Color {
     }
 }
 
+//ip Display for Color {
+impl std::fmt::Display for Color {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "{}", self.as_string())
+    }
+}
+
+//ip From<&[u8; 4]> for Color
 impl From<&[u8; 4]> for Color {
     fn from(c: &[u8; 4]) -> Color {
         Color((*c).into())
     }
 }
+
+//ip From<[u8; 4]> for Color
 impl From<[u8; 4]> for Color {
     fn from(c: [u8; 4]) -> Color {
         Color(c.into())
     }
 }
+
+//ip TryFrom<&str> for Color
 impl TryFrom<&str> for Color {
     type Error = String;
     fn try_from(s: &str) -> Result<Color, String> {
@@ -82,20 +96,29 @@ impl TryFrom<&str> for Color {
         }
     }
 }
+
+//ip Color
 impl Color {
+    //cp none
     #[inline]
     pub fn none() -> Self {
         Color([0, 0, 0, 0].into())
     }
+
+    //cp black
     #[inline]
     pub fn black() -> Self {
         Color([0, 0, 0, 255].into())
     }
+
+    //cp color_eq
     #[inline]
     pub fn color_eq(&self, other: &Self) -> bool {
         self.0[0] == other.0[0] && self.0[1] == other.0[1] && self.0[2] == other.0[2]
     }
-    pub fn to_string(&self) -> String {
+
+    //cp as_string
+    pub fn as_string(&self) -> String {
         if self.0[3] == 255 {
             format!("#{:02x}{:02x}{:02x}", self.0[0], self.0[1], self.0[2],)
         } else if self.0[3] == 0 {
@@ -115,7 +138,7 @@ impl Serialize for Color {
     where
         S: serde::Serializer,
     {
-        self.to_string().serialize(serializer)
+        self.as_string().serialize(serializer)
     }
 }
 
@@ -140,13 +163,36 @@ pub fn read_image(filename: &str) -> Result<DynamicImage, String> {
     Ok(img)
 }
 
+//fp read_or_create_image
+pub fn read_or_create_image(
+    width: usize,
+    height: usize,
+    opt_filename: Option<&str>,
+) -> Result<DynamicImage, String> {
+    let width = width as u32;
+    let height = height as u32;
+    if let Some(filename) = opt_filename {
+        let img = read_image(filename)?;
+        if img.width() != width || img.height() != height {
+            Err(format!(
+                "Image read has incorrect dimensions of ({},{}) instead of ({width},{height})",
+                img.width(),
+                img.height()
+            ))
+        } else {
+            Ok(img)
+        }
+    } else {
+        Ok(DynamicImage::new_rgb8(width, height))
+    }
+}
+
 //a Image trait
 pub trait Image: GenericImage + GenericImageView {
     fn write(&self, filename: &str) -> Result<(), String>;
     fn get(&self, x: u32, y: u32) -> Color;
     fn put(&mut self, x: u32, y: u32, color: &Color);
-    fn draw_cross(&mut self, p: Point2D, size: f64, color: &[u8; 4]) {
-        let color: Color = color.into();
+    fn draw_cross(&mut self, p: Point2D, size: f64, color: &Color) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
         let cy = p[1] as u32;
@@ -154,8 +200,8 @@ pub trait Image: GenericImage + GenericImageView {
             return;
         }
         for i in 0..(2 * s + 1) {
-            self.put(cx - s + i, cy, &color);
-            self.put(cx, cy - s + i, &color);
+            self.put(cx - s + i, cy, color);
+            self.put(cx, cy - s + i, color);
         }
     }
 }

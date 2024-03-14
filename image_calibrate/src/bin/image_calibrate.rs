@@ -14,13 +14,32 @@ use image_calibrate::{
 type SubCmdFn = fn(CameraDatabase, NamedPointSet, &clap::ArgMatches) -> Result<(), String>;
 
 //a Images
+//hi IMAGE_LONG_HELP
+const IMAGE_LONG_HELP: &str = "\
+Given a Named Point Set, from a camera (type, position/direction), and
+a Point Mapping Set draw crosses on an image corresponding to the PMS
+frame positions and the Named Point's model position mapped onto the
+camera, and write out to a new image.
+
+";
+
 //fi image_cmd
 fn image_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("image").about("Read image and draw crosses on named and mapped points");
+    let cmd = Command::new("image")
+        .about("Read image and draw crosses on named and mapped points")
+        .long_about(IMAGE_LONG_HELP);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
-    let cmd = cmdline_args::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::add_image_read_arg(cmd, false);
     let cmd = cmdline_args::add_image_write_arg(cmd, true);
+    let cmd = cmdline_args::add_color_arg(
+        cmd,
+        "pms_color",
+        "Color for original PMS frame crosses",
+        false,
+    );
+    let cmd =
+        cmdline_args::add_color_arg(cmd, "model_color", "Color for mapped model crosses", false);
     (cmd, image_fn)
 }
 
@@ -32,24 +51,23 @@ fn image_fn(
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(matches, &nps)?;
     let camera = cmdline_args::get_camera(matches, &cdb)?;
+    let mut img = cmdline_args::get_image_read_or_create(matches, &camera)?;
     let camera_mapping = CameraMapping::of_camera(camera);
     let mappings = pms.mappings();
 
-    if let Some(read_filename) = matches.get_one::<String>("read") {
-        let mut img = image::read_image(read_filename)?;
-        let white = &[255, 255, 255, 255];
-        let red = &[255, 180, 255, 255];
-        if let Some(write_filename) = matches.get_one::<String>("write") {
-            for m in mappings {
-                img.draw_cross(m.screen(), m.error(), white);
-            }
-            for (_name, p) in nps.iter() {
-                let mapped = camera_mapping.map_model(p.model());
-                img.draw_cross(mapped, 5.0, red);
-            }
-            img.write(write_filename)?;
+    let write_filename = cmdline_args::get_opt_image_write_filename(matches)?.unwrap();
+    if let Some(color) = cmdline_args::get_opt_color(matches, "pms_color")? {
+        for m in mappings {
+            img.draw_cross(m.screen(), m.error(), &color);
         }
     }
+    if let Some(color) = cmdline_args::get_opt_color(matches, "model_color")? {
+        for (_name, p) in nps.iter() {
+            let mapped = camera_mapping.map_model(p.model());
+            img.draw_cross(mapped, 5.0, &color);
+        }
+    }
+    img.write(&write_filename)?;
     Ok(())
 }
 
@@ -94,7 +112,7 @@ centre-of-gravity of each region is determined.
 
 The Named Point associated with the color of the region is found, and
 a Point Mapping Set is generated mapping the Named Points onto the
-centre of the appopriate region.";
+centre of the appropriate region.";
 
 //fi get_point_mappings_cmd
 fn get_point_mappings_cmd() -> (Command, SubCmdFn) {
@@ -102,7 +120,7 @@ fn get_point_mappings_cmd() -> (Command, SubCmdFn) {
         .about("Read image and find regions")
         .long_about(GET_POINT_MAPPINGS_LONG_HELP);
     let cmd = cmdline_args::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::add_image_bg_color_arg(cmd, false);
+    let cmd = cmdline_args::add_bg_color_arg(cmd, false);
     (cmd, get_point_mappings_fn)
 }
 
@@ -112,8 +130,8 @@ fn get_point_mappings_fn(
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let img = cmdline_args::get_image_read(&matches)?;
-    let bg_color = cmdline_args::get_opt_image_bg_color(&matches)?;
+    let img = cmdline_args::get_image_read(matches)?;
+    let bg_color = cmdline_args::get_opt_bg_color(matches)?;
     let bg_color = bg_color.unwrap_or(Color::black());
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color));
     let mut pms = PointMappingSet::default();
@@ -121,11 +139,10 @@ fn get_point_mappings_fn(
         let c = r.color();
         let np = nps.of_color(&c);
         if np.is_empty() {
-            eprintln!("No named point with color {}", c.to_string());
+            eprintln!("No named point with color {c} @ {:?}", r.cog());
         } else if np.len() > 1 {
             eprintln!(
-                "More than one named point with color {} @ {:?}: {}, {}, ...",
-                c.to_string(),
+                "More than one named point with color {c} @ {:?}: {}, {}, ...",
                 r.cog(),
                 np[0].name(),
                 np[1].name(),
@@ -302,17 +319,12 @@ fn combine_rays_from_model_fn(
                 p
             );
             let mut tot_d_sq = 0.0;
-            let mut tot_d_sq2 = 0.0;
-            for (name, ray) in names.iter().zip(ray_list.iter()) {
-                let (k, d_sq) = ray.distances(&p);
-                eprintln!("{}: k {} dsq {} d {}", name, k, d_sq, d_sq.sqrt());
+            for (_name, ray) in names.iter().zip(ray_list.iter()) {
+                let (_k, d_sq) = ray.distances(&p);
+                // eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
                 tot_d_sq += d_sq;
-                let mut p = p;
-                p[0] += 0.01;
-                let (k, d_sq) = ray.distances(&p);
-                tot_d_sq2 += d_sq;
             }
-            eprintln!("Total dsq {tot_d_sq} {tot_d_sq2}");
+            eprintln!("Total dsq {tot_d_sq}");
         }
     }
     Ok(())

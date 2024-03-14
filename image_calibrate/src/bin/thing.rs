@@ -62,8 +62,8 @@ fn main() -> Result<(), String> {
 
     if let Some(read_filename) = matches.get_one::<String>("read") {
         let mut img = image::read_image(read_filename)?;
-        let white = &[255, 255, 255, 255];
-        let red = &[255, 180, 255, 255];
+        let white = &[255, 255, 255, 255].into();
+        let red = &[255, 180, 255, 255].into();
         if let Some(write_filename) = matches.get_one::<String>("write") {
             for m in mappings {
                 img.draw_cross(m.screen(), m.error(), white);

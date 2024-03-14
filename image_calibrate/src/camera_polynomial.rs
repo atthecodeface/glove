@@ -105,8 +105,8 @@ impl CameraPolynomialCalibrate {
         let direction = direction * rotate_z;
         let direction = direction * rotate_x;
         let direction = direction * rotate_y;
-        let position: Point3D = rotate_y.conjugate().apply3(&position).into();
-        let position: Point3D = rotate_x.conjugate().apply3(&position).into();
+        let position: Point3D = rotate_y.conjugate().apply3(&position);
+        let position: Point3D = rotate_x.conjugate().apply3(&position);
         let camera = CameraInstance::new(camera_poly.clone(), position, direction);
         // eprintln!("{camera}");
         // let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -desc.distance].into());
@@ -237,6 +237,11 @@ impl CameraPolynomial {
     //ap lens
     pub fn lens(&self) -> &Rc<CameraLens> {
         &self.lens
+    }
+
+    //ap body
+    pub fn body(&self) -> &Rc<CameraBody> {
+        &self.body
     }
 
     //cp new

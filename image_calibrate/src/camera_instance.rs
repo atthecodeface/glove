@@ -5,8 +5,8 @@ use geo_nd::quat;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    json, CameraDatabase, CameraPolynomial, CameraPolynomialDesc, CameraProjection, CameraView,
-    Point2D, Point3D, Quat, TanXTanY,
+    json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraPolynomialDesc,
+    CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY,
 };
 
 //a CameraInstance
@@ -97,6 +97,21 @@ impl CameraView for CameraInstance {
 
 //ip CameraInstance
 impl CameraInstance {
+    //ap camera
+    pub fn camera(&self) -> &Rc<CameraPolynomial> {
+        &self.camera
+    }
+
+    //ap body
+    pub fn body(&self) -> &Rc<CameraBody> {
+        self.camera.body()
+    }
+
+    //ap lens
+    pub fn lens(&self) -> &Rc<CameraLens> {
+        self.camera.lens()
+    }
+
     //fp new
     pub fn new(camera: Rc<CameraPolynomial>, position: Point3D, direction: Quat) -> Self {
         Self {

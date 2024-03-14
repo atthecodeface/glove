@@ -331,7 +331,7 @@ fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
             }
         }
 
-        let c = &[255, 0, 0, 255];
+        let c = &[255, 0, 0, 255].into();
         for (_gx, _gy, px, py) in &mappings {
             img.draw_cross([*px as f64, *py as f64].into(), 5.0, c);
         }
@@ -357,7 +357,7 @@ fn main() -> Result<(), String> {
         .subcommand_required(true);
     let cmd = cmdline_args::add_image_read_arg(cmd, true);
     let cmd = cmdline_args::add_image_write_arg(cmd, false);
-    let cmd = cmdline_args::add_image_bg_color_arg(cmd, false);
+    let cmd = cmdline_args::add_bg_color_arg(cmd, false);
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
@@ -370,7 +370,7 @@ fn main() -> Result<(), String> {
     let matches = cmd.get_matches();
     let image = cmdline_args::get_image_read(&matches)?;
     let write_filename = cmdline_args::get_opt_image_write_filename(&matches)?;
-    let bg_color = cmdline_args::get_opt_image_bg_color(&matches)?;
+    let bg_color = cmdline_args::get_opt_bg_color(&matches)?;
     let base_args = BaseArgs {
         image,
         write_filename,
