@@ -182,7 +182,7 @@ get_model_points_gpm:
 	@echo "********************************************************************************"
 	@echo "Getting the model points given all the images PMS and located/oriented cameras"
 	@echo "********************************************************************************"
-	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} get_model_points located_4v3a6041.json pms_all_4v3a6041.json located_4v3a6042.json pms_all_4v3a6042.json > nps_gpm.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} get_model_points located_4v3a6040.json pms_all_4v3a6040.json located_4v3a6041.json pms_all_4v3a6041.json located_4v3a6042.json pms_all_4v3a6042.json > nps_gpm.json
 	#${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} get_model_points oriented_4v3a6041.json pms_all_4v3a6041.json oriented_4v3a6042.json pms_all_4v3a6042.json > nps_gpm.json
 
 image_gpm:
@@ -214,33 +214,41 @@ orient2_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_ORIENT} --camera located2_${IMAGE}.json --pms pms_all_${IMAGE}.json > oriented2_${IMAGE}.json
 
 get_model_points2_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} get_model_points oriented2_4v3a6041.json pms_all_4v3a6041.json oriented2_4v3a6042.json pms_all_4v3a6042.json > nps_gpm2.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} get_model_points oriented2_4v3a6040.json pms_all_4v3a6040.json oriented2_4v3a6041.json pms_all_4v3a6041.json oriented2_4v3a6042.json pms_all_4v3a6042.json > nps_gpm2.json
 
 image2_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM2} ${ICAL_IMG} --camera oriented2_${IMAGE}.json --pms pms_all_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write gpm2_${IMAGE}.png
 
 all_gpm: ${IMG_CAL}
-	# $(MAKE) IMAGE=4v3a6040 get_point_mappings
+	$(MAKE) IMAGE=4v3a6040 get_point_mappings
 	$(MAKE) IMAGE=4v3a6041 get_point_mappings
 	$(MAKE) IMAGE=4v3a6042 get_point_mappings
-	#$(MAKE) IMAGE=4v3a6041 locate_gpm
-	#$(MAKE) IMAGE=4v3a6042 locate_gpm
+	$(MAKE) IMAGE=4v3a6040 locate_gpm
+	$(MAKE) IMAGE=4v3a6041 locate_gpm
+	$(MAKE) IMAGE=4v3a6042 locate_gpm
+	$(MAKE) IMAGE=4v3a6040 orient_gpm
 	$(MAKE) IMAGE=4v3a6041 orient_gpm
 	$(MAKE) IMAGE=4v3a6042 orient_gpm
 	$(MAKE) get_model_points_gpm
+	$(MAKE) IMAGE=4v3a6040 image_gpm
 	$(MAKE) IMAGE=4v3a6041 image_gpm
 	$(MAKE) IMAGE=4v3a6042 image_gpm
+	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
 
 all_gpm2: ${IMG_CAL}
+	$(MAKE) IMAGE=4v3a6040 locate2_gpm
 	$(MAKE) IMAGE=4v3a6041 locate2_gpm
 	$(MAKE) IMAGE=4v3a6042 locate2_gpm
+	$(MAKE) IMAGE=4v3a6040 orient2_gpm
 	$(MAKE) IMAGE=4v3a6041 orient2_gpm
 	$(MAKE) IMAGE=4v3a6042 orient2_gpm
 	$(MAKE) get_model_points2_gpm
+	$(MAKE) IMAGE=4v3a6040 image2_gpm
 	$(MAKE) IMAGE=4v3a6041 image2_gpm
 	$(MAKE) IMAGE=4v3a6042 image2_gpm
 
