@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CameraBody, CameraLens, CameraSensor};
 
-//a CameraDatabas
+//a CameraDatabase
 //tp CameraDatabase
 /// A database of camera bodies and lenses
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

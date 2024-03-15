@@ -4,12 +4,10 @@ use std::path::Path;
 use serde::Deserialize;
 
 //a Public functions
-//fp read_file
-pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String, String> {
-    let file_text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Error reading json file {}: {}", path, e))?;
+//fp remove_comments
+pub fn remove_comments(s: &str) -> String {
     let mut json_string = String::new();
-    for j in file_text.lines() {
+    for j in s.lines() {
         if let Some(n) = j.find("//") {
             json_string.push_str(j.split_at(n).0);
             json_string.push('\n');
@@ -18,7 +16,14 @@ pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String, 
             json_string.push('\n');
         }
     }
-    Ok(json_string)
+    json_string
+}
+
+//fp read_file
+pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String, String> {
+    let file_text = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Error reading json file {}: {}", path, e))?;
+    Ok(remove_comments(&file_text))
 }
 
 //fi json_error

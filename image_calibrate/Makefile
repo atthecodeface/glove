@@ -170,6 +170,9 @@ locate_gpm:
 orient_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
 
+orient2_gpm:
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} reorient2 --camera ${OUTPUT_DIR}located_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
+
 create_rays_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} ${ICAL_RAYS_FROM_CAMERA} --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --camera ${OUTPUT_DIR}oriented_${IMAGE}.json > ${OUTPUT_DIR}rays_fc_${IMAGE}.json
 
@@ -221,9 +224,9 @@ start_gpm: ${IMG_CAL}
 	$(MAKE) IMAGE=4v3a6040 locate_gpm
 	$(MAKE) IMAGE=4v3a6041 locate_gpm
 	$(MAKE) IMAGE=4v3a6042 locate_gpm
-	$(MAKE) IMAGE=4v3a6040 orient_gpm
-	$(MAKE) IMAGE=4v3a6041 orient_gpm
-	$(MAKE) IMAGE=4v3a6042 orient_gpm
+	$(MAKE) IMAGE=4v3a6040 orient2_gpm
+	$(MAKE) IMAGE=4v3a6041 orient2_gpm
+	$(MAKE) IMAGE=4v3a6042 orient2_gpm
 
 do_gpm: ${IMG_CAL}
 	$(MAKE) get_model_points_gpm

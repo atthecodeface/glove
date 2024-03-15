@@ -2,11 +2,22 @@
 name = "image_calibrate"
 version = "0.1.0"
 edition = "2021"
+description = "Image analysis and photogrammetry\n"
+homepage = "https://github.com/atthecodeface/image_calibrate"
+documentation = "https://docs.rs/image_calibrate"
+keywords = ["geometry"]
+categories = ["graphics"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/atthecodeface/image_calibrate"
 
 [[bin]]
-name = "thing"
-#test = false
-#bench = false
+name = "image_calibrate"
+
+[[bin]]
+name = "camera_calibrate"
+
+[[bin]]
+name = "image_analyze"
 
 [dependencies]
 nalgebra = "0.32.1"
