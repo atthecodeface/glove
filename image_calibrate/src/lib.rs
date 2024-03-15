@@ -122,11 +122,13 @@ pub use camera_polynomial::{
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
+mod best_mapping;
 mod camera_mapping;
 mod named_point_set;
 mod point_mapping;
 mod rotations;
-pub use camera_mapping::{BestMapping, CameraMapping};
+pub use best_mapping::BestMapping;
+pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
 pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
 pub use rotations::Rotations;

@@ -80,7 +80,6 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
     eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
-    let camera_mapping = CameraMapping::of_camera(camera);
 
     let xy_pairs = calibrate.get_xy_pairings();
     let mut pts = vec![];
@@ -104,10 +103,10 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
                 img.draw_cross(*p, 5.0, c);
             }
             for (p, c) in &pts {
-                let mapped = camera_mapping.map_model(*p);
+                let mapped = camera.map_model(*p);
                 if false {
-                    let xyz = camera_mapping.world_xyz_to_camera_xyz(*p);
-                    let txy = camera_mapping.world_xyz_to_camera_txty(*p);
+                    let xyz = camera.world_xyz_to_camera_xyz(*p);
+                    let txy = camera.world_xyz_to_camera_txty(*p);
                     eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
                 }
                 img.draw_cross(mapped, 5.0, c);
@@ -135,9 +134,8 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
     let q = quat::new();
     camera = camera.placed_at(camera_pt_z);
     camera = camera.with_direction(q.into());
-    let camera_mapping = CameraMapping::of_camera(camera);
 
-    eprintln!("{camera_mapping}");
+    eprintln!("{camera}");
     let mut pts = vec![];
     let n = 40;
     let n_f = n as f64;
@@ -155,7 +153,7 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
         let mut img = image::read_image(read_filename)?;
         if let Some(write_filename) = matches.get_one::<String>("write") {
             for (p, c) in &pts {
-                let mapped = camera_mapping.map_model(*p);
+                let mapped = camera.map_model(*p);
                 // eprintln!("{mapped} {p} {c:?}");
                 img.draw_cross(mapped, 5.0, c);
             }

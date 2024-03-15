@@ -167,5 +167,32 @@ impl CameraInstance {
         self.direction = quat::normalize(*self.direction.as_ref()).into();
     }
 
+    //mp clone_placed_at
+    pub fn clone_placed_at(&self, location: Point3D) -> Self {
+        self.clone().placed_at(location)
+    }
+
+    //mp clone_with_direction
+    pub fn clone_with_direction(&self, direction: Quat) -> Self {
+        self.clone().with_direction(direction)
+    }
+
+    //mp clone_moved_by
+    pub fn clone_moved_by(&self, dp: Point3D) -> Self {
+        self.clone().moved_by(dp)
+    }
+
+    //mp clone_rotated_by
+    pub fn clone_rotated_by(&self, q: &Quat) -> Self {
+        self.clone().rotated_by(q)
+    }
+
+    //fp map_model
+    /// Map a model coordinate to an absolute XY camera coordinate
+    #[inline]
+    pub fn map_model(&self, model: Point3D) -> Point2D {
+        self.world_xyz_to_px_abs_xy(model)
+    }
+
     //zz All done
 }

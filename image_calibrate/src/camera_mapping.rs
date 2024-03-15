@@ -1,203 +1,40 @@
 //a Imports
-use std::rc::Rc;
-
 use geo_nd::{Quaternion, Vector, Vector3};
 use serde::Serialize;
 
 use crate::{
-    CameraInstance, CameraPolynomial, CameraView, NamedPointSet, Point2D, Point3D, PointMapping,
-    Quat, Ray, Rotations,
+    BestMapping, CameraInstance, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
+    Ray, Rotations,
 };
 
-//a Constants
-const MIN_ERROR: f64 = 0.5;
-
-//a BestMapping
-//tp BestMapping
-/// A means for tracking the best mapping
-#[derive(Debug, Clone)]
-pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Clone> {
-    /// Asserted if the worst error should be used in evaluating error totals
-    use_we: bool,
-    /// The worst error
-    we: f64,
-    /// The total error
-    te: f64,
-    /// Associated data
-    data: T,
+//a CameraPtMapping
+//tp CameraPtMapping
+pub trait CameraPtMapping {
+    fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D;
+    fn get_pm_sq_error(&self, pm: &PointMapping) -> f64;
+    fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D);
+    fn get_pm_direction(&self, pm: &PointMapping) -> Point3D;
+    fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray;
+    fn get_rays(&self, mappings: &[PointMapping], from_camera: bool) -> Vec<(String, Ray)> {
+        let mut r = Vec::new();
+        for pm in mappings {
+            r.push((pm.name().into(), self.get_pm_as_ray(pm, from_camera)));
+        }
+        r
+    }
+    fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64;
+    fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> Point3D;
+    fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64);
+    fn total_error(&self, mappings: &[PointMapping]) -> f64;
+    fn worst_error(&self, mappings: &[PointMapping]) -> f64;
+    fn get_quats_for_mappings_given_one(&self, mappings: &[PointMapping], n: usize) -> Vec<Quat>;
 }
 
-//ip Copy for BestMapping<T>
-impl<T> Copy for BestMapping<T> where T: std::fmt::Debug + std::fmt::Display + Copy {}
-
-//ip BestMapping
-impl<T> BestMapping<T>
-where
-    T: std::fmt::Debug + std::fmt::Display + Clone,
-{
-    //fp new
-    /// Create a new best mapping
-    pub fn new(use_we: bool, data: T) -> Self {
-        Self {
-            use_we,
-            we: f64::MAX,
-            te: f64::MAX,
-            data,
-        }
-    }
-
-    //ap we
-    pub fn we(&self) -> f64 {
-        self.we
-    }
-
-    //ap te
-    pub fn te(&self) -> f64 {
-        self.te
-    }
-
-    //ap data
-    pub fn data(&self) -> &T {
-        &self.data
-    }
-
-    //ap into_data
-    pub fn into_data(self) -> T {
-        self.data
-    }
-
-    //mp update_best
-    /// Update the mapping with data if this is better
-    pub fn update_best(&mut self, we: f64, te: f64, data: &T) -> bool {
-        if self.use_we && we > self.we {
-            return false;
-        }
-        if !self.use_we && te > self.te {
-            return false;
-        }
-        self.we = we;
-        self.te = te;
-        self.data = data.clone();
-        true
-    }
-
-    //cp best_of_both
-    /// Pick the best of both
-    pub fn best_of_both(self, other: Self) -> Self {
-        let pick_self = if self.use_we {
-            other.we > self.we
-        } else {
-            other.te > self.te
-        };
-        if pick_self {
-            self
-        } else {
-            other
-        }
-    }
-
-    //zz All done
-}
-
-//ip Display for Best
-impl<T> std::fmt::Display for BestMapping<T>
-where
-    T: std::fmt::Debug + std::fmt::Display + Clone,
-{
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(fmt, "we: {:.4} te: {:.4} : {}", self.we, self.te, self.data,)
-    }
-}
-
-//a CameraMapping
-//tp CameraMapping
-/// A camera that allows mapping a world point to camera relative XYZ,
-/// and then it can be mapped to tan(x) / tan(y) to roll/yaw or pixel
-/// relative XY (relative to the center of the camera sensor)
-#[derive(Debug, Clone, Serialize)]
-pub struct CameraMapping {
-    #[serde(flatten)]
-    camera: CameraInstance,
-}
-
-//ip Display for CameraMapping
-impl std::fmt::Display for CameraMapping {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        self.camera.fmt(fmt)
-    }
-}
-
-//ip Deref for CameraMapping
-impl std::ops::Deref for CameraMapping {
-    type Target = CameraInstance;
-    fn deref(&self) -> &CameraInstance {
-        &self.camera
-    }
-}
-
-//ip DerefMut for CameraMapping
-impl std::ops::DerefMut for CameraMapping {
-    fn deref_mut(&mut self) -> &mut CameraInstance {
-        &mut self.camera
-    }
-}
-
-//ip CameraMapping
-impl CameraMapping {
-    //fp new
-    pub fn new(projection: Rc<CameraPolynomial>, position: Point3D, direction: Quat) -> Self {
-        let camera = CameraInstance::new(projection, position, direction);
-        Self { camera }
-    }
-
-    //fp of_camera
-    pub fn of_camera(camera: CameraInstance) -> Self {
-        Self { camera }
-    }
-
-    //ap camera
-    pub fn camera(&self) -> &CameraInstance {
-        &self.camera
-    }
-
-    //mp placed_at
-    pub fn placed_at(&self, location: Point3D) -> Self {
-        Self {
-            camera: self.camera.clone().placed_at(location),
-        }
-    }
-
-    //mp with_direction
-    pub fn with_direction(&self, direction: Quat) -> Self {
-        Self {
-            camera: self.camera.clone().with_direction(direction),
-        }
-    }
-
-    //mp moved_by
-    pub fn moved_by(&self, dp: Point3D) -> Self {
-        Self {
-            camera: self.camera.clone().moved_by(dp),
-        }
-    }
-
-    //mp rotated_by
-    pub fn rotated_by(&self, q: &Quat) -> Self {
-        Self {
-            camera: self.camera.clone().rotated_by(q),
-        }
-    }
-
-    //fp map_model
-    /// Map a model coordinate to an absolute XY camera coordinate
-    #[inline]
-    pub fn map_model(&self, model: Point3D) -> Point2D {
-        self.world_xyz_to_px_abs_xy(model)
-    }
-
+//ip CameraPtMapping for CameraInstance
+impl CameraPtMapping for CameraInstance {
     //fp get_pm_dxdy
     #[inline]
-    pub fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
+    fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
         let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
@@ -206,13 +43,13 @@ impl CameraMapping {
 
     //fp get_pm_sq_error
     #[inline]
-    pub fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
+    fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
         let esq = self.get_pm_dxdy(pm).length_sq();
         esq * esq / (esq + pm.error() * pm.error())
     }
 
     //fp get_pm_model_error
-    pub fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D) {
+    fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D) {
         let model_rel_xyz = self.world_xyz_to_camera_xyz(pm.model());
         let model_dist = model_rel_xyz.length();
         let model_vec = self.world_xyz_to_camera_txty(pm.model()).to_unit_vector();
@@ -232,7 +69,7 @@ impl CameraMapping {
 
     //mp get_pm_direction
     /// Get the direction vector for the frame point of a mapping
-    pub fn get_pm_direction(&self, pm: &PointMapping) -> Point3D {
+    fn get_pm_direction(&self, pm: &PointMapping) -> Point3D {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
         // Calculate dots with the actual vector - cos of angles
@@ -244,7 +81,7 @@ impl CameraMapping {
     }
 
     //mp get_pm_as_ray
-    pub fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray {
+    fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
         // Calculate dots with the actual vector - cos of angles
@@ -269,7 +106,7 @@ impl CameraMapping {
 
         if from_camera {
             Ray::default()
-                .set_start(self.camera.location())
+                .set_start(self.location())
                 .set_direction(world_pm_direction_vec)
                 .set_tan_error(tan_error)
         } else {
@@ -280,8 +117,99 @@ impl CameraMapping {
         }
     }
 
+    //fp error_with_quat
+    #[inline]
+    fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
+        self.clone_rotated_by(quat).get_pm_sq_error(pm)
+    }
+
+    //fp error_surface_normal
+    fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> Point3D {
+        // At the current point xyz there is *probably* a surface such that any adjustment
+        // dxyz within the plane as no immpact. This is grad.es. We can call this vector n.
+        let quats = &rotations.quats;
+        let dx_n = self.error_with_quat(pm, &quats[0]);
+        let dx_p = self.error_with_quat(pm, &quats[1]);
+        let dy_n = self.error_with_quat(pm, &quats[2]);
+        let dy_p = self.error_with_quat(pm, &quats[3]);
+        let dz_n = self.error_with_quat(pm, &quats[4]);
+        let dz_p = self.error_with_quat(pm, &quats[5]);
+        let n: Point3D = [dx_p - dx_n, dy_p - dy_n, dz_p - dz_n].into();
+        n.normalize()
+    }
+
+    //fp find_worst_error
+    fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
+        let mut n = 0;
+        let mut worst_e = 0.;
+        for (i, pm) in mappings.iter().enumerate() {
+            let e = self.get_pm_sq_error(pm);
+            if e > worst_e {
+                n = i;
+                worst_e = e;
+            }
+        }
+        (n, worst_e)
+    }
+
+    //fp total_error
+    fn total_error(&self, mappings: &[PointMapping]) -> f64 {
+        let mut sum_e = 0.;
+        for pm in mappings.iter() {
+            let e = self.get_pm_sq_error(pm);
+            sum_e += e;
+        }
+        sum_e
+    }
+
+    //fp worst_error
+    fn worst_error(&self, mappings: &[PointMapping]) -> f64 {
+        self.find_worst_error(mappings).1
+    }
+
+    //fp get_quats_for_mappings_given_one
+    fn get_quats_for_mappings_given_one(&self, mappings: &[PointMapping], n: usize) -> Vec<Quat> {
+        let pivot_scr_vec = self
+            .px_abs_xy_to_camera_txty(mappings[n].screen())
+            .to_unit_vector();
+        let pivot_model_vec = (self.location() - mappings[n].model()).normalize();
+        let q_s2z = Quat::rotation_of_vec_to_vec(&pivot_scr_vec, &[0., 0., 1.].into());
+        let q_m2s = Quat::rotation_of_vec_to_vec(&pivot_model_vec, &pivot_scr_vec);
+        let q_m2z = q_s2z * q_m2s;
+        let mut result = Vec::new();
+        for (i, pm) in mappings.iter().enumerate() {
+            if i == n {
+                continue;
+            }
+            let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
+            let pm_model_vec = (self.location() - pm.model()).normalize();
+            let m_mapped = q_m2z.apply3(&pm_model_vec);
+            let scr_mapped = q_s2z.apply3(&pm_scr_vec);
+            let m_mapped = [m_mapped[0] / m_mapped[2], m_mapped[1] / m_mapped[2]];
+            let scr_mapped = [scr_mapped[0] / scr_mapped[2], scr_mapped[1] / scr_mapped[2]];
+            let m_angle = m_mapped[1].atan2(m_mapped[0]);
+            let scr_angle = scr_mapped[1].atan2(scr_mapped[0]);
+            let qp5 = Quat::of_axis_angle(&pivot_scr_vec, -m_angle + scr_angle);
+            let q = qp5 * q_m2s;
+            result.push(q);
+        }
+        result
+    }
+
+    //zz All done
+}
+
+//a CameraShowMapping
+pub trait CameraShowMapping {
+    fn show_point_set(&self, nps: &NamedPointSet);
+    fn show_pm_error(&self, pm: &PointMapping);
+    fn show_mappings(&self, mappings: &[PointMapping]);
+}
+
+//ip CameraShowMapping for CameraInstance
+impl CameraShowMapping for CameraInstance {
     //fp show_point_set
-    pub fn show_point_set(&self, nps: &NamedPointSet) {
+    fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
             let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model());
             eprintln!(
@@ -294,7 +222,7 @@ impl CameraMapping {
     }
 
     //fp show_pm_error
-    pub fn show_pm_error(&self, pm: &PointMapping) {
+    fn show_pm_error(&self, pm: &PointMapping) {
         let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let (model_error, model_dxdy, model_angle, model_axis) = self.get_pm_model_error(pm);
         let dxdy = self.get_pm_dxdy(pm);
@@ -315,21 +243,122 @@ impl CameraMapping {
     }
 
     //fp show_mappings
-    pub fn show_mappings(&self, mappings: &[PointMapping]) {
+    fn show_mappings(&self, mappings: &[PointMapping]) {
         for pm in mappings {
             self.show_pm_error(pm);
         }
     }
 
-    //fp get_rays
-    pub fn get_rays(&self, mappings: &[PointMapping], from_camera: bool) -> Vec<(String, Ray)> {
-        let mut r = Vec::new();
-        for pm in mappings {
-            r.push((pm.name().into(), self.get_pm_as_ray(pm, from_camera)));
+    //zz All done
+}
+
+//a CameraAdjustMapping
+pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
+    // Used internally
+    fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D;
+    fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self>;
+}
+impl CameraAdjustMapping for CameraInstance {
+    //fp get_location_given_direction
+    fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D {
+        let named_rays = self.get_rays(mappings, false);
+        let mut ray_list = Vec::new();
+        for (_name, ray) in named_rays {
+            ray_list.push(ray);
         }
-        r
+        Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap()
     }
 
+    //fp get_best_location
+    /// Get the best location simply, by trying many orientations of
+    /// the model and getting the point of intersection for rays
+    /// for the point mappings and placing cameras there.
+    ///
+    /// For each orientation of the model with respect to the camera
+    /// this yields a 'best location' for the camera, and placing the
+    /// camera there allows the error in mappings for that orientation
+    /// to be determined.
+    ///
+    /// It is important to try a wide range of orientations - so a
+    /// uniform mapping of points in the unit sphere to [0,0,1] each
+    /// with many rotations around the Z axis is good.
+    fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self> {
+        let mut best_mapping = BestMapping::new(false, self.clone()); // use total error
+        for xy in 0..steps * steps {
+            let x = xy % steps;
+            let y = (xy / steps) % steps;
+            let dirn = Point3D::uniform_dist_sphere3(
+                [y as f64 / (steps as f64), x as f64 / (steps as f64)],
+                true,
+            );
+            // Note: this may be overkill as it is effectively mapping
+            // a uniform xyz to a similarly uniform ijk?
+            //
+            // qxy places [0., 0., 1.] at dirn. Can choose rijk to have r=0
+            //
+            // (qxy * (0,0,0,1)) * qxy' = (0, dx, dy, dz)
+            // ((0,i,j,k) * (0,0,0,1)) * (0,-i,-j,-k) = (0, dx, dy, dz)
+            // (-k, j, -i, 0) * (0,-i,-j,-k) = (0, dx, dy, dz)
+            //
+            // ik + ik = dx => i = dx / 2k
+            // jk + jk = dy => j = dy / 2k
+            // k^2 - j^2 -i^2 = dz => k^2 = (dz +1) / 2
+            //
+            // i^2 + j^2 + k^2 = (dx^2 + dy^2) / 4k^2 + dz/2 + 1/2
+            // i^2 + j^2 + k^2 = (1-dz^2) / 2(1+dz) + dz/2 + 1/2
+            // i^2 + j^2 + k^2 = (1-dz) / 2 + dz/2 + 1/2 = 1
+            let k = ((dirn[2] + 1.0) / 2.0).sqrt();
+            let (i, j) = if k < 1.0E-6 {
+                // this implies dz=-1 i.e. go for 180 around X
+                (1., 0.)
+            } else {
+                (dirn[0] / 2.0 / k, dirn[1] / 2.0 / k)
+            };
+            let qxy = Quat::of_rijk(0., -i, -j, -k);
+            // let qxy: Quat = quat::of_rijk(0., dirn[0], dirn[1], dirn[2]).into();
+            // Map our 'unit sphere direction' to [0,0,1]
+            let mut cam = self.clone_rotated_by(&qxy);
+            // Find best rotation around Z axis for this basic orientation
+            let mut angle_range = 6.282;
+            let mut best_of_axis: BestMapping<Self> = BestMapping::new(false, self.clone()); // use total error
+            for _ in 0..6 {
+                for z in 0..(steps * 2 + 1) {
+                    let zf = (z as f64) / (steps as f64) - 1.0;
+                    let qz = Quat::of_axis_angle(&[0., 0., 1.].into(), zf * angle_range);
+                    let tc = cam.clone_rotated_by(&qz);
+
+                    let location = tc.get_location_given_direction(mappings);
+                    let tc = tc.placed_at(location);
+                    let te = tc.total_error(mappings);
+                    let we = tc.worst_error(mappings);
+                    best_of_axis.update_best(we, te, &tc);
+                }
+                cam = best_of_axis.data().clone();
+                angle_range /= steps as f64;
+                if angle_range < 1.0E-4 {
+                    break;
+                }
+            }
+            best_mapping = best_mapping.best_of_both(best_of_axis);
+        }
+        eprintln!("=> {}", best_mapping);
+        best_mapping
+    }
+}
+
+//a CameraMapping
+pub trait CameraMapping:
+    std::fmt::Debug + Clone + Serialize + CameraPtMapping + CameraShowMapping + CameraAdjustMapping
+{
+}
+impl CameraMapping for CameraInstance {}
+
+/*
+//a Constants
+const MIN_ERROR: f64 = 0.5;
+
+//ip CameraMapping
+impl CameraMapping {
     //fp apply_quat_to_get_min_sq_error
     pub fn apply_quat_to_get_min_sq_error(
         &self,
@@ -400,125 +429,6 @@ impl CameraMapping {
         (e_sq, angle, q)
     }
 
-    //fp get_quats_for_mappings_given_one
-    pub fn get_quats_for_mappings_given_one(
-        &self,
-        mappings: &[PointMapping],
-        n: usize,
-    ) -> Vec<Quat> {
-        let pivot_scr_vec = self
-            .px_abs_xy_to_camera_txty(mappings[n].screen())
-            .to_unit_vector();
-        let pivot_model_vec = (self.location() - mappings[n].model()).normalize();
-        let q_s2z = Quat::rotation_of_vec_to_vec(&pivot_scr_vec, &[0., 0., 1.].into());
-        let q_m2s = Quat::rotation_of_vec_to_vec(&pivot_model_vec, &pivot_scr_vec);
-        let q_m2z = q_s2z * q_m2s;
-        let mut result = Vec::new();
-        for (i, pm) in mappings.iter().enumerate() {
-            if i == n {
-                continue;
-            }
-            let pm_scr_vec = self.px_abs_xy_to_camera_txty(pm.screen()).to_unit_vector();
-            let pm_model_vec = (self.location() - pm.model()).normalize();
-            let m_mapped = q_m2z.apply3(&pm_model_vec);
-            let scr_mapped = q_s2z.apply3(&pm_scr_vec);
-            let m_mapped = [m_mapped[0] / m_mapped[2], m_mapped[1] / m_mapped[2]];
-            let scr_mapped = [scr_mapped[0] / scr_mapped[2], scr_mapped[1] / scr_mapped[2]];
-            let m_angle = m_mapped[1].atan2(m_mapped[0]);
-            let scr_angle = scr_mapped[1].atan2(scr_mapped[0]);
-            let qp5 = Quat::of_axis_angle(&pivot_scr_vec, -m_angle + scr_angle);
-            let q = qp5 * q_m2s;
-            result.push(q);
-        }
-        result
-    }
-
-    //fp get_location_given_direction
-    pub fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D {
-        let named_rays = self.get_rays(mappings, false);
-        let mut ray_list = Vec::new();
-        for (_name, ray) in named_rays {
-            ray_list.push(ray);
-        }
-        Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap()
-    }
-
-    //fp get_best_location
-    /// Get the best location simply, by trying many orientations of
-    /// the model and getting the point of intersection for rays
-    /// for the point mappings and placing cameras there.
-    ///
-    /// For each orientation of the model with respect to the camera
-    /// this yields a 'best location' for the camera, and placing the
-    /// camera there allows the error in mappings for that orientation
-    /// to be determined.
-    ///
-    /// It is important to try a wide range of orientations - so a
-    /// uniform mapping of points in the unit sphere to [0,0,1] each
-    /// with many rotations around the Z axis is good.
-    pub fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self> {
-        let mut best_mapping = BestMapping::new(false, self.clone()); // use total error
-        for xy in 0..steps * steps {
-            let x = xy % steps;
-            let y = (xy / steps) % steps;
-            let dirn = Point3D::uniform_dist_sphere3(
-                [y as f64 / (steps as f64), x as f64 / (steps as f64)],
-                true,
-            );
-            // Note: this may be overkill as it is effectively mapping
-            // a uniform xyz to a similarly uniform ijk?
-            //
-            // qxy places [0., 0., 1.] at dirn. Can choose rijk to have r=0
-            //
-            // (qxy * (0,0,0,1)) * qxy' = (0, dx, dy, dz)
-            // ((0,i,j,k) * (0,0,0,1)) * (0,-i,-j,-k) = (0, dx, dy, dz)
-            // (-k, j, -i, 0) * (0,-i,-j,-k) = (0, dx, dy, dz)
-            //
-            // ik + ik = dx => i = dx / 2k
-            // jk + jk = dy => j = dy / 2k
-            // k^2 - j^2 -i^2 = dz => k^2 = (dz +1) / 2
-            //
-            // i^2 + j^2 + k^2 = (dx^2 + dy^2) / 4k^2 + dz/2 + 1/2
-            // i^2 + j^2 + k^2 = (1-dz^2) / 2(1+dz) + dz/2 + 1/2
-            // i^2 + j^2 + k^2 = (1-dz) / 2 + dz/2 + 1/2 = 1
-            let k = ((dirn[2] + 1.0) / 2.0).sqrt();
-            let (i, j) = if k < 1.0E-6 {
-                // this implies dz=-1 i.e. go for 180 around X
-                (1., 0.)
-            } else {
-                (dirn[0] / 2.0 / k, dirn[1] / 2.0 / k)
-            };
-            let qxy = Quat::of_rijk(0., -i, -j, -k);
-            // let qxy: Quat = quat::of_rijk(0., dirn[0], dirn[1], dirn[2]).into();
-            // Map our 'unit sphere direction' to [0,0,1]
-            let mut cam = self.rotated_by(&qxy);
-            // Find best rotation around Z axis for this basic orientation
-            let mut angle_range = 6.282;
-            let mut best_of_axis: BestMapping<Self> = BestMapping::new(false, self.clone()); // use total error
-            for _ in 0..6 {
-                for z in 0..(steps * 2 + 1) {
-                    let zf = (z as f64) / (steps as f64) - 1.0;
-                    let qz = Quat::of_axis_angle(&[0., 0., 1.].into(), zf * angle_range);
-                    let tc = cam.rotated_by(&qz);
-
-                    let location = tc.get_location_given_direction(mappings);
-                    let tc = tc.placed_at(location);
-                    let te = tc.total_error(mappings);
-                    let we = tc.worst_error(mappings);
-                    best_of_axis.update_best(we, te, &tc);
-                }
-                cam = best_of_axis.data().clone();
-                angle_range /= steps as f64;
-                if angle_range < 1.0E-4 {
-                    break;
-                }
-            }
-            best_mapping = best_mapping.best_of_both(best_of_axis);
-        }
-        eprintln!("=> {}", best_mapping);
-        best_mapping
-    }
-
     //fp get_best_direction
     pub fn get_best_direction(
         &self,
@@ -532,27 +442,6 @@ impl CameraMapping {
             (c, e) = c.apply_quat_to_get_min_sq_error(steps_per_rot, pm, q);
         }
         (c, e)
-    }
-
-    //fp error_with_quat
-    #[inline]
-    fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
-        self.rotated_by(quat).get_pm_sq_error(pm)
-    }
-
-    //fp error_surface_normal
-    fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> Point3D {
-        // At the current point xyz there is *probably* a surface such that any adjustment
-        // dxyz within the plane as no immpact. This is grad.es. We can call this vector n.
-        let quats = &rotations.quats;
-        let dx_n = self.error_with_quat(pm, &quats[0]);
-        let dx_p = self.error_with_quat(pm, &quats[1]);
-        let dy_n = self.error_with_quat(pm, &quats[2]);
-        let dy_p = self.error_with_quat(pm, &quats[3]);
-        let dz_n = self.error_with_quat(pm, &quats[4]);
-        let dz_p = self.error_with_quat(pm, &quats[5]);
-        let n: Point3D = [dx_p - dx_n, dy_p - dy_n, dz_p - dz_n].into();
-        n.normalize()
     }
 
     //fp adjust_direction_while_keeping_one_okay
@@ -649,35 +538,6 @@ impl CameraMapping {
             rot = rot.conjugate();
         }
         (c, e)
-    }
-
-    //fp find_worst_error
-    pub fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64) {
-        let mut n = 0;
-        let mut worst_e = 0.;
-        for (i, pm) in mappings.iter().enumerate() {
-            let e = self.get_pm_sq_error(pm);
-            if e > worst_e {
-                n = i;
-                worst_e = e;
-            }
-        }
-        (n, worst_e)
-    }
-
-    //fp total_error
-    pub fn total_error(&self, mappings: &[PointMapping]) -> f64 {
-        let mut sum_e = 0.;
-        for pm in mappings.iter() {
-            let e = self.get_pm_sq_error(pm);
-            sum_e += e;
-        }
-        sum_e
-    }
-
-    //fp worst_error
-    pub fn worst_error(&self, mappings: &[PointMapping]) -> f64 {
-        self.find_worst_error(mappings).1
     }
 
     //fp adjust_position
@@ -789,3 +649,5 @@ impl CameraMapping {
 
     //zz All done
 }
+
+*/
