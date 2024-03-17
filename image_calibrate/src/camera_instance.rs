@@ -133,6 +133,11 @@ impl CameraInstance {
         Self::from_desc(cdb, desc)
     }
 
+    //fp to_json
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    }
+
     //mp set_projection
     pub fn set_projection(&mut self, camera: Rc<CameraPolynomial>) {
         self.camera = camera;
@@ -165,6 +170,16 @@ impl CameraInstance {
     //cp normalize
     pub fn normalize(&mut self) {
         self.direction = quat::normalize(*self.direction.as_ref()).into();
+    }
+
+    //mp place_at
+    pub fn place_at(&mut self, p: Point3D) {
+        self.position = p;
+    }
+
+    //mp set_direction
+    pub fn set_direction(&mut self, q: Quat) {
+        self.direction = q;
     }
 
     //mp clone_placed_at

@@ -263,10 +263,33 @@ fn reorient_fn(
     Ok(())
 }
 
+//hi REORIENT2_LONG_HELP
+const REORIENT2_LONG_HELP: &str = "\
+
+Iteratively reorient the camera by determining the axis and amount *each* PMS
+mapped point wants to rotate by, and rotating by the weighted
+average.
+
+The rotation desired for a PMS point is the axis/angle required to
+rotate the ray vector from the camera through the point on the frame
+to the ray of the *actual* model position of the point from the
+camera.
+
+The weighted average is biased by adding in some 'zero rotation's; the
+camera is attempted to be rotated by this weighted average
+(quaternion), and if the total error in the camera mapping is reduced
+then the new rotation is kept.
+
+The iteration stops when the new rotation produces a greater total
+error in the mapping than the current orientation of the camera.
+
+";
+
 //fi reorient2_cmd
 fn reorient2_cmd() -> (Command, SubCmdFn) {
-    let cmd =
-        Command::new("reorient2").about("Improve orientation for a camera to map points to model");
+    let cmd = Command::new("reorient2")
+        .about("Improve orientation for a camera to map points to model")
+        .long_about(GET_POINT_MAPPINGS_LONG_HELP);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
     (cmd, reorient2_fn)
@@ -280,37 +303,8 @@ fn reorient2_fn(
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(matches, &nps)?;
     let mut camera = cmdline_args::get_camera(matches, &cdb)?;
-    let mappings = pms.mappings();
 
-    let mut last_te = camera.total_error(mappings);
-    let mut last_camera = camera.clone();
-    loop {
-        // Find directions to each named point as given by camera (on frame) and by model (model point - camera location)
-        let mut qs = vec![];
-        let n = mappings.len();
-        qs.push((10. * (n as f64), [0., 0., 0., 1.]));
-        for m in mappings {
-            let d_c = camera.get_pm_direction(m);
-            let d_m = (m.model() - camera.location()).normalize();
-            let q = quat::rotation_of_vec_to_vec(&d_m.into(), &d_c.into());
-            // eprintln!("Rotation {d_c} {d_m} {q:?}");
-            qs.push((1., q));
-        }
-        let qr = quat::weighted_average_many(qs.into_iter()).into();
-
-        // eprintln!("Would use rotation {qr:?}");
-        camera = camera.rotated_by(&qr);
-
-        let te = camera.total_error(mappings);
-        eprintln!("Error after {}", camera.total_error(mappings));
-        if te > last_te {
-            break;
-        }
-        last_te = te;
-        last_camera = camera.clone();
-    }
-
-    let camera = last_camera;
+    camera.reorient_using_rays_from_model(pms.mappings());
 
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
