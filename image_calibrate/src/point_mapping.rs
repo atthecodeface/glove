@@ -41,11 +41,7 @@ impl<'de> Deserialize<'de> for PointMapping {
         DE: serde::Deserializer<'de>,
     {
         let (model_name, screen, error) = <(String, Point2D, f64)>::deserialize(deserializer)?;
-        let model = Rc::new(NamedPoint::new(
-            model_name,
-            Color::black(),
-            [0., 0., 0.].into(),
-        ));
+        let model = Rc::new(NamedPoint::new(model_name, Color::black(), None));
         Ok(Self {
             model,
             screen,
@@ -73,6 +69,12 @@ impl PointMapping {
         } else {
             false
         }
+    }
+
+    //ap is_unmapped
+    #[inline]
+    pub fn is_unmapped(&self) -> bool {
+        self.model.is_unmapped()
     }
 
     //mp model

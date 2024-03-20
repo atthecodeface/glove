@@ -221,9 +221,9 @@ start_gpm: ${IMG_CAL}
 	$(MAKE) IMAGE=4v3a6040 get_point_mappings
 	$(MAKE) IMAGE=4v3a6041 get_point_mappings
 	$(MAKE) IMAGE=4v3a6042 get_point_mappings
-	$(MAKE) IMAGE=4v3a6040 locate_gpm
-	$(MAKE) IMAGE=4v3a6041 locate_gpm
-	$(MAKE) IMAGE=4v3a6042 locate_gpm
+	# $(MAKE) IMAGE=4v3a6040 locate_gpm
+	# $(MAKE) IMAGE=4v3a6041 locate_gpm
+	# $(MAKE) IMAGE=4v3a6042 locate_gpm
 	$(MAKE) IMAGE=4v3a6040 orient2_gpm
 	$(MAKE) IMAGE=4v3a6041 orient2_gpm
 	$(MAKE) IMAGE=4v3a6042 orient2_gpm
@@ -256,3 +256,24 @@ all_gpm:
 	$(MAKE) do_gpm
 	$(MAKE) cp_gpm
 	$(MAKE) do_gpm
+
+iter_gpm: ${IMG_CAL}
+	$(MAKE) cp_gpm
+	$(MAKE) get_model_points_gpm
+	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
+	$(MAKE) IMAGE=4v3a6040 reorient2_gpm
+	$(MAKE) IMAGE=4v3a6041 reorient2_gpm
+	$(MAKE) IMAGE=4v3a6042 reorient2_gpm
+
+
+iter_gpm5: ${IMG_CAL}
+	$(MAKE) iter_gpm
+	$(MAKE) iter_gpm
+	$(MAKE) iter_gpm
+	$(MAKE) iter_gpm
+	$(MAKE) iter_gpm

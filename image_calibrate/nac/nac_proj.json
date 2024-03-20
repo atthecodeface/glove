@@ -1,0 +1,8 @@
+{
+    "cdb": "camera_db.json",
+    "nps": "nps_all.json",
+    "cips": [ ["cam_4v3a6040.json", "images/4V3A6040.JPG", "pms_all_4v3a6040.json"],
+              ["cam_4v3a6041.json", "images/4V3A6041.JPG", "pms_all_4v3a6041.json"],
+              ["cam_4v3a6042.json", "images/4V3A6042.JPG", "pms_all_4v3a6042.json"]
+            ]
+}

@@ -19,26 +19,30 @@ pub struct NamedPoint {
     /// The 3D model coordinate this point corresponds to
     ///
     /// This is known for a calibration point!
-    model: RefCell<Point3D>,
+    model: RefCell<Option<Point3D>>,
 }
 
 //ip NamedPoint
 impl NamedPoint {
-    pub fn new<S: Into<String>>(name: S, color: Color, model: Point3D) -> Self {
+    pub fn new<S: Into<String>>(name: S, color: Color, model: Option<Point3D>) -> Self {
         let name = name.into();
         let model = model.into();
         Self { name, color, model }
     }
     #[inline]
+    pub fn is_unmapped(&self) -> bool {
+        self.model.borrow().is_none()
+    }
+    #[inline]
     pub fn model(&self) -> Point3D {
-        *self.model.borrow()
+        (*self.model.borrow()).unwrap_or_default()
     }
     #[inline]
     pub fn color(&self) -> &Color {
         &self.color
     }
     #[inline]
-    pub fn set_model(&self, model: Point3D) {
+    pub fn set_model(&self, model: Option<Point3D>) {
         *self.model.borrow_mut() = model;
     }
     #[inline]
@@ -75,14 +79,23 @@ impl NamedPointSet {
     /// Merge another NPS into this one
     pub fn merge(&mut self, other: &Self) {
         for np in other.points.values() {
-            if !self.points.contains_key(&np.name) {
+            if self.points.contains_key(&np.name) {
+                if !np.is_unmapped() {
+                    if self.points.get_mut(&np.name).unwrap().is_unmapped() {
+                        self.points
+                            .get_mut(&np.name)
+                            .unwrap()
+                            .set_model(Some(np.model()));
+                    }
+                }
+            } else {
                 self.add_pt(np.name.clone(), np.color, *np.model.borrow());
             }
         }
     }
 
     //fp add_pt
-    pub fn add_pt<S: Into<String>>(&mut self, name: S, color: Color, model: Point3D) {
+    pub fn add_pt<S: Into<String>>(&mut self, name: S, color: Color, model: Option<Point3D>) {
         let name = name.into();
         let pt = Rc::new(NamedPoint::new(name.clone(), color, model));
         if self.points.insert(name.clone(), pt).is_none() {
@@ -140,7 +153,7 @@ impl<'de> Deserialize<'de> for NamedPointSet {
     where
         DE: serde::Deserializer<'de>,
     {
-        let array = Vec::<(String, Color, Point3D)>::deserialize(deserializer)?;
+        let array = Vec::<(String, Color, Option<Point3D>)>::deserialize(deserializer)?;
         let mut nps = NamedPointSet::default();
         for (name, color, model) in array {
             nps.add_pt(name, color, model);
@@ -154,7 +167,7 @@ impl<'de> Deserialize<'de> for NamedPointSet {
 #[test]
 fn test_json_0() -> Result<(), String> {
     let mut nps = NamedPointSet::default();
-    nps.add_pt("fred", [1., 2., 3.].into());
+    nps.add_pt("fred", Some([1., 2., 3.].into()));
     let s = nps.to_json()?;
     assert_eq!(s, r#"[["fred",[1.0,2.0,3.0]]]"#);
     let nps = NamedPointSet::from_json(

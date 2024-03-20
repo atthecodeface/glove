@@ -289,7 +289,7 @@ error in the mapping than the current orientation of the camera.
 fn reorient2_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("reorient2")
         .about("Improve orientation for a camera to map points to model")
-        .long_about(GET_POINT_MAPPINGS_LONG_HELP);
+        .long_about(REORIENT2_LONG_HELP);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
     (cmd, reorient2_fn)
@@ -537,7 +537,7 @@ fn adjust_model_fn(
         let x0 = (i % 10) as f64 / 10.0;
         let z0 = ((i / 10) % 10) as f64 / 10.0;
         let dpx: Point3D = vector::uniform_dist_sphere3([x0, z0], true).into();
-        np.set_model(orig + (dpx * 0.1));
+        np.set_model(Some(orig + (dpx * 0.1)));
         let mut cp_data = vec![];
         let mut total_we = 0.;
         let mut total_te = 0.;
@@ -617,7 +617,7 @@ fn get_model_points_fn(
         }
         if ray_list.len() > 1 {
             let p = Ray::closest_point(&ray_list, &|_r| 1.0).unwrap();
-            result_nps.add_pt(name, *np.color(), p);
+            result_nps.add_pt(name, *np.color(), Some(p));
             // eprintln!(r#"["{}", [{},{},{}]],"#, name, p[0], p[1], p[2]);
             for r in ray_list {
                 eprintln!("{name} {:?}", r.distances(&p));

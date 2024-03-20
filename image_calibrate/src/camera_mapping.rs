@@ -10,7 +10,7 @@ use crate::{
 //a CameraPtMapping
 //tp CameraPtMapping
 pub trait CameraPtMapping {
-    fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D;
+    fn get_pm_dxdy(&self, pm: &PointMapping) -> Option<Point2D>;
     fn get_pm_sq_error(&self, pm: &PointMapping) -> f64;
     fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D);
     fn get_pm_direction(&self, pm: &PointMapping) -> Point3D;
@@ -34,18 +34,25 @@ pub trait CameraPtMapping {
 impl CameraPtMapping for CameraInstance {
     //fp get_pm_dxdy
     #[inline]
-    fn get_pm_dxdy(&self, pm: &PointMapping) -> Point2D {
+    fn get_pm_dxdy(&self, pm: &PointMapping) -> Option<Point2D> {
+        if pm.is_unmapped() {
+            return None;
+        }
         let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let dx = pm.screen[0] - camera_scr_xy[0];
         let dy = pm.screen[1] - camera_scr_xy[1];
-        [dx, dy].into()
+        Some([dx, dy].into())
     }
 
     //fp get_pm_sq_error
     #[inline]
     fn get_pm_sq_error(&self, pm: &PointMapping) -> f64 {
-        let esq = self.get_pm_dxdy(pm).length_sq();
-        esq * esq / (esq + pm.error() * pm.error())
+        if pm.is_unmapped() {
+            0.0
+        } else {
+            let esq = self.get_pm_dxdy(pm).unwrap().length_sq();
+            esq * esq / (esq + pm.error() * pm.error())
+        }
     }
 
     //fp get_pm_model_error
@@ -211,6 +218,9 @@ impl CameraShowMapping for CameraInstance {
     //fp show_point_set
     fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
+            if model.is_unmapped() {
+                continue;
+            }
             let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model());
             eprintln!(
                 "model {} : {} maps to {}",
@@ -223,9 +233,12 @@ impl CameraShowMapping for CameraInstance {
 
     //fp show_pm_error
     fn show_pm_error(&self, pm: &PointMapping) {
+        if pm.is_unmapped() {
+            return;
+        }
         let camera_scr_xy = self.world_xyz_to_px_abs_xy(pm.model());
         let (model_error, model_dxdy, model_angle, model_axis) = self.get_pm_model_error(pm);
-        let dxdy = self.get_pm_dxdy(pm);
+        let dxdy = self.get_pm_dxdy(pm).unwrap();
         let esq = self.get_pm_sq_error(pm);
         eprintln!(
             "esq {:.2} {} {} <> {:.2}: Maps to {:.2}, dxdy {:.2}: model rot {:.2} by {:.2} dxdydz {:.2} dist {:.3}  ",
@@ -270,6 +283,9 @@ impl CameraAdjustMapping for CameraInstance {
             let n = mappings.len();
             qs.push((10. * (n as f64), [0., 0., 0., 1.]));
             for m in mappings {
+                if m.is_unmapped() {
+                    continue;
+                }
                 let d_c = self.get_pm_direction(m);
                 let d_m = (m.model() - self.location()).normalize();
                 let q = quat::rotation_of_vec_to_vec(&d_c.into(), &d_m.into());
