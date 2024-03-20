@@ -136,9 +136,6 @@ pub use rotations::Rotations;
 mod regions;
 pub use regions::Region;
 
-mod model_data;
-pub use model_data::*;
-
 mod ray;
 pub use ray::Ray;
 
