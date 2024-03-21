@@ -297,13 +297,13 @@ impl std::fmt::Display for CameraPolynomial {
 //ip CameraProjection for CameraPolynomial
 impl CameraProjection for CameraPolynomial {
     /// Get name of camera
-    fn camera_name(&self) -> &str {
-        self.body.name()
+    fn camera_name(&self) -> String {
+        self.body.name().into()
     }
 
     /// Get name of lens
-    fn lens_name(&self) -> &str {
-        self.lens.name()
+    fn lens_name(&self) -> String {
+        self.lens.name().into()
     }
 
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {

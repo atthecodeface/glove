@@ -54,10 +54,10 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 /// focusing distance
 pub trait CameraProjection: std::fmt::Debug {
     /// Name of the camera, for recording in files
-    fn camera_name(&self) -> &str;
+    fn camera_name(&self) -> String;
 
     /// Name of the lens, for recording in files
-    fn lens_name(&self) -> &str;
+    fn lens_name(&self) -> String;
 
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
