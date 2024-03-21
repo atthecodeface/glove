@@ -193,28 +193,13 @@ fn locate_fn(
     let mappings = pms.mappings();
 
     let mut mls = ModelLineSet::new(&camera);
-    let n = mappings.len();
-    for i in 0..n {
-        let j = (i + 1) % n;
+    for (i, j) in pms.get_good_screen_pairs() {
         mls.add_line((&mappings[i], &mappings[j]));
-    }
-    let (mut location, mut err) = mls.find_approx_location_using_pt(0, 30, 500);
-    for i in 1..mls.num_lines() {
-        let (l, e) = mls.find_approx_location_using_pt(i, 30, 500);
-        if e < err {
-            err = e;
-            location = l;
+        if mls.num_lines() > 8 {
+            break;
         }
     }
-    eprintln!("Best location {location} : err {err}");
-    for i in 0..10 {
-        let fraction = 200.0 * (1.4_f64).powi(i);
-        while let Some((l, e)) = mls.find_better_min_err_location(location, fraction) {
-            location = l;
-            err = e;
-        }
-    }
-    eprintln!("Better location {location} : err {err}");
+    let (location, _err) = mls.find_best_min_err_location(30, 500);
 
     let camera = camera.placed_at(location);
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());

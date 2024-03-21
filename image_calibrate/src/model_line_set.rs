@@ -16,7 +16,9 @@ pub struct ModelLine {
 
 //ip ModelLine
 impl ModelLine {
+    #[track_caller]
     pub fn new(p0: Point3D, p1: Point3D) -> Self {
+        assert!((p0 - p1).length() > 1E-10);
         Self { pts: [p0, p1] }
     }
     pub fn mid_point(&self) -> Point3D {
@@ -334,6 +336,7 @@ impl ModelLineSet {
         }
     }
 
+    //cp
     //mi derive_model_cog
     pub fn derive_model_cog(&mut self) {
         if self.model_cog.is_zero() {
@@ -365,6 +368,7 @@ impl ModelLineSet {
         let model_line = ModelLine::new(model_p0, model_p1);
         let mls = ModelLineSubtended::new(&model_line, angle);
         let n = self.lines.len();
+        eprintln!("push {mls:?}");
         self.lines.push(mls);
         self.model_cog = Point3D::zero();
         Some(n)
@@ -427,4 +431,29 @@ impl ModelLineSet {
         let (moved, err, pt) = utils::better_pt(&pt, &dp, &f, 26, 0.7);
         moved.then_some((pt, err))
     }
+
+    //mp find_best_min_err_location
+    pub fn find_best_min_err_location(&self, n_phi: usize, n_theta: usize) -> (Point3D, f64) {
+        let (mut location, mut err) = self.find_approx_location_using_pt(0, n_phi, n_theta);
+        for i in 1..self.num_lines() {
+            let (l, e) = self.find_approx_location_using_pt(i, n_phi, n_theta);
+            if e < err {
+                err = e;
+                location = l;
+            }
+        }
+        eprintln!("Best location {location} : err {err}");
+
+        for i in 0..10 {
+            let fraction = 200.0 * (1.4_f64).powi(i);
+            while let Some((l, e)) = self.find_better_min_err_location(location, fraction) {
+                location = l;
+                err = e;
+            }
+        }
+        eprintln!("Better location {location} : err {err}");
+        (location, err)
+    }
+
+    //zz All done
 }

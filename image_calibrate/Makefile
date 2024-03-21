@@ -141,8 +141,8 @@ locate_gpm_base:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
 
 locate_gpm_all:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC}    --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_LOC}    --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
 
 create_rays_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} ${ICAL_RAYS_FROM_CAMERA} --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --camera ${OUTPUT_DIR}oriented_${IMAGE}.json > ${OUTPUT_DIR}rays_fc_${IMAGE}.json
@@ -172,8 +172,8 @@ combine_model_rays_gpm:
 	@echo "********************************************************************************"
 	@echo "Trying to determine better location + orientation for cameras ${IMAGE} using rays from models"
 	@echo "********************************************************************************"
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_COMB_MODEL} --camera ${OUTPUT_DIR}${LOC_OR_ORIENT}_${IMAGE}.json --rays ${OUTPUT_DIR}rays_fm_${IMAGE}.json > ${OUTPUT_DIR}relocated_${IMAGE}.json
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}relocated_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}reoriented_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_COMB_MODEL} --camera ${OUTPUT_DIR}oriented_${IMAGE}.json   --rays ${OUTPUT_DIR}rays_fm_${IMAGE}.json > ${OUTPUT_DIR}relocated_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_ORIENT}     --camera ${OUTPUT_DIR}relocated_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}reoriented_${IMAGE}.json
 
 # Orient using all
 #

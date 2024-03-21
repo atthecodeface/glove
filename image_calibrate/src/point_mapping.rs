@@ -1,6 +1,8 @@
 //a Imports
+use std::collections::HashSet;
 use std::rc::Rc;
 
+use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
 use crate::{json, Color, NamedPoint, NamedPointSet, Point2D, Point3D};
@@ -238,6 +240,69 @@ impl PointMappingSet {
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
         self.mappings.iter().find(|pm| Rc::ptr_eq(np, &pm.model))
+    }
+
+    //mp get_screen_pts
+    pub fn get_screen_pts(&self) -> Vec<Point2D> {
+        self.mappings.iter().map(|x| x.screen).collect()
+    }
+
+    //mp get_good_screen_pairs
+    pub fn get_good_screen_pairs(&self) -> Vec<(usize, usize)> {
+        let cog = self
+            .mappings
+            .iter()
+            .fold(Point2D::default(), |acc, m| acc + m.screen);
+        let cog = cog / (self.mappings.len() as f64);
+        let mut v: Vec<(usize, usize, f64, Point2D)> = self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(n, m)| !m.is_unmapped())
+            .map(|(n, m)| {
+                let pxy = (*m).screen - cog;
+                (n, 0, pxy.length(), pxy)
+            })
+            .collect();
+        v.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap().reverse());
+        let mut pairs = vec![];
+        let mut used_pairs: HashSet<(usize, usize)> = HashSet::default();
+        for i in 0..v.len() {
+            let mut furthest_v = i;
+            let mut max_d = 0.0;
+            for j in 0..v.len() {
+                if i == j {
+                    continue;
+                }
+                if used_pairs.contains(&(i, j)) {
+                    continue;
+                }
+                let d = (v[i].3 - v[j].3).length() / ((1 + v[i].1 + v[j].1 + 1) as f64);
+                if d > max_d {
+                    furthest_v = j;
+                    max_d = d;
+                }
+            }
+            if furthest_v == i {
+                continue;
+            }
+            pairs.push((v[i].0, v[furthest_v].0));
+            used_pairs.insert((i, furthest_v));
+            used_pairs.insert((furthest_v, i));
+            v[i].1 += 1;
+            v[furthest_v].1 += 1;
+        }
+        let dgb: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(x, y)| {
+                (
+                    self.mappings[*x].name().to_owned(),
+                    self.mappings[*y].name().to_owned(),
+                )
+            })
+            .collect();
+        eprintln!("Pairs : {:?}", dgb);
+        pairs
     }
 }
 
