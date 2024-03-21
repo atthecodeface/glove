@@ -265,7 +265,7 @@ impl PointMappingSet {
             })
             .collect();
         v.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap().reverse());
-        let mut pairs = vec![];
+        let mut pairs: Vec<(usize, usize)> = vec![];
         let mut used_pairs: HashSet<(usize, usize)> = HashSet::default();
         for i in 0..v.len() {
             let mut furthest_v = i;
@@ -277,7 +277,17 @@ impl PointMappingSet {
                 if used_pairs.contains(&(i, j)) {
                     continue;
                 }
-                let d = (v[i].3 - v[j].3).length() / ((1 + v[i].1 + v[j].1 + 1) as f64);
+                let d_ij = v[i].3 - v[j].3;
+                let mut d = 0.0;
+                if pairs.is_empty() {
+                    d = d_ij.length() / ((1 + v[i].1 + v[j].1 + 1) as f64);
+                } else {
+                    for k in 0..pairs.len() {
+                        let d_ik =
+                            self.mappings[pairs[k].0].screen - self.mappings[pairs[k].1].screen;
+                        d += (d_ij[0] * d_ik[1] - d_ij[1] * d_ik[0]).abs();
+                    }
+                }
                 if d > max_d {
                     furthest_v = j;
                     max_d = d;
