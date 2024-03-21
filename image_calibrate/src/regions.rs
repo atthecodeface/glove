@@ -6,9 +6,10 @@ use crate::image::{DynamicImage, GenericImageView, Image};
 use crate::Color;
 
 //a Regions
-//ti Region
-/// A region of an image of a color, with the centre-of-gravity
-/// determination
+//tp Region
+/// This structure summarizes a region of an Image that is (for
+/// example) of a single color, with the ability to determine the
+/// centre-of-gravity and some idea of spread (size of the region)
 ///
 /// Regions can be merged if they adjoin and are of the same color
 #[derive(Debug, Default, Clone, Serialize)]

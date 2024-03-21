@@ -49,13 +49,14 @@ impl std::fmt::Display for CameraInstance {
         let dxyz = quat::apply3(&quat::conjugate(self.direction.as_ref()), &[0., 0., 1.]);
         // First rotation around Y axis (yaw)
         let yaw = dxyz[0].atan2(dxyz[2]).to_degrees();
+        let (axis, angle) = quat::as_axis_angle(self.direction.as_ref());
         // Then rotation around X axis (elevation)
         let pitch = dxyz[1]
             .atan2((dxyz[0] * dxyz[0] + dxyz[2] * dxyz[2]).sqrt())
             .to_degrees();
         write!(
             fmt,
-            "@[{:.2},{:.2},{:.2}] yaw {:.4} pitch {:.4} + [{:.2},{:.2},{:.2}]",
+            "@[{:.2},{:.2},{:.2}] yaw {:.4} pitch {:.4} unit dir [{:.2},{:.2},{:.2}] (q axis {:.3},{:.3},{:.3} angle {:.2}",
             self.position[0],
             self.position[1],
             self.position[2],
@@ -63,7 +64,11 @@ impl std::fmt::Display for CameraInstance {
             pitch,
             dxyz[0],
             dxyz[1],
-            dxyz[2]
+            dxyz[2],
+            axis[0],
+            axis[1],
+            axis[2],
+            angle.to_degrees()
         )
     }
 }

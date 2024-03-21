@@ -1,10 +1,10 @@
 //a Imports
-use geo_nd::{quat, Quaternion, Vector, Vector3};
+use geo_nd::{matrix, quat, Quaternion, SqMatrix, Vector, Vector3};
 use serde::Serialize;
 
 use crate::{
-    BestMapping, CameraInstance, CameraView, NamedPointSet, Point2D, Point3D, PointMapping, Quat,
-    Ray, Rotations,
+    BestMapping, CameraInstance, CameraView, Mat3x3, NamedPointSet, Point2D, Point3D, PointMapping,
+    Quat, Ray, Rotations,
 };
 
 //a CameraPtMapping
@@ -13,6 +13,7 @@ pub trait CameraPtMapping {
     fn get_pm_dxdy(&self, pm: &PointMapping) -> Option<Point2D>;
     fn get_pm_sq_error(&self, pm: &PointMapping) -> f64;
     fn get_pm_model_error(&self, pm: &PointMapping) -> (f64, Point3D, f64, Point3D);
+    fn get_pm_unit_vector(&self, pm: &PointMapping) -> Point3D;
     fn get_pm_direction(&self, pm: &PointMapping) -> Point3D;
     fn get_pm_as_ray(&self, pm: &PointMapping, from_camera: bool) -> Ray;
     fn get_rays(&self, mappings: &[PointMapping], from_camera: bool) -> Vec<(String, Ray)> {
@@ -74,8 +75,16 @@ impl CameraPtMapping for CameraInstance {
         }
     }
 
-    //mp get_pm_direction
+    //mp get_pm_unit_vector
     /// Get the direction vector for the frame point of a mapping
+    fn get_pm_unit_vector(&self, pm: &PointMapping) -> Point3D {
+        let screen_xy = pm.screen();
+        self.px_abs_xy_to_camera_txty(screen_xy).to_unit_vector()
+    }
+
+    //mp get_pm_direction
+    /// Get the direction vector for the frame point of a mapping in
+    /// the world (post-orientation of camera)
     fn get_pm_direction(&self, pm: &PointMapping) -> Point3D {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
@@ -270,11 +279,111 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     // Used internally
     fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D;
     fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self>;
+    fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64;
     fn reorient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64;
 }
 
 //ip CameraAdjustMapping for CameraInstance
 impl CameraAdjustMapping for CameraInstance {
+    //fp orient_using_rays_from_model
+    fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64 {
+        let n = mappings.len();
+        assert!(n > 2);
+        let mut qs = vec![];
+        eprintln!("Befpre orient {self:?}");
+        for i in 0..n {
+            let pm = &mappings[i];
+            if pm.is_unmapped() {
+                continue;
+            }
+            let screen_xy = pm.screen();
+            let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+            let di_c = camera_pm_txty.to_unit_vector();
+            let di_m = (self.location() - pm.model()).normalize();
+            let z_axis: Point3D = [0., 0., 1.].into();
+            let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
+
+            for j in 0..n {
+                let pm = &mappings[j];
+                if pm.is_unmapped() {
+                    continue;
+                }
+                if i == j {
+                    continue;
+                }
+
+                let screen_xy = pm.screen();
+                let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+                let dj_c = camera_pm_txty.to_unit_vector();
+                let dj_m = (self.location() - pm.model()).normalize();
+
+                let qi_m: Quat = quat::rotation_of_vec_to_vec(&di_m.into(), &z_axis.into()).into();
+                let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
+                let dj_m_rotated: Point3D = quat::apply3(qi_m.as_ref(), dj_m.as_ref()).into();
+
+                let theta_dj_m = dj_m_rotated[0].atan2(dj_m_rotated[1]);
+                let theta_dj_c = dj_c_rotated[0].atan2(dj_c_rotated[1]);
+                let theta = theta_dj_m - theta_dj_c;
+                let theta_div_2 = theta / 2.0;
+                let cos_2theta = theta_div_2.cos();
+                let sin_2theta = theta_div_2.sin();
+                let q_z = Quat::of_rijk(cos_2theta, 0.0, 0.0, sin_2theta);
+
+                // At this point, qi_m * di_m = (0,0,1)
+                //
+                // At this point, q_z.conj * qi_m * di_m = (0,0,1)
+                //                q_z.conj * qi_m * dj_m = dj_c_rotated
+                //
+                let q = qi_c.conjugate() * q_z * qi_m;
+
+                // dc_i === quat::apply3(q.as_ref(), di_m.as_ref()).into();
+                // dc_j === quat::apply3(q.as_ref(), dj_m.as_ref()).into();
+                // eprintln!("{di_c} ==? {:?}", quat::apply3(q.as_ref(), di_m.as_ref()));
+                // eprintln!("{dj_c} ==? {:?}", quat::apply3(q.as_ref(), dj_m.as_ref()));
+                self.set_direction(q);
+                let te = self.total_error(mappings);
+                // eprintln!("total error {te} : {q} :\n   {self}");
+
+                qs.push((1., q.into()));
+            }
+        }
+
+        let qr = quat::weighted_average_many(qs.into_iter()).into();
+        self.set_direction(qr);
+        let te = self.total_error(mappings);
+        eprintln!("total error {te} QR: {qr}");
+        te
+        /*
+        let mut last_te = self.total_error(mappings);
+        loop {
+            // Find directions to each named point as given by camera (on frame) and by model (model point - camera location)
+            let mut qs = vec![];
+            let n = mappings.len();
+            qs.push((10. * (n as f64), [0., 0., 0., 1.]));
+            for m in mappings {
+                if m.is_unmapped() {
+                    continue;
+                }
+                let d_c = self.get_pm_direction(m);
+                let d_m = (m.model() - self.location()).normalize();
+                let q = quat::rotation_of_vec_to_vec(&d_c.into(), &d_m.into());
+                qs.push((1., q));
+            }
+            let qr = quat::weighted_average_many(qs.into_iter()).into();
+
+            let maybe_improved = self.clone_rotated_by(&qr);
+            let te = maybe_improved.total_error(mappings);
+            if te > last_te {
+                break;
+            }
+            last_te = te;
+            self.set_direction(maybe_improved.direction());
+        }
+        last_te
+         */
+    }
+
+    //fp reorient_using_rays_from_model
     fn reorient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64 {
         let mut last_te = self.total_error(mappings);
         loop {

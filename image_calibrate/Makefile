@@ -1,6 +1,6 @@
 IMG_CAL = ./target/release/image_calibrate
 ICAL_LOC = locate --steps=100
-ICAL_ORIENT = reorient
+ICAL_ORIENT = orient
 ICAL_IMG = image --pms_color "\#ffff00" --model_color "\#00ffff"
 ICAL_RAYS_FROM_MODEL = create_rays_from_model
 ICAL_RAYS_FROM_CAMERA = create_rays_from_camera
@@ -27,7 +27,7 @@ NPS_BASE = --nps ${NPS_BASE_JSON}
 NPS_ALL = --nps ${NPS_BASE_JSON} --nps ${NPS_ALL_JSON}
 NPS_GPM = --nps ${NPS_BASE_JSON} --nps ${OUTPUT_DIR}nps_gpm.json
 
-IMAGE = 4v3a6042
+IMAGE = 4v3a6040
 IMAGE_GRID = 4v3a6028
 
 ${IMG_CAL}: build
@@ -64,33 +64,8 @@ rays_from_model: ${IMAGE}_rays_from_model.json
 ${IMAGE}_rays_from_model.json: ${IMG_CAL}
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_RAYS_FROM_MODEL} --pms pms_nac_${IMAGE}.json --camera located_${IMAGE}.json > $@
 
-.PHONY: blah
-blah:
-	# $(MAKE) build
-	$(MAKE) IMAGE=4v3a6040 locate
-	$(MAKE) IMAGE=4v3a6041 locate
-	$(MAKE) IMAGE=4v3a6042 locate
-	$(MAKE) IMAGE=4v3a6040 create_rays
-	$(MAKE) IMAGE=4v3a6041 create_rays
-	$(MAKE) IMAGE=4v3a6042 create_rays
-	$(MAKE) IMAGE=4v3a6040 rays_from_model
-	$(MAKE) IMAGE=4v3a6041 rays_from_model
-	$(MAKE) IMAGE=4v3a6042 rays_from_model
-	$(MAKE) combine_rays
-
-.PHONY: blah2
-blah2:
-	# $(MAKE) build
-	$(MAKE) IMAGE=4v3a6040 create_rays
-	$(MAKE) IMAGE=4v3a6041 create_rays
-	$(MAKE) IMAGE=4v3a6042 create_rays
-	$(MAKE) IMAGE=4v3a6040 rays_from_model
-	$(MAKE) IMAGE=4v3a6041 rays_from_model
-	$(MAKE) IMAGE=4v3a6042 rays_from_model
-	$(MAKE) combine_rays
-
-.PHONY: locate_all
-locate_all:
+.PHONY: locate_all_training
+locate_all_training:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6040.json --pms pms_nac_4v3a6040_training.json > located_4v3a6040.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6041.json --pms pms_nac_4v3a6041_training.json > located_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC} --camera camera_nac_4v3a6042.json --pms pms_nac_4v3a6042_training.json > located_4v3a6042.json
@@ -132,7 +107,7 @@ wibble: ${IMG_CAL}
 
 .PHONY: get_model_points
 get_model_points: ${IMG_CAL}
-	${IMG_CAL} ${CAMERA_DB} ${NPS} get_model_points oriented_4v3a6040.json pms_nac_4v3a6040.json located_4v3a6041.json pms_nac_4v3a6041.json located_4v3a6042.json pms_nac_4v3a6042.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS} get_model_points located_4v3a6040.json pms_nac_4v3a6040.json located_4v3a6041.json pms_nac_4v3a6041.json located_4v3a6042.json pms_nac_4v3a6042.json
 
 
 .PHONY: x
@@ -161,17 +136,13 @@ get_point_mappings: ${IMG_CAL}
 # Locate given the base set of named points
 #
 # Generate the located_${IMAGE}.json
-locate_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC} --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
+locate_gpm_base:
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC}    --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
 
-# Orient using all
-#
-# Generate the oriented_${IMAGE}.json
-orient_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
-
-orient2_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} reorient2 --camera ${OUTPUT_DIR}located_${IMAGE}.json --pms ${OUTPUT_DIR}pms_base_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
+locate_gpm_all:
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC}    --camera ${DATA_DIR}camera_nac_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}located_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}located_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}oriented_${IMAGE}.json
 
 create_rays_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} ${ICAL_RAYS_FROM_CAMERA} --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --camera ${OUTPUT_DIR}oriented_${IMAGE}.json > ${OUTPUT_DIR}rays_fc_${IMAGE}.json
@@ -179,7 +150,8 @@ create_rays_gpm:
 combine_rays_gpm:
 	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} ${ICAL_COMB_CAMERA} ${OUTPUT_DIR}rays_fc_4v3a6040.json ${OUTPUT_DIR}rays_fc_4v3a6041.json ${OUTPUT_DIR}rays_fc_4v3a6042.json
 
-LOC_OR_ORIENT = "oriented"
+# LOC_OR_ORIENT = located
+LOC_OR_ORIENT = oriented
 
 get_model_points_gpm:
 	@echo "********************************************************************************"
@@ -198,21 +170,19 @@ create_model_rays_gpm:
 
 combine_model_rays_gpm:
 	@echo "********************************************************************************"
-	@echo "Trying to determine better location for cameras ${IMAGE} using rays from models"
+	@echo "Trying to determine better location + orientation for cameras ${IMAGE} using rays from models"
 	@echo "********************************************************************************"
 	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_COMB_MODEL} --camera ${OUTPUT_DIR}${LOC_OR_ORIENT}_${IMAGE}.json --rays ${OUTPUT_DIR}rays_fm_${IMAGE}.json > ${OUTPUT_DIR}relocated_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}relocated_${IMAGE}.json  --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}reoriented_${IMAGE}.json
 
 # Orient using all
 #
 # Generate the oriented2_${IMAGE}.json
 reorient_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_ORIENT} --camera ${OUTPUT_DIR}relocated_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json > ${OUTPUT_DIR}reoriented_${IMAGE}.json
-
-reorient2_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} reorient2 --camera ${OUTPUT_DIR}relocated_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json >  ${OUTPUT_DIR}reoriented_${IMAGE}.json
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} reorient --camera ${OUTPUT_DIR}relocated_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json >  ${OUTPUT_DIR}reoriented_${IMAGE}.json
 
 image2_gpm:
-	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_IMG} --camera ${OUTPUT_DIR}reoriented_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${OUTPUT_DIR}gpm2_${IMAGE}.png
+	${IMG_CAL} ${CAMERA_DB} ${NPS_GPM} ${ICAL_IMG} --camera ${OUTPUT_DIR}oriented_${IMAGE}.json --pms ${OUTPUT_DIR}pms_all_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${OUTPUT_DIR}gpm2_${IMAGE}.png
 
 cp_reorient_gpm:
 	cp ${OUTPUT_DIR}reoriented_${IMAGE}.json ${OUTPUT_DIR}oriented_${IMAGE}.json
@@ -221,44 +191,38 @@ start_gpm: ${IMG_CAL}
 	$(MAKE) IMAGE=4v3a6040 get_point_mappings
 	$(MAKE) IMAGE=4v3a6041 get_point_mappings
 	$(MAKE) IMAGE=4v3a6042 get_point_mappings
-	# $(MAKE) IMAGE=4v3a6040 locate_gpm
-	# $(MAKE) IMAGE=4v3a6041 locate_gpm
-	# $(MAKE) IMAGE=4v3a6042 locate_gpm
-	$(MAKE) IMAGE=4v3a6040 orient2_gpm
-	$(MAKE) IMAGE=4v3a6041 orient2_gpm
-	$(MAKE) IMAGE=4v3a6042 orient2_gpm
+	$(MAKE) IMAGE=4v3a6040 locate_gpm_base
+	$(MAKE) IMAGE=4v3a6041 locate_gpm_base
+	$(MAKE) IMAGE=4v3a6042 locate_gpm_base
 
 do_gpm: ${IMG_CAL}
 	$(MAKE) get_model_points_gpm
 	$(MAKE) IMAGE=4v3a6040 image_gpm
 	$(MAKE) IMAGE=4v3a6041 image_gpm
 	$(MAKE) IMAGE=4v3a6042 image_gpm
+
 	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 reorient2_gpm
-	$(MAKE) IMAGE=4v3a6041 reorient2_gpm
-	$(MAKE) IMAGE=4v3a6042 reorient2_gpm
+
+	$(MAKE) IMAGE=4v3a6040 locate_gpm_all
+	$(MAKE) IMAGE=4v3a6041 locate_gpm_all
+	$(MAKE) IMAGE=4v3a6042 locate_gpm_all
+
 	$(MAKE) IMAGE=4v3a6040 image2_gpm
 	$(MAKE) IMAGE=4v3a6041 image2_gpm
 	$(MAKE) IMAGE=4v3a6042 image2_gpm
 
-cp_gpm:
-	$(MAKE) IMAGE=4v3a6040 cp_reorient_gpm
-	$(MAKE) IMAGE=4v3a6041 cp_reorient_gpm
-	$(MAKE) IMAGE=4v3a6042 cp_reorient_gpm
-
 all_gpm:
 	$(MAKE) start_gpm
 	$(MAKE) do_gpm
-	$(MAKE) cp_gpm
-	$(MAKE) do_gpm
+	$(MAKE) iter_gpm
+	$(MAKE) all_image2_gpm
 
 iter_gpm: ${IMG_CAL}
-	$(MAKE) cp_gpm
 	$(MAKE) get_model_points_gpm
 	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
@@ -266,10 +230,14 @@ iter_gpm: ${IMG_CAL}
 	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
 	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 reorient2_gpm
-	$(MAKE) IMAGE=4v3a6041 reorient2_gpm
-	$(MAKE) IMAGE=4v3a6042 reorient2_gpm
+	$(MAKE) IMAGE=4v3a6040 cp_reorient_gpm
+	$(MAKE) IMAGE=4v3a6041 cp_reorient_gpm
+	$(MAKE) IMAGE=4v3a6042 cp_reorient_gpm
 
+all_image2_gpm:
+	$(MAKE) IMAGE=4v3a6040 image2_gpm
+	$(MAKE) IMAGE=4v3a6041 image2_gpm
+	$(MAKE) IMAGE=4v3a6042 image2_gpm
 
 iter_gpm5: ${IMG_CAL}
 	$(MAKE) iter_gpm

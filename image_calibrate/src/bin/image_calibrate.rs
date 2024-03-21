@@ -2,12 +2,11 @@
 use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
-use geo_nd::{quat, vector, Vector};
+use geo_nd::{quat, vector};
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, json, BestMapping, CameraAdjustMapping, CameraDatabase, CameraMapping,
-    CameraPtMapping, CameraShowMapping, CameraView, Color, NamedPointSet, Point3D, PointMappingSet,
-    Ray, Region,
+    cmdline_args, image, json, BestMapping, CameraAdjustMapping, CameraDatabase, CameraPtMapping,
+    CameraShowMapping, Color, ModelLineSet, NamedPointSet, Point3D, PointMappingSet, Ray, Region,
 };
 
 //a Types
@@ -193,79 +192,81 @@ fn locate_fn(
     let camera = cmdline_args::get_camera(matches, &cdb)?;
     let mappings = pms.mappings();
 
-    let mut steps = 11;
-    if let Some(s) = matches.get_one::<usize>("steps") {
-        steps = *s;
+    let mut mls = ModelLineSet::new(&camera);
+    let n = mappings.len();
+    for i in 0..n {
+        let j = (i + 1) % n;
+        mls.add_line((&mappings[i], &mappings[j]));
     }
-    if !(1..=100).contains(&steps) {
-        return Err(format!(
-            "Steps value should be between 1 and 100: was given {}",
-            steps
-        ));
+    let (mut location, mut err) = mls.find_approx_location_using_pt(0, 30, 500);
+    for i in 1..mls.num_lines() {
+        let (l, e) = mls.find_approx_location_using_pt(i, 30, 500);
+        if e < err {
+            err = e;
+            location = l;
+        }
     }
+    eprintln!("Best location {location} : err {err}");
+    for i in 0..10 {
+        let fraction = 200.0 * (1.4_f64).powi(i);
+        while let Some((l, e)) = mls.find_better_min_err_location(location, fraction) {
+            location = l;
+            err = e;
+        }
+    }
+    eprintln!("Better location {location} : err {err}");
 
-    let best_mapping = camera.get_best_location(mappings, steps);
-
-    eprintln!("Best location {}", best_mapping);
-    let camera = best_mapping.into_data();
-    camera.show_mappings(mappings);
-
+    let camera = camera.placed_at(location);
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
 }
 
-//a Reorient
-//fi reorient_cmd
-fn reorient_cmd() -> (Command, SubCmdFn) {
-    let cmd =
-        Command::new("reorient").about("Improve orientation for a camera to map points to model");
+//a orient / reorient
+//hi ORIENT_LONG_HELP
+const ORIENT_LONG_HELP: &str = "\
+Use consecutive pairs of point mappings to determine a camera
+orientation, and average them.
+
+*An* orientation is generated to rotate the first of each pair of
+point mappings to the Z axis from its screen direction, and from its
+to-model direction; these are applied to the second points in the
+pairs, and then a rotation around the Z axis to map on onto the other
+(assumming the angle they subtend is the same!) is generated. This
+yields three quaternions which are combined to generate an orientation
+of the camera.
+
+The orientations from each pair of point mappings should be identical;
+an average is generated, and the camera orientation set to this.
+
+";
+
+//fi orient_cmd
+fn orient_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("orient")
+        .about("Set the orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
-    (cmd, reorient_fn)
+    (cmd, orient_fn)
 }
 
-//fi reorient_fn
-fn reorient_fn(
+//fi orient_fn
+fn orient_fn(
     cdb: CameraDatabase,
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
     let pms = cmdline_args::get_pms(matches, &nps)?;
-    let camera = cmdline_args::get_camera(matches, &cdb)?;
-    let mappings = pms.mappings();
+    let mut camera = cmdline_args::get_camera(matches, &cdb)?;
 
-    // use worst error
-    let mut cam = camera.clone();
-    let mut best_mapping = BestMapping::new(true, cam.clone());
-    loop {
-        let mut q_list: Vec<(f64, [f64; 4])> = vec![];
-        for i in 0..mappings.len() {
-            for q in cam.get_quats_for_mappings_given_one(mappings, i) {
-                q_list.push((1.0, q.into()));
-            }
-        }
-        let qr = quat::weighted_average_many(q_list.into_iter()).into();
-        cam = cam.clone_with_direction(qr);
-        let we = cam.worst_error(mappings);
-        let te = cam.total_error(mappings);
-        if !best_mapping.update_best(we, te, &cam) {
-            break;
-        }
-        let location = cam.get_location_given_direction(mappings);
-        cam = cam.placed_at(location);
-    }
-
-    eprintln!("Best mapping {}", best_mapping);
-    let camera = best_mapping.into_data();
-    camera.show_mappings(mappings);
+    camera.orient_using_rays_from_model(pms.mappings());
 
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
 }
 
-//hi REORIENT2_LONG_HELP
-const REORIENT2_LONG_HELP: &str = "\
-
+//hi REORIENT_LONG_HELP
+const REORIENT_LONG_HELP: &str = "\
 Iteratively reorient the camera by determining the axis and amount *each* PMS
 mapped point wants to rotate by, and rotating by the weighted
 average.
@@ -285,18 +286,18 @@ error in the mapping than the current orientation of the camera.
 
 ";
 
-//fi reorient2_cmd
-fn reorient2_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("reorient2")
+//fi reorient_cmd
+fn reorient_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("reorient")
         .about("Improve orientation for a camera to map points to model")
-        .long_about(REORIENT2_LONG_HELP);
+        .long_about(REORIENT_LONG_HELP);
     let cmd = cmdline_args::add_pms_arg(cmd, true);
     let cmd = cmdline_args::add_camera_arg(cmd, true);
-    (cmd, reorient2_fn)
+    (cmd, reorient_fn)
 }
 
-//fi reorient2_fn
-fn reorient2_fn(
+//fi reorient_fn
+fn reorient_fn(
     cdb: CameraDatabase,
     nps: NamedPointSet,
     matches: &clap::ArgMatches,
@@ -651,8 +652,8 @@ fn main() -> Result<(), String> {
         show_mappings_cmd(),
         get_point_mappings_cmd(),
         locate_cmd(),
+        orient_cmd(),
         reorient_cmd(),
-        reorient2_cmd(),
         combine_rays_from_model_cmd(),
         combine_rays_from_camera_cmd(),
         create_rays_from_model_cmd(),

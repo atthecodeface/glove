@@ -7,7 +7,7 @@ use crate::{json, Color, NamedPoint, NamedPointSet, Point2D, Point3D};
 
 //a PointMapping
 //tp PointMapping
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PointMapping {
     /// The 3D model coordinate this point corresponds to
     ///
@@ -245,18 +245,20 @@ impl PointMappingSet {
 //ft test_json_1
 #[test]
 fn test_json_1() -> Result<(), String> {
+    let c = Color::black();
     let mut nps = NamedPointSet::default();
-    nps.add_pt("fred", [1., 2., 3.].into());
+    nps.add_pt("fred", c, Some([1., 2., 3.].into()));
     let mut pms = PointMappingSet::new();
     pms.add_mapping(&nps, "fred", &[1., 2.].into(), 5.0);
     let s = pms.to_json()?;
     assert_eq!(s, r#"[["fred",[1.0,2.0],5.0]]"#);
-    let pms = PointMappingSet::from_json(
+    let (pms, warnings) = PointMappingSet::from_json(
         &nps,
         r#"
 [["fred", [1, 2], 5.0]]
 "#,
     )?;
+    assert!(warnings.is_empty());
     assert_eq!(pms.mappings().len(), 1);
     assert_eq!(pms.mappings()[0].name(), "fred");
     assert_eq!(pms.mappings()[0].screen()[0], 1.0);

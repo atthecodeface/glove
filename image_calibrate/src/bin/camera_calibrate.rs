@@ -5,8 +5,7 @@ use clap::Command;
 use geo_nd::quat;
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, polynomial, CameraDatabase, CameraMapping, CameraView, Point3D, RollYaw,
-    TanXTanY,
+    cmdline_args, image, polynomial, CameraDatabase, CameraView, Point3D, RollYaw, TanXTanY,
 };
 use polynomial::CalcPoly;
 
