@@ -1,9 +1,9 @@
 //a Imports
-use geo_nd::{matrix, quat, Quaternion, SqMatrix, Vector, Vector3};
+use geo_nd::{quat, Quaternion, Vector, Vector3};
 use serde::Serialize;
 
 use crate::{
-    BestMapping, CameraInstance, CameraView, Mat3x3, ModelLineSet, NamedPointSet, Point2D, Point3D,
+    BestMapping, CameraInstance, CameraView, ModelLineSet, NamedPointSet, Point2D, Point3D,
     PointMapping, PointMappingSet, Quat, Ray, Rotations,
 };
 
@@ -303,7 +303,7 @@ impl CameraAdjustMapping for CameraInstance {
         let n = mappings.len();
         assert!(n > 2);
         let mut qs = vec![];
-        eprintln!("Befpre orient {self:?}");
+        // eprintln!("Befpre orient {self:?}");
         for i in 0..n {
             let pm = &mappings[i];
             if pm.is_unmapped() {
@@ -354,8 +354,8 @@ impl CameraAdjustMapping for CameraInstance {
                 // eprintln!("{di_c} ==? {:?}", quat::apply3(q.as_ref(), di_m.as_ref()));
                 // eprintln!("{dj_c} ==? {:?}", quat::apply3(q.as_ref(), dj_m.as_ref()));
                 self.set_direction(q);
-                let te = self.total_error(mappings);
-                // eprintln!("total error {te} : {q} :\n   {self}");
+                let _te = self.total_error(mappings);
+                // eprintln!("total error {_te} : {q} :\n   {self}");
 
                 qs.push((1., q.into()));
             }

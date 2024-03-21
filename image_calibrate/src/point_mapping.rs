@@ -258,7 +258,7 @@ impl PointMappingSet {
             .mappings
             .iter()
             .enumerate()
-            .filter(|(n, m)| !m.is_unmapped())
+            .filter(|(_n, m)| !m.is_unmapped())
             .map(|(n, m)| {
                 let pxy = (*m).screen - cog;
                 (n, 0, pxy.length(), pxy)
@@ -302,16 +302,16 @@ impl PointMappingSet {
             v[i].1 += 1;
             v[furthest_v].1 += 1;
         }
-        let dgb: Vec<(String, String)> = pairs
-            .iter()
-            .map(|(x, y)| {
-                (
-                    self.mappings[*x].name().to_owned(),
-                    self.mappings[*y].name().to_owned(),
-                )
-            })
-            .collect();
-        eprintln!("Pairs : {:?}", dgb);
+        // let dgb: Vec<(String, String)> = pairs
+        //     .iter()
+        //     .map(|(x, y)| {
+        //         (
+        //             self.mappings[*x].name().to_owned(),
+        //             self.mappings[*y].name().to_owned(),
+        //         )
+        //     })
+        //     .collect();
+        // eprintln!("Pairs : {:?}", dgb);
         pairs
     }
 }

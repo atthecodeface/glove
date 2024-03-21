@@ -4,9 +4,8 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    image, json, CameraDatabase, CameraInstance, CameraMapping, CameraPolynomial,
-    CameraPolynomialCalibrate, CameraPtMapping, Color, NamedPoint, NamedPointSet, PointMapping,
-    PointMappingSet,
+    image, json, CameraDatabase, CameraInstance, CameraPolynomial, CameraPolynomialCalibrate,
+    CameraPtMapping, Color, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
 };
 use image::DynamicImage;
 
@@ -360,4 +359,22 @@ pub fn get_error_fn(
             |c, m, _n| c.total_error(m);
         error_method
     }
+}
+
+//a General
+//fp add_verbose_arg
+pub fn add_verbose_arg(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("verbose")
+            .long("verbose")
+            .short('v')
+            .help("Set verbosity")
+            .long_help("Set verbose")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_verbose
+pub fn get_verbose(matches: &ArgMatches) -> bool {
+    matches.get_one::<String>("verbose").is_some()
 }

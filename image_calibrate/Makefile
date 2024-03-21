@@ -1,4 +1,8 @@
-IMG_CAL = ./target/release/image_calibrate
+Q = @
+
+QMAKE = ${Q} ${MAKE} Q=${Q}
+
+IMG_CAL = ${Q} ./target/release/image_calibrate
 ICAL_LOC = locate --steps=100
 ICAL_ORIENT = orient
 ICAL_IMG = image --pms_color "\#ffff00" --model_color "\#00ffff"
@@ -188,60 +192,60 @@ cp_reorient_gpm:
 	cp ${OUTPUT_DIR}reoriented_${IMAGE}.json ${OUTPUT_DIR}oriented_${IMAGE}.json
 
 start_gpm: ${IMG_CAL}
-	$(MAKE) IMAGE=4v3a6040 get_point_mappings
-	$(MAKE) IMAGE=4v3a6041 get_point_mappings
-	$(MAKE) IMAGE=4v3a6042 get_point_mappings
-	$(MAKE) IMAGE=4v3a6040 locate_gpm_base
-	$(MAKE) IMAGE=4v3a6041 locate_gpm_base
-	$(MAKE) IMAGE=4v3a6042 locate_gpm_base
+	${QMAKE} IMAGE=4v3a6040 get_point_mappings
+	${QMAKE} IMAGE=4v3a6041 get_point_mappings
+	${QMAKE} IMAGE=4v3a6042 get_point_mappings
+	${QMAKE} IMAGE=4v3a6040 locate_gpm_base
+	${QMAKE} IMAGE=4v3a6041 locate_gpm_base
+	${QMAKE} IMAGE=4v3a6042 locate_gpm_base
 
 do_gpm: ${IMG_CAL}
-	$(MAKE) get_model_points_gpm
-	$(MAKE) IMAGE=4v3a6040 image_gpm
-	$(MAKE) IMAGE=4v3a6041 image_gpm
-	$(MAKE) IMAGE=4v3a6042 image_gpm
+	${QMAKE} get_model_points_gpm
+	${QMAKE} IMAGE=4v3a6040 image_gpm
+	${QMAKE} IMAGE=4v3a6041 image_gpm
+	${QMAKE} IMAGE=4v3a6042 image_gpm
 
-	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6040 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6041 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6042 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6040 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6041 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6042 combine_model_rays_gpm
 
-	$(MAKE) IMAGE=4v3a6040 locate_gpm_all
-	$(MAKE) IMAGE=4v3a6041 locate_gpm_all
-	$(MAKE) IMAGE=4v3a6042 locate_gpm_all
+	${QMAKE} IMAGE=4v3a6040 locate_gpm_all
+	${QMAKE} IMAGE=4v3a6041 locate_gpm_all
+	${QMAKE} IMAGE=4v3a6042 locate_gpm_all
 
-	$(MAKE) IMAGE=4v3a6040 image2_gpm
-	$(MAKE) IMAGE=4v3a6041 image2_gpm
-	$(MAKE) IMAGE=4v3a6042 image2_gpm
+	${QMAKE} IMAGE=4v3a6040 image2_gpm
+	${QMAKE} IMAGE=4v3a6041 image2_gpm
+	${QMAKE} IMAGE=4v3a6042 image2_gpm
 
 all_gpm:
-	$(MAKE) start_gpm
-	$(MAKE) do_gpm
-	$(MAKE) iter_gpm
-	$(MAKE) all_image2_gpm
+	${QMAKE} start_gpm
+	${QMAKE} do_gpm
+	${QMAKE} iter_gpm
+	${QMAKE} all_image2_gpm
 
 iter_gpm: ${IMG_CAL}
-	$(MAKE) get_model_points_gpm
-	$(MAKE) IMAGE=4v3a6040 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6041 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6042 create_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6041 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6042 combine_model_rays_gpm
-	$(MAKE) IMAGE=4v3a6040 cp_reorient_gpm
-	$(MAKE) IMAGE=4v3a6041 cp_reorient_gpm
-	$(MAKE) IMAGE=4v3a6042 cp_reorient_gpm
+	${QMAKE} get_model_points_gpm
+	${QMAKE} IMAGE=4v3a6040 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6041 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6042 create_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6040 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6041 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6042 combine_model_rays_gpm
+	${QMAKE} IMAGE=4v3a6040 cp_reorient_gpm
+	${QMAKE} IMAGE=4v3a6041 cp_reorient_gpm
+	${QMAKE} IMAGE=4v3a6042 cp_reorient_gpm
 
 all_image2_gpm:
-	$(MAKE) IMAGE=4v3a6040 image2_gpm
-	$(MAKE) IMAGE=4v3a6041 image2_gpm
-	$(MAKE) IMAGE=4v3a6042 image2_gpm
+	${QMAKE} IMAGE=4v3a6040 image2_gpm
+	${QMAKE} IMAGE=4v3a6041 image2_gpm
+	${QMAKE} IMAGE=4v3a6042 image2_gpm
 
 iter_gpm5: ${IMG_CAL}
-	$(MAKE) iter_gpm
-	$(MAKE) iter_gpm
-	$(MAKE) iter_gpm
-	$(MAKE) iter_gpm
-	$(MAKE) iter_gpm
+	${QMAKE} iter_gpm
+	${QMAKE} iter_gpm
+	${QMAKE} iter_gpm
+	${QMAKE} iter_gpm
+	${QMAKE} iter_gpm

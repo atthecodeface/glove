@@ -4,7 +4,7 @@ use std::default::Default;
 use geo_nd::{Vector, Vector3};
 use serde::{Deserialize, Serialize};
 
-use crate::{json, utils, CameraInstance, CameraPtMapping, Point3D, PointMapping};
+use crate::{utils, CameraInstance, CameraPtMapping, Point3D, PointMapping};
 
 //a ModelLine
 //tp ModelLine
@@ -50,6 +50,7 @@ impl ModelLine {
 
     //cp of_vector_eq
     /// From a vector equation p x direction = k
+    #[allow(dead_code)]
     pub fn of_vector_eq(direction: &Point3D, k: &Point3D) -> Self {
         let l = direction.length();
         let k = (*k) / l;
@@ -60,6 +61,7 @@ impl ModelLine {
     }
 
     //mp closest_pt_to_pt
+    #[allow(dead_code)]
     pub fn closest_pt_to_pt(&self, p: &Point3D) -> Point3D {
         let p = *p - self.pts[0];
         let d = self.pts[1] - self.pts[0];
@@ -69,6 +71,7 @@ impl ModelLine {
     }
     //mp cos_angle_subtended
     /// Get cos(angle) for the angle subtended by the line when viewed from p
+    #[allow(dead_code)]
     pub fn cos_angle_subtended(&self, p: &Point3D) -> f64 {
         let p_p0 = *p - self.pts[0];
         let p_p1 = *p - self.pts[1];
@@ -155,6 +158,7 @@ impl ModelLineSubtended {
     }
 
     //ap model_line
+    #[allow(dead_code)]
     pub fn model_line(&self) -> &ModelLine {
         &self.model_line
     }
@@ -368,7 +372,7 @@ impl ModelLineSet {
         let model_line = ModelLine::new(model_p0, model_p1);
         let mls = ModelLineSubtended::new(&model_line, angle);
         let n = self.lines.len();
-        eprintln!("push {mls:?}");
+        // eprintln!("push {mls:?}");
         self.lines.push(mls);
         self.model_cog = Point3D::zero();
         Some(n)

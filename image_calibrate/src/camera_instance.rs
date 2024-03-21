@@ -6,8 +6,8 @@ use geo_nd::quat;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraPolynomialDesc,
-    CameraProjection, CameraView, Point2D, Point3D, Quat, RollYaw, TanXTanY,
+    json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraProjection, CameraView,
+    Point2D, Point3D, Quat, RollYaw, TanXTanY,
 };
 
 //a CameraInstance
