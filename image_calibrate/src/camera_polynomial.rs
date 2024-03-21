@@ -34,6 +34,7 @@ pub struct CameraPolynomialCalibrateDesc {
     mappings: Vec<(isize, isize, usize, usize)>,
 }
 
+//a CameraPolynomialCalibrate
 //tp CameraPolynomialCalibrate
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CameraPolynomialCalibrate {
@@ -60,9 +61,6 @@ pub struct CameraPolynomialCalibrate {
     z_rotation: f64,
     /// Mappings from grid coordinates to absolute camera pixel values
     mappings: Vec<(isize, isize, usize, usize)>,
-    /// Derived camera polynomial
-    #[serde(skip)]
-    camera_poly: Rc<CameraPolynomial>,
     /// Derived camera instance
     #[serde(skip)]
     camera: CameraInstance,
@@ -75,11 +73,6 @@ impl CameraPolynomialCalibrate {
         &self.camera
     }
 
-    //ap camera_poly
-    pub fn camera_poly(&self) -> &Rc<CameraPolynomial> {
-        &self.camera_poly
-    }
-
     //ap distance
     pub fn distance(&self) -> f64 {
         self.distance
@@ -90,13 +83,6 @@ impl CameraPolynomialCalibrate {
         cdb: &CameraDatabase,
         desc: CameraPolynomialCalibrateDesc,
     ) -> Result<Self, String> {
-        let body = cdb.get_body_err(&desc.camera.body)?;
-        let lens = cdb.get_lens_err(&desc.camera.lens)?;
-        let camera_poly = Rc::new(CameraPolynomial::new(
-            body.clone(),
-            lens.clone(),
-            desc.camera.mm_focus_distance,
-        ));
         let position = [desc.centred_on.0, desc.centred_on.1, desc.distance].into();
         let direction: Quat = quat::look_at(&[0., 0., -1.], &[0., 1., 0.]).into();
         let rotate_x: Quat = quat::of_axis_angle(&[1., 0., 0.], desc.x_rotation).into();
@@ -107,14 +93,22 @@ impl CameraPolynomialCalibrate {
         let direction = direction * rotate_y;
         let position: Point3D = rotate_y.conjugate().apply3(&position);
         let position: Point3D = rotate_x.conjugate().apply3(&position);
-        let camera = CameraInstance::new(camera_poly.clone(), position, direction);
+
+        let body = cdb.get_body_err(&desc.camera.body)?;
+        let lens = cdb.get_lens_err(&desc.camera.lens)?;
+        let camera = CameraInstance::new(
+            body.clone(),
+            lens.clone(),
+            desc.camera.mm_focus_distance,
+            position,
+            direction,
+        );
         // eprintln!("{camera}");
         // let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -desc.distance].into());
         // eprintln!("Camera {camera} focused on {m}");
         let s = Self {
             body,
             lens,
-            camera_poly,
             camera,
             mm_focus_distance: desc.camera.mm_focus_distance,
             centred_on: desc.centred_on,
@@ -153,9 +147,9 @@ impl CameraPolynomialCalibrate {
             let grid_world: Point3D = [*kx as f64, *ky as f64, 0.].into();
             let grid_camera = self.camera.world_xyz_to_camera_xyz(grid_world);
             let pxy_abs: Point2D = [*vx as f64, *vy as f64].into();
-            let pxy_rel = self.camera_poly.px_abs_xy_to_px_rel_xy(pxy_abs);
+            let pxy_rel = self.camera.px_abs_xy_to_px_rel_xy(pxy_abs);
             // eprintln!("{grid} : {grid_camera} : {pxy_abs} : {pxy_rel}");
-            let ry = self.camera_poly.px_rel_xy_to_ry(pxy_rel);
+            let ry = self.camera.px_rel_xy_to_ry(pxy_rel);
             result.push((grid, grid_camera, ry));
         }
         result
@@ -284,18 +278,6 @@ impl CameraPolynomial {
         self.x_px_from_tan_sc = scale / self.body.mm_single_pixel_width();
         self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
     }
-
-    //mp px_rel_xy_to_ry
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    pub fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
-        let txty_frame: TanXTanY = [
-            px_xy[0] / self.x_px_from_tan_sc,
-            px_xy[1] / self.y_px_from_tan_sc,
-        ]
-        .into();
-        txty_frame.into()
-    }
 }
 
 //ip Display for CameraPolynomial
@@ -376,5 +358,17 @@ impl CameraProjection for CameraPolynomial {
             txty_frame[1] * self.y_px_from_tan_sc,
         ]
         .into()
+    }
+
+    //mp px_rel_xy_to_ry
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
+        let txty_frame: TanXTanY = [
+            px_xy[0] / self.x_px_from_tan_sc,
+            px_xy[1] / self.y_px_from_tan_sc,
+        ]
+        .into();
+        txty_frame.into()
     }
 }

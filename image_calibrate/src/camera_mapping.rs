@@ -3,8 +3,8 @@ use geo_nd::{matrix, quat, Quaternion, SqMatrix, Vector, Vector3};
 use serde::Serialize;
 
 use crate::{
-    BestMapping, CameraInstance, CameraView, Mat3x3, NamedPointSet, Point2D, Point3D, PointMapping,
-    Quat, Ray, Rotations,
+    BestMapping, CameraInstance, CameraView, Mat3x3, ModelLineSet, NamedPointSet, Point2D, Point3D,
+    PointMapping, PointMappingSet, Quat, Ray, Rotations,
 };
 
 //a CameraPtMapping
@@ -277,6 +277,7 @@ impl CameraShowMapping for CameraInstance {
 //a CameraAdjustMapping
 pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     // Used internally
+    fn locate_using_model_lines(&mut self, pms: &PointMappingSet) -> f64;
     fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D;
     fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self>;
     fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64;
@@ -285,6 +286,18 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
 
 //ip CameraAdjustMapping for CameraInstance
 impl CameraAdjustMapping for CameraInstance {
+    //mp locate_using_model_lines
+    fn locate_using_model_lines(&mut self, pms: &PointMappingSet) -> f64 {
+        let mut mls = ModelLineSet::new(self);
+        let mappings = pms.mappings();
+        for (i, j) in pms.get_good_screen_pairs() {
+            mls.add_line((&mappings[i], &mappings[j]));
+        }
+        let (location, err) = mls.find_best_min_err_location(30, 500);
+        self.place_at(location);
+        err
+    }
+
     //fp orient_using_rays_from_model
     fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64 {
         let n = mappings.len();
@@ -353,34 +366,6 @@ impl CameraAdjustMapping for CameraInstance {
         let te = self.total_error(mappings);
         eprintln!("total error {te} QR: {qr}");
         te
-        /*
-        let mut last_te = self.total_error(mappings);
-        loop {
-            // Find directions to each named point as given by camera (on frame) and by model (model point - camera location)
-            let mut qs = vec![];
-            let n = mappings.len();
-            qs.push((10. * (n as f64), [0., 0., 0., 1.]));
-            for m in mappings {
-                if m.is_unmapped() {
-                    continue;
-                }
-                let d_c = self.get_pm_direction(m);
-                let d_m = (m.model() - self.location()).normalize();
-                let q = quat::rotation_of_vec_to_vec(&d_c.into(), &d_m.into());
-                qs.push((1., q));
-            }
-            let qr = quat::weighted_average_many(qs.into_iter()).into();
-
-            let maybe_improved = self.clone_rotated_by(&qr);
-            let te = maybe_improved.total_error(mappings);
-            if te > last_te {
-                break;
-            }
-            last_te = te;
-            self.set_direction(maybe_improved.direction());
-        }
-        last_te
-         */
     }
 
     //fp reorient_using_rays_from_model

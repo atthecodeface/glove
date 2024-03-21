@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraPolynomialDesc,
-    CameraProjection, CameraView, Point2D, Point3D, Quat, TanXTanY,
+    CameraProjection, CameraView, Point2D, Point3D, Quat, RollYaw, TanXTanY,
 };
 
 //a CameraInstance
@@ -15,7 +15,12 @@ use crate::{
 /// CameraInstance in conjnunction with a CameraDatabase
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraInstanceDesc {
-    camera: CameraPolynomialDesc,
+    /// Name of the camera body
+    body: String,
+    /// The spherical lens mapping polynomial
+    lens: String,
+    /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
+    mm_focus_distance: f64,
     /// Position in world coordinates of the camera
     position: Point3D,
     /// Direction to be applied to camera-relative world coordinates
@@ -31,6 +36,7 @@ pub struct CameraInstanceDesc {
 pub struct CameraInstance {
     /// Map from tan(x), tan(y) to Roll/Yaw or even to pixel relative
     /// XY
+    #[serde(flatten)]
     camera: Rc<CameraPolynomial>,
     /// Position in world coordinates of the camera
     ///
@@ -118,7 +124,14 @@ impl CameraInstance {
     }
 
     //fp new
-    pub fn new(camera: Rc<CameraPolynomial>, position: Point3D, direction: Quat) -> Self {
+    pub fn new(
+        body: Rc<CameraBody>,
+        lens: Rc<CameraLens>,
+        mm_focus_distance: f64,
+        position: Point3D,
+        direction: Quat,
+    ) -> Self {
+        let camera = CameraPolynomial::new(body, lens, mm_focus_distance).into();
         Self {
             camera,
             position,
@@ -128,8 +141,14 @@ impl CameraInstance {
 
     //cp from_desc
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self, String> {
-        let camera = CameraPolynomial::from_desc(cdb, desc.camera)?;
-        Ok(Self::new(camera.into(), desc.position, desc.direction))
+        let body = cdb.get_body_err(&desc.body)?;
+        let lens = cdb.get_lens_err(&desc.lens)?;
+        let camera = CameraPolynomial::new(body, lens, desc.mm_focus_distance).into();
+        Ok(Self {
+            camera,
+            position: desc.position,
+            direction: desc.direction,
+        })
     }
 
     //cp from_json
@@ -215,4 +234,52 @@ impl CameraInstance {
     }
 
     //zz All done
+}
+
+//ip CameraProjection for CameraInstance
+impl CameraProjection for CameraInstance {
+    /// Get name of camera
+    fn camera_name(&self) -> &str {
+        self.camera.camera_name()
+    }
+
+    /// Get name of lens
+    fn lens_name(&self) -> &str {
+        self.camera.lens_name()
+    }
+
+    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
+        todo!();
+    }
+    fn focus_distance(&self) -> f64 {
+        self.camera.focus_distance()
+    }
+
+    /// Map from centre-relative to absolute pixel
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+        self.camera.px_rel_xy_to_px_abs_xy(xy)
+    }
+
+    /// Map from absolute to centre-relative pixel
+    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
+        self.camera.px_abs_xy_to_px_rel_xy(xy)
+    }
+
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    fn px_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY {
+        self.camera.px_rel_xy_to_txty(px_xy)
+    }
+
+    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
+    /// pixel in the frame of the camera
+    ///
+    /// This must apply the lens projection
+    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
+        self.camera.txty_to_px_rel_xy(txty)
+    }
+
+    fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
+        self.camera.px_rel_xy_to_ry(px_xy)
+    }
 }

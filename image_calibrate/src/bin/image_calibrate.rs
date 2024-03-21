@@ -195,9 +195,6 @@ fn locate_fn(
     let mut mls = ModelLineSet::new(&camera);
     for (i, j) in pms.get_good_screen_pairs() {
         mls.add_line((&mappings[i], &mappings[j]));
-        // if mls.num_lines() > 8 {
-        // break;
-        // }
     }
     let (location, _err) = mls.find_best_min_err_location(30, 500);
 

@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::quat;
 
-use super::{Point2D, Point3D, Quat, TanXTanY};
+use super::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
 
 //a Traits
 //tt CameraSensor
@@ -86,6 +86,10 @@ pub trait CameraProjection: std::fmt::Debug {
     ///
     /// This must apply the lens projection
     fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
+
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw;
 }
 
 //tt CameraView

@@ -5,7 +5,8 @@ use clap::Command;
 use geo_nd::quat;
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, polynomial, CameraDatabase, CameraView, Point3D, RollYaw, TanXTanY,
+    cmdline_args, image, polynomial, CameraDatabase, CameraInstance, CameraProjection, CameraView,
+    Point3D, RollYaw, TanXTanY,
 };
 use polynomial::CalcPoly;
 
@@ -70,12 +71,15 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
     eprintln!("cal camera {}", calibrate.camera());
-    let mut camera_poly = (**calibrate.camera_poly()).clone();
-    let mut camera_lens = (**camera_poly.lens()).clone();
+    let mut camera_lens = (**calibrate.camera().lens()).clone();
     camera_lens.set_polys(stw, wts);
-    camera_poly.set_lens(camera_lens.into());
-    let mut camera = calibrate.camera().clone();
-    camera.set_projection(camera_poly.into());
+    let camera = CameraInstance::new(
+        calibrate.camera().body().clone(),
+        camera_lens.into(),
+        calibrate.camera().focus_distance(),
+        calibrate.camera().location(),
+        calibrate.camera().direction(),
+    );
     let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
     eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
