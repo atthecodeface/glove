@@ -104,6 +104,7 @@ impl PointMapping {
 
     //zz All done
 }
+
 //a PointMappingSet
 //tp PointMappingSet
 #[derive(Default)]
@@ -226,6 +227,16 @@ impl PointMappingSet {
         if let Some(model) = nps.get_pt(name) {
             self.mappings
                 .push(PointMapping::new_npt(model, screen, error));
+            true
+        } else {
+            false
+        }
+    }
+
+    //mp remove_mapping
+    pub fn remove_mapping(&mut self, n: usize) -> bool {
+        if n < self.mappings.len() {
+            self.mappings.remove(n);
             true
         } else {
             false
