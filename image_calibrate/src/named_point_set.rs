@@ -38,6 +38,10 @@ impl NamedPoint {
         (*self.model.borrow()).unwrap_or_default()
     }
     #[inline]
+    pub fn opt_model(&self) -> Option<Point3D> {
+        *self.model.borrow()
+    }
+    #[inline]
     pub fn color(&self) -> &Color {
         &self.color
     }
@@ -89,7 +93,7 @@ impl NamedPointSet {
                     }
                 }
             } else {
-                self.add_pt(np.name.clone(), np.color, *np.model.borrow());
+                self.add_pt(np.name.clone(), np.color, np.opt_model());
             }
         }
     }

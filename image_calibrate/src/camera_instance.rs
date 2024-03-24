@@ -231,41 +231,50 @@ impl CameraInstance {
 
 //ip CameraProjection for CameraInstance
 impl CameraProjection for CameraInstance {
+    //ap camera_name
     /// Get name of camera
     fn camera_name(&self) -> String {
         self.camera.borrow().camera_name()
     }
 
+    //ap lens_name
     /// Get name of lens
     fn lens_name(&self) -> String {
         self.camera.borrow().lens_name()
     }
 
+    //mp set_focus_distance
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {
         self.camera
             .borrow_mut()
             .set_focus_distance(mm_focus_distance)
     }
+
+    //ap focus_distance
     fn focus_distance(&self) -> f64 {
         self.camera.borrow().focus_distance()
     }
 
+    //ap px_rel_xy_to_px_abs_xy
     /// Map from centre-relative to absolute pixel
     fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
         self.camera.borrow().px_rel_xy_to_px_abs_xy(xy)
     }
 
+    //ap px_abs_xy_to_px_rel_xy
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
         self.camera.borrow().px_abs_xy_to_px_rel_xy(xy)
     }
 
+    //ap px_rel_xy_to_px_abs_xy
     /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a Roll/Yaw
     fn px_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY {
         self.camera.borrow().px_rel_xy_to_txty(px_xy)
     }
 
+    //ap txty_to_px_rel_xy
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
     /// pixel in the frame of the camera
     ///
@@ -274,6 +283,7 @@ impl CameraProjection for CameraInstance {
         self.camera.borrow().txty_to_px_rel_xy(txty)
     }
 
+    //ap px_rel_xy_to_txty
     fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
         self.camera.borrow().px_rel_xy_to_ry(px_xy)
     }
