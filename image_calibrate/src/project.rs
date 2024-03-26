@@ -41,7 +41,7 @@ impl Cip {
         camera_json: &str,
         pms_json: &str,
     ) -> Result<(Self, String), String> {
-        let camera = CameraInstance::from_json(project.cdb(), camera_json)?.into();
+        let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?.into();
         let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
         let pms = pms.into();
         let image = desc.image.clone();
@@ -49,7 +49,7 @@ impl Cip {
     }
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String), String> {
         let image = cip_desc.image;
-        let camera = CameraInstance::from_desc(project.cdb(), cip_desc.camera)?.into();
+        let camera = CameraInstance::from_desc(&project.cdb().borrow(), cip_desc.camera)?.into();
         let pms: Rrc<PointMappingSet> = cip_desc.pms.into();
         let _warnings = pms
             .borrow_mut()
@@ -64,6 +64,17 @@ pub struct ProjectFileDesc {
     cdb: String,
     nps: Vec<String>,
     cips: Vec<CipFileDesc>,
+}
+
+//tp ProjectDesc
+/// A project description is a deserializable that can be stored in a
+/// JSON file
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct ProjectDesc {
+    cdb: CameraDatabase,
+    nps: Rrc<NamedPointSet>,
+    /// A list of CameraInstanceDesc and PointMappingSet, and an image name
+    cips: Vec<CipDesc>,
 }
 
 //tp Project
@@ -83,20 +94,9 @@ pub struct ProjectFileDesc {
 #[derive(Debug, Default)]
 pub struct Project {
     desc: ProjectFileDesc,
-    cdb: CameraDatabase,
+    cdb: Rrc<CameraDatabase>,
     nps: Rrc<NamedPointSet>,
     cips: Vec<Cip>,
-}
-
-//tp ProjectDesc
-/// A project description is a deserializable that can be stored in a
-/// JSON file
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct ProjectDesc {
-    cdb: CameraDatabase,
-    nps: Rrc<NamedPointSet>,
-    /// A list of CameraInstanceDesc and PointMappingSet, and an image name
-    cips: Vec<CipDesc>,
 }
 
 //ip Deserialize for Project
@@ -106,7 +106,7 @@ impl<'de> Deserialize<'de> for Project {
         DE: serde::Deserializer<'de>,
     {
         let project_desc = <ProjectDesc>::deserialize(deserializer)?;
-        let cdb = project_desc.cdb;
+        let cdb = project_desc.cdb.into();
         let nps = project_desc.nps.into();
         let cips = project_desc.cips;
         let desc = ProjectFileDesc::default();
@@ -131,8 +131,14 @@ impl Project {
     pub fn desc(&self) -> &ProjectFileDesc {
         &self.desc
     }
-    pub fn cdb(&self) -> &CameraDatabase {
+    pub fn cdb(&self) -> &Rrc<CameraDatabase> {
         &self.cdb
+    }
+    pub fn set_cdb(&mut self, cdb: Rrc<CameraDatabase>) {
+        self.cdb = cdb;
+    }
+    pub fn cdb_ref(&self) -> Ref<CameraDatabase> {
+        self.cdb.borrow()
     }
     pub fn nps(&self) -> &Rrc<NamedPointSet> {
         &self.nps
@@ -153,6 +159,7 @@ impl Project {
     ) -> Result<Self, String> {
         let cdb: CameraDatabase = json::from_json("camera database", cdb_json)?;
         let nps: NamedPointSet = json::from_json("named point set", nps_json)?;
+        let cdb = cdb.into();
         let nps = nps.into();
         let cips = vec![];
         Ok(Self {
