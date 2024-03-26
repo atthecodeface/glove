@@ -144,7 +144,7 @@ pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, Ca
 pub use model_line_set::ModelLineSet;
 pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
-pub use project::Project;
+pub use project::{Cip, Project};
 pub use rotations::Rotations;
 
 pub mod cmdline_args;
