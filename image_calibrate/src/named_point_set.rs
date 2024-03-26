@@ -84,13 +84,11 @@ impl NamedPointSet {
     pub fn merge(&mut self, other: &Self) {
         for np in other.points.values() {
             if self.points.contains_key(&np.name) {
-                if !np.is_unmapped() {
-                    if self.points.get_mut(&np.name).unwrap().is_unmapped() {
-                        self.points
-                            .get_mut(&np.name)
-                            .unwrap()
-                            .set_model(Some(np.model()));
-                    }
+                if !np.is_unmapped() && self.points.get_mut(&np.name).unwrap().is_unmapped() {
+                    self.points
+                        .get_mut(&np.name)
+                        .unwrap()
+                        .set_model(Some(np.model()));
                 }
             } else {
                 self.add_pt(np.name.clone(), np.color, np.opt_model());

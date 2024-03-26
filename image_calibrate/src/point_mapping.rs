@@ -107,7 +107,7 @@ impl PointMapping {
 
 //a PointMappingSet
 //tp PointMappingSet
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PointMappingSet {
     mappings: Vec<PointMapping>,
 }
@@ -271,7 +271,7 @@ impl PointMappingSet {
             .enumerate()
             .filter(|(_n, m)| !m.is_unmapped())
             .map(|(n, m)| {
-                let pxy = (*m).screen - cog;
+                let pxy = m.screen - cog;
                 (n, 0, pxy.length(), pxy)
             })
             .collect();
@@ -293,9 +293,8 @@ impl PointMappingSet {
                 if pairs.is_empty() {
                     d = d_ij.length() / ((1 + v[i].1 + v[j].1 + 1) as f64);
                 } else {
-                    for k in 0..pairs.len() {
-                        let d_ik =
-                            self.mappings[pairs[k].0].screen - self.mappings[pairs[k].1].screen;
+                    for (p0, p1) in &pairs {
+                        let d_ik = self.mappings[*p0].screen - self.mappings[*p1].screen;
                         d += (d_ij[0] * d_ik[1] - d_ij[1] * d_ik[0]).abs();
                     }
                 }

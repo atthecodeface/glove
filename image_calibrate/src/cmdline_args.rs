@@ -297,7 +297,7 @@ pub fn add_color_arg(cmd: Command, prefix: &str, help: &str, required: bool) -> 
         if prefix.is_empty() {
             ("c".to_string(), "color".to_string())
         } else {
-            (prefix.to_string(), format!("{prefix}"))
+            (prefix.to_string(), prefix.to_string())
         }
     };
     cmd.arg(

@@ -113,7 +113,7 @@ mod traits;
 mod types;
 pub use camera_body::CameraBody;
 pub use camera_database::CameraDatabase;
-pub use camera_instance::CameraInstance;
+pub use camera_instance::{CameraInstance, CameraInstanceDesc};
 pub use camera_lens::CameraLens;
 pub use camera_polynomial::{
     CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc,
@@ -123,26 +123,29 @@ pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjec
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod utils;
+pub use utils::Rrc;
 
 mod best_mapping;
 mod camera_mapping;
 mod model_line_set;
 mod named_point_set;
 mod point_mapping;
+mod project;
 mod rotations;
-
-pub use best_mapping::BestMapping;
-pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
-pub use model_line_set::ModelLineSet;
-pub use named_point_set::{NamedPoint, NamedPointSet};
-pub use point_mapping::{PointMapping, PointMappingSet};
-pub use rotations::Rotations;
 
 mod regions;
 pub use regions::Region;
 
 mod ray;
 pub use ray::Ray;
+
+pub use best_mapping::BestMapping;
+pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
+pub use model_line_set::ModelLineSet;
+pub use named_point_set::{NamedPoint, NamedPointSet};
+pub use point_mapping::{PointMapping, PointMappingSet};
+pub use project::Project;
+pub use rotations::Rotations;
 
 pub mod cmdline_args;
 pub mod image;

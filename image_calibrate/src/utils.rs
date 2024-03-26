@@ -1,4 +1,45 @@
+use std::cell::{Ref, RefCell, RefMut};
+use std::rc::Rc;
+
 use geo_nd::Vector;
+use serde::{Deserialize, Serialize};
+
+//tp Rrc
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rrc<T>(Rc<RefCell<T>>);
+impl<T> From<T> for Rrc<T> {
+    fn from(data: T) -> Self {
+        Self(Rc::new(RefCell::new(data)))
+    }
+}
+impl<T> Clone for Rrc<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> Rrc<T> {
+    pub fn borrow<'a>(&'a self) -> Ref<'a, T> {
+        self.0.borrow()
+    }
+    pub fn borrow_mut<'a>(&'a self) -> RefMut<'a, T> {
+        self.0.borrow_mut()
+    }
+}
+impl<T> std::default::Default for Rrc<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        T::default().into()
+    }
+}
+impl<T> std::ops::Deref for Rrc<T> {
+    type Target = RefCell<T>;
+    fn deref(&self) -> &RefCell<T> {
+        &self.0
+    }
+}
 
 //tp delta
 /// Generate a dxyz in the direction of most increasing e_fn
