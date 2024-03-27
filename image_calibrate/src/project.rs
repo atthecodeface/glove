@@ -297,8 +297,12 @@ impl Project {
     }
 
     //mp to_json
-    pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    pub fn to_json(&self, pretty: bool) -> Result<String, String> {
+        if pretty {
+            serde_json::to_string_pretty(self).map_err(|e| format!("{}", e))
+        } else {
+            serde_json::to_string(self).map_err(|e| format!("{}", e))
+        }
     }
 
     //zz All done
