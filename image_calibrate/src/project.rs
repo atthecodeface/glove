@@ -196,7 +196,7 @@ pub struct Project {
     desc: ProjectFileDesc,
     cdb: Rrc<CameraDatabase>,
     nps: Rrc<NamedPointSet>,
-    cips: Vec<Cip>,
+    cips: Vec<Rrc<Cip>>,
 }
 
 //ip Deserialize for Project
@@ -220,7 +220,7 @@ impl<'de> Deserialize<'de> for Project {
             use serde::de::Error;
             let (cip, _warnings) = Cip::from_desc(&project, cip_desc)
                 .map_err(|e| DE::Error::custom(format!("bad CIP desc: {e}")))?;
-            project.cips.push(cip);
+            project.cips.push(cip.into());
         }
         Ok(project)
     }
@@ -269,14 +269,10 @@ impl Project {
     }
 
     //ap cip
-    pub fn cip(&self, n: usize) -> &Cip {
+    pub fn cip(&self, n: usize) -> &Rrc<Cip> {
         &self.cips[n]
     }
 
-    //ap cip_mut
-    pub fn cip_mut(&mut self, n: usize) -> &mut Cip {
-        &mut self.cips[n]
-    }
     //cp from_desc_json
     /// Create from a ProjectFileDesc
     pub fn from_desc_json(
@@ -298,17 +294,25 @@ impl Project {
     }
 
     //mp add_cip
-    pub fn add_cip(
+    pub fn add_cip(&mut self, cip: Rrc<Cip>) -> usize {
+        let n = self.cips.len();
+        self.cips.push(cip);
+        n
+    }
+
+    //mp add_cip_from_json_desc
+    pub fn add_cip_from_json_desc(
         &mut self,
         desc: &CipFileDesc,
         camera_json: &str,
         pms_json: &str,
     ) -> Result<String, String> {
         let (cip, warnings) = Cip::from_json(self, desc, camera_json, pms_json)?;
-        self.cips.push(cip);
+        self.cips.push(cip.into());
         Ok(warnings)
     }
 
+    //zz Stuff
     // pub fn to_json(&self) -> Result<String, String> {
     // serde_json::to_string(self).map_err(|e| format!("{}", e))
     // }
