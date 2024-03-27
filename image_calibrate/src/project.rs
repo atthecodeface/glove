@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::Rrc;
 use crate::{
-    json, CameraDatabase, CameraInstance, CameraInstanceDesc, NamedPointSet, PointMappingSet,
+    json, CameraAdjustMapping, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraPtMapping,
+    NamedPointSet, Point3D, PointMappingSet, Ray,
 };
 
 //a Cip
@@ -153,6 +154,15 @@ impl Cip {
     pub fn pms_mut(&self) -> RefMut<PointMappingSet> {
         self.pms.borrow_mut()
     }
+
+    //mp locate
+    pub fn locate(&self) {
+        self.camera
+            .borrow_mut()
+            .locate_using_model_lines(&self.pms_ref());
+    }
+
+    //zz all done
 }
 
 //a Project
@@ -302,6 +312,31 @@ impl Project {
             serde_json::to_string_pretty(self).map_err(|e| format!("{}", e))
         } else {
             serde_json::to_string(self).map_err(|e| format!("{}", e))
+        }
+    }
+
+    //mp locate_all
+    pub fn locate_all(&self) {
+        for cip in &self.cips {
+            cip.borrow().locate();
+        }
+    }
+
+    //mp derive_nps_location
+    pub fn derive_nps_location(&self, name: &str) -> Option<Point3D> {
+        let mut rays = vec![];
+        for cip in &self.cips {
+            let cip = cip.borrow();
+            for m in cip.pms_ref().mappings() {
+                if m.name() == name {
+                    rays.push(cip.camera_ref().get_pm_as_ray(m, true));
+                }
+            }
+        }
+        if rays.len() > 1 {
+            Ray::closest_point(&rays, &|_r| 1.0)
+        } else {
+            None
         }
     }
 
