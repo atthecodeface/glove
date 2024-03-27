@@ -29,7 +29,7 @@ pub struct CipDesc {
 }
 
 //tp Cip
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Cip {
     camera_file: String,
     pms_file: String,
@@ -189,9 +189,8 @@ struct ProjectDesc {
 /// The nps is in an Rrc to enable the Wasm (for example) to 'borrow'
 /// it to add points, move points, etc without having to have such
 /// methods on the project itself.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Project {
-    desc: ProjectFileDesc,
     cdb: Rrc<CameraDatabase>,
     nps: Rrc<NamedPointSet>,
     cips: Vec<Rrc<Cip>>,
@@ -203,13 +202,12 @@ impl<'de> Deserialize<'de> for Project {
     where
         DE: serde::Deserializer<'de>,
     {
-        let project_desc = <ProjectDesc>::deserialize(deserializer)?;
+        let mut project_desc = <ProjectDesc>::deserialize(deserializer)?;
+        project_desc.cdb.derive();
         let cdb = project_desc.cdb.into();
-        let nps = project_desc.nps.into();
+        let nps = project_desc.nps;
         let cips = project_desc.cips;
-        let desc = ProjectFileDesc::default();
         let mut project = Self {
-            desc,
             cdb,
             nps,
             cips: vec![],
@@ -226,22 +224,9 @@ impl<'de> Deserialize<'de> for Project {
 
 //ip Project
 impl Project {
-    //ap desc
-    pub fn desc(&self) -> &ProjectFileDesc {
-        &self.desc
-    }
-
     //ap cdb
     pub fn cdb(&self) -> &Rrc<CameraDatabase> {
         &self.cdb
-    }
-
-    //mp set_cdb
-    pub fn set_cdb(&mut self, cdb: Rrc<CameraDatabase>) {
-        self.cdb = cdb;
-    }
-    pub fn cdb_ref(&self) -> Ref<CameraDatabase> {
-        self.cdb.borrow()
     }
 
     //ap nps
@@ -249,18 +234,18 @@ impl Project {
         &self.nps
     }
 
-    //mp set_nps
-    pub fn set_nps(&mut self, nps: Rrc<NamedPointSet>) {
-        self.nps = nps;
+    //ap cdb_ref
+    pub fn cdb_ref(&self) -> Ref<CameraDatabase> {
+        self.cdb.borrow()
     }
 
-    //mp nps_ref
+    //ap nps_ref
     /// Get a borrowed reference to the NamedPointSet
     pub fn nps_ref(&self) -> Ref<NamedPointSet> {
         self.nps.borrow()
     }
 
-    //mp nps_mut
+    //ap nps_mut
     /// Get a mutable borrowed reference to the NamedPointSet
     pub fn nps_mut(&self) -> RefMut<NamedPointSet> {
         self.nps.borrow_mut()
@@ -276,24 +261,19 @@ impl Project {
         &self.cips[n]
     }
 
-    //cp from_desc_json
-    /// Create from a ProjectFileDesc
-    pub fn from_desc_json(
-        desc: ProjectFileDesc,
-        cdb_json: &str,
-        nps_json: &str,
-    ) -> Result<Self, String> {
-        let cdb: CameraDatabase = json::from_json("camera database", cdb_json)?;
-        let nps: NamedPointSet = json::from_json("named point set", nps_json)?;
-        let cdb = cdb.into();
-        let nps = nps.into();
-        let cips = vec![];
-        Ok(Self {
-            desc,
-            cdb,
-            nps,
-            cips,
-        })
+    //cp from_json
+    pub fn from_json(json: &str) -> Result<Self, String> {
+        json::from_json("project", json)
+    }
+
+    //mp set_cdb
+    pub fn set_cdb(&mut self, cdb: Rrc<CameraDatabase>) {
+        self.cdb = cdb;
+    }
+
+    //mp set_nps
+    pub fn set_nps(&mut self, nps: Rrc<NamedPointSet>) {
+        self.nps = nps;
     }
 
     //mp add_cip
@@ -316,8 +296,10 @@ impl Project {
         Ok(warnings)
     }
 
-    //zz Stuff
-    // pub fn to_json(&self) -> Result<String, String> {
-    // serde_json::to_string(self).map_err(|e| format!("{}", e))
-    // }
+    //mp to_json
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    }
+
+    //zz All done
 }

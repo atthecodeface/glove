@@ -129,6 +129,30 @@ pub fn get_camera_projection(
     Ok(Rc::new(camera))
 }
 
+//a Project
+//fp add_project_arg
+pub fn add_project_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("project")
+            .long("proj")
+            .alias("project")
+            .required(required)
+            .help("Project JSON")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_project
+pub fn get_project(matches: &ArgMatches) -> Result<CameraDatabase, String> {
+    let camera_db_filename = matches
+        .get_one::<String>("camera_db")
+        .ok_or("A camera database JSON is required")?;
+    let camera_db_json = json::read_file(camera_db_filename)?;
+    let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
+    camera_db.derive();
+    Ok(camera_db)
+}
+
 //a CameraDatabase
 //fp add_camera_database_arg
 pub fn add_camera_database_arg(cmd: Command, required: bool) -> Command {

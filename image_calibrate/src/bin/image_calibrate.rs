@@ -6,7 +6,8 @@ use geo_nd::{quat, vector};
 use image::Image;
 use image_calibrate::{
     cmdline_args, image, json, BestMapping, CameraAdjustMapping, CameraDatabase, CameraPtMapping,
-    CameraShowMapping, Color, ModelLineSet, NamedPointSet, Point3D, PointMappingSet, Ray, Region,
+    CameraShowMapping, Color, ModelLineSet, NamedPointSet, Point3D, PointMappingSet, Project, Ray,
+    Region,
 };
 
 //a Types
@@ -591,6 +592,32 @@ fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     Ok(())
 }
 
+//a Project as a whole
+//hi PROJECT_LONG_HELP
+const PROJECT_LONG_HELP: &str = "\
+Project help";
+
+//fi project_cmd
+fn project_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("project")
+        .about("Get model points from camera and pms")
+        .long_about(PROJECT_LONG_HELP);
+    let cmd = cmdline_args::add_project_arg(cmd, true);
+    (cmd, project_fn)
+}
+
+//fi project_fn
+fn project_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+    let project_filename = matches.get_one::<String>("project").unwrap();
+    let project_json = json::read_file(project_filename)?;
+    let project: Project = json::from_json("project", &project_json)?;
+    let camera = project.cip(0).borrow().camera().clone();
+    eprintln!("Camera {camera:?}");
+    eprintln!("Mapping {}", camera.borrow().map_model([0., 0., 0.].into()));
+    // println!("{}", serde_json::to_string_pretty(&project).unwrap());
+    Ok(())
+}
+
 //a Main
 //fi print_err
 fn print_err(s: String) -> String {
@@ -623,6 +650,7 @@ fn main() -> Result<(), String> {
         create_rays_from_camera_cmd(),
         adjust_model_cmd(),
         get_model_points_cmd(),
+        project_cmd(),
     ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);
