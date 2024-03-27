@@ -70,29 +70,27 @@ impl Cip {
         self.pms_file = pms_file.into();
     }
 
-    //cp from_json
-    pub fn from_json(
+    //cp read_json
+    pub fn read_json(
+        &mut self,
         project: &Project,
-        desc: &CipFileDesc,
         camera_json: &str,
         pms_json: &str,
-    ) -> Result<(Self, String), String> {
-        let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?.into();
+    ) -> Result<String, String> {
+        let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?;
         let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
-        let pms = pms.into();
-        let camera_file = desc.camera.clone();
-        let pms_file = desc.pms.clone();
-        let image = desc.image.clone();
-        Ok((
-            Self {
-                camera_file,
-                pms_file,
-                camera,
-                pms,
-                image,
-            },
-            warnings,
-        ))
+        self.camera = camera.into();
+        self.pms = pms.into();
+        Ok(warnings)
+    }
+
+    //cp from_file_desc
+    pub fn from_file_desc(desc: &CipFileDesc) -> Self {
+        let mut cip = Cip::default();
+        cip.camera_file = desc.camera.clone();
+        cip.pms_file = desc.pms.clone();
+        cip.image = desc.image.clone();
+        cip
     }
 
     //cp from_desc
@@ -268,6 +266,11 @@ impl Project {
         self.nps.borrow_mut()
     }
 
+    //ap ncips
+    pub fn ncips(&self) -> usize {
+        self.cips.len()
+    }
+
     //ap cip
     pub fn cip(&self, n: usize) -> &Rrc<Cip> {
         &self.cips[n]
@@ -307,7 +310,8 @@ impl Project {
         camera_json: &str,
         pms_json: &str,
     ) -> Result<String, String> {
-        let (cip, warnings) = Cip::from_json(self, desc, camera_json, pms_json)?;
+        let mut cip = Cip::from_file_desc(desc);
+        let warnings = cip.read_json(self, camera_json, pms_json)?;
         self.cips.push(cip.into());
         Ok(warnings)
     }
