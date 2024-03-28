@@ -230,11 +230,12 @@ impl CameraShowMapping for CameraInstance {
             if model.is_unmapped() {
                 continue;
             }
-            let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model());
+            let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model().0);
             eprintln!(
-                "model {} : {} maps to {}",
+                "model {} : {}+-{} maps to {}",
                 name,
-                model.model(),
+                model.model().0,
+                model.model().1,
                 camera_scr_xy,
             );
         }

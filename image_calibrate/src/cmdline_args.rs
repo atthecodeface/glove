@@ -5,7 +5,8 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
     image, json, CameraDatabase, CameraInstance, CameraPolynomial, CameraPolynomialCalibrate,
-    CameraPtMapping, Color, NamedPoint, NamedPointSet, PointMapping, PointMappingSet,
+    CameraPtMapping, Cip, Color, NamedPoint, NamedPointSet, PointMapping, PointMappingSet, Project,
+    Rrc,
 };
 use image::DynamicImage;
 
@@ -143,14 +144,19 @@ pub fn add_project_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_project
-pub fn get_project(matches: &ArgMatches) -> Result<CameraDatabase, String> {
-    let camera_db_filename = matches
-        .get_one::<String>("camera_db")
-        .ok_or("A camera database JSON is required")?;
-    let camera_db_json = json::read_file(camera_db_filename)?;
-    let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
-    camera_db.derive();
-    Ok(camera_db)
+pub fn get_project(matches: &ArgMatches) -> Result<Project, String> {
+    if let Some(project_filename) = matches.get_one::<String>("project") {
+        let project_json = json::read_file(project_filename)?;
+        let project: Project = json::from_json("project", &project_json)?;
+        Ok(project)
+    } else {
+        let mut project = Project::default();
+        let cdb = get_camera_database(matches)?;
+        let nps = get_nps(matches)?;
+        project.set_cdb(cdb.into());
+        project.set_nps(nps.into());
+        Ok(project)
+    }
 }
 
 //a CameraDatabase
@@ -170,11 +176,47 @@ pub fn add_camera_database_arg(cmd: Command, required: bool) -> Command {
 pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase, String> {
     let camera_db_filename = matches
         .get_one::<String>("camera_db")
-        .ok_or("A camera database JSON is required")?;
+        .ok_or("Either a project or a camera database JSON is required")?;
     let camera_db_json = json::read_file(camera_db_filename)?;
     let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
     camera_db.derive();
     Ok(camera_db)
+}
+
+//a Cip
+//fp add_cip_arg
+pub fn add_cip_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("cip")
+            .long("cip")
+            .value_parser(value_parser!(usize))
+            .required(required)
+            .help("CIP number (camera and PMS) within the project")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_cip
+pub fn get_cip(matches: &ArgMatches, project: &Project) -> Result<Rrc<Cip>, String> {
+    if let Some(cip) = matches.get_one::<usize>("cip") {
+        let cip = *cip;
+        if cip < project.ncips() {
+            Ok(project.cip(cip).clone())
+        } else {
+            Err(format!(
+                "CIP {cip} is too large for the project (it has {} cips)",
+                project.ncips()
+            ))
+        }
+    } else {
+        let cip = Cip::default();
+        let camera = get_camera(matches, project)?;
+        let pms = get_pms(matches, &project.nps_ref())?;
+        *cip.camera_mut() = camera;
+        *cip.pms_mut() = pms;
+        let cip = cip.into();
+        Ok(cip)
+    }
 }
 
 //a Camera
@@ -191,12 +233,12 @@ pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_camera
-pub fn get_camera(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraInstance, String> {
+pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInstance, String> {
     let camera_filename = matches
         .get_one::<String>("camera")
         .ok_or("A camera position/orientation JSON is required")?;
     let camera_json = json::read_file(camera_filename)?;
-    CameraInstance::from_json(cdb, &camera_json)
+    CameraInstance::from_json(&project.cdb_ref(), &camera_json)
 }
 
 //a CameraCalibrate

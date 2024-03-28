@@ -21,6 +21,33 @@ pub struct PointMapping {
     pub error: f64,
 }
 
+//ip PartialEq for PointMapping
+impl PartialEq for PointMapping {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.model == other.model
+    }
+}
+
+//ip Eq for PointMapping
+impl Eq for PointMapping {}
+
+//ip Ord for PointMapping
+impl Ord for PointMapping {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.model.cmp(&other.model)
+    }
+}
+
+//ip PartialOrd for PointMapping
+impl PartialOrd for PointMapping {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 //ip Serialize for PointMapping
 impl Serialize for PointMapping {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -82,7 +109,7 @@ impl PointMapping {
     //mp model
     #[inline]
     pub fn model(&self) -> Point3D {
-        self.model.model()
+        self.model.model().0
     }
 
     //mp screen
@@ -120,8 +147,9 @@ impl Serialize for PointMappingSet {
     {
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(self.mappings.len()))?;
-        for e in self.mappings.iter() {
-            seq.serialize_element(e)?;
+        let sorted_order = self.sorted_order();
+        for i in sorted_order {
+            seq.serialize_element(&self.mappings[i])?;
         }
         seq.end()
     }
@@ -143,6 +171,13 @@ impl PointMappingSet {
     //fp new
     pub fn new() -> Self {
         Self::default()
+    }
+
+    //mp sorted_order
+    pub fn sorted_order(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.mappings.len()).collect();
+        order.sort_by(|a, b| self.mappings[*a].cmp(&self.mappings[*b]));
+        order
     }
 
     //mp merge

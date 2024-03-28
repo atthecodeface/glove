@@ -121,6 +121,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
 }
 
 //a Images
+/*a  Deprecated until we allow a project?
 //fi image_grid_cmd
 fn image_grid_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("image_grid").about("Read image and draw crosses on grid coordinates");
@@ -165,6 +166,7 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
     }
     Ok(())
 }
+ */
 
 //a Main
 //fi print_err
@@ -183,7 +185,10 @@ fn main() -> Result<(), String> {
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
-    for (c, f) in [calibrate_cmd(), image_grid_cmd()] {
+    for (c, f) in [
+        calibrate_cmd(),
+        // image_grid_cmd()
+    ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);
     }

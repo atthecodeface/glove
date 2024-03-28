@@ -16,15 +16,56 @@ pub struct NamedPoint {
     name: String,
     /// Color of the point in calibration images
     color: Color,
-    /// The 3D model coordinate this point corresponds to
+    /// The 3D model coordinate this point corresponds to and the radius of uncertainty
     ///
-    /// This is known for a calibration point!
-    model: RefCell<Option<Point3D>>,
+    /// This is known for a calibration point, with 0 uncertainty!
+    ///
+    /// The units are mm (as that is what cameras focal lengths are in)
+    // #[serde(deserialize_with = "deserialize_model")]
+    model: RefCell<Option<(Point3D, f64)>>,
+}
+
+#[allow(dead_code)]
+fn deserialize_model<'de, D>(deserializer: D) -> Result<RefCell<Option<(Point3D, f64)>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    // let model = <Option<(Point3D, f64)>>::deserialize(deserializer)?;
+    let model = <Option<Point3D>>::deserialize(deserializer)?;
+    let model = model.map(|a| (a, 0.));
+    Ok(model.into())
+}
+
+//ip PartialEq for NamedPoint
+impl PartialEq for NamedPoint {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+//ip Eq for NamedPoint
+impl Eq for NamedPoint {}
+
+//ip Ord for NamedPoint
+impl Ord for NamedPoint {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+//ip PartialOrd for NamedPoint
+impl PartialOrd for NamedPoint {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 //ip NamedPoint
 impl NamedPoint {
-    pub fn new<S: Into<String>>(name: S, color: Color, model: Option<Point3D>) -> Self {
+    pub fn new<S: Into<String>>(name: S, color: Color, model: Option<(Point3D, f64)>) -> Self {
         let name = name.into();
         let model = model.into();
         Self { name, color, model }
@@ -34,11 +75,11 @@ impl NamedPoint {
         self.model.borrow().is_none()
     }
     #[inline]
-    pub fn model(&self) -> Point3D {
+    pub fn model(&self) -> (Point3D, f64) {
         (*self.model.borrow()).unwrap_or_default()
     }
     #[inline]
-    pub fn opt_model(&self) -> Option<Point3D> {
+    pub fn opt_model(&self) -> Option<(Point3D, f64)> {
         *self.model.borrow()
     }
     #[inline]
@@ -46,7 +87,7 @@ impl NamedPoint {
         &self.color
     }
     #[inline]
-    pub fn set_model(&self, model: Option<Point3D>) {
+    pub fn set_model(&self, model: Option<(Point3D, f64)>) {
         *self.model.borrow_mut() = model;
     }
     #[inline]
@@ -54,6 +95,7 @@ impl NamedPoint {
         &self.name
     }
 }
+
 //a NamedPointSet
 //tp NamedPointSet
 #[derive(Debug, Default)]
@@ -67,6 +109,13 @@ impl NamedPointSet {
     //fp new
     pub fn new() -> Self {
         Self::default()
+    }
+
+    //mp sorted_order
+    pub fn sorted_order(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.names.len()).collect();
+        order.sort_by(|a, b| self.names[*a].cmp(&self.names[*b]));
+        order
     }
 
     //fp from_json
@@ -91,14 +140,29 @@ impl NamedPointSet {
                         .set_model(Some(np.model()));
                 }
             } else {
-                self.add_pt(np.name.clone(), np.color, np.opt_model());
+                self.add_np(np);
             }
         }
     }
+    //mp add_np
+    /// Requires np to not be in the name set already
+    pub fn add_np(&mut self, np: &NamedPoint) {
+        let opt_model = np.opt_model();
+        let err = opt_model.map_or(0.0, |m| m.1);
+        let opt_model = opt_model.map(|m| m.0);
+        self.add_pt(np.name.clone(), np.color, opt_model, err);
+    }
 
     //fp add_pt
-    pub fn add_pt<S: Into<String>>(&mut self, name: S, color: Color, model: Option<Point3D>) {
+    pub fn add_pt<S: Into<String>>(
+        &mut self,
+        name: S,
+        color: Color,
+        model: Option<Point3D>,
+        err: f64,
+    ) {
         let name = name.into();
+        let model = model.map(|m| (m, err));
         let pt = Rc::new(NamedPoint::new(name.clone(), color, model));
         if self.points.insert(name.clone(), pt).is_none() {
             self.names.push(name);
@@ -139,7 +203,9 @@ impl Serialize for NamedPointSet {
     {
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(self.names.len()))?;
-        for name in self.names.iter() {
+        let sorted_order = self.sorted_order();
+        for i in sorted_order {
+            let name = &self.names[i];
             let np = self.points.get(name).unwrap();
             let color = np.color();
             let model = np.model();
@@ -155,10 +221,10 @@ impl<'de> Deserialize<'de> for NamedPointSet {
     where
         DE: serde::Deserializer<'de>,
     {
-        let array = Vec::<(String, Color, Option<Point3D>)>::deserialize(deserializer)?;
         let mut nps = NamedPointSet::default();
-        for (name, color, model) in array {
-            nps.add_pt(name, color, model);
+        let array = Vec::<NamedPoint>::deserialize(deserializer)?;
+        for np in array {
+            nps.add_np(&np);
         }
         Ok(nps)
     }
@@ -170,7 +236,7 @@ impl<'de> Deserialize<'de> for NamedPointSet {
 fn test_json_0() -> Result<(), String> {
     let c = Color::black();
     let mut nps = NamedPointSet::default();
-    nps.add_pt("fred", c, Some([1., 2., 3.].into()));
+    nps.add_pt("fred", c, Some([1., 2., 3.].into()), 0.0);
     let s = nps.to_json()?;
     assert_eq!(s, r##"[["fred","#000000",[1.0,2.0,3.0]]]"##);
     let nps = NamedPointSet::from_json(
@@ -180,8 +246,8 @@ fn test_json_0() -> Result<(), String> {
     )?;
     assert!(nps.get_pt("jim").is_none(), "Jim is not a point");
     assert!(nps.get_pt("fred").is_some(), "Fred is a point");
-    assert_eq!(nps.get_pt("fred").unwrap().model()[0], 1.0);
-    assert_eq!(nps.get_pt("fred").unwrap().model()[1], 2.0);
-    assert_eq!(nps.get_pt("fred").unwrap().model()[2], 3.0);
+    assert_eq!(nps.get_pt("fred").unwrap().model().0[0], 1.0);
+    assert_eq!(nps.get_pt("fred").unwrap().model().0[1], 2.0);
+    assert_eq!(nps.get_pt("fred").unwrap().model().0[2], 3.0);
     Ok(())
 }

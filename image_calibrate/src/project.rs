@@ -277,11 +277,13 @@ impl Project {
     }
 
     //mp set_cdb
+    /// Set the CameraDatabase for the [Project]
     pub fn set_cdb(&mut self, cdb: Rrc<CameraDatabase>) {
         self.cdb = cdb;
     }
 
     //mp set_nps
+    /// Set the NamedPointSet for the [Project]
     pub fn set_nps(&mut self, nps: Rrc<NamedPointSet>) {
         self.nps = nps;
     }
@@ -323,7 +325,7 @@ impl Project {
     }
 
     //mp derive_nps_location
-    pub fn derive_nps_location(&self, name: &str) -> Option<Point3D> {
+    pub fn derive_nps_location(&self, name: &str) -> Option<(Point3D, f64)> {
         let mut rays = vec![];
         for cip in &self.cips {
             let cip = cip.borrow();
@@ -334,7 +336,14 @@ impl Project {
             }
         }
         if rays.len() > 1 {
-            Ray::closest_point(&rays, &|_r| 1.0)
+            if let Some(pt) = Ray::closest_point(&rays, &|_r| 1.0) {
+                let e_sq = rays
+                    .iter()
+                    .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
+                Some((pt, e_sq.sqrt()))
+            } else {
+                None
+            }
         } else {
             None
         }
