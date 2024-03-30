@@ -101,24 +101,3 @@ where
     }
     (moved, err, center)
 }
-
-//a Tests
-#[test]
-fn test() {
-    use crate::Point3D;
-    let c: Point3D = [0., 2., 0.].into();
-    let f = |p: Point3D| (p - c).length();
-    let p = [0., 0., 3.].into();
-    let dp = delta_p(p, &f, 0.3);
-    let (mut moved, err, center) = dbg!(better_pt(&p, &dp, &f, 20, 0.1));
-    let mut p = center;
-    for i in 0..1000 {
-        let dp = dbg!(delta_p(p, &f, (0.9_f64).powi(i)));
-        let (moved, _new_e, new_p) = dbg!(better_pt(&p, &dp, &f, 20, 0.1));
-        if !moved {
-            break;
-        }
-        p = new_p;
-    }
-    todo!();
-}

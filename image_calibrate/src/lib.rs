@@ -125,6 +125,8 @@ pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 mod utils;
 pub use utils::Rrc;
 
+mod mesh;
+pub use mesh::Mesh;
 mod best_mapping;
 mod camera_mapping;
 mod model_line_set;

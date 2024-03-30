@@ -249,3 +249,14 @@ iter_gpm5: ${IMG_CAL}
 	${QMAKE} iter_gpm
 	${QMAKE} iter_gpm
 	${QMAKE} iter_gpm
+
+PROJECT = --project ~/Downloads/nac_all_proj.json
+PATCH_NPS =  "1 tl game" "10011" "10009"
+PATCH_NPS =  "10005" "0cm ruler" "1cm ruler" "2cm ruler" "3cm ruler" "10010"
+PATCH_NPS =  "0 bl game" "1 tl game" "10003" "10000"
+PATCH_NPS =  "M middle 1" "10003" "10011"
+PATCH_NPS =  "0 bl game" "10000" "10001"
+patch:
+	${IMG_CAL} ${PROJECT} image_patch --cip 0 --read ../../Images/4V3A6041.JPG --write p0.png ${PATCH_NPS}
+	${IMG_CAL} ${PROJECT} image_patch --cip 1 --read ../../Images/4V3A6040.JPG --write p1.png ${PATCH_NPS}
+	${IMG_CAL} ${PROJECT} image_patch --cip 2 --read ../../Images/4V3A6042.JPG --write p2.png ${PATCH_NPS}
