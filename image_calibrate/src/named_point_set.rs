@@ -123,7 +123,7 @@ impl NamedPointSet {
         json::from_json("named point set", json)
     }
 
-    //fp to_json
+    //mp to_json
     pub fn to_json(&self) -> Result<String, String> {
         serde_json::to_string(self).map_err(|e| format!("{}", e))
     }

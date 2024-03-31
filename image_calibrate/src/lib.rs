@@ -153,3 +153,5 @@ pub mod cmdline_args;
 pub mod image;
 pub mod json;
 pub use image::Color;
+pub mod http;
+pub mod thread_pool;

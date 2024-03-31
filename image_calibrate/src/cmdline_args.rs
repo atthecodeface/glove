@@ -10,6 +10,67 @@ use crate::{
 };
 use image::DynamicImage;
 
+//a ThreadPool
+//fp add_threads_arg
+pub fn add_threads_arg(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("threads")
+            .long("threads")
+            .short('t')
+            .default_value("4")
+            .help("Number of threads")
+            .long_help("Number of threads for the server to run to handle simultaneous requests")
+            .value_parser(value_parser!(usize))
+            .action(ArgAction::Set),
+    )
+}
+
+//fp add_port_arg
+pub fn add_port_arg(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("port")
+            .long("port")
+            .short('p')
+            .default_value("8020")
+            .help("Port to use")
+            .long_help("The TCP port number to use for the server")
+            .value_parser(value_parser!(usize))
+            .action(ArgAction::Set),
+    )
+}
+
+//fp add_file_root_arg
+pub fn add_file_root_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("file_root")
+            .long("file_root")
+            .short('f')
+            .required(required)
+            .help("Root of files to serve")
+            .long_help("Root of the files to server from the HTTP server, for file requests")
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_threads
+pub fn get_threads(matches: &ArgMatches) -> Result<usize, String> {
+    let num_threads = *matches.get_one::<usize>("threads").unwrap();
+    Ok(num_threads)
+}
+
+//fp get_port
+pub fn get_port(matches: &ArgMatches) -> Result<usize, String> {
+    let port = *matches.get_one::<usize>("port").unwrap();
+    Ok(port)
+}
+
+//fp get_port
+//fp get_file_root
+pub fn get_file_root(matches: &ArgMatches) -> Result<String, String> {
+    let file_root = matches.get_one::<String>("file_root").unwrap().to_owned();
+    Ok(file_root)
+}
+
 //a NamedPointSet / NamedPoint
 //fp add_nps_arg
 pub fn add_nps_arg(cmd: Command, required: bool) -> Command {

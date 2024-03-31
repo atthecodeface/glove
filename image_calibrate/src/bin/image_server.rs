@@ -33,8 +33,8 @@ impl HttpServerExt for ProjectSet {
         response: &mut HttpResponse,
     ) -> bool {
         if request.starts_with("GET /project") {
-            let x = self.project.lock().unwrap();
-            let json = x.0.to_json(false).unwrap();
+            let wrp = self.project.lock().unwrap();
+            let json = wrp.0.to_json(false).unwrap();
             response.content = json.into_bytes();
             response.mime_type = server.mime_type("json");
             response.resp_type = HttpResponseType::FileRead;

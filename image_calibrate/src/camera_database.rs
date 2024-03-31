@@ -38,6 +38,11 @@ impl CameraDatabase {
         Ok(cdb)
     }
 
+    //mp to_json
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    }
+
     //mp derive
     pub fn derive(&mut self) {
         for b in self.bodies.iter_mut() {
