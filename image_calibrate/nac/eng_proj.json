@@ -1,0 +1,290 @@
+{
+  "cdb": {
+    "bodies": [
+      {
+        "name": "Canon EOS 5D mark IV",
+        "aliases": [
+          "5D"
+        ],
+        "px_centre": [
+          3360.0,
+          2240.0
+        ],
+        "px_width": 6720.0,
+        "px_height": 4480.0,
+        "flip_y": true,
+        "mm_sensor_width": 36.0,
+        "mm_sensor_height": 24.0
+      },
+      {
+        "name": "Iphone 6",
+        "aliases": [
+        ],
+        "px_centre": [
+          1632.0,
+          1124.0
+        ],
+        "px_width": 3264.0,
+        "px_height": 2248.0,
+        "flip_y": true,
+        "mm_sensor_width": 4.8,
+        "mm_sensor_height": 3.6
+      },
+      {
+        "name": "Logitech C270 640x480",
+        "aliases": [
+          "C270"
+        ],
+        "px_centre": [
+          320.0,
+          240.0
+        ],
+        "px_width": 640.0,
+        "px_height": 480.0,
+        "flip_y": true,
+        "mm_sensor_width": 1.792,
+        "mm_sensor_height": 1.344
+      }
+    ],
+    "lenses": [
+      {
+        "name": "EF50mm f1.8",
+        "aliases": [
+          "50mm"
+        ],
+        "mm_focal_length": 50.0,
+        "stw_poly": [
+          -0.0008561735565990602,
+          1.0314208998470349,
+          -0.3690971505784546,
+          1.709772671951214,
+          -2.215629759972217
+        ],
+        "wts_poly": [
+          -0.0001717525603055492,
+          1.0105926530650322,
+          -0.11900997303746408,
+          0.4183102391834837,
+          -0.8317286959209014
+        ]
+      },
+      {
+        "name": "Logitech C270",
+        "aliases": [
+          "C270"
+        ],
+        "mm_focal_length": 2.1515,
+        "stw_poly": [
+          0.0,
+          1.0
+        ],
+        "wts_poly": [
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Iphone 6",
+        "aliases": [
+        ],
+        "mm_focal_length": 4.15,
+        "stw_poly": [
+          0.0,
+          1.0
+        ],
+        "wts_poly": [
+          0.0,
+          1.0
+        ]
+      }
+    ]
+  },
+    "nps": [
+  ],
+  "cips": [
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1683.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1684.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1685.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1686.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1687.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1688.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1689.JPG"
+    },
+    {
+      "camera_file": "none.json",
+      "pms_file": "none.json",
+      "camera": {
+        "body": "Iphone 6",
+        "lens": "Iphone 6",
+        "mm_focus_distance": 430.0,
+        "position": [
+          -65.49355243465651,
+          -261.1303020033095,
+          275.13779911384916
+        ],
+        "direction": [
+          0.06539847374122153,
+          0.4506760066471379,
+          -0.882191982936374,
+          0.11979767071064432
+        ]
+      },
+      "pms": [
+      ],
+      "image": "images/IMG_1690.JPG"
+    }
+  ]
+}
