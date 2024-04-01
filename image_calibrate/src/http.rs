@@ -1,9 +1,10 @@
 //a Imports
 use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
+use std::time::Duration;
 
 //a MimeTypes
 //ci MIME_TYPES
@@ -29,7 +30,7 @@ pub const MIME_TYPES: &[(&'static str, &'static str)] = &[
 
 //a HttpResponse
 //tp HttpResponseType
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum HttpResponseType {
     FileRead,
     FileNotFound,
@@ -46,8 +47,110 @@ pub struct HttpResponse {
     pub is_utf8: bool,
 }
 
+//tp HttpRequestType
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum HttpRequestType {
+    Get,
+    Put,
+    Post,
+    #[default]
+    Unknown,
+}
+//tp HttpRequest
+#[derive(Debug, Default)]
+pub struct HttpRequest {
+    pub req_type: HttpRequestType,
+    pub uri: String,
+    pub content_type: String,
+    pub content_length: usize,
+}
+//ip HttpRequest
+impl HttpRequest {
+    //fi split_at_crlf
+    fn split_at_crlf(buffer: &[u8]) -> Option<(&[u8], &[u8])> {
+        let n = buffer.len();
+        let Some(cr) = buffer
+            .iter()
+            .enumerate()
+            .find_map(|(n, b)| (*b == b'\r').then_some(n))
+        else {
+            return None;
+        };
+        if cr + 1 < n && buffer[cr + 1] == b'\n' {
+            let (start, end) = buffer.split_at(cr);
+            Some((start, &end[2..]))
+        } else {
+            None
+        }
+    }
+
+    //mp parse_req_hdr
+    fn parse_req_hdr<'buf>(&mut self, buffer: &'buf [u8]) -> Option<&'buf [u8]> {
+        let Some((b_req, b_rest)) = Self::split_at_crlf(buffer) else {
+            return None;
+        };
+        if b_req.iter().any(|b| !b.is_ascii()) {
+            return None;
+        }
+
+        let mut req_fields = b_req.splitn(3, |b| *b == b' ');
+        let Some(b_req_type) = req_fields.next() else {
+            return None;
+        };
+        let Some(b_uri) = req_fields.next() else {
+            return None;
+        };
+        let Some(b_http) = req_fields.next() else {
+            return None;
+        };
+        if b_http != b"HTTP/1.1" {
+            return None;
+        }
+        if b_req_type == b"GET" {
+            self.req_type = HttpRequestType::Get;
+        } else if b_req_type == b"PUT" {
+            self.req_type = HttpRequestType::Put;
+        } else if b_req_type == b"POST" {
+            self.req_type = HttpRequestType::Post;
+        }
+        self.uri = std::str::from_utf8(b_uri).unwrap().into();
+        Some(b_rest)
+    }
+
+    //cp parse_request
+    pub fn parse_request(buffer: &[u8]) -> Option<(HttpRequest, &[u8])> {
+        let mut request = HttpRequest::default();
+        let Some(mut rest) = request.parse_req_hdr(buffer) else {
+            return None;
+        };
+        loop {
+            let Some((b_req, b_rest)) = Self::split_at_crlf(rest) else {
+                break;
+            };
+            if b_req.is_empty() {
+                return Some((request, b_rest));
+            }
+            let Ok(line) = std::str::from_utf8(b_req) else {
+                break;
+            };
+            if let Some((k, v)) = line.split_once(": ") {
+                if k == "Content-Length" {
+                    if let Ok(n) = v.parse::<usize>() {
+                        request.content_length = n;
+                    }
+                }
+                if k == "Content-Type" {
+                    request.content_type = v.into();
+                }
+            }
+            rest = b_rest;
+        }
+        None
+    }
+}
+
 //a HttpServer
-//tp HttpServer
+//tt HttpServerExt
 /// This is the type of the configuration of an http server that is set *once* and then is immutable.
 ///
 /// One instance of this is created with a [OnceLock]
@@ -55,19 +158,23 @@ pub trait HttpServerExt: Sized {
     fn set_http_response(
         &self,
         _server: &HttpServer<Self>,
-        _request: &str,
+        _request: &HttpRequest,
+        _content: &[u8],
         _response: &mut HttpResponse,
     ) -> bool {
         false
     }
 }
+
+//ip HttpServerExt for ()
 impl HttpServerExt for () {}
+
+//tp HttpServer
 pub struct HttpServer<T: HttpServerExt> {
     file_root: String,
     mime_types: HashMap<&'static str, &'static str>,
     data: T,
 }
-
 //ip HttpServer
 impl<T: HttpServerExt> HttpServer<T> {
     //cp new
@@ -82,10 +189,10 @@ impl<T: HttpServerExt> HttpServer<T> {
     }
 
     //fi decode_get_filename
-    pub fn decode_get_filename(&self, s: &str) -> Result<Option<String>, String> {
-        if s.starts_with("GET /") {
+    pub fn decode_get_filename(&self, request: &HttpRequest) -> Result<Option<String>, String> {
+        if request.req_type == HttpRequestType::Get {
             let mut filename = String::new();
-            for c in s.chars().skip(5) {
+            for c in request.uri.chars() {
                 if ('0'..='9').contains(&c)
                     || ('a'..='z').contains(&c)
                     || ('A'..='Z').contains(&c)
@@ -97,7 +204,7 @@ impl<T: HttpServerExt> HttpServer<T> {
                 } else if c == ' ' {
                     return Ok(Some(filename));
                 } else {
-                    return Err(format!("Bad filename in request {s}"));
+                    return Err(format!("Bad filename in request {}", request.uri));
                 }
             }
             Ok(Some(filename))
@@ -112,7 +219,12 @@ impl<T: HttpServerExt> HttpServer<T> {
     }
 
     //fi set_file_response
-    pub fn set_file_response(&self, request: &str, response: &mut HttpResponse) -> bool {
+    pub fn set_file_response(
+        &self,
+        request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+    ) -> bool {
         match self.decode_get_filename(request) {
             Ok(Some(filename)) => {
                 let mut filename = format!("{}{}", self.file_root, filename);
@@ -181,13 +293,54 @@ impl<T: HttpServerExt> HttpServer<T> {
 
     //fp handle_connection
     pub fn handle_connection(&self, mut stream: TcpStream) {
-        let buf_reader = BufReader::new(&mut stream);
-        let request = buf_reader.lines().next().unwrap().unwrap();
-        // eprintln!("Request: {:#?}", request);
-
+        let mut buffer = vec![0_u8; 65536];
+        let mut ofs = 0;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (request, mut content) = {
+            loop {
+                let Ok(n) = stream.read(buffer.as_mut_slice().split_at_mut(ofs).1) else {
+                    return;
+                };
+                ofs += n;
+                if let Some(r_cs) = HttpRequest::parse_request(&buffer[0..ofs]) {
+                    break (r_cs);
+                }
+                if n == 0 {
+                    // Connection shut down without a full header
+                    return;
+                }
+            }
+        };
+        if request.content_length > 16 * 1024 * 1024 {
+            return;
+        }
         let mut response = HttpResponse::default();
-        if !self.data.set_http_response(self, &request, &mut response) {
-            self.set_file_response(&request, &mut response);
+        let mut content_buffer;
+        if request.content_length > content.len() {
+            let mut extra_bytes = request.content_length - content.len();
+            content_buffer = Vec::with_capacity(request.content_length);
+            content_buffer.extend_from_slice(content);
+            while extra_bytes > 0 {
+                let max_n = extra_bytes.min(buffer.len());
+                let Ok(n) = stream.read(&mut buffer[0..max_n]) else {
+                    return;
+                };
+                content_buffer.extend_from_slice(&buffer[0..n]);
+                extra_bytes -= n;
+                if n == 0 && extra_bytes > 0 {
+                    // Connection shut down without full content
+                    return;
+                }
+            }
+            content = &content_buffer;
+        }
+        if !self
+            .data
+            .set_http_response(self, &request, content, &mut response)
+        {
+            self.set_file_response(&request, content, &mut response);
         }
         let _ = self.send_response(&mut stream, response);
     }
