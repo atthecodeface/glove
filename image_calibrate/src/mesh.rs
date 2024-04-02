@@ -497,7 +497,7 @@ impl Mesh {
                 hull[p1] = hull[p0];
                 while hull[p0] == hull[p1] {
                     if p0 == 0 {
-                        p1 = p1 + 1;
+                        p1 += 1;
                     } else {
                         p0 -= 1;
                     }

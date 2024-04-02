@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
 //a MimeTypes
 //ci MIME_TYPES
-pub const MIME_TYPES: &[(&'static str, &'static str)] = &[
+pub const MIME_TYPES: &[(&str, &str)] = &[
     ("css", "text/css"),
     ("htm", "text/html"),
     ("html", "text/html"),
@@ -27,6 +27,122 @@ pub const MIME_TYPES: &[(&'static str, &'static str)] = &[
     ("wasm", "application/wasm"),
     ("xml", "application/xml"),
 ];
+
+//a UriDecode
+//tp UriDecode
+#[derive(Debug, Default)]
+pub struct UriDecode {
+    uri: Option<String>,
+    path: Option<PathBuf>,
+    action: Option<String>,
+    args: Vec<(String, Option<String>)>,
+}
+
+//ip UriDecode
+impl UriDecode {
+    //cp of_uri
+    fn of_uri(uri: &str) -> Self {
+        let uri = uri.to_string();
+        Self {
+            uri: Some(uri),
+            path: None,
+            action: None,
+            args: vec![],
+        }
+    }
+
+    //cp of_path
+    fn of_path(path: PathBuf) -> Self {
+        Self {
+            uri: None,
+            path: Some(path),
+            action: None,
+            args: vec![],
+        }
+    }
+
+    //mp set_action
+    fn set_action(&mut self, action: Option<&str>) {
+        self.action = action.map(|a| a.to_owned());
+    }
+
+    //mp add_arg
+    fn add_arg(&mut self, arg: &str, value: Option<&str>) {
+        self.args
+            .push((arg.to_string(), value.map(|a| a.to_owned())));
+    }
+
+    //ap path
+    /// Get the [Path] of the decoded URI if it was valid, else None
+    pub fn path(&self) -> Option<&Path> {
+        match &self.path {
+            Some(p) => Some(p.as_path()),
+            None => None,
+        }
+    }
+    //ap action
+    /// Get the decoded action of the URI if the path was valid and it
+    /// had an action
+    ///
+    /// This returns Some<action> if the Uri was '<path> ? <action> [ & <k> = <v> ] *'
+    pub fn action(&self) -> Option<&str> {
+        match &self.action {
+            Some(p) => Some(p),
+            None => None,
+        }
+    }
+
+    //fp canonicalize_path
+    pub fn canonicalize_path(path: &str) -> Option<PathBuf> {
+        let mut pb = PathBuf::new();
+        for pc in PathBuf::from(path).components() {
+            match pc {
+                Component::RootDir => {
+                    pb = PathBuf::new();
+                }
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    if !pb.pop() {
+                        return None;
+                    }
+                }
+                Component::Normal(pc) => {
+                    pb.push(pc);
+                }
+                _ => {
+                    // C: for example on Windows
+                    return None;
+                }
+            }
+        }
+        Some(pb)
+    }
+
+    //cp decode_uri
+    /// Parse a URI as a path optionally followed by ? action [& k=v]*
+    ///
+    /// If the decode fails, produce a plain Uri
+    pub fn decode_uri(uri: &str) -> UriDecode {
+        let mut split = uri.splitn(2, '?');
+        let Some(uri) = Self::canonicalize_path(split.next().unwrap()) else {
+            return UriDecode::of_uri(uri);
+        };
+
+        let mut ud = UriDecode::of_path(uri);
+        if let Some(action_args) = split.next() {
+            let mut aa_split = action_args.split('&');
+            ud.set_action(aa_split.next());
+            for args in aa_split {
+                let mut arg_split = args.splitn(2, '=');
+                let arg = arg_split.next().unwrap();
+                ud.add_arg(arg, arg_split.next());
+            }
+        }
+        ud
+    }
+
+    //zz All done
+}
 
 //a HttpResponse
 //tp HttpResponseType
@@ -47,6 +163,7 @@ pub struct HttpResponse {
     pub is_utf8: bool,
 }
 
+//a HttpRequest
 //tp HttpRequestType
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum HttpRequestType {
@@ -60,7 +177,7 @@ pub enum HttpRequestType {
 #[derive(Debug, Default)]
 pub struct HttpRequest {
     pub req_type: HttpRequestType,
-    pub uri: String,
+    pub uri: UriDecode,
     pub content_type: String,
     pub content_length: usize,
 }
@@ -113,7 +230,7 @@ impl HttpRequest {
         } else if b_req_type == b"POST" {
             self.req_type = HttpRequestType::Post;
         }
-        self.uri = std::str::from_utf8(b_uri).unwrap().into();
+        self.uri = UriDecode::decode_uri(std::str::from_utf8(b_uri).unwrap());
         Some(b_rest)
     }
 
@@ -171,45 +288,20 @@ impl HttpServerExt for () {}
 
 //tp HttpServer
 pub struct HttpServer<T: HttpServerExt> {
-    file_root: String,
+    file_root: PathBuf,
     mime_types: HashMap<&'static str, &'static str>,
     data: T,
 }
 //ip HttpServer
 impl<T: HttpServerExt> HttpServer<T> {
     //cp new
-    pub fn new<I: Into<String>>(file_root: I, data: T) -> Self {
+    pub fn new<I: Into<PathBuf>>(file_root: I, data: T) -> Self {
         let mime_types: HashMap<&'static str, &'static str> = MIME_TYPES.iter().copied().collect();
         let file_root = file_root.into();
         HttpServer {
             mime_types,
             file_root,
             data,
-        }
-    }
-
-    //fi decode_get_filename
-    pub fn decode_get_filename(&self, request: &HttpRequest) -> Result<Option<String>, String> {
-        if request.req_type == HttpRequestType::Get {
-            let mut filename = String::new();
-            for c in request.uri.chars() {
-                if ('0'..='9').contains(&c)
-                    || ('a'..='z').contains(&c)
-                    || ('A'..='Z').contains(&c)
-                    || c == '_'
-                    || c == '/'
-                    || c == '.'
-                {
-                    filename.push(c);
-                } else if c == ' ' {
-                    return Ok(Some(filename));
-                } else {
-                    return Err(format!("Bad filename in request {}", request.uri));
-                }
-            }
-            Ok(Some(filename))
-        } else {
-            Ok(None)
         }
     }
 
@@ -225,37 +317,27 @@ impl<T: HttpServerExt> HttpServer<T> {
         _content: &[u8],
         response: &mut HttpResponse,
     ) -> bool {
-        match self.decode_get_filename(request) {
-            Ok(Some(filename)) => {
-                let mut filename = format!("{}{}", self.file_root, filename);
-                if filename.chars().last().unwrap() == '/' {
-                    filename.push_str("index.html");
-                };
-                let path = Path::new(&filename);
-                // eprintln!("Path {path:?}");
-                if let Some(ext) = path.extension() {
-                    response.mime_type = self.mime_type(ext.to_str().unwrap());
-                    if let Ok(bytes) = fs::read(&filename) {
-                        response.is_utf8 = std::str::from_utf8(&bytes).is_ok();
-                        response.content = bytes;
-                        response.resp_type = HttpResponseType::FileRead;
-                    } else {
-                        response.resp_type = HttpResponseType::FileNotFound;
-                        eprintln!("Failed to open {filename}");
-                    }
-                }
-                true
-            }
-            Ok(None) => {
-                response.resp_type = HttpResponseType::MalformedRequest;
-                false
-            }
-            Err(e) => {
-                response.resp_type = HttpResponseType::MalformedRequest;
-                eprintln!("Error {e}");
-                true
+        let Some(path) = request.uri.path() else {
+            response.resp_type = HttpResponseType::MalformedRequest;
+            return false;
+        };
+        let mut path = Path::join(&self.file_root, path);
+        if path.is_dir() {
+            path.push("index.html");
+        }
+        eprintln!("Path {path:?}");
+        if let Some(ext) = path.extension() {
+            response.mime_type = self.mime_type(ext.to_str().unwrap());
+            if let Ok(bytes) = fs::read(&path) {
+                response.is_utf8 = std::str::from_utf8(&bytes).is_ok();
+                response.content = bytes;
+                response.resp_type = HttpResponseType::FileRead;
+            } else {
+                response.resp_type = HttpResponseType::FileNotFound;
+                eprintln!("Failed to open {path:?}");
             }
         }
+        true
     }
 
     //mp send_response

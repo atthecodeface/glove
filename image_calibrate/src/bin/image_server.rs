@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use clap::Command;
 use image_calibrate::cmdline_args;
 use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
+    UriDecode,
 };
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
@@ -161,63 +162,38 @@ impl NamedProject {
     }
 }
 
-//a ProjectSet
-//ti ProjectSet
-#[derive(Debug, Default)]
-struct ProjectSet {
-    projects: Vec<NamedProject>,
-    index_by_name: HashMap<String, usize>,
-}
-
+//a ProjectDecode
 //tp ProjectDecodeType
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum ProjectDecodeType {
-    Failed,
+    #[default]
     Root,
     UnknownProject,
     Project,
 }
 
 //tp ProjectDecode
-#[derive(Debug)]
-pub struct ProjectDecode<'a> {
+#[derive(Debug, Default)]
+pub struct ProjectDecode {
     dec_type: ProjectDecodeType,
-    project: &'a str,
+    project: String,
     idx: usize,
     cip: Option<usize>,
-    action: Option<&'a str>,
-    args: Vec<(&'a str, Option<&'a str>)>,
 }
 
 //ip ProjectDecode
-impl<'a> ProjectDecode<'a> {
-    //cp new
-    fn new() -> Self {
-        Self {
-            dec_type: ProjectDecodeType::Failed,
-            project: "",
-            idx: 0,
-            cip: None,
-            action: None,
-            args: vec![],
-        }
-    }
-    //cp failed
-    fn failed() -> Self {
-        let mut pd = Self::new();
-        pd.dec_type = ProjectDecodeType::Failed;
-        pd
-    }
+impl ProjectDecode {
     //cp root
     fn root() -> Self {
-        let mut pd = Self::new();
+        let mut pd = Self::default();
         pd.dec_type = ProjectDecodeType::Root;
         pd
     }
+
     //cp of_project
-    fn of_project<'c>(project: &'c str, idx: Option<usize>) -> ProjectDecode<'c> {
-        let mut pd = ProjectDecode::new();
-        pd.project = project;
+    fn of_project(project: &str, idx: Option<usize>) -> ProjectDecode {
+        let mut pd = ProjectDecode::default();
+        pd.project = project.into();
         if let Some(idx) = idx {
             pd.dec_type = ProjectDecodeType::Project;
             pd.idx = idx;
@@ -226,40 +202,38 @@ impl<'a> ProjectDecode<'a> {
         }
         pd
     }
-    //mp set_action
-    pub fn set_action(&mut self, action: Option<&'a str>) {
-        self.action = action;
-    }
-
-    //mp add_arg
-    pub fn add_arg(&mut self, arg: &'a str, value: Option<&'a str>) {
-        self.args.push((arg, value));
-    }
 
     //ap is_root
     fn is_root(&self) -> bool {
         matches!(self.dec_type, ProjectDecodeType::Root)
     }
-    //ap is_failed
-    fn is_failed(&self) -> bool {
-        matches!(self.dec_type, ProjectDecodeType::Failed)
-    }
+
     //ap is_project
     fn is_project(&self) -> bool {
         matches!(self.dec_type, ProjectDecodeType::Project)
     }
+
     //ap project_idx
     fn project_idx(&self) -> Option<usize> {
         self.is_project().then_some(self.idx)
     }
+
     //ap project
     fn project(&self) -> Option<&str> {
         match self.dec_type {
-            ProjectDecodeType::Project => Some(self.project),
-            ProjectDecodeType::UnknownProject => Some(self.project),
+            ProjectDecodeType::Project => Some(&self.project),
+            ProjectDecodeType::UnknownProject => Some(&self.project),
             _ => None,
         }
     }
+}
+
+//a ProjectSet
+//ti ProjectSet
+#[derive(Debug, Default)]
+struct ProjectSet {
+    projects: Vec<NamedProject>,
+    index_by_name: HashMap<String, usize>,
 }
 
 //ip ProjectSet
@@ -314,38 +288,22 @@ impl ProjectSet {
     }
 
     //mp decode_project
-    pub fn decode_project<'req>(&self, request: &'req HttpRequest) -> ProjectDecode<'req> {
-        if !request.uri.starts_with("/project") {
-            return ProjectDecode::failed();
+    pub fn decode_project(&self, path: &Path) -> Option<ProjectDecode> {
+        if !path.starts_with("project") {
+            return None;
         }
-        let project = request.uri.strip_prefix("/project").unwrap();
-        if project.len() > 0 && project.as_bytes()[0] != b'/' && project.as_bytes()[0] != b'?' {
-            return ProjectDecode::failed();
-        }
-        if project.len() < 2 {
-            return ProjectDecode::root();
-        }
-        let project = {
-            if project.as_bytes()[0] == b'/' {
-                &project[1..]
-            } else {
-                project
-            }
+        let project = path.strip_prefix("project").unwrap();
+        let Some(project) = project.to_str() else {
+            return None;
         };
-        // Look for ? action [& k=v]*
-        let mut split = project.splitn(2, '?');
-        let project = split.next().unwrap();
-        let mut pd = ProjectDecode::of_project(project, self.find_project(project));
-        if let Some(action_args) = split.next() {
-            let mut aa_split = action_args.split('&');
-            pd.set_action(aa_split.next());
-            while let Some(args) = aa_split.next() {
-                let mut arg_split = args.splitn(2, '=');
-                let arg = arg_split.next().unwrap();
-                pd.add_arg(arg, arg_split.next());
-            }
+        if project.is_empty() {
+            Some(ProjectDecode::root())
+        } else {
+            Some(ProjectDecode::of_project(
+                project,
+                self.find_project(project),
+            ))
         }
-        pd
     }
 }
 
@@ -359,12 +317,14 @@ impl HttpServerExt for ProjectSet {
         content: &[u8],
         response: &mut HttpResponse,
     ) -> bool {
-        let pd = self.decode_project(request);
-        eprintln!("ImageServer: {request:?}");
-        eprintln!("    Decoded: {pd:?}");
-        if pd.is_failed() {
+        let Some(path) = request.uri.path() else {
             return false;
         };
+        let Some(pd) = self.decode_project(path) else {
+            return false;
+        };
+        eprintln!("ImageServer: {request:?}");
+        eprintln!("    Decoded: {pd:?}");
         if request.req_type == HttpRequestType::Get {
             if pd.is_root() {
                 let names: Vec<String> = self.index_by_name.keys().cloned().collect();

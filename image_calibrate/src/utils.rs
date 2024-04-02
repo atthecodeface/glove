@@ -19,10 +19,10 @@ impl<T> Clone for Rrc<T> {
 }
 
 impl<T> Rrc<T> {
-    pub fn borrow<'a>(&'a self) -> Ref<'a, T> {
+    pub fn borrow(&self) -> Ref<T> {
         self.0.borrow()
     }
-    pub fn borrow_mut<'a>(&'a self) -> RefMut<'a, T> {
+    pub fn borrow_mut(&self) -> RefMut<T> {
         self.0.borrow_mut()
     }
 }

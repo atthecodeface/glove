@@ -87,11 +87,12 @@ impl Cip {
 
     //cp from_file_desc
     pub fn from_file_desc(desc: &CipFileDesc) -> Self {
-        let mut cip = Cip::default();
-        cip.camera_file = desc.camera.clone();
-        cip.pms_file = desc.pms.clone();
-        cip.image = desc.image.clone();
-        cip
+        Self {
+            camera_file: desc.camera.clone(),
+            pms_file: desc.pms.clone(),
+            image: desc.image.clone(),
+            ..Default::default()
+        }
     }
 
     //cp from_desc
