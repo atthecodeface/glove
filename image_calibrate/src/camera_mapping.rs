@@ -278,7 +278,7 @@ impl CameraShowMapping for CameraInstance {
 //a CameraAdjustMapping
 pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     // Used internally
-    fn locate_using_model_lines(&mut self, pms: &PointMappingSet) -> f64;
+    fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64;
     fn get_location_given_direction(&self, mappings: &[PointMapping]) -> Point3D;
     fn get_best_location(&self, mappings: &[PointMapping], steps: usize) -> BestMapping<Self>;
     fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64;
@@ -288,10 +288,11 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
 //ip CameraAdjustMapping for CameraInstance
 impl CameraAdjustMapping for CameraInstance {
     //mp locate_using_model_lines
-    fn locate_using_model_lines(&mut self, pms: &PointMappingSet) -> f64 {
+    fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64 {
+        let f = |p: &PointMapping| p.model_error() <= max_np_error;
         let mut mls = ModelLineSet::new(self);
         let mappings = pms.mappings();
-        for (i, j) in pms.get_good_screen_pairs() {
+        for (i, j) in pms.get_good_screen_pairs(&f) {
             mls.add_line((&mappings[i], &mappings[j]));
         }
         let (location, err) = mls.find_best_min_err_location(30, 500);

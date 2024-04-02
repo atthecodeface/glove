@@ -302,7 +302,7 @@ fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), Stri
     let mappings = pms.mappings();
 
     let mut mls = ModelLineSet::new(&camera);
-    for (i, j) in pms.get_good_screen_pairs() {
+    for (i, j) in pms.get_good_screen_pairs(&|f| true) {
         mls.add_line((&mappings[i], &mappings[j]));
     }
     let (location, _err) = mls.find_best_min_err_location(100, 500);

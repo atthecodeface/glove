@@ -50,12 +50,18 @@ struct ProjectWrap(Project);
 
 //ii ProjectWrap
 impl ProjectWrap {
+    //mp of_json
+    /// Set to be a project from some Json
+    fn of_json(&mut self, project_json: &str) -> Result<(), String> {
+        self.0 = json::from_json("project", project_json)?;
+        Ok(())
+    }
+
     //mp load
     /// Load the project from a path - it drops the old project
     fn load<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<(), String> {
         let project_json = json::read_file(path)?;
-        self.0 = json::from_json("project", &project_json)?;
-        Ok(())
+        self.of_json(&project_json)
     }
 
     //mp save
@@ -121,6 +127,15 @@ impl NamedProject {
         Ok(())
     }
 
+    //mp of_json
+    pub fn of_json(&self, json: &str) -> Result<(), String> {
+        let mut p = self.project.lock().unwrap();
+        let mut project = ProjectWrap::default();
+        project.of_json(json)?;
+        *p = Some(project);
+        Ok(())
+    }
+
     //mp map
     /// Apply a function to the enclosed project, if it has been loaded
     pub fn map<R, F>(&self, f: F) -> Option<R>
@@ -152,6 +167,99 @@ impl NamedProject {
 struct ProjectSet {
     projects: Vec<NamedProject>,
     index_by_name: HashMap<String, usize>,
+}
+
+//tp ProjectDecodeType
+#[derive(Debug)]
+pub enum ProjectDecodeType {
+    Failed,
+    Root,
+    UnknownProject,
+    Project,
+}
+
+//tp ProjectDecode
+#[derive(Debug)]
+pub struct ProjectDecode<'a> {
+    dec_type: ProjectDecodeType,
+    project: &'a str,
+    idx: usize,
+    cip: Option<usize>,
+    action: Option<&'a str>,
+    args: Vec<(&'a str, Option<&'a str>)>,
+}
+
+//ip ProjectDecode
+impl<'a> ProjectDecode<'a> {
+    //cp new
+    fn new() -> Self {
+        Self {
+            dec_type: ProjectDecodeType::Failed,
+            project: "",
+            idx: 0,
+            cip: None,
+            action: None,
+            args: vec![],
+        }
+    }
+    //cp failed
+    fn failed() -> Self {
+        let mut pd = Self::new();
+        pd.dec_type = ProjectDecodeType::Failed;
+        pd
+    }
+    //cp root
+    fn root() -> Self {
+        let mut pd = Self::new();
+        pd.dec_type = ProjectDecodeType::Root;
+        pd
+    }
+    //cp of_project
+    fn of_project<'c>(project: &'c str, idx: Option<usize>) -> ProjectDecode<'c> {
+        let mut pd = ProjectDecode::new();
+        pd.project = project;
+        if let Some(idx) = idx {
+            pd.dec_type = ProjectDecodeType::Project;
+            pd.idx = idx;
+        } else {
+            pd.dec_type = ProjectDecodeType::UnknownProject;
+        }
+        pd
+    }
+    //mp set_action
+    pub fn set_action(&mut self, action: Option<&'a str>) {
+        self.action = action;
+    }
+
+    //mp add_arg
+    pub fn add_arg(&mut self, arg: &'a str, value: Option<&'a str>) {
+        self.args.push((arg, value));
+    }
+
+    //ap is_root
+    fn is_root(&self) -> bool {
+        matches!(self.dec_type, ProjectDecodeType::Root)
+    }
+    //ap is_failed
+    fn is_failed(&self) -> bool {
+        matches!(self.dec_type, ProjectDecodeType::Failed)
+    }
+    //ap is_project
+    fn is_project(&self) -> bool {
+        matches!(self.dec_type, ProjectDecodeType::Project)
+    }
+    //ap project_idx
+    fn project_idx(&self) -> Option<usize> {
+        self.is_project().then_some(self.idx)
+    }
+    //ap project
+    fn project(&self) -> Option<&str> {
+        match self.dec_type {
+            ProjectDecodeType::Project => Some(self.project),
+            ProjectDecodeType::UnknownProject => Some(self.project),
+            _ => None,
+        }
+    }
 }
 
 //ip ProjectSet
@@ -199,14 +307,51 @@ impl ProjectSet {
         self.projects.push(named_project);
         Ok(())
     }
+
     //mp find_project
     pub fn find_project(&self, name: &str) -> Option<usize> {
         self.index_by_name.get(name).as_deref().copied()
+    }
+
+    //mp decode_project
+    pub fn decode_project<'req>(&self, request: &'req HttpRequest) -> ProjectDecode<'req> {
+        if !request.uri.starts_with("/project") {
+            return ProjectDecode::failed();
+        }
+        let project = request.uri.strip_prefix("/project").unwrap();
+        if project.len() > 0 && project.as_bytes()[0] != b'/' && project.as_bytes()[0] != b'?' {
+            return ProjectDecode::failed();
+        }
+        if project.len() < 2 {
+            return ProjectDecode::root();
+        }
+        let project = {
+            if project.as_bytes()[0] == b'/' {
+                &project[1..]
+            } else {
+                project
+            }
+        };
+        // Look for ? action [& k=v]*
+        let mut split = project.splitn(2, '?');
+        let project = split.next().unwrap();
+        let mut pd = ProjectDecode::of_project(project, self.find_project(project));
+        if let Some(action_args) = split.next() {
+            let mut aa_split = action_args.split('&');
+            pd.set_action(aa_split.next());
+            while let Some(args) = aa_split.next() {
+                let mut arg_split = args.splitn(2, '=');
+                let arg = arg_split.next().unwrap();
+                pd.add_arg(arg, arg_split.next());
+            }
+        }
+        pd
     }
 }
 
 //ip HttpServerExt for ProjectSet
 impl HttpServerExt for ProjectSet {
+    //mp set_http_response
     fn set_http_response(
         &self,
         server: &HttpServer<Self>,
@@ -214,59 +359,74 @@ impl HttpServerExt for ProjectSet {
         content: &[u8],
         response: &mut HttpResponse,
     ) -> bool {
+        let pd = self.decode_project(request);
         eprintln!("ImageServer: {request:?}");
-        if !request.uri.starts_with("/project") {
+        eprintln!("    Decoded: {pd:?}");
+        if pd.is_failed() {
             return false;
-        }
-        let project = request.uri.strip_prefix("/project").unwrap();
-        if project.len() > 0 && project.as_bytes()[0] != b'/' {
-            return false;
-        }
-        let project = if project.len() < 2 {
-            None
-        } else {
-            Some(&project[1..])
         };
         if request.req_type == HttpRequestType::Get {
-            if let Some(project) = project {
-                if let Some(idx) = self.find_project(project) {
-                    if let Err(e) = self.projects[idx].ensure_loaded() {
-                        eprintln!("Failed to ensure project {idx} loaded {e}:");
-                        return false;
-                    }
-                    match self.projects[idx].map(|p| p.to_json(false)).unwrap() {
-                        Ok(json) => {
-                            response.content = json.into_bytes();
-                            response.mime_type = server.mime_type("json");
-                            response.resp_type = HttpResponseType::FileRead;
-                            true
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to create Json {e}:");
-                            false
-                        }
-                    }
-                } else {
-                    eprintln!("Failed to find project {project}");
-                    false
-                }
-            } else {
+            if pd.is_root() {
                 let names: Vec<String> = self.index_by_name.keys().cloned().collect();
                 let json = serde_json::to_string(&names).unwrap();
                 response.content = json.into_bytes();
                 response.mime_type = server.mime_type("json");
                 response.resp_type = HttpResponseType::FileRead;
                 true
+            } else if let Some(idx) = pd.project_idx() {
+                if let Err(e) = self.projects[idx].ensure_loaded() {
+                    eprintln!("Failed to ensure project {idx} loaded {e}:");
+                    return false;
+                }
+                match self.projects[idx].map(|p| p.to_json(false)).unwrap() {
+                    Ok(json) => {
+                        response.content = json.into_bytes();
+                        response.mime_type = server.mime_type("json");
+                        response.resp_type = HttpResponseType::FileRead;
+                        true
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create Json {e}:");
+                        false
+                    }
+                }
+            } else {
+                eprintln!("Failed to find project {}", pd.project().unwrap());
+                false
+            } /*        } else if request.req_type == HttpRequestType::Post {
+                          eprintln!("ImageServer: Post content {content:?}");
+                          let wrp = self.project.lock().unwrap();
+                          let json = wrp.0.to_json(false).unwrap();
+                          response.content = json.into_bytes();
+                          response.mime_type = server.mime_type("json");
+                          response.resp_type = HttpResponseType::FileRead;
+                          true
+              */
+        } else if request.req_type == HttpRequestType::Put {
+            if let Some(idx) = pd.project_idx() {
+                let mut str_content = "";
+                let mut e = match std::str::from_utf8(content) {
+                    Ok(c) => {
+                        str_content = c;
+                        None
+                    }
+                    Err(e) => Some("Bad UTF8 in JSon".to_string()),
+                };
+                if e.is_none() {
+                    e = self.projects[idx].of_json(str_content).err();
+                }
+                if e.is_none() {
+                    e = self.projects[idx].save().unwrap().err();
+                }
+                if let Some(e) = e {
+                    eprintln!("Failed to save project {idx} with json {e}:");
+                    return false;
+                }
+                response.resp_type = HttpResponseType::FileRead;
+                true
+            } else {
+                false
             }
-        /*        } else if request.req_type == HttpRequestType::Post {
-                    eprintln!("ImageServer: Post content {content:?}");
-                    let wrp = self.project.lock().unwrap();
-                    let json = wrp.0.to_json(false).unwrap();
-                    response.content = json.into_bytes();
-                    response.mime_type = server.mime_type("json");
-                    response.resp_type = HttpResponseType::FileRead;
-                    true
-        */
         } else {
             false
         }

@@ -336,13 +336,16 @@ impl<T: HttpServerExt> HttpServer<T> {
             }
             content = &content_buffer;
         }
-        if !self
+        if self
             .data
             .set_http_response(self, &request, content, &mut response)
+            || self.set_file_response(&request, content, &mut response)
         {
-            self.set_file_response(&request, content, &mut response);
+            let _ = self.send_response(&mut stream, response);
+        } else {
+            eprintln!("Request failed: send {response:?}");
+            let _ = self.send_response(&mut stream, response);
         }
-        let _ = self.send_response(&mut stream, response);
     }
 
     //zz All done

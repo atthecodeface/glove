@@ -156,10 +156,10 @@ impl Cip {
     }
 
     //mp locate
-    pub fn locate(&self) {
+    pub fn locate(&self, max_np_error: f64) {
         self.camera
             .borrow_mut()
-            .locate_using_model_lines(&self.pms_ref());
+            .locate_using_model_lines(&self.pms_ref(), max_np_error);
     }
 
     //zz all done
@@ -318,9 +318,9 @@ impl Project {
     }
 
     //mp locate_all
-    pub fn locate_all(&self) {
+    pub fn locate_all(&self, max_np_error: f64) {
         for cip in &self.cips {
-            cip.borrow().locate();
+            cip.borrow().locate(max_np_error);
         }
     }
 

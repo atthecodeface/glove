@@ -112,6 +112,12 @@ impl PointMapping {
         self.model.model().0
     }
 
+    //mp model_error
+    #[inline]
+    pub fn model_error(&self) -> f64 {
+        self.model.model().1
+    }
+
     //mp screen
     #[inline]
     pub fn screen(&self) -> Point2D {
@@ -294,7 +300,10 @@ impl PointMappingSet {
     }
 
     //mp get_good_screen_pairs
-    pub fn get_good_screen_pairs(&self) -> Vec<(usize, usize)> {
+    pub fn get_good_screen_pairs<F>(&self, filter: &F) -> Vec<(usize, usize)>
+    where
+        F: Fn(&PointMapping) -> bool,
+    {
         let cog = self
             .mappings
             .iter()
@@ -305,6 +314,7 @@ impl PointMappingSet {
             .iter()
             .enumerate()
             .filter(|(_n, m)| !m.is_unmapped())
+            .filter(|(_n, m)| filter(m))
             .map(|(n, m)| {
                 let pxy = m.screen - cog;
                 (n, 0, pxy.length(), pxy)
