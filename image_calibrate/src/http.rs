@@ -28,6 +28,38 @@ pub const MIME_TYPES: &[(&str, &str)] = &[
     ("xml", "application/xml"),
 ];
 
+//a UriArgValue
+//ti UriArgValue
+// trait UriArgValueKind = std::any::Any  + 'static
+struct UriArgValue {
+    inner: Box<dyn std::any::Any + 'static>,
+    type_id: std::any::TypeId,
+}
+
+//ii UriArgValue
+impl UriArgValue {
+    fn new<V: std::any::Any + Clone + 'static>(inner: V) -> Self {
+        let type_id = std::any::TypeId::of::<V>();
+        let inner = Box::new(inner);
+        Self { inner, type_id }
+    }
+
+    fn downcast_ref<T: std::any::Any + 'static>(&self) -> Option<&T> {
+        self.inner.downcast_ref::<T>()
+    }
+
+    fn downcast_into<T: std::any::Any>(self) -> Result<Box<T>, Self> {
+        let type_id = self.type_id;
+        self.inner
+            .downcast::<T>()
+            .map_err(|inner| Self { inner, type_id })
+    }
+
+    fn type_id(&self) -> std::any::TypeId {
+        self.type_id
+    }
+}
+
 //a UriDecode
 //tp UriDecode
 #[derive(Debug, Default)]
@@ -72,6 +104,14 @@ impl UriDecode {
             .push((arg.to_string(), value.map(|a| a.to_owned())));
     }
 
+    //ap uri
+    /// Get the str of the URI if it could not be decoded
+    pub fn uri(&self) -> Option<&str> {
+        match &self.uri {
+            Some(p) => Some(p),
+            None => None,
+        }
+    }
     //ap path
     /// Get the [Path] of the decoded URI if it was valid, else None
     pub fn path(&self) -> Option<&Path> {
@@ -140,6 +180,27 @@ impl UriDecode {
         }
         ud
     }
+
+    //ap try_get_one
+    // #[inline]
+    // fn try_get_arg(&self, arg: &str) -> Result<Option<&MatchedArg>, MatchesError> {
+    // Ok(self.args.get(arg))
+    // }
+
+    // #[inline]
+    // fn try_get_arg_t<T: Any + 'static>(
+    // &self,
+    // arg: &str,
+    // ) -> Result<Vec<UiArgValue>, String> {
+    // let arg = match self.try_get_arg(arg) {
+    // Some(arg) => arg,
+    // None => {
+    // return Ok(None);
+    // }
+    // };
+    // ok!(self.verify_arg_t::<T>(arg));
+    // Ok(Some(arg))
+    // }
 
     //zz All done
 }
