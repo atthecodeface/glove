@@ -95,13 +95,13 @@ impl UriDecode {
 
     //mp set_action
     fn set_action(&mut self, action: Option<&str>) {
-        self.action = action.map(|a| a.to_owned());
+        self.action = action.map(|a| a.to_lowercase());
     }
 
     //mp add_arg
     fn add_arg(&mut self, arg: &str, value: Option<&str>) {
         self.args
-            .push((arg.to_string(), value.map(|a| a.to_owned())));
+            .push((arg.to_lowercase(), value.map(|a| a.to_owned())));
     }
 
     //ap uri
@@ -130,6 +130,11 @@ impl UriDecode {
             Some(p) => Some(p),
             None => None,
         }
+    }
+
+    //ap action_is
+    fn action_is(&self, action: &str) -> bool {
+        self.action.as_ref().is_some_and(|a| a == action)
     }
 
     //fp canonicalize_path
@@ -260,6 +265,11 @@ impl HttpRequest {
         } else {
             None
         }
+    }
+
+    //mp action_is
+    pub fn action_is(&self, action: &str) -> bool {
+        self.uri.action_is(action)
     }
 
     //mp parse_req_hdr
