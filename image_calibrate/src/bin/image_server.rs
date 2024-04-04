@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use clap::Command;
 use image_calibrate::cmdline_args;
@@ -12,9 +12,11 @@ use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
     UriDecode,
 };
+use image_calibrate::image;
+use image_calibrate::image::Image;
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::Project;
+use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
 //tp ProjectPath
@@ -118,14 +120,14 @@ impl NamedProject {
     }
 
     //ap ensure_loaded
-    pub fn ensure_loaded(&self) -> Result<(), String> {
+    pub fn ensure_loaded(&self) -> Result<MutexGuard<Option<ProjectWrap>>, String> {
         let mut p = self.project.lock().unwrap();
         if p.is_none() {
             let mut project = ProjectWrap::default();
             project.load(&self.path)?;
             *p = Some(project);
         }
-        Ok(())
+        Ok(p)
     }
 
     //mp of_json
@@ -179,28 +181,51 @@ pub struct ProjectDecode {
     project: String,
     idx: usize,
     cip: Option<usize>,
+    width: Option<f64>,
+    height: Option<f64>,
 }
 
 //ip ProjectDecode
 impl ProjectDecode {
-    //cp root
-    fn root() -> Self {
+    //cp decode_request
+    pub fn decode_request(request: &HttpRequest) -> Option<Self> {
+        let Some(path) = request.uri.path() else {
+            return None;
+        };
+        if !path.starts_with("project") {
+            return None;
+        }
+        let project = path.strip_prefix("project").unwrap();
+        let Some(project) = project.to_str() else {
+            return None;
+        };
         let mut pd = Self::default();
         pd.dec_type = ProjectDecodeType::Root;
-        pd
+        if !project.is_empty() {
+            pd.dec_type = ProjectDecodeType::UnknownProject;
+            pd.project = project.into();
+        }
+        if let Some(Ok(cip)) = request.get_one::<usize>("cip") {
+            pd.cip = Some(cip);
+        }
+        if let Some(Ok(width)) = request.get_one::<f64>("width") {
+            pd.width = Some(width);
+        }
+        if let Some(Ok(height)) = request.get_one::<f64>("height") {
+            pd.height = Some(height);
+        }
+        Some(pd)
     }
 
-    //cp of_project
-    fn of_project(project: &str, idx: Option<usize>) -> ProjectDecode {
-        let mut pd = ProjectDecode::default();
-        pd.project = project.into();
+    //mp set_project_idx
+    fn set_project_idx(&mut self, idx: Option<usize>) {
         if let Some(idx) = idx {
-            pd.dec_type = ProjectDecodeType::Project;
-            pd.idx = idx;
+            self.dec_type = ProjectDecodeType::Project;
+            self.idx = idx;
         } else {
-            pd.dec_type = ProjectDecodeType::UnknownProject;
+            self.dec_type = ProjectDecodeType::UnknownProject;
+            self.idx = 0;
         }
-        pd
     }
 
     //ap is_root
@@ -211,6 +236,14 @@ impl ProjectDecode {
     //ap is_project
     fn is_project(&self) -> bool {
         matches!(self.dec_type, ProjectDecodeType::Project)
+    }
+
+    //ap might_be_project
+    fn might_be_project(&self) -> bool {
+        matches!(
+            self.dec_type,
+            ProjectDecodeType::Project | ProjectDecodeType::UnknownProject
+        )
     }
 
     //ap project_idx
@@ -226,18 +259,30 @@ impl ProjectDecode {
             _ => None,
         }
     }
+    //ap cip
+    fn cip(&self) -> Option<usize> {
+        self.cip
+    }
+
+    //zz All done
 }
 
 //a ProjectSet
 //ti ProjectSet
 #[derive(Debug, Default)]
 struct ProjectSet {
+    image_root: PathBuf,
     projects: Vec<NamedProject>,
     index_by_name: HashMap<String, usize>,
 }
 
 //ip ProjectSet
 impl ProjectSet {
+    //mp set_image_root
+    pub fn set_image_root<I: Into<PathBuf>>(&mut self, image_root: I) {
+        self.image_root = image_root.into();
+    }
+
     //mp fill_from_project_dir
     pub fn fill_from_project_dir<P: AsRef<Path> + std::fmt::Display>(
         &mut self,
@@ -288,27 +333,23 @@ impl ProjectSet {
     }
 
     //mp decode_project
-    pub fn decode_project(&self, path: &Path) -> Option<ProjectDecode> {
-        if !path.starts_with("project") {
-            return None;
-        }
-        let project = path.strip_prefix("project").unwrap();
-        let Some(project) = project.to_str() else {
+    pub fn decode_project(&self, request: &HttpRequest) -> Option<ProjectDecode> {
+        let Some(mut pd) = ProjectDecode::decode_request(request) else {
             return None;
         };
-        if project.is_empty() {
-            Some(ProjectDecode::root())
-        } else {
-            Some(ProjectDecode::of_project(
-                project,
-                self.find_project(project),
-            ))
+        if pd.might_be_project() {
+            let opt_idx = self.find_project(pd.project().unwrap());
+            pd.set_project_idx(opt_idx);
         }
+        Some(pd)
     }
 
+    //mi http_list_projects
     fn http_list_projects(
         &self,
         server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
         response: &mut HttpResponse,
     ) -> Result<(), String> {
         let names: Vec<String> = self.index_by_name.keys().cloned().collect();
@@ -318,6 +359,130 @@ impl ProjectSet {
         response.resp_type = HttpResponseType::FileRead;
         Ok(())
     }
+
+    //mi http_load_project
+    fn http_load_project(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+        idx: usize,
+    ) -> Result<(), String> {
+        self.projects[idx]
+            .ensure_loaded()
+            .map(|x| ())
+            .and_then(|_| self.projects[idx].map(|p| p.to_json(false)).unwrap())
+            .map(|json| {
+                response.content = json.into_bytes();
+                response.mime_type = server.mime_type("json");
+                response.resp_type = HttpResponseType::FileRead;
+            })
+    }
+
+    //mi http_save_project
+    fn http_save_project(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        content: &[u8],
+        response: &mut HttpResponse,
+        idx: usize,
+    ) -> Result<(), String> {
+        let mut str_content = "";
+        let mut e = match std::str::from_utf8(content) {
+            Ok(c) => {
+                str_content = c;
+                None
+            }
+            Err(e) => Some("Bad UTF8 in JSon".to_string()),
+        };
+        if e.is_none() {
+            e = self.projects[idx].of_json(str_content).err();
+        }
+        if e.is_none() {
+            e = self.projects[idx].save().unwrap().err();
+        }
+        if let Some(e) = e {
+            Err(format!("Failed to save project {idx} with json {e}:"))
+        } else {
+            response.resp_type = HttpResponseType::FileRead;
+            Ok(())
+        }
+    }
+
+    //mi http_cip_pms_mesh
+    fn http_cip_pms_mesh(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+        pd: &ProjectDecode,
+    ) -> Result<(), String> {
+        let cip = pd.cip().unwrap_or_default();
+        let p = self.projects[pd.idx].ensure_loaded()?;
+        let p = &p.as_ref().unwrap().0;
+        if cip >= p.ncips() {
+            return Err("Cip out of range".into());
+        }
+        let cip = p.cip(cip).clone();
+        let cip_r = cip.borrow();
+        let pms = cip_r.pms();
+        let mesh = Mesh::optimized(&pms.borrow());
+        let triangles: Vec<_> = mesh.triangles().collect();
+        eprintln!("Triangles of mesh {triangles:?}");
+        let json = serde_json::to_string(&triangles).unwrap();
+        eprintln!("Json of mesh {json}");
+        response.content = json.into_bytes();
+        response.mime_type = server.mime_type("json");
+        response.resp_type = HttpResponseType::FileRead;
+        Ok(())
+    }
+
+    //mi http_cip_thumbnail
+    fn http_cip_thumbnail(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+        pd: &ProjectDecode,
+    ) -> Result<(), String> {
+        let cip = pd.cip().unwrap_or_default();
+        let p = self.projects[pd.idx].ensure_loaded()?;
+        let p = &p.as_ref().unwrap().0;
+        if cip >= p.ncips() {
+            return Err("Cip out of range".into());
+        }
+        let cip = p.cip(cip).clone();
+        let cip_r = cip.borrow();
+        let path = self.image_root.as_path().join(cip_r.image());
+        server.verbose().then(|| eprintln!("Open image {path:?}"));
+        let src_img = image::read_image(&path)?;
+        let src_size = src_img.size();
+        let src_size = (src_size.0 as f64, src_size.1 as f64);
+        let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
+        let y_scale = pd.height.map(|h| src_size.1 / h).unwrap_or(1.0);
+        let scale = x_scale.max(y_scale);
+        let width = (src_size.0 / scale) as usize;
+        let height = (src_size.1 / scale) as usize;
+        let mut scaled_img = image::read_or_create_image(width, height, None).unwrap();
+        for y in 0..height {
+            let sy = (y as f64 + 0.5) * scale;
+            for x in 0..width {
+                let sx = (x as f64 + 0.5) * scale;
+                let c = src_img.get(sx as u32, sy as u32);
+                scaled_img.put(x as u32, y as u32, &c);
+            }
+        }
+        let img_bytes = scaled_img.encode("jpeg")?;
+        response.content = img_bytes;
+        response.mime_type = server.mime_type("jpeg");
+        response.resp_type = HttpResponseType::FileRead;
+        Ok(())
+    }
+
     //zz All done
 }
 
@@ -331,55 +496,32 @@ impl HttpServerExt for ProjectSet {
         content: &[u8],
         response: &mut HttpResponse,
     ) -> bool {
-        let Some(path) = request.uri.path() else {
+        let Some(pd) = self.decode_project(request) else {
             return false;
         };
-        let Some(pd) = self.decode_project(path) else {
-            return false;
-        };
-        eprintln!("ImageServer: {request:?}");
-        eprintln!("    Decoded: {pd:?}");
+        server.verbose().then(|| {
+            eprintln!("ImageServer: {request:?}");
+            eprintln!("    Decoded: {pd:?}");
+        });
         let result = {
             if pd.is_root() {
                 if request.action_is("list") && request.req_type == HttpRequestType::Get {
-                    self.http_list_projects(server, response)
+                    self.http_list_projects(server, request, content, response)
                 } else {
                     Err("Unknown project action".into())
                 }
             } else if let Some(idx) = pd.project_idx() {
-                match request.req_type {
-                    HttpRequestType::Get => self.projects[idx]
-                        .ensure_loaded()
-                        .and_then(|_| self.projects[idx].map(|p| p.to_json(false)).unwrap())
-                        .map(|json| {
-                            response.content = json.into_bytes();
-                            response.mime_type = server.mime_type("json");
-                            response.resp_type = HttpResponseType::FileRead;
-                        }),
-
-                    HttpRequestType::Put => {
-                        let mut str_content = "";
-                        let mut e = match std::str::from_utf8(content) {
-                            Ok(c) => {
-                                str_content = c;
-                                None
-                            }
-                            Err(e) => Some("Bad UTF8 in JSon".to_string()),
-                        };
-                        if e.is_none() {
-                            e = self.projects[idx].of_json(str_content).err();
-                        }
-                        if e.is_none() {
-                            e = self.projects[idx].save().unwrap().err();
-                        }
-                        if let Some(e) = e {
-                            Err(format!("Failed to save project {idx} with json {e}:"))
-                        } else {
-                            response.resp_type = HttpResponseType::FileRead;
-                            Ok(())
-                        }
-                    }
-                    _ => Err("Bad request type".into()),
+                if request.action_is("load") && request.req_type == HttpRequestType::Get {
+                    self.http_load_project(server, request, content, response, idx)
+                } else if request.action_is("save") && request.req_type == HttpRequestType::Put {
+                    self.http_save_project(server, request, content, response, idx)
+                } else if request.action_is("mesh") && request.req_type == HttpRequestType::Get {
+                    self.http_cip_pms_mesh(server, request, content, response, &pd)
+                } else if request.action_is("thumbnail") && request.req_type == HttpRequestType::Get
+                {
+                    self.http_cip_thumbnail(server, request, content, response, &pd)
+                } else {
+                    Err("Bad request type".into())
                 }
             } else {
                 Err(format!("Failed to find project {}", pd.project().unwrap()))
@@ -407,14 +549,20 @@ fn main() -> Result<(), String> {
     let cmd = Command::new("image_server")
         .about("Image calibration/correlation server")
         .version("0.1.0");
+    let cmd = cmdline_args::add_verbose_arg(cmd);
     let cmd = cmdline_args::add_threads_arg(cmd);
     let cmd = cmdline_args::add_port_arg(cmd);
     let cmd = cmdline_args::add_file_root_arg(cmd, true);
+    let cmd = cmdline_args::add_image_root_arg(cmd, true);
+    let cmd = cmdline_args::add_project_root_arg(cmd, true);
 
     let matches = cmd.get_matches();
+    let verbose = cmdline_args::get_verbose(&matches);
     let num_threads = cmdline_args::get_threads(&matches)?;
     let port = cmdline_args::get_port(&matches)?;
     let file_root = cmdline_args::get_file_root(&matches)?;
+    let image_root = cmdline_args::get_image_root(&matches)?;
+    let project_root = cmdline_args::get_project_root(&matches)?;
     if num_threads == 0 || num_threads > 20 {
         return Err(format!(
             "Number of threads must be non-zero and no more than 20"
@@ -424,15 +572,16 @@ fn main() -> Result<(), String> {
         return Err(format!("Port must be in the range 1024..60000"));
     }
 
+    let mut project_set = ProjectSet::default();
+    project_set.set_image_root(image_root);
+    project_set.fill_from_project_dir(project_root);
+    HTTP_SRV
+        .set(HttpServer::new(verbose, file_root, project_set))
+        .map_err(|_| "Bug - faiiled to config server")?;
+
+    let pool = ThreadPool::new(4);
     let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
         .map_err(|_a| (format!("Failed to bind to port {port}")))?;
-    let pool = ThreadPool::new(4);
-
-    let mut project_set = ProjectSet::default();
-    project_set.fill_from_project_dir("/Users/gavinjstark/Git/glove/image_calibrate/nac");
-    HTTP_SRV
-        .set(HttpServer::new(file_root, project_set))
-        .map_err(|_| "Bug - faiiled to config server")?;
     for stream in listener.incoming() {
         let stream = stream.unwrap();
 

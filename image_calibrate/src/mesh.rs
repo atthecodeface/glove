@@ -13,8 +13,8 @@ use crate::{Point2D, PointMappingSet};
 #[derive(
     Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
+#[serde(transparent)]
 pub struct PointIndex {
-    #[serde(flatten)]
     p: usize,
 }
 
@@ -22,6 +22,13 @@ pub struct PointIndex {
 impl From<usize> for PointIndex {
     fn from(p: usize) -> PointIndex {
         PointIndex { p }
+    }
+}
+
+//ip From<PointIndex> for usize
+impl From<PointIndex> for usize {
+    fn from(pt: PointIndex) -> usize {
+        pt.p
     }
 }
 
@@ -46,13 +53,20 @@ impl std::cmp::PartialEq<&usize> for PointIndex {
     }
 }
 
+//ip PointIndex
+impl PointIndex {
+    pub fn as_usize(self) -> usize {
+        self.p
+    }
+}
+
 //a LineIndex
 //tp LineIndex
 #[derive(
     Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
+#[serde(transparent)]
 pub struct LineIndex {
-    #[serde(flatten)]
     l: usize,
 }
 
@@ -89,8 +103,8 @@ impl std::cmp::PartialEq<&usize> for LineIndex {
 #[derive(
     Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
+#[serde(transparent)]
 pub struct TriangleIndex {
-    #[serde(flatten)]
     t: usize,
 }
 
@@ -355,6 +369,14 @@ impl Mesh {
         }
     }
 
+    //cp optimized
+    pub fn optimized(pms: &PointMappingSet) -> Self {
+        let mut mesh = Self::new(pms);
+        mesh.create_mesh_triangles();
+        while mesh.optimize_mesh_quads() {}
+        mesh
+    }
+
     //mp add_pt
     pub fn add_pt(&mut self, p: Point2D) -> PointIndex {
         let n = self.pxy.len();
@@ -375,9 +397,7 @@ impl Mesh {
             .iter()
             .enumerate()
             .fold((0, self.pxy[0]), |(n, lbx), (i, pt)| {
-                if pt[0] < lbx[0] {
-                    (i, *pt)
-                } else if pt[0] == lbx[0] && pt[1] < lbx[1] {
+                if (pt[0] < lbx[0]) || (pt[0] == lbx[0] && pt[1] < lbx[1]) {
                     (i, *pt)
                 } else {
                     (n, lbx)
@@ -471,6 +491,9 @@ impl Mesh {
     //mp create_mesh_triangles
     pub fn create_mesh_triangles(&mut self) {
         self.clear();
+        if self.pxy.is_empty() {
+            return;
+        }
         let (lbx, sweep) = self.find_sweep();
         let num_triangles = sweep.len() - 1;
         for n in 1..num_triangles {
@@ -485,7 +508,7 @@ impl Mesh {
             let ph0 = hull[p0];
             let ph1 = hull[p1];
             let ph2 = hull[p2 % hull_len];
-            eprintln!("Check {ph0}, {ph1}, {ph2} ({p0}, {p1}, {p2})");
+            // eprintln!("Check {ph0}, {ph1}, {ph2} ({p0}, {p1}, {p2})");
             let pt0 = self[ph0];
             let pt1 = self[ph1];
             let pt2 = self[ph2];
@@ -493,7 +516,7 @@ impl Mesh {
             let d21 = pt2 - pt1;
             if d01[0] * d21[1] > d01[1] * d21[0] {
                 self.add_triangle(ph0, ph2, ph1);
-                eprintln!("Add {ph0}, {ph1}, {ph2}");
+                // eprintln!("Add {ph0}, {ph1}, {ph2}");
                 hull[p1] = hull[p0];
                 while hull[p0] == hull[p1] {
                     if p0 == 0 {
@@ -547,18 +570,18 @@ impl Mesh {
         o_p0: PointIndex,
         o_p1: PointIndex,
     ) {
-        eprintln!("Swap quad diagonals {ln_i} {c_p0} {c_p1} {o_p0} {o_p1}");
+        // eprintln!("Swap quad diagonals {ln_i} {c_p0} {c_p1} {o_p0} {o_p1}");
         let t0 = self[ln_i].t0;
         let t1 = self[ln_i].t1;
         let ln_b = self[t0].line_from_pt(o_p0);
         let ln_d = self[t1].line_from_pt(o_p1);
-        eprintln!(" {t0} {t1} {ln_b} {ln_d}");
+        // eprintln!(" {t0} {t1} {ln_b} {ln_d}");
 
-        eprintln!(" T0: {}", self[t0]);
-        eprintln!(" T1: {}", self[t1]);
-        eprintln!(" L_i: {}", self[ln_i]);
-        eprintln!(" L_b: {}", self[ln_b]);
-        eprintln!(" L_d: {}", self[ln_d]);
+        // eprintln!(" T0: {}", self[t0]);
+        // eprintln!(" T1: {}", self[t1]);
+        // eprintln!(" L_i: {}", self[ln_i]);
+        // eprintln!(" L_b: {}", self[ln_b]);
+        // eprintln!(" L_d: {}", self[ln_d]);
         self[t0].change_pt(c_p0, o_p1);
         self[t0].change_ln(ln_i, ln_d);
         self[t0].change_ln(ln_b, ln_i);
@@ -570,12 +593,12 @@ impl Mesh {
         self[ln_b].change_triangle(t0, t1);
         self[ln_d].change_triangle(t1, t0);
 
-        eprintln!("Afterwards:");
-        eprintln!(" T0: {}", self[t0]);
-        eprintln!(" T1: {}", self[t1]);
-        eprintln!(" L_i: {}", self[ln_i]);
-        eprintln!(" L_b: {}", self[ln_b]);
-        eprintln!(" L_d: {}", self[ln_d]);
+        // eprintln!("Afterwards:");
+        // eprintln!(" T0: {}", self[t0]);
+        // eprintln!(" T1: {}", self[t1]);
+        // eprintln!(" L_i: {}", self[ln_i]);
+        // eprintln!(" L_b: {}", self[ln_b]);
+        // eprintln!(" L_d: {}", self[ln_d]);
     }
 
     //mp optimize_mesh_quads
@@ -612,6 +635,13 @@ impl Mesh {
             }
         }
         changed
+    }
+
+    //ap triangles
+    pub fn triangles(
+        &self,
+    ) -> impl std::iter::Iterator<Item = (PointIndex, PointIndex, PointIndex)> + '_ {
+        self.triangles.iter().map(|t| t.pts())
     }
 
     //zz All done
@@ -704,7 +734,7 @@ fn test_hull1() -> Result<(), String> {
     mesh.add_pt([0., 1.].into());
     mesh.create_mesh_triangles();
 
-    while (mesh.optimize_mesh_quads()) {}
+    while mesh.optimize_mesh_quads() {}
 
     assert_mesh_triangle(&mesh, 0, (0, 1, 3));
     assert_mesh_triangle(&mesh, 1, (1, 2, 3));
@@ -723,7 +753,7 @@ fn test_hull2() -> Result<(), String> {
     mesh.add_pt([0., 1.].into());
     mesh.create_mesh_triangles();
 
-    while (mesh.optimize_mesh_quads()) {}
+    while mesh.optimize_mesh_quads() {}
 
     assert_mesh_triangle(&mesh, 0, (0, 1, 3));
     assert_mesh_triangle(&mesh, 1, (1, 2, 3));
@@ -758,7 +788,7 @@ fn test_hull3() -> Result<(), String> {
     assert_mesh_triangle(&mesh, 8, (5, 2, 4));
     assert_mesh_triangle(&mesh, 9, (7, 5, 2));
 
-    while (mesh.optimize_mesh_quads()) {}
+    while mesh.optimize_mesh_quads() {}
 
     assert_mesh_triangle(&mesh, 0, (0, 1, 3));
     assert_mesh_triangle(&mesh, 1, (0, 3, 4));

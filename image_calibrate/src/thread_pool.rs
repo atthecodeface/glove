@@ -8,11 +8,30 @@ type WorkItem = Box<dyn FnOnce() + Send + 'static>;
 
 //a ThreadPool
 //tp ThreadPool
+#[derive(Debug, Default)]
+struct ThreadStats {
+    delivered: usize,
+    completed: usize,
+}
+impl ThreadStats {
+    #[inline]
+    fn inc_delivered(&mut self) {
+        self.delivered += 1;
+    }
+    #[inline]
+    fn inc_completed(&mut self) {
+        self.completed += 1;
+    }
+    #[inline]
+    fn outstanding(&self) -> usize {
+        self.delivered - self.completed
+    }
+}
 pub struct ThreadPool {
     workers: Vec<WorkThread>,
-    thread_uid: usize,
     tx: Option<mpsc::Sender<WorkItem>>,
     rx: Option<Arc<Mutex<mpsc::Receiver<WorkItem>>>>,
+    stats: Vec<Arc<Mutex<ThreadStats>>>,
 }
 
 //ip std::default::Default for ThreadPool
@@ -21,12 +40,13 @@ impl std::default::Default for ThreadPool {
         let (tx, rx) = mpsc::channel();
         let rx = Arc::new(Mutex::new(rx));
         let workers = vec![];
+        let stats = vec![];
 
         ThreadPool {
-            thread_uid: 0,
             workers,
             tx: Some(tx),
             rx: Some(rx),
+            stats,
         }
     }
 }
@@ -51,10 +71,11 @@ impl ThreadPool {
             self.rx.is_some(),
             "Must have set up the MPSC channel and not torn it down"
         );
-        let thread_id = self.thread_uid;
-        self.thread_uid += 1;
+        let thread_id = self.stats.len();
+        let stats = Arc::new(Mutex::new(ThreadStats::default()));
+        self.stats.push(stats.clone());
         let rx = self.rx.as_ref().unwrap().clone();
-        self.workers.push(WorkThread::new(thread_id, rx));
+        self.workers.push(WorkThread::new(thread_id, rx, stats));
     }
 
     //mp issue_work
@@ -124,7 +145,11 @@ impl WorkThread {
 
     //cp new
     /// Create a new thread watching an MPSC rx channel for work
-    fn new(thread_id: usize, rx: Arc<Mutex<mpsc::Receiver<WorkItem>>>) -> WorkThread {
+    fn new(
+        thread_id: usize,
+        rx: Arc<Mutex<mpsc::Receiver<WorkItem>>>,
+        stats: Arc<Mutex<ThreadStats>>,
+    ) -> WorkThread {
         let thread = thread::spawn(move || loop {
             // Get the next WorkItem - or Err(_) if the pool has killed the MPSC transmitter
             let work_item_or_err = rx.lock().unwrap().recv();
@@ -134,9 +159,9 @@ impl WorkThread {
                 eprintln!("WorkThread {thread_id} disconnected; shutting down.");
                 break;
             };
-            eprintln!("WorkThread {thread_id} received work item");
+            stats.lock().map(|mut s| s.inc_delivered());
             work_item();
-            eprintln!("WorkThread {thread_id} commpleted work item");
+            stats.lock().map(|mut s| s.inc_completed());
         });
 
         WorkThread {

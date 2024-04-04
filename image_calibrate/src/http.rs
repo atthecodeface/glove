@@ -272,6 +272,21 @@ impl HttpRequest {
         self.uri.action_is(action)
     }
 
+    //mp arg_get_one
+    pub fn get_one<T>(&self, id: &str) -> Option<Result<T, String>>
+    where
+        T: std::str::FromStr + 'static,
+    {
+        for (k, v) in &self.uri.args {
+            if k == id && v.is_some() {
+                return Some(
+                    T::from_str(v.as_ref().unwrap()).map_err(|_e| "Failed to parse".into()),
+                );
+            }
+        }
+        None
+    }
+
     //mp parse_req_hdr
     fn parse_req_hdr<'buf>(&mut self, buffer: &'buf [u8]) -> Option<&'buf [u8]> {
         let Some((b_req, b_rest)) = Self::split_at_crlf(buffer) else {
@@ -359,6 +374,7 @@ impl HttpServerExt for () {}
 
 //tp HttpServer
 pub struct HttpServer<T: HttpServerExt> {
+    verbose: bool,
     file_root: PathBuf,
     mime_types: HashMap<&'static str, &'static str>,
     data: T,
@@ -366,14 +382,21 @@ pub struct HttpServer<T: HttpServerExt> {
 //ip HttpServer
 impl<T: HttpServerExt> HttpServer<T> {
     //cp new
-    pub fn new<I: Into<PathBuf>>(file_root: I, data: T) -> Self {
+    pub fn new<I: Into<PathBuf>>(verbose: bool, file_root: I, data: T) -> Self {
         let mime_types: HashMap<&'static str, &'static str> = MIME_TYPES.iter().copied().collect();
         let file_root = file_root.into();
         HttpServer {
+            verbose,
             mime_types,
             file_root,
             data,
         }
+    }
+
+    //ap verbose
+    #[inline]
+    pub fn verbose(&self) -> bool {
+        self.verbose
     }
 
     //mp mime_type
@@ -396,7 +419,7 @@ impl<T: HttpServerExt> HttpServer<T> {
         if path.is_dir() {
             path.push("index.html");
         }
-        eprintln!("Path {path:?}");
+        self.verbose().then(|| eprintln!("Fetching path {path:?}"));
         if let Some(ext) = path.extension() {
             response.mime_type = self.mime_type(ext.to_str().unwrap());
             if let Ok(bytes) = fs::read(&path) {

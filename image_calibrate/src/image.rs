@@ -1,8 +1,10 @@
 //a Imports
-use serde::{Deserialize, Serialize};
+use std::io::Cursor;
+use std::path::Path;
 
 use image::io::Reader as ImageReader;
 pub use image::{DynamicImage, GenericImage, GenericImageView};
+use serde::{Deserialize, Serialize};
 
 use crate::Point2D;
 
@@ -153,10 +155,11 @@ impl<'de> Deserialize<'de> for Color {
         color_str.as_str().try_into().map_err(DE::Error::custom)
     }
 }
+
 //a Public functions
 //fp read_image
-pub fn read_image(filename: &str) -> Result<DynamicImage, String> {
-    let img = ImageReader::open(filename)
+pub fn read_image<P: AsRef<Path>>(path: P) -> Result<DynamicImage, String> {
+    let img = ImageReader::open(path)
         .map_err(|e| format!("Failed to open file {}", e))?
         .decode()
         .map_err(|e| format!("Failed to decode image {}", e))?;
@@ -189,9 +192,11 @@ pub fn read_or_create_image(
 
 //a Image trait
 pub trait Image: GenericImage + GenericImageView {
-    fn write(&self, filename: &str) -> Result<(), String>;
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String>;
+    fn encode(&self, extension: &str) -> Result<Vec<u8>, String>;
     fn get(&self, x: u32, y: u32) -> Color;
     fn put(&mut self, x: u32, y: u32, color: &Color);
+    fn size(&self) -> (u32, u32);
     fn draw_cross(&mut self, p: Point2D, size: f64, color: &Color) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
@@ -206,15 +211,33 @@ pub trait Image: GenericImage + GenericImageView {
     }
 }
 impl Image for DynamicImage {
-    fn write(&self, filename: &str) -> Result<(), String> {
-        self.save(filename)
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
+        self.save(path)
             .map_err(|e| format!("Failed to encode image {}", e))?;
         Ok(())
+    }
+    fn encode(&self, extension: &str) -> Result<Vec<u8>, String> {
+        let format = {
+            match extension {
+                "jpg" => image::ImageFormat::Jpeg,
+                "jpeg" => image::ImageFormat::Jpeg,
+                "png" => image::ImageFormat::Png,
+                _ => Err(format!("Unknown image format {extension}"))?,
+            }
+        };
+
+        let mut bytes: Vec<u8> = Vec::new();
+        self.write_to(&mut Cursor::new(&mut bytes), format)
+            .map_err(|e| format!("Failed to encode image {}", e))?;
+        Ok(bytes)
     }
     fn put(&mut self, x: u32, y: u32, color: &Color) {
         image::GenericImage::put_pixel(self, x, y, color.0);
     }
     fn get(&self, x: u32, y: u32) -> Color {
         Color(self.get_pixel(x, y))
+    }
+    fn size(&self) -> (u32, u32) {
+        (self.width(), self.height())
     }
 }
