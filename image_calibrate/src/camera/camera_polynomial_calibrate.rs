@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::camera::{serialize_body_name, serialize_lens_name};
 use crate::camera::{CameraPolynomialDesc, CameraProjection, CameraView};
 use crate::{
-    json, CameraBody, CameraDatabase, CameraInstance, CameraLens, Point2D, Point3D, Quat, RollYaw,
+    json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, Point2D, Point3D, Quat, RollYaw,
 };
 
 //a CameraPolynomialCalibrateDesc
@@ -64,13 +64,13 @@ pub struct CameraPolynomialCalibrate {
     mappings: Vec<(isize, isize, usize, usize)>,
     /// Derived camera instance
     #[serde(skip)]
-    camera: CameraInstance,
+    camera: CameraPolynomial,
 }
 
 //ip CameraPolynomialCalibrate
 impl CameraPolynomialCalibrate {
     //ap camera
-    pub fn camera(&self) -> &CameraInstance {
+    pub fn camera(&self) -> &CameraPolynomial {
         &self.camera
     }
 
@@ -97,7 +97,7 @@ impl CameraPolynomialCalibrate {
 
         let body = cdb.get_body_err(&desc.camera.body)?.clone();
         let lens = cdb.get_lens_err(&desc.camera.lens)?.clone();
-        let camera = CameraInstance::new(
+        let camera = CameraPolynomial::new(
             body.clone(),
             lens.clone(),
             desc.camera.mm_focus_distance,

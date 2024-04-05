@@ -21,12 +21,10 @@ pub struct CameraPolynomialDesc {
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     pub mm_focus_distance: f64,
     /// Position in world coordinates of the camera
-    #[serde(default)]
-    position: Point3D,
+    pub position: Point3D,
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
-    #[serde(default)]
-    orientation: Quat,
+    pub orientation: Quat,
 }
 
 //a CameraPolynomial
@@ -81,9 +79,13 @@ impl CameraPolynomial {
     }
 
     //cp new
-    pub fn new(body: CameraBody, lens: CameraLens, mm_focus_distance: f64) -> Self {
-        let position = Point3D::default();
-        let orientation = Quat::default();
+    pub fn new(
+        body: CameraBody,
+        lens: CameraLens,
+        mm_focus_distance: f64,
+        position: Point3D,
+        orientation: Quat,
+    ) -> Self {
         let mut cp = Self {
             body,
             lens,
@@ -102,10 +104,13 @@ impl CameraPolynomial {
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?.clone();
         let lens = cdb.get_lens_err(&desc.lens)?.clone();
-        let mut cp = Self::new(body, lens, desc.mm_focus_distance);
-        cp.set_position(desc.position);
-        cp.set_orientation(desc.orientation);
-        Ok(cp)
+        Ok(Self::new(
+            body,
+            lens,
+            desc.mm_focus_distance,
+            desc.position,
+            desc.orientation,
+        ))
     }
 
     //cp from_json
@@ -133,16 +138,6 @@ impl CameraPolynomial {
     //mp set_orientation
     pub fn set_orientation(&mut self, q: Quat) {
         self.orientation = q;
-    }
-
-    //mp position
-    pub fn position(&self) -> Point3D {
-        self.position
-    }
-
-    //mp orientation
-    pub fn orientation(&self) -> Quat {
-        self.orientation
     }
 
     //mp derive
@@ -192,13 +187,13 @@ impl std::fmt::Display for CameraPolynomial {
 
 //ip CameraView for CameraPolynomial
 impl CameraView for CameraPolynomial {
-    //fp location
-    fn location(&self) -> Point3D {
+    //mp position
+    fn position(&self) -> Point3D {
         self.position
     }
 
-    //fp direction
-    fn direction(&self) -> Quat {
+    //mp orientation
+    fn orientation(&self) -> Quat {
         self.orientation
     }
 
@@ -229,10 +224,13 @@ impl CameraProjection for CameraPolynomial {
         self.lens.name().into()
     }
 
+    // set_focus_distance
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {
         self.mm_focus_distance = mm_focus_distance;
         self.derive()
     }
+
+    // focus_distance
     fn focus_distance(&self) -> f64 {
         self.mm_focus_distance
     }

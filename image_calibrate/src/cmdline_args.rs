@@ -4,9 +4,8 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use crate::{
-    image, json, CameraDatabase, CameraInstance, CameraPolynomial, CameraPolynomialCalibrate,
-    CameraPtMapping, Cip, Color, NamedPoint, NamedPointSet, PointMapping, PointMappingSet, Project,
-    Rrc,
+    image, json, CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate, CameraPtMapping, Cip,
+    Color, NamedPoint, NamedPointSet, Point3D, PointMapping, PointMappingSet, Project, Quat, Rrc,
 };
 use image::DynamicImage;
 
@@ -228,7 +227,9 @@ pub fn get_camera_projection(
         .ok_or("A lens name is required")?;
     let body = db.get_body_err(body_name)?.clone();
     let lens = db.get_lens_err(lens_name)?.clone();
-    let camera = CameraPolynomial::new(body, lens, mm_focus_distance);
+    let position = Point3D::default();
+    let orientation = Quat::default();
+    let camera = CameraPolynomial::new(body, lens, mm_focus_distance, position, orientation);
     Ok(Rc::new(camera))
 }
 

@@ -16,11 +16,11 @@ pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
 mod camera_polynomial_calibrate;
 pub use camera_polynomial_calibrate::{CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc};
 
-mod camera_instance;
-pub use camera_instance::{CameraInstance, CameraInstanceDesc};
+// mod camera_instance;
+// pub use camera_instance::{CameraInstance, CameraInstanceDesc};
 
 mod camera_mapping;
-pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
+pub use camera_mapping::{CameraAdjustMapping, CameraPtMapping, CameraShowMapping};
 
 mod traits;
 pub use traits::{CameraProjection, CameraSensor, CameraView};

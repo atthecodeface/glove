@@ -4,7 +4,7 @@ use std::default::Default;
 use geo_nd::{Vector, Vector3};
 use serde::{Deserialize, Serialize};
 
-use crate::{utils, CameraInstance, CameraPtMapping, Point3D, PointMapping};
+use crate::{utils, CameraPtMapping, Point3D, PointMapping};
 
 //a ModelLine
 //tp ModelLine

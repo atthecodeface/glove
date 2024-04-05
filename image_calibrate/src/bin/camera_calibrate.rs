@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use clap::Command;
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, polynomial, CameraDatabase, CameraInstance, CameraProjection, CameraView,
-    Point3D, RollYaw, TanXTanY,
+    cmdline_args, image, polynomial, CameraDatabase, CameraPolynomial, CameraProjection,
+    CameraView, Point3D, RollYaw, TanXTanY,
 };
 use polynomial::CalcPoly;
 
@@ -72,12 +72,12 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     eprintln!("cal camera {}", calibrate.camera());
     let mut camera_lens = calibrate.camera().lens().clone();
     camera_lens.set_polys(stw, wts);
-    let camera = CameraInstance::new(
+    let camera = CameraPolynomial::new(
         calibrate.camera().body().clone(),
         camera_lens.into(),
         calibrate.camera().focus_distance(),
-        calibrate.camera().location(),
-        calibrate.camera().direction(),
+        calibrate.camera().position(),
+        calibrate.camera().orientation(),
     );
     let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
@@ -136,7 +136,7 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
     let camera_pt_z: Point3D = [-0.2, -1.2, -460.].into();
     let q = quat::new();
     camera = camera.placed_at(camera_pt_z);
-    camera = camera.with_direction(q.into());
+    camera = camera.with_orientation(q.into());
 
     eprintln!("{camera}");
     let mut pts = vec![];

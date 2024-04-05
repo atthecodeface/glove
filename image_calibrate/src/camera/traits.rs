@@ -77,11 +77,11 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
 pub trait CameraView: std::fmt::Debug {
     //mp location
     /// Get a Point3D indicating the placement of the camera in world space
-    fn location(&self) -> Point3D;
+    fn position(&self) -> Point3D;
 
     //mp direction
-    /// Get a quaternion indicating the direction of the camera
-    fn direction(&self) -> Quat;
+    /// Get a quaternion indicating the orientation of the camera
+    fn orientation(&self) -> Quat;
 
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
@@ -96,8 +96,7 @@ pub trait CameraView: std::fmt::Debug {
     fn camera_txty_to_world_dir(&self, txty: &TanXTanY) -> Point3D {
         let camera_xyz = txty.to_unit_vector();
         quat::apply3(
-            &quat::conjugate(self.direction().as_ref()),
-            // self.direction().as_ref(),
+            &quat::conjugate(self.orientation().as_ref()),
             camera_xyz.as_ref(),
         )
         .into()
@@ -108,8 +107,8 @@ pub trait CameraView: std::fmt::Debug {
     /// coordinates (XYZ)
     #[inline]
     fn world_xyz_to_camera_xyz(&self, world_xyz: Point3D) -> Point3D {
-        let camera_relative_xyz = world_xyz - self.location();
-        quat::apply3(self.direction().as_ref(), camera_relative_xyz.as_ref()).into()
+        let camera_relative_xyz = world_xyz - self.position();
+        quat::apply3(self.orientation().as_ref(), camera_relative_xyz.as_ref()).into()
     }
 
     //fp camera_xyz_to_world_xyz (derived)
@@ -117,11 +116,11 @@ pub trait CameraView: std::fmt::Debug {
     /// coordinates (XYZ)
     fn camera_xyz_to_world_xyz(&self, camera_xyz: Point3D) -> Point3D {
         let camera_relative_xyz: Point3D = quat::apply3(
-            &quat::conjugate(self.direction().as_ref()),
+            &quat::conjugate(self.orientation().as_ref()),
             camera_xyz.as_ref(),
         )
         .into();
-        camera_relative_xyz + self.location()
+        camera_relative_xyz + self.position()
     }
 
     //fp world_xyz_to_camera_txty (derived)

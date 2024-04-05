@@ -106,8 +106,8 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 pub(crate) mod camera;
 
 pub use camera::{
-    CameraAdjustMapping, CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc,
-    CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
+    CameraAdjustMapping, CameraBody, CameraDatabase, CameraLens, CameraPolynomial,
+    CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
 };
 // Rename these traits?
 pub use camera::{CameraProjection, CameraView};
