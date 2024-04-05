@@ -1,11 +1,9 @@
 //a Imports
-use std::rc::Rc;
-
 use geo_nd::{quat, Quaternion};
 use serde::{Deserialize, Serialize};
 
 use crate::camera::{serialize_body_name, serialize_lens_name};
-use crate::camera::{CameraPolynomialDesc, CameraProjection, CameraView};
+use crate::camera::{CameraPolynomialDesc, CameraProjection};
 use crate::{
     json, CameraBody, CameraDatabase, CameraLens, CameraPolynomial, Point2D, Point3D, Quat, RollYaw,
 };

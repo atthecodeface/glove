@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 
-use crate::camera::{BestMapping, CameraView};
+use crate::camera::{BestMapping, CameraProjection};
 use crate::{
     CameraPolynomial, ModelLineSet, NamedPointSet, Point2D, Point3D, PointMapping, PointMappingSet,
     Quat, Ray,
@@ -295,8 +295,7 @@ impl CameraAdjustMapping for CameraPolynomial {
             let z_axis: Point3D = [0., 0., 1.].into();
             let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
 
-            for j in 0..n {
-                let pm = &mappings[j];
+            for (j, pm) in mappings.iter().enumerate() {
                 if pm.is_unmapped() {
                     continue;
                 }

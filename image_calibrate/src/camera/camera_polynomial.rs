@@ -6,9 +6,7 @@ use geo_nd::quat;
 use crate::camera::{serialize_body_name, serialize_lens_name};
 use crate::camera::{CameraProjection, CameraSensor};
 use crate::json;
-use crate::{
-    CameraBody, CameraDatabase, CameraLens, CameraView, Point2D, Point3D, Quat, RollYaw, TanXTanY,
-};
+use crate::{CameraBody, CameraDatabase, CameraLens, Point2D, Point3D, Quat, RollYaw, TanXTanY};
 
 //a CameraPolynomialDesc
 //tp CameraPolynomialDesc
@@ -130,16 +128,6 @@ impl CameraPolynomial {
         self.derive();
     }
 
-    //mp set_position
-    pub fn set_position(&mut self, p: Point3D) {
-        self.position = p;
-    }
-
-    //mp set_orientation
-    pub fn set_orientation(&mut self, q: Quat) {
-        self.orientation = q;
-    }
-
     //mp derive
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
@@ -185,8 +173,23 @@ impl std::fmt::Display for CameraPolynomial {
     }
 }
 
-//ip CameraView for CameraPolynomial
-impl CameraView for CameraPolynomial {
+//ip CameraProjection for CameraPolynomial
+impl CameraProjection for CameraPolynomial {
+    /// Get name of camera
+    fn camera_name(&self) -> String {
+        self.body.name().into()
+    }
+
+    /// Get name of lens
+    fn lens_name(&self) -> String {
+        self.lens.name().into()
+    }
+
+    // focus_distance
+    fn focus_distance(&self) -> f64 {
+        self.mm_focus_distance
+    }
+
     //mp position
     fn position(&self) -> Point3D {
         self.position
@@ -195,6 +198,22 @@ impl CameraView for CameraPolynomial {
     //mp orientation
     fn orientation(&self) -> Quat {
         self.orientation
+    }
+
+    //mp set_position
+    fn set_position(&mut self, p: Point3D) {
+        self.position = p;
+    }
+
+    //mp set_orientation
+    fn set_orientation(&mut self, q: Quat) {
+        self.orientation = q;
+    }
+
+    // set_focus_distance
+    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
+        self.mm_focus_distance = mm_focus_distance;
+        self.derive()
     }
 
     //fp px_abs_xy_to_camera_txty
@@ -209,30 +228,6 @@ impl CameraView for CameraPolynomial {
     fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
         let px_rel_xy = self.txty_to_px_rel_xy(*txty);
         self.px_rel_xy_to_px_abs_xy(px_rel_xy)
-    }
-}
-
-//ip CameraProjection for CameraPolynomial
-impl CameraProjection for CameraPolynomial {
-    /// Get name of camera
-    fn camera_name(&self) -> String {
-        self.body.name().into()
-    }
-
-    /// Get name of lens
-    fn lens_name(&self) -> String {
-        self.lens.name().into()
-    }
-
-    // set_focus_distance
-    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
-        self.mm_focus_distance = mm_focus_distance;
-        self.derive()
-    }
-
-    // focus_distance
-    fn focus_distance(&self) -> f64 {
-        self.mm_focus_distance
     }
 
     /// Map from centre-relative to absolute pixel

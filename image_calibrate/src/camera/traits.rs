@@ -39,11 +39,27 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Name of the lens, for recording in files
     fn lens_name(&self) -> String;
 
-    /// Set the distance from the sensor that the projection is focused on
-    fn set_focus_distance(&mut self, mm_focus_distance: f64);
-
     /// Get the distance from the sensor that the projection is focused on
     fn focus_distance(&self) -> f64;
+
+    //mp position
+    /// Get a Point3D indicating the placement of the camera in world space
+    fn position(&self) -> Point3D;
+
+    //mp orientation
+    /// Get a quaternion indicating the orientation of the camera
+    fn orientation(&self) -> Quat;
+
+    //mp set_position
+    /// Get a Point3D indicating the placement of the camera in world space
+    fn set_position(&mut self, position: Point3D);
+
+    //mp set_orientation
+    /// Set a quaternion indicating the orientation of the camera
+    fn set_orientation(&mut self, orientation: Quat);
+
+    /// Set the distance from the sensor that the projection is focused on
+    fn set_focus_distance(&mut self, mm_focus_distance: f64);
 
     /// Map from absolute to centre-relative pixel
     ///
@@ -70,18 +86,6 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a Roll/Yaw
     fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw;
-}
-
-//tt CameraView
-/// A camera view is a camera projection placed at a particular location in world space in a particular orientation
-pub trait CameraView: std::fmt::Debug {
-    //mp location
-    /// Get a Point3D indicating the placement of the camera in world space
-    fn position(&self) -> Point3D;
-
-    //mp direction
-    /// Get a quaternion indicating the orientation of the camera
-    fn orientation(&self) -> Quat;
 
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)

@@ -51,12 +51,7 @@ impl CameraDatabase {
 
     //ap get_body
     pub fn get_body(&self, name: &str) -> Option<&CameraBody> {
-        for b in self.bodies.iter() {
-            if b.has_name(name) {
-                return Some(b);
-            }
-        }
-        None
+        self.bodies.iter().find(|&b| b.has_name(name))
     }
 
     //ap get_body_err
@@ -77,12 +72,7 @@ impl CameraDatabase {
 
     //ap get_lens
     pub fn get_lens(&self, name: &str) -> Option<&CameraLens> {
-        for l in self.lenses.iter() {
-            if l.has_name(name) {
-                return Some(l);
-            }
-        }
-        None
+        self.lenses.iter().find(|&l| l.has_name(name))
     }
 
     //ap get_lens_err

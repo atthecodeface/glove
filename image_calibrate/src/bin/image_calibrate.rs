@@ -3,12 +3,12 @@ use std::cell::Ref;
 use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
-use geo_nd::{quat, vector, SqMatrix, Vector, Vector3};
+use geo_nd::{SqMatrix, Vector, Vector3};
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, json, BestMapping, CameraAdjustMapping, CameraDatabase, CameraPtMapping,
-    CameraShowMapping, Color, Mat3x3, ModelLineSet, NamedPointSet, Point3D, PointMappingSet,
-    Project, Ray, Region,
+    cmdline_args, image, json, CameraAdjustMapping, CameraDatabase, CameraProjection,
+    CameraPtMapping, CameraShowMapping, Color, Mat3x3, ModelLineSet, NamedPointSet,
+    PointMappingSet, Project, Ray, Region,
 };
 
 //a Types

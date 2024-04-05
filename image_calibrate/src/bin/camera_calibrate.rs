@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use clap::Command;
 use image::Image;
 use image_calibrate::{
-    cmdline_args, image, polynomial, CameraDatabase, CameraPolynomial, CameraProjection,
-    CameraView, Point3D, RollYaw, TanXTanY,
+    cmdline_args, image, polynomial, CameraDatabase, CameraPolynomial, CameraProjection, Point3D,
+    RollYaw, TanXTanY,
 };
 use polynomial::CalcPoly;
 
@@ -74,7 +74,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     camera_lens.set_polys(stw, wts);
     let camera = CameraPolynomial::new(
         calibrate.camera().body().clone(),
-        camera_lens.into(),
+        camera_lens,
         calibrate.camera().focus_distance(),
         calibrate.camera().position(),
         calibrate.camera().orientation(),

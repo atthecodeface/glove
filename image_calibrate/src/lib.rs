@@ -105,31 +105,32 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 //a Modules
 pub(crate) mod camera;
 
-pub use camera::{
-    CameraAdjustMapping, CameraBody, CameraDatabase, CameraLens, CameraPolynomial,
-    CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
-};
-// Rename these traits?
-pub use camera::{CameraProjection, CameraView};
-// Don't expose this?
-pub use camera::polynomial;
-// Don't expose this?
-pub use camera::BestMapping;
-pub use camera::CameraShowMapping;
-
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 mod types;
 
 mod utils;
 pub use utils::Rrc;
 
+pub use camera::{
+    CameraAdjustMapping, CameraBody, CameraDatabase, CameraLens, CameraPolynomial,
+    CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
+};
+// Rename these traits?
+pub use camera::CameraProjection;
+// Don't expose this?
+pub use camera::polynomial;
+// Don't expose this?
+pub use camera::BestMapping;
+pub use camera::CameraShowMapping;
+
 mod mesh;
 pub use mesh::Mesh;
 mod model_line_set;
 mod named_point_set;
 mod point_mapping;
+
+mod cip;
 mod project;
-mod rotations;
 
 mod regions;
 pub use regions::Region;
@@ -137,10 +138,12 @@ pub use regions::Region;
 mod ray;
 pub use ray::Ray;
 
+pub use cip::{Cip, CipDesc};
 pub use model_line_set::ModelLineSet;
 pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
-pub use project::{Cip, Project};
+pub use project::Project;
+// mod rotations;
 // pub use rotations::Rotations;
 
 pub mod cmdline_args;
