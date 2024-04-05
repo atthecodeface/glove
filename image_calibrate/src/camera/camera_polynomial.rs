@@ -1,6 +1,4 @@
 //a Imports
-use std::rc::Rc;
-
 use serde::{Deserialize, Serialize};
 
 use crate::camera::{serialize_body_name, serialize_lens_name};
@@ -28,7 +26,7 @@ pub struct CameraPolynomial {
     body: CameraBody,
     /// The spherical lens mapping polynomial
     #[serde(serialize_with = "serialize_lens_name")]
-    lens: Rc<CameraLens>,
+    lens: CameraLens,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     ///
     /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
@@ -54,7 +52,7 @@ pub struct CameraPolynomial {
 //ip CameraPolynomial
 impl CameraPolynomial {
     //ap lens
-    pub fn lens(&self) -> &Rc<CameraLens> {
+    pub fn lens(&self) -> &CameraLens {
         &self.lens
     }
 
@@ -64,7 +62,7 @@ impl CameraPolynomial {
     }
 
     //cp new
-    pub fn new(body: CameraBody, lens: Rc<CameraLens>, mm_focus_distance: f64) -> Self {
+    pub fn new(body: CameraBody, lens: CameraLens, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
             body,
             lens,
@@ -80,13 +78,13 @@ impl CameraPolynomial {
     //cp from_desc
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?.clone();
-        let lens = cdb.get_lens_err(&desc.lens)?;
+        let lens = cdb.get_lens_err(&desc.lens)?.clone();
         Ok(Self::new(body, lens, desc.mm_focus_distance))
     }
 
     //mp set_lens
-    pub fn set_lens(&mut self, lens: Rc<CameraLens>) {
-        self.lens = lens.clone();
+    pub fn set_lens(&mut self, lens: CameraLens) {
+        self.lens = lens;
         self.derive();
     }
 

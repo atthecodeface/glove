@@ -44,7 +44,7 @@ pub struct CameraPolynomialCalibrate {
     body: CameraBody,
     /// The spherical lens mapping polynomial
     #[serde(serialize_with = "serialize_lens_name")]
-    lens: Rc<CameraLens>,
+    lens: CameraLens,
     /// Distance of the focus of the camera in the image
     mm_focus_distance: f64,
     /// Distance of the camera from the graph paper for the photograph
@@ -96,7 +96,7 @@ impl CameraPolynomialCalibrate {
         let position: Point3D = rotate_x.conjugate().apply3(&position);
 
         let body = cdb.get_body_err(&desc.camera.body)?.clone();
-        let lens = cdb.get_lens_err(&desc.camera.lens)?;
+        let lens = cdb.get_lens_err(&desc.camera.lens)?.clone();
         let camera = CameraInstance::new(
             body.clone(),
             lens.clone(),

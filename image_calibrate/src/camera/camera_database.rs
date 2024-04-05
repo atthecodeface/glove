@@ -1,6 +1,4 @@
 //a Imports
-use std::rc::Rc;
-
 use serde::{Deserialize, Serialize};
 
 use crate::camera::CameraSensor;
@@ -12,7 +10,7 @@ use crate::{CameraBody, CameraLens};
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct CameraDatabase {
     bodies: Vec<CameraBody>,
-    lenses: Vec<Rc<CameraLens>>,
+    lenses: Vec<CameraLens>,
 }
 
 //ip Display for CameraDatabase
@@ -78,17 +76,17 @@ impl CameraDatabase {
     }
 
     //ap get_lens
-    pub fn get_lens(&self, name: &str) -> Option<Rc<CameraLens>> {
+    pub fn get_lens(&self, name: &str) -> Option<&CameraLens> {
         for l in self.lenses.iter() {
             if l.has_name(name) {
-                return Some(l.clone());
+                return Some(l);
             }
         }
         None
     }
 
     //ap get_lens_err
-    pub fn get_lens_err(&self, name: &str) -> Result<Rc<CameraLens>, String> {
+    pub fn get_lens_err(&self, name: &str) -> Result<&CameraLens, String> {
         self.get_lens(name)
             .ok_or(format!("Lens '{}' was not in the database", name))
     }
@@ -98,7 +96,7 @@ impl CameraDatabase {
         if self.get_lens(lens.name()).is_some() {
             Err(format!("Lens {} already in the database", lens.name()))
         } else {
-            self.lenses.push(Rc::new(lens));
+            self.lenses.push(lens);
             Ok(())
         }
     }

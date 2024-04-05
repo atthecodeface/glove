@@ -116,14 +116,14 @@ impl CameraInstance {
     }
 
     //ap lens
-    pub fn lens(&self) -> Rc<CameraLens> {
+    pub fn lens(&self) -> CameraLens {
         self.camera.borrow().lens().clone()
     }
 
     //fp new
     pub fn new(
         body: CameraBody,
-        lens: Rc<CameraLens>,
+        lens: CameraLens,
         mm_focus_distance: f64,
         position: Point3D,
         direction: Quat,
@@ -140,7 +140,7 @@ impl CameraInstance {
     //cp from_desc
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?.clone();
-        let lens = cdb.get_lens_err(&desc.lens)?;
+        let lens = cdb.get_lens_err(&desc.lens)?.clone();
         let camera = CameraPolynomial::new(body, lens, desc.mm_focus_distance);
         let camera = Rc::new(camera.into());
         Ok(Self {

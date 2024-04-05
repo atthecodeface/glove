@@ -70,7 +70,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
     eprintln!("cal camera {}", calibrate.camera());
-    let mut camera_lens = (*calibrate.camera().lens()).clone();
+    let mut camera_lens = calibrate.camera().lens().clone();
     camera_lens.set_polys(stw, wts);
     let camera = CameraInstance::new(
         calibrate.camera().body().clone(),
