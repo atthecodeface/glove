@@ -125,30 +125,25 @@ pub use camera::CameraShowMapping;
 
 mod mesh;
 pub use mesh::Mesh;
-mod model_line_set;
-mod named_point_set;
-mod point_mapping;
 
 mod cip;
 mod project;
 
-mod regions;
-pub use regions::Region;
+mod points;
+pub use points::ModelLineSet;
+pub use points::Ray;
+pub use points::{NamedPoint, NamedPointSet};
+pub use points::{PointMapping, PointMappingSet};
 
-mod ray;
-pub use ray::Ray;
+pub mod image;
+pub use image::{Color, Image, ImageBuffer, Region};
 
 pub use cip::{Cip, CipDesc};
-pub use model_line_set::ModelLineSet;
-pub use named_point_set::{NamedPoint, NamedPointSet};
-pub use point_mapping::{PointMapping, PointMappingSet};
 pub use project::Project;
 // mod rotations;
 // pub use rotations::Rotations;
 
 pub mod cmdline_args;
-pub mod image;
-pub mod json;
-pub use image::Color;
 pub mod http;
+pub mod json;
 pub mod thread_pool;

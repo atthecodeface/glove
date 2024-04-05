@@ -12,9 +12,9 @@ use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
 use image_calibrate::image;
-use image_calibrate::image::Image;
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
+use image_calibrate::{Image, ImageBuffer};
 use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
@@ -459,7 +459,7 @@ impl ProjectSet {
         let cip_r = cip.borrow();
         let path = self.image_root.as_path().join(cip_r.image());
         server.verbose().then(|| eprintln!("Open image {path:?}"));
-        let src_img = image::read_image(&path)?;
+        let src_img = ImageBuffer::read_image(&path)?;
         let src_size = src_img.size();
         let src_size = (src_size.0 as f64, src_size.1 as f64);
         let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
@@ -467,7 +467,7 @@ impl ProjectSet {
         let scale = x_scale.max(y_scale);
         let width = (src_size.0 / scale) as usize;
         let height = (src_size.1 / scale) as usize;
-        let mut scaled_img = image::read_or_create_image(width, height, None).unwrap();
+        let mut scaled_img = ImageBuffer::read_or_create_image(width, height, None).unwrap();
         for y in 0..height {
             let sy = (y as f64 + 0.5) * scale;
             for x in 0..width {

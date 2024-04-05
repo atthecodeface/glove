@@ -2,10 +2,9 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use image::Image;
 use image_calibrate::{
-    cmdline_args, image, polynomial, CameraDatabase, CameraPolynomial, CameraProjection, Point3D,
-    RollYaw, TanXTanY,
+    cmdline_args, polynomial, CameraDatabase, CameraPolynomial, CameraProjection, Image,
+    ImageBuffer, Point3D, RollYaw, TanXTanY,
 };
 use polynomial::CalcPoly;
 
@@ -98,7 +97,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
         }
     }
     if let Some(read_filename) = matches.get_one::<String>("read") {
-        let mut img = image::read_image(read_filename)?;
+        let mut img = ImageBuffer::read_image(read_filename)?;
         if let Some(write_filename) = matches.get_one::<String>("write") {
             let c = &[255, 0, 0, 0].into();
             for (_g, p) in &xy_pairs {

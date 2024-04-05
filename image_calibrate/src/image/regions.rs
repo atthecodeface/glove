@@ -2,7 +2,7 @@
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::image::{DynamicImage, GenericImageView, Image};
+use crate::image::{Image, ImageBuffer};
 use crate::Color;
 
 //a Regions
@@ -122,13 +122,13 @@ impl Region {
 
     //cp scan_image_to_regions
     fn scan_image_to_regions<F>(
-        img: &DynamicImage,
+        img: &ImageBuffer,
         is_region: &F,
     ) -> (Vec<Region>, Vec<(usize, usize)>)
     where
         F: Fn(Color) -> bool,
     {
-        let (xsz, ysz) = img.dimensions();
+        let (xsz, ysz) = img.size();
         let xsz = xsz as usize;
         let ysz = ysz as usize;
         let mut regions: Vec<Region> = vec![];
@@ -226,7 +226,7 @@ impl Region {
     }
 
     //fp regions_of_image
-    pub fn regions_of_image<F>(img: &DynamicImage, is_region: &F) -> Vec<Region>
+    pub fn regions_of_image<F>(img: &ImageBuffer, is_region: &F) -> Vec<Region>
     where
         F: Fn(Color) -> bool,
     {

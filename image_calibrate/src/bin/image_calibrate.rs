@@ -4,10 +4,9 @@ use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
 use geo_nd::{SqMatrix, Vector, Vector3};
-use image::Image;
 use image_calibrate::{
-    cmdline_args, image, json, CameraAdjustMapping, CameraDatabase, CameraProjection,
-    CameraPtMapping, CameraShowMapping, Color, Mat3x3, ModelLineSet, NamedPointSet,
+    cmdline_args, json, CameraAdjustMapping, CameraDatabase, CameraProjection, CameraPtMapping,
+    CameraShowMapping, Color, Image, ImageBuffer, Mat3x3, ModelLineSet, NamedPointSet,
     PointMappingSet, Project, Ray, Region,
 };
 
@@ -176,7 +175,7 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
 
     let width = (irx - ilx) as usize;
     let height = (ity - iby) as usize;
-    let mut patch_img = image::read_or_create_image(width, height, None)?;
+    let mut patch_img = ImageBuffer::read_or_create_image(width, height, None)?;
 
     let src_w = 3360.0 * 2.0;
     let src_h = 2240.0 * 2.0;

@@ -2,10 +2,9 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use image::{DynamicImage, GenericImageView, Image};
 use image_calibrate::polynomial;
 use image_calibrate::polynomial::CalcPoly;
-use image_calibrate::{cmdline_args, image, Color, Region};
+use image_calibrate::{cmdline_args, Color, Image, ImageBuffer, Region};
 
 //a Types
 //ti SubCmdFn
@@ -13,9 +12,9 @@ type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<(), String>
 
 //tp BaseArgs
 struct BaseArgs {
-    image: DynamicImage,
+    image: ImageBuffer,
     write_filename: Option<String>,
-    bg_color: Option<image::Color>,
+    bg_color: Option<Color>,
 }
 
 //fi find_center_point
@@ -305,7 +304,7 @@ fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
     let bg = base_args.bg_color.unwrap_or(Color::black());
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
-    let (xsz, ysz) = img.dimensions();
+    let (xsz, ysz) = img.size();
     let xsz = xsz as f64;
     let ysz = ysz as f64;
     let origin = find_center_point((xsz / 2.0, ysz / 2.0), &cogs);
@@ -326,8 +325,9 @@ fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
 
     if let Some(write_filename) = &base_args.write_filename {
         let b = [0_u8, 0, 0, 255].into();
-        for y in 0..img.height() {
-            for x in 0..img.width() {
+        let (w, h) = img.size();
+        for y in 0..h {
+            for x in 0..w {
                 img.put(x, y, &b);
             }
         }
