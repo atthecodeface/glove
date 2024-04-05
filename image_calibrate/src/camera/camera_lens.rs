@@ -109,8 +109,8 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::polynomial::CalcPoly;
-use crate::SphericalLensProjection;
+use crate::camera::polynomial::CalcPoly;
+use crate::camera::SphericalLensProjection;
 
 //a Serialization
 //fp serialize_lens_name

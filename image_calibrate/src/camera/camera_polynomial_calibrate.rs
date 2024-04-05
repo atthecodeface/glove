@@ -4,10 +4,10 @@ use std::rc::Rc;
 use geo_nd::{quat, Quaternion};
 use serde::{Deserialize, Serialize};
 
+use crate::camera::{serialize_body_name, serialize_lens_name};
+use crate::camera::{CameraPolynomialDesc, CameraProjection, CameraView};
 use crate::{
-    json, serialize_body_name, serialize_lens_name, CameraBody, CameraDatabase, CameraInstance,
-    CameraLens, CameraPolynomialDesc, CameraProjection, CameraView, Point2D, Point3D, Quat,
-    RollYaw,
+    json, CameraBody, CameraDatabase, CameraInstance, CameraLens, Point2D, Point3D, Quat, RollYaw,
 };
 
 //a CameraPolynomialCalibrateDesc

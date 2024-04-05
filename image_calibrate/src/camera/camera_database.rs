@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CameraBody, CameraLens, CameraSensor};
+use crate::camera::CameraSensor;
+use crate::{CameraBody, CameraLens};
 
 //a CameraDatabase
 //tp CameraDatabase

@@ -103,31 +103,28 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 !*/
 
 //a Modules
-mod camera_body;
-mod camera_database;
-mod camera_instance;
-mod camera_lens;
-mod camera_polynomial;
-mod camera_polynomial_calibrate;
-pub mod polynomial;
-mod traits;
-mod types;
-pub use camera_body::{serialize_body_name, CameraBody};
-pub use camera_database::CameraDatabase;
-pub use camera_instance::{CameraInstance, CameraInstanceDesc};
-pub use camera_lens::{serialize_lens_name, CameraLens};
-pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
-pub use camera_polynomial_calibrate::{CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc};
-pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
+pub(crate) mod camera;
+
+pub use camera::{
+    CameraAdjustMapping, CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc,
+    CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPtMapping,
+};
+// Rename these traits?
+pub use camera::{CameraProjection, CameraView};
+// Don't expose this?
+pub use camera::polynomial;
+// Don't expose this?
+pub use camera::BestMapping;
+pub use camera::CameraShowMapping;
+
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
+mod types;
 
 mod utils;
 pub use utils::Rrc;
 
 mod mesh;
 pub use mesh::Mesh;
-mod best_mapping;
-mod camera_mapping;
 mod model_line_set;
 mod named_point_set;
 mod point_mapping;
@@ -140,13 +137,11 @@ pub use regions::Region;
 mod ray;
 pub use ray::Ray;
 
-pub use best_mapping::BestMapping;
-pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
 pub use model_line_set::ModelLineSet;
 pub use named_point_set::{NamedPoint, NamedPointSet};
 pub use point_mapping::{PointMapping, PointMappingSet};
 pub use project::{Cip, Project};
-pub use rotations::Rotations;
+// pub use rotations::Rotations;
 
 pub mod cmdline_args;
 pub mod image;

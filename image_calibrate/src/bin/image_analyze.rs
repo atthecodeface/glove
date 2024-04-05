@@ -3,8 +3,9 @@ use std::collections::HashMap;
 
 use clap::Command;
 use image::{DynamicImage, GenericImageView, Image};
-use image_calibrate::{cmdline_args, image, polynomial, Color, Region};
-use polynomial::CalcPoly;
+use image_calibrate::polynomial;
+use image_calibrate::polynomial::CalcPoly;
+use image_calibrate::{cmdline_args, image, Color, Region};
 
 //a Types
 //ti SubCmdFn

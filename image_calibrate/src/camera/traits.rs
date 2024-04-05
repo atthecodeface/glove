@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::quat;
 
-use super::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
+use crate::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
 
 //a Traits
 //tt CameraSensor

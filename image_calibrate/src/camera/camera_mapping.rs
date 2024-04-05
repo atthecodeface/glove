@@ -2,9 +2,10 @@
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 use serde::Serialize;
 
+use crate::camera::{BestMapping, CameraView};
 use crate::{
-    BestMapping, CameraInstance, CameraView, ModelLineSet, NamedPointSet, Point2D, Point3D,
-    PointMapping, PointMappingSet, Quat, Ray, Rotations,
+    CameraInstance, ModelLineSet, NamedPointSet, Point2D, Point3D, PointMapping, PointMappingSet,
+    Quat, Ray,
 };
 
 //a CameraPtMapping
@@ -23,8 +24,6 @@ pub trait CameraPtMapping {
         }
         r
     }
-    fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64;
-    fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> Point3D;
     fn find_worst_error(&self, mappings: &[PointMapping]) -> (usize, f64);
     fn total_error(&self, mappings: &[PointMapping]) -> f64;
     fn worst_error(&self, mappings: &[PointMapping]) -> f64;
@@ -131,27 +130,6 @@ impl CameraPtMapping for CameraInstance {
                 .set_direction(-world_pm_direction_vec)
                 .set_tan_error(tan_error)
         }
-    }
-
-    //fp error_with_quat
-    #[inline]
-    fn error_with_quat(&self, pm: &PointMapping, quat: &Quat) -> f64 {
-        self.clone_rotated_by(quat).get_pm_sq_error(pm)
-    }
-
-    //fp error_surface_normal
-    fn error_surface_normal(&self, pm: &PointMapping, rotations: &Rotations) -> Point3D {
-        // At the current point xyz there is *probably* a surface such that any adjustment
-        // dxyz within the plane as no immpact. This is grad.es. We can call this vector n.
-        let quats = &rotations.quats;
-        let dx_n = self.error_with_quat(pm, &quats[0]);
-        let dx_p = self.error_with_quat(pm, &quats[1]);
-        let dy_n = self.error_with_quat(pm, &quats[2]);
-        let dy_p = self.error_with_quat(pm, &quats[3]);
-        let dz_n = self.error_with_quat(pm, &quats[4]);
-        let dz_p = self.error_with_quat(pm, &quats[5]);
-        let n: Point3D = [dx_p - dx_n, dy_p - dy_n, dz_p - dz_n].into();
-        n.normalize()
     }
 
     //fp find_worst_error

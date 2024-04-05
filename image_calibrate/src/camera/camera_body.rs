@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CameraSensor, Point2D};
+use crate::camera::CameraSensor;
+use crate::Point2D;
 
 //a Serialization
 //fp serialize_body_name
