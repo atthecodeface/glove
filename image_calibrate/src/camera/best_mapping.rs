@@ -4,7 +4,7 @@
 //tp BestMapping
 /// A means for tracking the best mapping
 #[derive(Debug, Clone)]
-pub struct BestMapping<T: std::fmt::Display + std::fmt::Debug + Clone> {
+pub struct BestMapping<T: std::fmt::Debug + Clone> {
     /// Asserted if the worst error should be used in evaluating error totals
     use_we: bool,
     /// The worst error
@@ -21,7 +21,7 @@ impl<T> Copy for BestMapping<T> where T: std::fmt::Debug + std::fmt::Display + C
 //ip BestMapping
 impl<T> BestMapping<T>
 where
-    T: std::fmt::Debug + std::fmt::Display + Clone,
+    T: std::fmt::Debug + Clone,
 {
     //fp new
     /// Create a new best mapping
@@ -90,9 +90,13 @@ where
 //ip Display for Best
 impl<T> std::fmt::Display for BestMapping<T>
 where
-    T: std::fmt::Debug + std::fmt::Display + Clone,
+    T: std::fmt::Debug + Clone,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(fmt, "we: {:.4} te: {:.4} : {}", self.we, self.te, self.data,)
+        write!(
+            fmt,
+            "we: {:.4} te: {:.4} : {:?}",
+            self.we, self.te, self.data,
+        )
     }
 }

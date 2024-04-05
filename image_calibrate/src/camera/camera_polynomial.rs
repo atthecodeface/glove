@@ -5,6 +5,7 @@ use geo_nd::quat;
 
 use crate::camera::{serialize_body_name, serialize_lens_name};
 use crate::camera::{CameraProjection, CameraSensor};
+use crate::json;
 use crate::{
     CameraBody, CameraDatabase, CameraLens, CameraView, Point2D, Point3D, Quat, RollYaw, TanXTanY,
 };
@@ -101,10 +102,21 @@ impl CameraPolynomial {
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?.clone();
         let lens = cdb.get_lens_err(&desc.lens)?.clone();
-        let mut c = Self::new(body, lens, desc.mm_focus_distance);
-        c.set_position(desc.position);
-        c.set_orientation(desc.orientation);
-        Ok(c)
+        let mut cp = Self::new(body, lens, desc.mm_focus_distance);
+        cp.set_position(desc.position);
+        cp.set_orientation(desc.orientation);
+        Ok(cp)
+    }
+
+    //cp from_json
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+        let desc: CameraPolynomialDesc = json::from_json("camera instance descriptor", json)?;
+        Self::from_desc(cdb, desc)
+    }
+
+    //fp to_json
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| format!("{}", e))
     }
 
     //mp set_lens
@@ -123,6 +135,16 @@ impl CameraPolynomial {
         self.orientation = q;
     }
 
+    //mp position
+    pub fn position(&self) -> Point3D {
+        self.position
+    }
+
+    //mp orientation
+    pub fn orientation(&self) -> Quat {
+        self.orientation
+    }
+
     //mp derive
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
@@ -136,6 +158,15 @@ impl CameraPolynomial {
         self.x_px_from_tan_sc = scale / self.body.mm_single_pixel_width();
         self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
     }
+
+    //fp map_model
+    /// Map a model coordinate to an absolute XY camera coordinate
+    #[inline]
+    pub fn map_model(&self, model: Point3D) -> Point2D {
+        self.world_xyz_to_px_abs_xy(model)
+    }
+
+    //zz All done
 }
 
 //ip Display for CameraPolynomial

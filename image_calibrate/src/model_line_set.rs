@@ -323,15 +323,21 @@ impl std::iter::Iterator for ModelLineSubtendedSurfaceIter {
 
 //a ModelLineSet
 #[derive(Debug)]
-pub struct ModelLineSet {
-    camera: CameraInstance,
+pub struct ModelLineSet<C>
+where
+    C: CameraPtMapping + Clone + Sized,
+{
+    camera: C,
     model_cog: Point3D,
     lines: Vec<ModelLineSubtended>,
 }
 
-impl ModelLineSet {
+impl<C> ModelLineSet<C>
+where
+    C: CameraPtMapping + Clone + Sized,
+{
     //cp new
-    pub fn new(camera: &CameraInstance) -> Self {
+    pub fn new(camera: &C) -> Self {
         let camera = camera.clone();
         Self {
             camera,
@@ -340,7 +346,6 @@ impl ModelLineSet {
         }
     }
 
-    //cp
     //mi derive_model_cog
     pub fn derive_model_cog(&mut self) {
         if self.model_cog.is_zero() {

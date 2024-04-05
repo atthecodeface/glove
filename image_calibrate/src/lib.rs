@@ -107,7 +107,7 @@ pub(crate) mod camera;
 
 pub use camera::{
     CameraAdjustMapping, CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc,
-    CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPtMapping,
+    CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
 };
 // Rename these traits?
 pub use camera::{CameraProjection, CameraView};

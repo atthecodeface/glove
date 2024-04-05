@@ -293,7 +293,7 @@ fn locate_cmd() -> (Command, SubCmdFn) {
 fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
     let cip = cmdline_args::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
-    let camera = cip.camera_ref();
+    let mut camera = cip.camera_ref().clone();
     let pms = cip.pms_ref();
     let mappings = pms.mappings();
 
@@ -303,7 +303,7 @@ fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), Stri
     }
     let (location, _err) = mls.find_best_min_err_location(100, 500);
 
-    let camera = camera.clone_placed_at(location);
+    camera.set_position(location);
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
 }
@@ -426,7 +426,7 @@ fn combine_rays_from_model_fn(
     base_args: BaseArgs,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let mut camera = cmdline_args::get_camera(matches, base_args.project())?;
     let ray_filename = matches.get_one::<String>("rays").unwrap();
 
     let r_json = json::read_file(ray_filename)?;
@@ -456,7 +456,7 @@ fn combine_rays_from_model_fn(
         tot_d_sq += d_sq;
     }
     eprintln!("Total dsq {tot_d_sq}");
-    let camera = camera.placed_at(position);
+    camera.set_position(position);
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok(())
 }
@@ -592,64 +592,6 @@ fn create_rays_from_camera_fn(
     Ok(())
 }
 
-//a Adjust model
-//fi adjust_model_cmd
-fn adjust_model_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("adjust_model").about("Adjust *a* model point to get minimum error");
-    let cmd = cmdline_args::add_np_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_pms_arg(cmd); // positional
-    (cmd, adjust_model_fn)
-}
-
-//fi adjust_model_fn
-fn adjust_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let np = cmdline_args::get_np(matches, &base_args.nps())?;
-    let camera_pms = cmdline_args::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
-    let steps = 30;
-    let orig = np.model();
-    let mut best_dirn: BestMapping<Point3D> = BestMapping::new(true, [0., 0., 0.].into());
-    let mut best_for_pts: Vec<BestMapping<Point3D>> =
-        vec![BestMapping::new(true, [0., 0., 0.].into()); camera_pms.len()];
-    for i in 0..100 {
-        let x0 = (i % 10) as f64 / 10.0;
-        let z0 = ((i / 10) % 10) as f64 / 10.0;
-        let dpx: Point3D = vector::uniform_dist_sphere3([x0, z0], true).into();
-        np.set_model(Some((orig.0 + (dpx * 0.1), orig.1)));
-        let mut cp_data = vec![];
-        let mut total_we = 0.;
-        let mut total_te = 0.;
-        for (i, (camera, pms)) in camera_pms.iter().enumerate() {
-            let camera_clone = camera.clone();
-            let mappings = pms.mappings();
-            let mut cam = camera_clone.get_best_location(mappings, steps).into_data();
-            for _ in 0..10 {
-                let quats = cam.get_quats_for_mappings_given_one(mappings, 1);
-                let q_list: Vec<(f64, [f64; 4])> =
-                    quats.into_iter().map(|q| (1.0, q.into())).collect();
-
-                let qr = quat::weighted_average_many(q_list.into_iter()).into();
-                cam = cam.with_direction(qr);
-                let location = cam.get_location_given_direction(mappings);
-                cam = cam.placed_at(location);
-            }
-            if let Some(_pm) = pms.mapping_of_np(&np) {
-                let te = cam.total_error(mappings);
-                let we = cam.worst_error(mappings);
-                total_we += we;
-                total_te += te;
-                best_for_pts[i].update_best(we, te, &dpx);
-                cp_data.push((cam.clone(), we, te));
-            }
-        }
-        best_dirn.update_best(total_we, total_te, &dpx);
-    }
-    for (i, b) in best_for_pts.iter().enumerate() {
-        eprintln!("{} : {} : {} ", i, b, orig.0 + (*b.data()) * 0.1);
-    }
-    eprintln!("{} : {} ", best_dirn, orig.0 + (*best_dirn.data()) * 0.1);
-    Ok(())
-}
-
 //a Get model points
 //hi GET_MODEL_POINTS_LONG_HELP
 const GET_MODEL_POINTS_LONG_HELP: &str = "\
@@ -764,7 +706,6 @@ fn main() -> Result<(), String> {
         combine_rays_from_camera_cmd(),
         create_rays_from_model_cmd(),
         create_rays_from_camera_cmd(),
-        adjust_model_cmd(),
         get_model_points_cmd(),
         project_cmd(),
     ] {

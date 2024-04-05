@@ -4,9 +4,11 @@ use std::cell::{Ref, RefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::Rrc;
+use crate::CameraPolynomial as CameraInstance;
+use crate::CameraPolynomialDesc as CameraInstanceDesc;
 use crate::{
-    json, CameraAdjustMapping, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraPtMapping,
-    NamedPointSet, Point3D, PointMappingSet, Ray,
+    json, CameraAdjustMapping, CameraDatabase, CameraPtMapping, NamedPointSet, Point3D,
+    PointMappingSet, Ray,
 };
 
 //a Cip

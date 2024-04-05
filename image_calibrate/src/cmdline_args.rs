@@ -335,12 +335,12 @@ pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_camera
-pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInstance, String> {
+pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolynomial, String> {
     let camera_filename = matches
         .get_one::<String>("camera")
         .ok_or("A camera position/orientation JSON is required")?;
     let camera_json = json::read_file(camera_filename)?;
-    CameraInstance::from_json(&project.cdb_ref(), &camera_json)
+    CameraPolynomial::from_json(&project.cdb_ref(), &camera_json)
 }
 
 //a CameraCalibrate
@@ -384,13 +384,13 @@ pub fn get_camera_pms(
     matches: &ArgMatches,
     cdb: &CameraDatabase,
     nps: &NamedPointSet,
-) -> Result<Vec<(CameraInstance, PointMappingSet)>, String> {
+) -> Result<Vec<(CameraPolynomial, PointMappingSet)>, String> {
     let mut result = vec![];
     let mut cam = None;
     for filename in matches.get_many::<String>("camera_pms").unwrap() {
         if cam.is_none() {
             let camera_json = json::read_file(filename)?;
-            cam = Some(CameraInstance::from_json(cdb, &camera_json)?);
+            cam = Some(CameraPolynomial::from_json(cdb, &camera_json)?);
         } else {
             let mut pms = PointMappingSet::new();
             let pms_json = json::read_file(filename)?;
@@ -430,7 +430,7 @@ pub fn get_image_read(matches: &ArgMatches) -> Result<DynamicImage, String> {
 //fp get_image_read_or_create
 pub fn get_image_read_or_create(
     matches: &ArgMatches,
-    camera: &CameraInstance,
+    camera: &CameraPolynomial,
 ) -> Result<DynamicImage, String> {
     let read_filename = matches.get_one::<String>("read");
     let img = image::read_or_create_image(
@@ -517,13 +517,13 @@ pub fn add_errors_arg(cmd: Command) -> Command {
 //fp get_error_fn
 pub fn get_error_fn(
     matches: &ArgMatches,
-) -> for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 {
+) -> for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 {
     if matches.get_flag("worst_error") {
-        let error_method: for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 =
+        let error_method: for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 =
             |c, m, _n| c.worst_error(m);
         error_method
     } else {
-        let error_method: for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 =
+        let error_method: for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 =
             |c, m, _n| c.total_error(m);
         error_method
     }
