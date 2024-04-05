@@ -1,7 +1,18 @@
 //a Imports
+use std::rc::Rc;
+
 use serde::{Deserialize, Serialize};
 
-use super::{CameraSensor, Point2D};
+use crate::{CameraSensor, Point2D};
+
+//a Serialization
+//fp serialize_body_name
+pub fn serialize_body_name<S: serde::Serializer>(
+    body: &Rc<CameraBody>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(body.name())
+}
 
 //a CameraBody
 //tp CameraBody

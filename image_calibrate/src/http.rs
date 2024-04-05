@@ -31,31 +31,31 @@ pub const MIME_TYPES: &[(&str, &str)] = &[
 //a UriArgValue
 //ti UriArgValue
 // trait UriArgValueKind = std::any::Any  + 'static
-struct UriArgValue {
+pub struct UriArgValue {
     inner: Box<dyn std::any::Any + 'static>,
     type_id: std::any::TypeId,
 }
 
 //ii UriArgValue
 impl UriArgValue {
-    fn new<V: std::any::Any + Clone + 'static>(inner: V) -> Self {
+    pub fn new<V: std::any::Any + Clone + 'static>(inner: V) -> Self {
         let type_id = std::any::TypeId::of::<V>();
         let inner = Box::new(inner);
         Self { inner, type_id }
     }
 
-    fn downcast_ref<T: std::any::Any + 'static>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: std::any::Any + 'static>(&self) -> Option<&T> {
         self.inner.downcast_ref::<T>()
     }
 
-    fn downcast_into<T: std::any::Any>(self) -> Result<Box<T>, Self> {
+    pub fn downcast_into<T: std::any::Any>(self) -> Result<Box<T>, Self> {
         let type_id = self.type_id;
         self.inner
             .downcast::<T>()
             .map_err(|inner| Self { inner, type_id })
     }
 
-    fn type_id(&self) -> std::any::TypeId {
+    pub fn type_id(&self) -> std::any::TypeId {
         self.type_id
     }
 }

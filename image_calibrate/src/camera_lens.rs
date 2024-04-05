@@ -105,10 +105,21 @@
 !*/
 
 //a Imports
+use std::rc::Rc;
+
 use serde::{Deserialize, Serialize};
 
-use super::polynomial::CalcPoly;
-use super::SphericalLensProjection;
+use crate::polynomial::CalcPoly;
+use crate::SphericalLensProjection;
+
+//a Serialization
+//fp serialize_lens_name
+pub fn serialize_lens_name<S: serde::Serializer>(
+    lens: &Rc<CameraLens>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(lens.name())
+}
 
 //a CameraLens
 //tp CameraLens

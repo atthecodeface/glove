@@ -3,12 +3,12 @@ use std::cell::Ref;
 use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
-use geo_nd::{matrix, quat, vector, SqMatrix, Vector, Vector3};
+use geo_nd::{quat, vector, SqMatrix, Vector, Vector3};
 use image::Image;
 use image_calibrate::{
     cmdline_args, image, json, BestMapping, CameraAdjustMapping, CameraDatabase, CameraPtMapping,
-    CameraShowMapping, Color, Mat3x3, ModelLineSet, NamedPointSet, Point2D, Point3D,
-    PointMappingSet, Project, Ray, Region,
+    CameraShowMapping, Color, Mat3x3, ModelLineSet, NamedPointSet, Point3D, PointMappingSet,
+    Project, Ray, Region,
 };
 
 //a Types
@@ -87,8 +87,7 @@ fn image_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), Strin
             img.draw_cross(mapped, 5.0, c);
         }
     }
-    img.write(&write_filename)?;
-    Ok(())
+    img.write(write_filename)
 }
 
 //hi IMAGE_PATCH_LONG_HELP
@@ -120,8 +119,6 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
     let cip = cmdline_args::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
     let camera = cip.camera_ref();
-    let pms = cip.pms_ref();
-    let mappings = pms.mappings();
     let src_img = cmdline_args::get_image_read(matches)?;
     let write_filename = cmdline_args::get_opt_image_write_filename(matches)?.unwrap();
 
@@ -196,8 +193,7 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
             patch_img.put(x as u32, y as u32, &c);
         }
     }
-    patch_img.write(&write_filename)?;
-    Ok(())
+    patch_img.write(write_filename)
 }
 
 //a Interrogate (show_mappings etc)
@@ -302,7 +298,7 @@ fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), Stri
     let mappings = pms.mappings();
 
     let mut mls = ModelLineSet::new(&camera);
-    for (i, j) in pms.get_good_screen_pairs(&|f| true) {
+    for (i, j) in pms.get_good_screen_pairs(&|_f| true) {
         mls.add_line((&mappings[i], &mappings[j]));
     }
     let (location, _err) = mls.find_best_min_err_location(100, 500);
@@ -725,7 +721,7 @@ fn project_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi project_fn
-fn project_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn project_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
     let camera = base_args.project.cip(0).borrow().camera().clone();
     eprintln!("Camera {camera:?}");
     eprintln!("Mapping {}", camera.borrow().map_model([0., 0., 0.].into()));

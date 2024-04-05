@@ -52,7 +52,7 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 /// camera to [TanXTanY] 'vectors' in world space relative to the
 /// camera, which will depend on the lens in the camera and the
 /// focusing distance
-pub trait CameraProjection: std::fmt::Debug {
+pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Name of the camera, for recording in files
     fn camera_name(&self) -> String;
 

@@ -2,7 +2,6 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use geo_nd::quat;
 use image::Image;
 use image_calibrate::{
     cmdline_args, image, polynomial, CameraDatabase, CameraInstance, CameraProjection, CameraView,

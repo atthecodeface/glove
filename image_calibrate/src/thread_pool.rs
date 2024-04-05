@@ -7,12 +7,14 @@ use std::thread;
 type WorkItem = Box<dyn FnOnce() + Send + 'static>;
 
 //a ThreadPool
-//tp ThreadPool
+//tp ThreadStats
 #[derive(Debug, Default)]
 struct ThreadStats {
     delivered: usize,
     completed: usize,
 }
+
+//tp ThreadStats
 impl ThreadStats {
     #[inline]
     fn inc_delivered(&mut self) {
@@ -27,11 +29,41 @@ impl ThreadStats {
         self.delivered - self.completed
     }
 }
+
+//ip std::fmt::Display for ThreadStats
+impl std::fmt::Display for ThreadStats {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "{} outstanding ({} - {})",
+            self.outstanding(),
+            self.delivered,
+            self.completed
+        )
+    }
+}
+
+//tp ThreadPool
 pub struct ThreadPool {
     workers: Vec<WorkThread>,
     tx: Option<mpsc::Sender<WorkItem>>,
     rx: Option<Arc<Mutex<mpsc::Receiver<WorkItem>>>>,
     stats: Vec<Arc<Mutex<ThreadStats>>>,
+}
+
+//ip std::fmt::Debug for ThreadPool
+impl std::fmt::Debug for ThreadPool {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "ThreadPool[{}]", self.workers.len())?;
+        for (i, s) in self.stats.iter().enumerate() {
+            if let Ok(m) = s.try_lock() {
+                write!(fmt, "  {i}: {m}")?;
+            } else {
+                write!(fmt, "  {i}: <locked>")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 //ip std::default::Default for ThreadPool
@@ -159,9 +191,9 @@ impl WorkThread {
                 eprintln!("WorkThread {thread_id} disconnected; shutting down.");
                 break;
             };
-            stats.lock().map(|mut s| s.inc_delivered());
+            let _ = stats.lock().map(|mut s| s.inc_delivered());
             work_item();
-            stats.lock().map(|mut s| s.inc_completed());
+            let _ = stats.lock().map(|mut s| s.inc_completed());
         });
 
         WorkThread {

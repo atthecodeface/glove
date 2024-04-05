@@ -1,16 +1,15 @@
 //a Imports
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use clap::Command;
 use image_calibrate::cmdline_args;
 use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
-    UriDecode,
 };
 use image_calibrate::image;
 use image_calibrate::image::Image;
@@ -199,8 +198,10 @@ impl ProjectDecode {
         let Some(project) = project.to_str() else {
             return None;
         };
-        let mut pd = Self::default();
-        pd.dec_type = ProjectDecodeType::Root;
+        let mut pd = ProjectDecode {
+            dec_type: ProjectDecodeType::Root,
+            ..Default::default()
+        };
         if !project.is_empty() {
             pd.dec_type = ProjectDecodeType::UnknownProject;
             pd.project = project.into();
@@ -304,14 +305,13 @@ impl ProjectSet {
                 continue;
             }
             let pb = d.path();
-            if pb.extension().is_some_and(|x| x == "json") {
-                if pb
+            if pb.extension().is_some_and(|x| x == "json")
+                && pb
                     .file_stem()
                     .and_then(|x| x.to_str())
                     .is_some_and(|x| x.ends_with("_proj"))
-                {
-                    self.add_project(pb.into_boxed_path());
-                }
+            {
+                self.add_project(pb.into_boxed_path())?;
             }
         }
         Ok(())
@@ -329,7 +329,7 @@ impl ProjectSet {
 
     //mp find_project
     pub fn find_project(&self, name: &str) -> Option<usize> {
-        self.index_by_name.get(name).as_deref().copied()
+        self.index_by_name.get(name).copied()
     }
 
     //mp decode_project
@@ -371,7 +371,7 @@ impl ProjectSet {
     ) -> Result<(), String> {
         self.projects[idx]
             .ensure_loaded()
-            .map(|x| ())
+            .map(|_x| ())
             .and_then(|_| self.projects[idx].map(|p| p.to_json(false)).unwrap())
             .map(|json| {
                 response.content = json.into_bytes();
@@ -383,7 +383,7 @@ impl ProjectSet {
     //mi http_save_project
     fn http_save_project(
         &self,
-        server: &HttpServer<Self>,
+        _server: &HttpServer<Self>,
         _request: &HttpRequest,
         content: &[u8],
         response: &mut HttpResponse,
@@ -395,7 +395,7 @@ impl ProjectSet {
                 str_content = c;
                 None
             }
-            Err(e) => Some("Bad UTF8 in JSon".to_string()),
+            Err(_e) => Some("Bad UTF8 in JSon".to_string()),
         };
         if e.is_none() {
             e = self.projects[idx].of_json(str_content).err();
@@ -565,16 +565,16 @@ fn main() -> Result<(), String> {
     let project_root = cmdline_args::get_project_root(&matches)?;
     if num_threads == 0 || num_threads > 20 {
         return Err(format!(
-            "Number of threads must be non-zero and no more than 20"
+            "Number of threads {num_threads} must be non-zero and no more than 20"
         ));
     }
-    if port < 1024 || port > 60000 {
-        return Err(format!("Port must be in the range 1024..60000"));
+    if !(1024..=60000).contains(&port) {
+        return Err(format!("Port {port} must be in the range 1024..60000"));
     }
 
     let mut project_set = ProjectSet::default();
     project_set.set_image_root(image_root);
-    project_set.fill_from_project_dir(project_root);
+    project_set.fill_from_project_dir(project_root)?;
     HTTP_SRV
         .set(HttpServer::new(verbose, file_root, project_set))
         .map_err(|_| "Bug - faiiled to config server")?;

@@ -108,17 +108,16 @@ mod camera_database;
 mod camera_instance;
 mod camera_lens;
 mod camera_polynomial;
+mod camera_polynomial_calibrate;
 pub mod polynomial;
 mod traits;
 mod types;
-pub use camera_body::CameraBody;
+pub use camera_body::{serialize_body_name, CameraBody};
 pub use camera_database::CameraDatabase;
 pub use camera_instance::{CameraInstance, CameraInstanceDesc};
-pub use camera_lens::CameraLens;
-pub use camera_polynomial::{
-    CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc,
-    CameraPolynomialDesc,
-};
+pub use camera_lens::{serialize_lens_name, CameraLens};
+pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
+pub use camera_polynomial_calibrate::{CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc};
 pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
