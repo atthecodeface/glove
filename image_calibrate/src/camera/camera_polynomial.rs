@@ -25,7 +25,7 @@ pub struct CameraPolynomialDesc {
 pub struct CameraPolynomial {
     /// Description of the camera body
     #[serde(serialize_with = "serialize_body_name")]
-    body: Rc<CameraBody>,
+    body: CameraBody,
     /// The spherical lens mapping polynomial
     #[serde(serialize_with = "serialize_lens_name")]
     lens: Rc<CameraLens>,
@@ -59,12 +59,12 @@ impl CameraPolynomial {
     }
 
     //ap body
-    pub fn body(&self) -> &Rc<CameraBody> {
+    pub fn body(&self) -> &CameraBody {
         &self.body
     }
 
     //cp new
-    pub fn new(body: Rc<CameraBody>, lens: Rc<CameraLens>, mm_focus_distance: f64) -> Self {
+    pub fn new(body: CameraBody, lens: Rc<CameraLens>, mm_focus_distance: f64) -> Self {
         let mut cp = Self {
             body,
             lens,
@@ -79,7 +79,7 @@ impl CameraPolynomial {
 
     //cp from_desc
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
-        let body = cdb.get_body_err(&desc.body)?;
+        let body = cdb.get_body_err(&desc.body)?.clone();
         let lens = cdb.get_lens_err(&desc.lens)?;
         Ok(Self::new(body, lens, desc.mm_focus_distance))
     }

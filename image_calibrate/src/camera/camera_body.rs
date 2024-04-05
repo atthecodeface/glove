@@ -9,7 +9,7 @@ use crate::Point2D;
 //a Serialization
 //fp serialize_body_name
 pub fn serialize_body_name<S: serde::Serializer>(
-    body: &Rc<CameraBody>,
+    body: &CameraBody,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(body.name())

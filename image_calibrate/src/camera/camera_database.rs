@@ -11,7 +11,7 @@ use crate::{CameraBody, CameraLens};
 /// A database of camera bodies and lenses
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct CameraDatabase {
-    bodies: Vec<Rc<CameraBody>>,
+    bodies: Vec<CameraBody>,
     lenses: Vec<Rc<CameraLens>>,
 }
 
@@ -47,22 +47,22 @@ impl CameraDatabase {
     //mp derive
     pub fn derive(&mut self) {
         for b in self.bodies.iter_mut() {
-            Rc::get_mut(b).unwrap().derive();
+            b.derive();
         }
     }
 
     //ap get_body
-    pub fn get_body(&self, name: &str) -> Option<Rc<CameraBody>> {
+    pub fn get_body(&self, name: &str) -> Option<&CameraBody> {
         for b in self.bodies.iter() {
             if b.has_name(name) {
-                return Some(b.clone());
+                return Some(b);
             }
         }
         None
     }
 
     //ap get_body_err
-    pub fn get_body_err(&self, name: &str) -> Result<Rc<CameraBody>, String> {
+    pub fn get_body_err(&self, name: &str) -> Result<&CameraBody, String> {
         self.get_body(name)
             .ok_or(format!("Body '{}' was not in the database", name))
     }
@@ -72,7 +72,7 @@ impl CameraDatabase {
         if self.get_body(body.name()).is_some() {
             Err(format!("Body {} already in the database", body.name()))
         } else {
-            self.bodies.push(Rc::new(body));
+            self.bodies.push(body);
             Ok(())
         }
     }

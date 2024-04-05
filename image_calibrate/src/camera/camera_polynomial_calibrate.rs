@@ -41,7 +41,7 @@ pub struct CameraPolynomialCalibrateDesc {
 pub struct CameraPolynomialCalibrate {
     /// Description of the camera body
     #[serde(serialize_with = "serialize_body_name")]
-    body: Rc<CameraBody>,
+    body: CameraBody,
     /// The spherical lens mapping polynomial
     #[serde(serialize_with = "serialize_lens_name")]
     lens: Rc<CameraLens>,
@@ -95,7 +95,7 @@ impl CameraPolynomialCalibrate {
         let position: Point3D = rotate_y.conjugate().apply3(&position);
         let position: Point3D = rotate_x.conjugate().apply3(&position);
 
-        let body = cdb.get_body_err(&desc.camera.body)?;
+        let body = cdb.get_body_err(&desc.camera.body)?.clone();
         let lens = cdb.get_lens_err(&desc.camera.lens)?;
         let camera = CameraInstance::new(
             body.clone(),
