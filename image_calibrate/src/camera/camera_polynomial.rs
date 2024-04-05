@@ -1,9 +1,13 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
+use geo_nd::quat;
+
 use crate::camera::{serialize_body_name, serialize_lens_name};
 use crate::camera::{CameraProjection, CameraSensor};
-use crate::{CameraBody, CameraDatabase, CameraLens, Point2D, RollYaw, TanXTanY};
+use crate::{
+    CameraBody, CameraDatabase, CameraLens, CameraView, Point2D, Point3D, Quat, RollYaw, TanXTanY,
+};
 
 //a CameraPolynomialDesc
 //tp CameraPolynomialDesc
@@ -15,6 +19,13 @@ pub struct CameraPolynomialDesc {
     pub lens: String,
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     pub mm_focus_distance: f64,
+    /// Position in world coordinates of the camera
+    #[serde(default)]
+    position: Point3D,
+    /// Orientation to be applied to camera-relative world coordinates
+    /// to convert to camera-space coordinates
+    #[serde(default)]
+    orientation: Quat,
 }
 
 //a CameraPolynomial
@@ -36,6 +47,13 @@ pub struct CameraPolynomial {
     /// For an actual 'd' we have u' = fd/(f-d); the image is magnified on the sensor by u'/u,
     /// which is u'/f or d/(d-f)
     mm_focus_distance: f64,
+    /// Position in world coordinates of the camera
+    #[serde(default)]
+    position: Point3D,
+    /// Orientation to be applied to camera-relative world coordinates
+    /// to convert to camera-space coordinates
+    #[serde(default)]
+    orientation: Quat,
     /// Derived magnification due to focus distance
     #[serde(skip)]
     maginification_of_focus: f64,
@@ -63,10 +81,14 @@ impl CameraPolynomial {
 
     //cp new
     pub fn new(body: CameraBody, lens: CameraLens, mm_focus_distance: f64) -> Self {
+        let position = Point3D::default();
+        let orientation = Quat::default();
         let mut cp = Self {
             body,
             lens,
             mm_focus_distance,
+            position,
+            orientation,
             maginification_of_focus: 1., // derived
             x_px_from_tan_sc: 1.,        // derived
             y_px_from_tan_sc: 1.,        // derived
@@ -79,13 +101,26 @@ impl CameraPolynomial {
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
         let body = cdb.get_body_err(&desc.body)?.clone();
         let lens = cdb.get_lens_err(&desc.lens)?.clone();
-        Ok(Self::new(body, lens, desc.mm_focus_distance))
+        let mut c = Self::new(body, lens, desc.mm_focus_distance);
+        c.set_position(desc.position);
+        c.set_orientation(desc.orientation);
+        Ok(c)
     }
 
     //mp set_lens
     pub fn set_lens(&mut self, lens: CameraLens) {
         self.lens = lens;
         self.derive();
+    }
+
+    //mp set_position
+    pub fn set_position(&mut self, p: Point3D) {
+        self.position = p;
+    }
+
+    //mp set_orientation
+    pub fn set_orientation(&mut self, q: Quat) {
+        self.orientation = q;
     }
 
     //mp derive
@@ -113,7 +148,41 @@ impl std::fmt::Display for CameraPolynomial {
             self.body.px_height(),
             self.lens.name(),
             self.lens.mm_focal_length(),
+        )?;
+
+        let dxyz = quat::apply3(&quat::conjugate(self.orientation.as_ref()), &[0., 0., 1.]);
+        write!(
+            fmt,
+            "   @[{:.2},{:.2},{:.2}] in dir [{:.2},{:.2},{:.2}]",
+            self.position[0], self.position[1], self.position[2], dxyz[0], dxyz[1], dxyz[2],
         )
+    }
+}
+
+//ip CameraView for CameraPolynomial
+impl CameraView for CameraPolynomial {
+    //fp location
+    fn location(&self) -> Point3D {
+        self.position
+    }
+
+    //fp direction
+    fn direction(&self) -> Quat {
+        self.orientation
+    }
+
+    //fp px_abs_xy_to_camera_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
+        let px_rel_xy = self.px_abs_xy_to_px_rel_xy(px_abs_xy);
+        self.px_rel_xy_to_txty(px_rel_xy)
+    }
+
+    //fp camera_txty_to_px_abs_xy
+    /// Map a tan(x)/tan(y) to screen Point2D coordinate
+    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
+        let px_rel_xy = self.txty_to_px_rel_xy(*txty);
+        self.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 }
 
