@@ -2,7 +2,7 @@
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::image::{Image, ImageBuffer};
+use crate::image::{Image, ImageRgb8};
 use crate::Color;
 
 //a Regions
@@ -122,7 +122,7 @@ impl Region {
 
     //cp scan_image_to_regions
     fn scan_image_to_regions<F>(
-        img: &ImageBuffer,
+        img: &ImageRgb8,
         is_region: &F,
     ) -> (Vec<Region>, Vec<(usize, usize)>)
     where
@@ -226,7 +226,7 @@ impl Region {
     }
 
     //fp regions_of_image
-    pub fn regions_of_image<F>(img: &ImageBuffer, is_region: &F) -> Vec<Region>
+    pub fn regions_of_image<F>(img: &ImageRgb8, is_region: &F) -> Vec<Region>
     where
         F: Fn(Color) -> bool,
     {

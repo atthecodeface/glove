@@ -2,24 +2,26 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::image::{Color, Image};
+use crate::image::{Color, Image, ImageRgb8};
 use image::io::Reader as ImageReader;
 pub use image::DynamicImage;
 
-use image::{GenericImage, GenericImageView};
+use image::{GenericImage, GenericImageView, ImageBuffer, Luma};
 
-//a ImageBuffer
-pub struct ImageBuffer(DynamicImage);
+//a ImageGray16
+#[derive(Debug)]
+pub struct ImageGray16(DynamicImage);
 
-//a Public functions
-impl ImageBuffer {
+//a ip ImageGray16
+impl ImageGray16 {
     //cp read_image
     pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self, String> {
-        let img = ImageReader::open(path)
+        let img: ImageBuffer<Luma<u16>, Vec<u16>> = ImageReader::open(path)
             .map_err(|e| format!("Failed to open file {}", e))?
             .decode()
-            .map_err(|e| format!("Failed to decode image {}", e))?;
-        Ok(Self(img))
+            .map_err(|e| format!("Failed to decode image {}", e))?
+            .into_luma16();
+        Ok(Self(img.into()))
     }
 
     //fp read_or_create_image
@@ -42,13 +44,25 @@ impl ImageBuffer {
                 Ok(img)
             }
         } else {
-            Ok(Self(DynamicImage::new_rgb8(width, height)))
+            Ok(Self(DynamicImage::new_luma16(width, height)))
         }
+    }
+
+    //ac buffer
+    pub(crate) fn buffer(&self) -> &image::DynamicImage {
+        &self.0
+    }
+
+    //cp of_rgb
+    pub fn of_rgb(image: &ImageRgb8) -> Self {
+        let image = image.buffer().to_luma16();
+        Self(image.into())
     }
 }
 
-//ip Image for ImageBuffer
-impl Image for ImageBuffer {
+//ip Image for ImageGray16
+impl Image for ImageGray16 {
+    type Pixel = u16;
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
         self.0
             .save(path)
@@ -71,11 +85,13 @@ impl Image for ImageBuffer {
             .map_err(|e| format!("Failed to encode image {}", e))?;
         Ok(bytes)
     }
-    fn put(&mut self, x: u32, y: u32, color: &Color) {
-        image::GenericImage::put_pixel(&mut self.0, x, y, color.0);
+    fn put(&mut self, x: u32, y: u32, color: &Self::Pixel) {
+        let img = self.0.as_mut_luma16().unwrap();
+        image::GenericImage::put_pixel(img, x, y, [*color].into());
     }
-    fn get(&self, x: u32, y: u32) -> Color {
-        Color(self.0.get_pixel(x, y))
+    fn get(&self, x: u32, y: u32) -> Self::Pixel {
+        let img = self.0.as_luma16().unwrap();
+        img.get_pixel(x, y).0[0]
     }
     fn size(&self) -> (u32, u32) {
         (self.0.width(), self.0.height())

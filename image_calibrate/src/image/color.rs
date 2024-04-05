@@ -1,15 +1,113 @@
-use std::path::Path;
-
-use image::io::Reader as ImageReader;
-pub use image::{DynamicImage, GenericImage, GenericImageView};
+pub use image::{DynamicImage, GenericImage, GenericImageView, Luma, Rgba};
 use serde::{Deserialize, Serialize};
 
-use crate::Point2D;
+//a Gray16
+//tp Gray16
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Gray16(Luma<u16>);
+
+//ip Display for Gray16 {
+impl std::fmt::Display for Gray16 {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "{}", self.as_string())
+    }
+}
+
+//ip From<&u16> for Gray16
+impl From<&u16> for Gray16 {
+    fn from(c: &u16) -> Gray16 {
+        Gray16([(*c)].into())
+    }
+}
+
+//ip From<u16> for Gray16
+impl From<u16> for Gray16 {
+    fn from(c: u16) -> Gray16 {
+        Gray16([c].into())
+    }
+}
+
+//ip TryFrom<&str> for Gray16
+impl TryFrom<&str> for Gray16 {
+    type Error = String;
+    fn try_from(s: &str) -> Result<Gray16, String> {
+        if s == "None" {
+            Ok(Gray16::none())
+        } else if s.starts_with('#') {
+            let l = s.len();
+            if l != 3 && l != 5 {
+                Err(format!("Expected #GGGG or #GG for Gray16, got {s}"))
+            } else {
+                let short_gray = s.len() < 5;
+                match u16::from_str_radix(s.split_at(1).1, 16) {
+                    Ok(gray) => {
+                        if short_gray {
+                            Ok((gray * 0x101).into())
+                        } else {
+                            Ok(gray.into())
+                        }
+                    }
+                    Err(e) => Err(format!("Expected #GGGG or #GG for Gray16, got {s} : {e}")),
+                }
+            }
+        } else {
+            Err(format!("Expected #GGGG or #GG for Gray16, got {s}"))
+        }
+    }
+}
+
+//ip Gray16
+impl Gray16 {
+    //cp none
+    #[inline]
+    pub fn none() -> Self {
+        0.into()
+    }
+
+    //cp black
+    #[inline]
+    pub fn black() -> Self {
+        0.into()
+    }
+
+    //cp color_eq
+    #[inline]
+    pub fn color_eq(&self, other: &Self) -> bool {
+        self.0[0] == other.0[0]
+    }
+
+    //cp as_string
+    pub fn as_string(&self) -> String {
+        format!("#{:04x}", self.0[0])
+    }
+}
+
+//ip Serialize for Gray16
+impl Serialize for Gray16 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_string().serialize(serializer)
+    }
+}
+
+//ip Deserialize for Gray16
+impl<'de> Deserialize<'de> for Gray16 {
+    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let color_str = String::deserialize(deserializer)?;
+        color_str.as_str().try_into().map_err(DE::Error::custom)
+    }
+}
 
 //a Color
 //tp Color
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Color(pub image::Rgba<u8>);
+pub struct Color(pub Rgba<u8>);
 impl std::default::Default for Color {
     fn default() -> Self {
         Color([0, 0, 0, 0].into())

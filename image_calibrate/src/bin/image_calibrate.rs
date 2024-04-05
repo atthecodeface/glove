@@ -6,7 +6,7 @@ use clap::{Arg, ArgAction, Command};
 use geo_nd::{SqMatrix, Vector, Vector3};
 use image_calibrate::{
     cmdline_args, json, CameraAdjustMapping, CameraDatabase, CameraProjection, CameraPtMapping,
-    CameraShowMapping, Color, Image, ImageBuffer, Mat3x3, ModelLineSet, NamedPointSet,
+    CameraShowMapping, Color, Image, ImageRgb8, Mat3x3, ModelLineSet, NamedPointSet, Patch,
     PointMappingSet, Project, Ray, Region,
 };
 
@@ -140,59 +140,12 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
     for m in &model_pts {
         println!("{} {} {}", m.0, m.1, m.2);
     }
+    let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
 
-    let origin = model_pts[0].1;
-    let d_10 = (model_pts[1].1 - model_pts[0].1).normalize();
-    let d_20 = (model_pts[2].1 - model_pts[0].1).normalize();
-    let normal = d_10.cross_product(&d_20).normalize();
-
-    let x_axis = d_10;
-    let y_axis = normal.cross_product(&d_10).normalize();
-
-    let flat_to_model: Mat3x3 = [
-        x_axis[0], y_axis[0], normal[0], x_axis[1], y_axis[1], normal[1], x_axis[2], y_axis[2],
-        normal[2],
-    ]
-    .into();
-    let model_to_flat = flat_to_model.inverse();
-
-    let corners: Vec<_> = model_pts
-        .iter()
-        .map(|(_, p, _)| model_to_flat.transform(&(*p - origin)))
-        .collect();
-    println!("{x_axis}, {y_axis}, {model_to_flat:?}");
-
-    let (lx, rx, by, ty) = corners.iter().fold(
-        (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64),
-        |(lx, rx, by, ty), p| (lx.min(p[0]), rx.max(p[0]), by.min(p[1]), ty.max(p[1])),
-    );
-    let px_per_mm = 10.0;
-    let ilx = (lx * px_per_mm).floor() as isize;
-    let iby = (by * px_per_mm).floor() as isize;
-    let irx = (rx * px_per_mm).ceil() as isize;
-    let ity = (ty * px_per_mm).ceil() as isize;
-    println!("{ilx}, {irx}, {iby}, {ity}");
-
-    let width = (irx - ilx) as usize;
-    let height = (ity - iby) as usize;
-    let mut patch_img = ImageBuffer::read_or_create_image(width, height, None)?;
-
-    let src_w = 3360.0 * 2.0;
-    let src_h = 2240.0 * 2.0;
-    for x in 0..width {
-        let mfx = x_axis * ((x as f64) / px_per_mm);
-        for y in 0..height {
-            let mfy = y_axis * ((y as f64) / px_per_mm);
-            let model_pt = origin + mfx + mfy;
-            let pxy = camera.map_model(model_pt);
-            if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
-                continue;
-            }
-            let c = src_img.get(pxy[0] as u32, pxy[1] as u32);
-            patch_img.put(x as u32, y as u32, &c);
-        }
+    if let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))? {
+        patch.img().write(write_filename)?;
     }
-    patch_img.write(write_filename)
+    Ok(())
 }
 
 //a Interrogate (show_mappings etc)

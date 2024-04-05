@@ -14,7 +14,7 @@ use image_calibrate::http::{
 use image_calibrate::image;
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::{Image, ImageBuffer};
+use image_calibrate::{Image, ImageRgb8, Patch};
 use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
@@ -182,6 +182,7 @@ pub struct ProjectDecode {
     cip: Option<usize>,
     width: Option<f64>,
     height: Option<f64>,
+    nps: Vec<String>,
 }
 
 //ip ProjectDecode
@@ -214,6 +215,11 @@ impl ProjectDecode {
         }
         if let Some(Ok(height)) = request.get_one::<f64>("height") {
             pd.height = Some(height);
+        }
+        for np in request.get_many::<String>("np") {
+            if let Ok(np) = np {
+                pd.nps.push(np);
+            }
         }
         Some(pd)
     }
@@ -459,7 +465,7 @@ impl ProjectSet {
         let cip_r = cip.borrow();
         let path = self.image_root.as_path().join(cip_r.image());
         server.verbose().then(|| eprintln!("Open image {path:?}"));
-        let src_img = ImageBuffer::read_image(&path)?;
+        let src_img = ImageRgb8::read_image(&path)?;
         let src_size = src_img.size();
         let src_size = (src_size.0 as f64, src_size.1 as f64);
         let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
@@ -467,7 +473,7 @@ impl ProjectSet {
         let scale = x_scale.max(y_scale);
         let width = (src_size.0 / scale) as usize;
         let height = (src_size.1 / scale) as usize;
-        let mut scaled_img = ImageBuffer::read_or_create_image(width, height, None).unwrap();
+        let mut scaled_img = ImageRgb8::read_or_create_image(width, height, None).unwrap();
         for y in 0..height {
             let sy = (y as f64 + 0.5) * scale;
             for x in 0..width {
@@ -477,6 +483,60 @@ impl ProjectSet {
             }
         }
         let img_bytes = scaled_img.encode("jpeg")?;
+        response.content = img_bytes;
+        response.mime_type = server.mime_type("jpeg");
+        response.resp_type = HttpResponseType::FileRead;
+        Ok(())
+    }
+
+    //mi http_cip_patch
+    fn http_cip_patch(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+        pd: &ProjectDecode,
+    ) -> Result<(), String> {
+        let cip = pd.cip().unwrap_or_default();
+        let p = self.projects[pd.idx].ensure_loaded()?;
+        let p = &p.as_ref().unwrap().0;
+        if cip >= p.ncips() {
+            return Err("Cip out of range".into());
+        }
+        let cip = p.cip(cip).clone();
+        let cip_r = cip.borrow();
+        let path = self.image_root.as_path().join(cip_r.image());
+        let src_img = ImageRgb8::read_image(&path)?;
+        let nps = p.nps_ref();
+        let camera = cip_r.camera_ref();
+
+        let mut model_pts = vec![];
+        for name in &pd.nps {
+            if let Some(n) = nps.get_pt(name) {
+                let model = n.model().0;
+                model_pts.push((name, model, camera.map_model(model)))
+            } else {
+                return Err(format!("Could not find NP {name} in the project"));
+            }
+        }
+        if model_pts.len() < 3 {
+            return Err(format!(
+                "Need at least 3 points for a patch, got {}",
+                model_pts.len()
+            ));
+        }
+
+        for m in &model_pts {
+            eprintln!("{} {} {}", m.0, m.1, m.2);
+        }
+        let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
+
+        let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))?
+        else {
+            return Err("Failled to create patch".into());
+        };
+        let img_bytes = patch.img().encode("jpeg")?;
         response.content = img_bytes;
         response.mime_type = server.mime_type("jpeg");
         response.resp_type = HttpResponseType::FileRead;
@@ -520,6 +580,8 @@ impl HttpServerExt for ProjectSet {
                 } else if request.action_is("thumbnail") && request.req_type == HttpRequestType::Get
                 {
                     self.http_cip_thumbnail(server, request, content, response, &pd)
+                } else if request.action_is("patch") && request.req_type == HttpRequestType::Get {
+                    self.http_cip_patch(server, request, content, response, &pd)
                 } else {
                     Err("Bad request type".into())
                 }

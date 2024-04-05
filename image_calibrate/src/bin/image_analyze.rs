@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use clap::Command;
 use image_calibrate::polynomial;
 use image_calibrate::polynomial::CalcPoly;
-use image_calibrate::{cmdline_args, Color, Image, ImageBuffer, Region};
+use image_calibrate::{cmdline_args, Color, Image, ImageRgb8, Region};
 
 //a Types
 //ti SubCmdFn
@@ -12,7 +12,7 @@ type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<(), String>
 
 //tp BaseArgs
 struct BaseArgs {
-    image: ImageBuffer,
+    image: ImageRgb8,
     write_filename: Option<String>,
     bg_color: Option<Color>,
 }

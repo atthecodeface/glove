@@ -7,7 +7,7 @@ use crate::{
     image, json, CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate, CameraPtMapping, Cip,
     Color, NamedPoint, NamedPointSet, Point3D, PointMapping, PointMappingSet, Project, Quat, Rrc,
 };
-use image::ImageBuffer;
+use image::ImageRgb8;
 
 //a ThreadPool
 //fp add_threads_arg
@@ -420,11 +420,11 @@ pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_image_read
-pub fn get_image_read(matches: &ArgMatches) -> Result<ImageBuffer, String> {
+pub fn get_image_read(matches: &ArgMatches) -> Result<ImageRgb8, String> {
     let read_filename = matches
         .get_one::<String>("read")
         .ok_or("An image filename to read is required")?;
-    let img = ImageBuffer::read_image(read_filename)?;
+    let img = ImageRgb8::read_image(read_filename)?;
     Ok(img)
 }
 
@@ -432,9 +432,9 @@ pub fn get_image_read(matches: &ArgMatches) -> Result<ImageBuffer, String> {
 pub fn get_image_read_or_create(
     matches: &ArgMatches,
     camera: &CameraPolynomial,
-) -> Result<ImageBuffer, String> {
+) -> Result<ImageRgb8, String> {
     let read_filename = matches.get_one::<String>("read");
-    let img = ImageBuffer::read_or_create_image(
+    let img = ImageRgb8::read_or_create_image(
         camera.body().px_width() as usize,
         camera.body().px_height() as usize,
         read_filename.map(|x| x.as_str()),

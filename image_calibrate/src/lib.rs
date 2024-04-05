@@ -136,7 +136,7 @@ pub use points::{NamedPoint, NamedPointSet};
 pub use points::{PointMapping, PointMappingSet};
 
 pub mod image;
-pub use image::{Color, Image, ImageBuffer, Region};
+pub use image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
 pub use cip::{Cip, CipDesc};
 pub use project::Project;

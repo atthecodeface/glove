@@ -272,7 +272,7 @@ impl HttpRequest {
         self.uri.action_is(action)
     }
 
-    //mp arg_get_one
+    //mp get_one
     pub fn get_one<T>(&self, id: &str) -> Option<Result<T, String>>
     where
         T: std::str::FromStr + 'static,
@@ -285,6 +285,20 @@ impl HttpRequest {
             }
         }
         None
+    }
+
+    //mp get_many
+    pub fn get_many<'a, T>(&'a self, id: &'a str) -> impl Iterator<Item = Result<T, String>> + 'a
+    where
+        T: std::str::FromStr + 'static,
+    {
+        self.uri.args.iter().filter_map(move |(k, v)| {
+            if k == id && v.is_some() {
+                Some(T::from_str(v.as_ref().unwrap()).map_err(|_e| "Failed to parse".into()))
+            } else {
+                None
+            }
+        })
     }
 
     //mp parse_req_hdr

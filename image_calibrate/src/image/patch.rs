@@ -1,20 +1,12 @@
 //a Imports
-use std::cell::Ref;
-use std::collections::HashMap;
-
-use crate::{
-    cmdline_args, json, CameraAdjustMapping, CameraDatabase, CameraProjection, CameraPtMapping,
-    CameraShowMapping, Color, Image, ImageBuffer, Mat3x3, ModelLineSet, NamedPointSet, Point2D,
-    Point3D, PointMappingSet, Project, Ray, Region,
-};
-use clap::{Arg, ArgAction, Command};
+use crate::{Image, ImageRgb8, Mat3x3, Point2D, Point3D};
 use geo_nd::{SqMatrix, Vector, Vector3};
 
 //a Patch
 //tp Patch
 #[derive(Debug)]
 pub struct Patch {
-    img: ImageBuffer,
+    img: ImageRgb8,
     flat_origin: Point2D,
     model_origin: Point3D,
     flat_to_model: Mat3x3,
@@ -22,6 +14,11 @@ pub struct Patch {
 
 //ip Patch
 impl Patch {
+    //ap img
+    pub fn img(&self) -> &ImageRgb8 {
+        &self.img
+    }
+
     //cp create
     /// Create a patch from a source image and a set of N model points
     /// *which should be on a plane*, where the first is the origin,
@@ -32,8 +29,8 @@ impl Patch {
     /// is needed
     ///
     /// None is returned if the image would have been empty (no valid pixels)
-    fn create<F>(
-        src_img: &ImageBuffer,
+    pub fn create<F>(
+        src_img: &ImageRgb8,
         px_per_model: f64,
         model_pts: &[Point3D],
         model_to_flat: &F,
@@ -62,6 +59,7 @@ impl Patch {
             model_normal[2],
         ]
         .into();
+        let flat_to_model_inv = flat_to_model.inverse();
 
         let flat_pts: Vec<_> = model_pts
             .iter()
@@ -77,14 +75,17 @@ impl Patch {
             return Ok(None);
         }
 
-        let corners: Vec<_> = flat_pts
+        let corners: Vec<_> = model_pts
             .iter()
-            .map(|f| (*f - flat_origin) * px_per_model)
+            .map(|p| flat_to_model_inv.transform(&(*p - model_origin)) * px_per_model)
             .collect();
-        println!("{model_x_axis}, {model_y_axis}, {model_normal}, {corners:?}");
+
+        eprintln!(
+            "Model origin {model_origin}, axes {model_x_axis}, {model_y_axis}, {model_normal}, flat corners {corners:?}"
+        );
 
         let (lx, rx, by, ty) = corners.iter().fold(
-            (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64),
+            (f64::MAX, 0.0_f64, 0.0_f64, 0.0_f64),
             |(lx, rx, by, ty), p| (lx.min(p[0]), rx.max(p[0]), by.min(p[1]), ty.max(p[1])),
         );
 
@@ -92,16 +93,17 @@ impl Patch {
         let iby = by.floor() as isize;
         let irx = rx.ceil() as isize;
         let ity = ty.ceil() as isize;
-        println!("{ilx}, {irx}, {iby}, {ity}");
+        println!("Image bounds {ilx}, {irx}, {iby}, {ity}");
 
         let width = (irx - ilx) as usize;
         let height = (ity - iby) as usize;
-        let mut patch_img = ImageBuffer::read_or_create_image(width, height, None)?;
+        let mut patch_img = ImageRgb8::read_or_create_image(width, height, None)?;
 
         for x in 0..width {
-            let model_fx = model_origin + model_x_axis * ((x as f64) / px_per_model);
+            let model_fx =
+                model_origin + model_x_axis * (((x as isize + ilx) as f64) / px_per_model);
             for y in 0..height {
-                let mfy = model_y_axis * ((y as f64) / px_per_model);
+                let mfy = model_y_axis * (((y as isize + iby) as f64) / px_per_model);
                 let model_pt = model_fx + mfy;
                 let pxy = model_to_flat(model_pt);
                 if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
