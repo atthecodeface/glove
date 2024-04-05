@@ -4,7 +4,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::camera::{serialize_body_name, serialize_lens_name};
-use crate::camera::{CameraProjection, CameraSensor, SphericalLensProjection};
+use crate::camera::{CameraProjection, CameraSensor};
 use crate::{CameraBody, CameraDatabase, CameraLens, Point2D, RollYaw, TanXTanY};
 
 //a CameraPolynomialDesc

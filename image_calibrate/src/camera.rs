@@ -23,7 +23,7 @@ mod camera_mapping;
 pub use camera_mapping::{CameraAdjustMapping, CameraMapping, CameraPtMapping, CameraShowMapping};
 
 mod traits;
-pub use traits::{CameraProjection, CameraSensor, CameraView, SphericalLensProjection};
+pub use traits::{CameraProjection, CameraSensor, CameraView};
 
 mod best_mapping;
 pub use best_mapping::BestMapping;
