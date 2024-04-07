@@ -305,46 +305,49 @@ impl ImageAccelerator {
         )
     }
 
+    //mp copy_to_input
+    fn copy_to_input(&self, src_data: &[u8]) -> Result<(), String> {
+        let byte_size = src_data.len() as u64;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let buffer_slice = self.input_buffer.slice(0..byte_size);
+        buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
+        self.accelerator.block();
+        let Ok(Ok(())) = receiver.recv() else {
+            return Err("Failed to run compute on gpu!".into());
+        };
+        buffer_slice
+            .get_mapped_range_mut()
+            .copy_from_slice(bytemuck::cast_slice(src_data));
+        self.input_buffer.unmap();
+        Ok(())
+    }
+
+    //mp copy_output
+    fn copy_output(&self, byte_size: usize) -> Result<wgpu::BufferView, String> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let buffer_slice = self.output_buffer.slice(0..byte_size as u64);
+        buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+        self.accelerator.block();
+        let Ok(Ok(())) = receiver.recv() else {
+            return Err("Failed to run compute on gpu!".into());
+        };
+        Ok(buffer_slice.get_mapped_range())
+    }
     //mp run
     fn run<F: FnOnce(&[u8]) -> Result<(), String>>(
         &self,
         src_data: &[u8],
-        number: usize,
+        cmd_buffer: wgpu::CommandBuffer,
         callback: F,
     ) -> Result<(), String> {
-        let byte_size = src_data.len() as u64;
-        {
-            let (sender, receiver) = std::sync::mpsc::channel();
-            let buffer_slice = self.input_buffer.slice(0..byte_size);
-            buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
-            self.accelerator.block();
-            let Ok(Ok(())) = receiver.recv() else {
-                return Err("Failed to run compute on gpu!".into());
-            };
-            buffer_slice
-                .get_mapped_range_mut()
-                .copy_from_slice(bytemuck::cast_slice(src_data));
-            self.input_buffer.unmap();
-        }
-
-        let cmd_buffer = self.cmd_buffer(number)?;
+        self.copy_to_input(src_data)?;
         self.accelerator.queue().submit(Some(cmd_buffer));
-
-        {
-            let (sender, receiver) = std::sync::mpsc::channel();
-            let buffer_slice = self.output_buffer.slice(0..byte_size);
-            buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-            self.accelerator.block();
-            let Ok(Ok(())) = receiver.recv() else {
-                return Err("Failed to run compute on gpu!".into());
-            };
-            let data = buffer_slice.get_mapped_range();
-            callback(&data)?;
-            // Must drop data so that self.output_buffer has no BufferView's
-            drop(data);
-            // Must unmap self.output_buffer so it can be used in the future
-            self.output_buffer.unmap();
-        };
+        let data = self.copy_output(src_data.len())?;
+        callback(&data)?;
+        // Must drop data so that self.output_buffer has no BufferView's
+        drop(data);
+        // Must unmap self.output_buffer so it can be used in the future
+        self.output_buffer.unmap();
         Ok(())
     }
 
@@ -362,7 +365,8 @@ impl Accelerate for ImageAccelerator {
         callback: F,
     ) -> Result<bool, String> {
         if shader == "collatz" {
-            self.run(src_data, args.width, callback)?;
+            let cmd_buffer = self.cmd_buffer(args.width)?;
+            self.run(src_data, cmd_buffer, callback)?;
             Ok(true)
         } else {
             Ok(false)
