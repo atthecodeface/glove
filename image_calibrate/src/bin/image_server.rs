@@ -11,10 +11,9 @@ use image_calibrate::cmdline_args;
 use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use image_calibrate::image;
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::{Image, ImageRgb8, Patch};
+use image_calibrate::{Image, ImageGray16, ImageRgb8, Patch};
 use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
@@ -536,9 +535,29 @@ impl ProjectSet {
         else {
             return Err("Failled to create patch".into());
         };
-        let img_bytes = patch.img().encode("jpeg")?;
+        let img = patch.img();
+        let mut img = ImageGray16::of_rgb(img, 0x10000);
+        let mut img_sq = img.clone();
+
+        // sum(x)^2 - sum(x^2)
+
+        let ws = 2;
+        img_sq.square(1);
+        img_sq.window_sum_x(ws, 256 / ws);
+        img_sq.window_sum_y(ws, 256 / ws);
+
+        img.window_sum_x(ws, 256 / ws);
+        img.window_sum_y(ws, 256 / ws);
+        img.square(1);
+
+        img.add_scaled(&img_sq, -1, 1, 0x10_0000);
+        img.sqrt(0x100_0000);
+
+        // minus
+        // square sum sum
+        let img_bytes = img.encode("png")?;
         response.content = img_bytes;
-        response.mime_type = server.mime_type("jpeg");
+        response.mime_type = server.mime_type("png");
         response.resp_type = HttpResponseType::FileRead;
         Ok(())
     }

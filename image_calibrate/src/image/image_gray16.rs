@@ -2,14 +2,14 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::image::{Color, Image, ImageRgb8};
+use crate::image::{Image, ImageRgb8};
 use image::io::Reader as ImageReader;
 pub use image::DynamicImage;
 
-use image::{GenericImage, GenericImageView, ImageBuffer, Luma};
+use image::{GenericImageView, ImageBuffer, Luma};
 
 //a ImageGray16
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImageGray16(DynamicImage);
 
 //a ip ImageGray16
@@ -54,10 +54,142 @@ impl ImageGray16 {
     }
 
     //cp of_rgb
-    pub fn of_rgb(image: &ImageRgb8) -> Self {
-        let image = image.buffer().to_luma16();
-        Self(image.into())
+    pub fn of_rgb(image: &ImageRgb8, max: u32) -> Self {
+        let (width, height) = image.size();
+        let mut image_gray = ImageBuffer::<Luma<u16>, Vec<u16>>::new(width, height);
+        let r_sc = 52 * max;
+        let g_sc = 177 * max;
+        let b_sc = 18 * max;
+        for (x, y, rgba) in image.buffer().pixels() {
+            let l = (rgba[0] as u32) * r_sc + (rgba[1] as u32) * g_sc + (rgba[2] as u32) * b_sc;
+            let l = (l >> 16) as u16;
+            image_gray[(x, y)] = [l].into();
+        }
+        Self(image_gray.into())
     }
+
+    //mp window_sum_x
+    pub fn window_sum_x(&mut self, window_size: usize, scale_down_shf_8: usize) {
+        let (width, height) = self.size();
+        let width = width as usize;
+        let height = height as usize;
+        let img = self.0.as_mut_luma16().unwrap();
+        let mut ms = img.as_flat_samples_mut();
+        let buf = ms.as_mut_slice();
+        let mut row = vec![0_usize; width];
+        let half_ws = window_size / 2;
+        let skip = 2 * half_ws - 1;
+        for y in 0..height {
+            let buf_row = &mut buf[y * width..(y * width + width)];
+            let mut sum = 0;
+            for x in 0..width {
+                let v: usize = buf_row[x] as usize;
+                sum += v;
+                if x >= skip {
+                    row[x - half_ws] = sum;
+                    let v: usize = buf_row[x - skip] as usize;
+                    sum -= v;
+                }
+            }
+            let v = row[half_ws];
+            row[0..half_ws].fill(v);
+            let v = row[width - 1 - half_ws];
+            row[width - half_ws..width].fill(v);
+            for x in 0..width {
+                buf_row[x] = ((row[x] * scale_down_shf_8) >> 8) as u16;
+            }
+        }
+    }
+
+    //mp window_sum_y
+    pub fn window_sum_y(&mut self, window_size: usize, scale_down_shf_8: usize) {
+        let (width, height) = self.size();
+        let width = width as usize;
+        let height = height as usize;
+        let img = self.0.as_mut_luma16().unwrap();
+        let mut ms = img.as_flat_samples_mut();
+        let buf = ms.as_mut_slice();
+        let mut row = vec![0_usize; height];
+        let half_ws = window_size / 2;
+        let skip = 2 * half_ws - 1;
+        for x in 0..width {
+            let mut sum = 0;
+            for y in 0..height {
+                sum += buf[x + y * width] as usize;
+                if y >= skip {
+                    row[y - half_ws] = sum;
+                    sum -= buf[x + (y - skip) * width] as usize;
+                }
+            }
+            for y in half_ws..(height - half_ws) {
+                buf[x + y * width] = ((row[y] * scale_down_shf_8) >> 8) as u16;
+            }
+            let v0 = ((row[half_ws] * scale_down_shf_8) >> 8) as u16;
+            let v1 = ((row[height - 1 - half_ws] * scale_down_shf_8) >> 8) as u16;
+            for y in 0..half_ws {
+                buf[x + y * width] = v0;
+                buf[x + (y + height - half_ws) * width] = v1;
+            }
+        }
+    }
+
+    //mp square
+    pub fn square(&mut self, scale_down_shf_16: usize) {
+        let (width, height) = self.size();
+        let width = width as usize;
+        let height = height as usize;
+        let img = self.0.as_mut_luma16().unwrap();
+        let mut ms = img.as_flat_samples_mut();
+        let buf = ms.as_mut_slice();
+        for i in 0..width * height {
+            let v = buf[i] as usize;
+            buf[i] = ((v * v * scale_down_shf_16) >> 16) as u16;
+        }
+    }
+
+    //mp sqrt
+    pub fn sqrt(&mut self, scale_down_shf_16: usize) {
+        let (width, height) = self.size();
+        let width = width as usize;
+        let height = height as usize;
+        let img = self.0.as_mut_luma16().unwrap();
+        let mut ms = img.as_flat_samples_mut();
+        let buf = ms.as_mut_slice();
+        for i in 0..width * height {
+            let v = buf[i] as f64;
+            let v = v.sqrt() * (scale_down_shf_16 as f64) / 65536.0;
+            buf[i] = v as u16;
+        }
+    }
+
+    //mp add_scaled
+    pub fn add_scaled(
+        &mut self,
+        other: &Self,
+        scale_self: isize,
+        scale_other: isize,
+        scale_down_shf_16: usize,
+    ) {
+        let (width, height) = self.size();
+        assert_eq!(other.size().0, width);
+        assert_eq!(other.size().1, height);
+        let width = width as usize;
+        let height = height as usize;
+        let img = self.0.as_mut_luma16().unwrap();
+        let mut ms = img.as_flat_samples_mut();
+        let buf = ms.as_mut_slice();
+        let oimg = other.0.as_luma16().unwrap();
+        let oms = oimg.as_flat_samples();
+        let obuf = oms.as_slice();
+        for i in 0..width * height {
+            let v = buf[i] as isize;
+            let wv = obuf[i] as isize;
+            let v = (v * scale_self + wv * scale_other).max(0) as usize;
+            buf[i] = ((v * scale_down_shf_16) >> 16) as u16;
+        }
+    }
+
+    //zz All done
 }
 
 //ip Image for ImageGray16

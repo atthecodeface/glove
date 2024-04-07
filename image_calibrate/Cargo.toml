@@ -24,8 +24,15 @@ name = "image_server"
 
 [dependencies]
 nalgebra = "0.32.1"
-image = "0.25"
 plotters = "0.3.3"
+bytemuck = ">=1.15.0"
+
+[dependencies.wgpu]
+version = ">=0.19"
+
+[dependencies.image]
+version = "0.25"
+features = ["png"]
 
 [dependencies.serde]
 version = "1.0"

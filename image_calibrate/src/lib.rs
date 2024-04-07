@@ -138,6 +138,8 @@ pub use points::{PointMapping, PointMappingSet};
 pub mod image;
 pub use image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
+pub mod accel;
+
 pub use cip::{Cip, CipDesc};
 pub use project::Project;
 // mod rotations;

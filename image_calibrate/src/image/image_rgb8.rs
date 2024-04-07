@@ -9,7 +9,7 @@ pub use image::DynamicImage;
 use image::{GenericImage, GenericImageView};
 
 //a ImageRbg8
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImageRgb8(DynamicImage);
 
 //a Public functions
