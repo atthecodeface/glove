@@ -1,6 +1,12 @@
 //pt Accelerate
 /// This should probably be sync + send + clone
 
+#[derive(Debug, Default, Clone)]
+pub struct AccelerateArgs {
+    pub width: usize,
+    pub height: usize,
+}
+
 pub trait Accelerate: std::fmt::Debug {
     // The accelerator will already have input and output buffers, and
     // any internal buffers and bindings
@@ -20,7 +26,7 @@ pub trait Accelerate: std::fmt::Debug {
         &self,
         shader: &str,
         src_data: &[u8],
-        // other_params,
-        calback: &F,
+        args: &AccelerateArgs,
+        callback: F,
     ) -> Result<bool, String>;
 }

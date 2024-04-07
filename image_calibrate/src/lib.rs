@@ -139,6 +139,7 @@ pub mod image;
 pub use image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
 pub mod accel;
+pub use accel::{Accelerate, AccelerateArgs};
 
 pub use cip::{Cip, CipDesc};
 pub use project::Project;
