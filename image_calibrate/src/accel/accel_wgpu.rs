@@ -43,6 +43,13 @@ impl From<usize> for Shader {
     }
 }
 
+//tp BufferType
+pub enum BufferType {
+    HostSrc,
+    Gpu,
+    HostDst,
+}
+
 //a AccelWgpu
 //tp AccelWgpu
 pub struct AccelWgpu {
@@ -51,7 +58,8 @@ pub struct AccelWgpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     shaders: Vec<wgpu::ShaderModule>,
-    pipelines: Vec<wgpu::ComputePipeline>,
+    pipelines: Vec<(wgpu::ComputePipeline, Vec<wgpu::BindGroupLayout>)>,
+    buffers: Vec<wgpu::Buffer>,
 }
 
 //ip AccelWgpu
@@ -78,6 +86,7 @@ impl AccelWgpu {
         .unwrap();
         let shaders = vec![];
         let pipelines = vec![];
+        let buffers = vec![];
         Self {
             instance,
             adapter,
@@ -85,6 +94,7 @@ impl AccelWgpu {
             queue,
             shaders,
             pipelines,
+            buffers,
         }
     }
 
@@ -106,6 +116,16 @@ impl AccelWgpu {
         Ok(n.into())
     }
 
+    //ap device
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    //ap queue
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
     //ap shader
     pub fn shader(&self, shader: Shader) -> Option<&wgpu::ShaderModule> {
         self.shaders.get(shader.as_usize())
@@ -118,7 +138,7 @@ impl AccelWgpu {
 
     //ap pipeline
     pub fn pipeline(&self, pipeline: Pipeline) -> Option<&wgpu::ComputePipeline> {
-        self.pipelines.get(pipeline.as_usize())
+        self.pipelines.get(pipeline.as_usize()).map(|(p, _bg)| p)
     }
 
     //ap pipeline_err
@@ -126,21 +146,12 @@ impl AccelWgpu {
         self.pipeline(pipeline).ok_or("Bad pipeline index".into())
     }
 
-    //ap device
-    pub fn device(&self) -> &wgpu::Device {
-        &self.device
-    }
-
-    //ap queue
-    pub fn queue(&self) -> &wgpu::Queue {
-        &self.queue
-    }
-
     //mp create_pipeline
     pub fn create_pipeline(
         &mut self,
         shader: Shader,
         entry_point: &str,
+        num_bind_groups: usize,
     ) -> Result<Pipeline, String> {
         let pipeline_desc = wgpu::ComputePipelineDescriptor {
             label: None,
@@ -150,132 +161,192 @@ impl AccelWgpu {
         };
         let pipeline = self.device().create_compute_pipeline(&pipeline_desc);
         let n = self.pipelines.len();
-        self.pipelines.push(pipeline);
+        let mut bgl = vec![];
+        for i in 0..num_bind_groups {
+            bgl.push(pipeline.get_bind_group_layout(i as u32));
+        }
+        self.pipelines.push((pipeline, bgl));
         Ok(n.into())
     }
-    /*
-       pub fn create_buffer() -> {
-       let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-           label: None,
-           size,
-           usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-           mapped_at_creation: false,
-       });
-       }
-    */
+
+    //ap bind_group_layout
+    pub fn bind_group_layout(
+        &self,
+        pipeline: Pipeline,
+        index: usize,
+    ) -> Option<&wgpu::BindGroupLayout> {
+        self.pipelines
+            .get(pipeline.as_usize())
+            .map(|(_, bgl)| bgl.get(index))
+            .flatten()
+    }
+
+    //mp create_buffer
+    pub fn create_buffer(
+        &self,
+        buffer_type: BufferType,
+        buffer_size: usize,
+        opt_label: Option<&'static str>,
+    ) -> wgpu::Buffer {
+        let usage = match buffer_type {
+            BufferType::HostDst => wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            BufferType::HostSrc => wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
+            BufferType::Gpu => {
+                wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST
+            }
+        };
+        let bd = wgpu::BufferDescriptor {
+            label: opt_label,
+            size: buffer_size as u64,
+            usage,
+            mapped_at_creation: false,
+        };
+        self.device.create_buffer(&bd)
+    }
+
+    //mp block
+    pub fn block(&self) {
+        self.device()
+            .poll(wgpu::Maintain::wait())
+            .panic_on_timeout();
+    }
+
     //zz All done
 }
 
+//a ImageAccelerator
+//tp ImageAccelerator
+pub struct ImageAccelerator {
+    accelerator: AccelWgpu,
+    buffer_size: usize,
+    compute_pipeline: Pipeline,
+    input_buffer: wgpu::Buffer,
+    storage_buffer: wgpu::Buffer,
+    output_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
+}
+
+//ip ImageAccelerator
+impl ImageAccelerator {
+    fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
+        let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
+        let compute_pipeline = accelerator.create_pipeline(cs_module, "main", 1)?;
+        let (input_buffer, storage_buffer, output_buffer) =
+            Self::create_buffers(&mut accelerator, buffer_size);
+        let bind_group = accelerator
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: accelerator.bind_group_layout(compute_pipeline, 0).unwrap(),
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: storage_buffer.as_entire_binding(),
+                }],
+            });
+
+        Ok(Self {
+            accelerator,
+            buffer_size,
+            compute_pipeline,
+            input_buffer,
+            storage_buffer,
+            output_buffer,
+            bind_group,
+        })
+    }
+
+    //mp cmd_buffer
+    fn cmd_buffer(&self, number_of_ops: usize) -> Result<wgpu::CommandBuffer, String> {
+        let mut encoder = self
+            .accelerator
+            .device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        encoder.copy_buffer_to_buffer(
+            &self.input_buffer,
+            0,
+            &self.storage_buffer,
+            0,
+            self.buffer_size as u64,
+        );
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: None,
+                timestamp_writes: None,
+            });
+            cpass.set_pipeline(self.accelerator.pipeline_err(self.compute_pipeline)?);
+            cpass.set_bind_group(0, &self.bind_group, &[]);
+            cpass.insert_debug_marker("image accelerator slice");
+            // Number of cells to run, the (x,y,z) size of item being processed
+            cpass.dispatch_workgroups(number_of_ops as u32, 1, 1);
+        }
+        encoder.copy_buffer_to_buffer(
+            &self.storage_buffer,
+            0,
+            &self.output_buffer,
+            0,
+            self.buffer_size as u64,
+        );
+
+        Ok(encoder.finish())
+    }
+
+    //fi create_buffers
+    fn create_buffers(
+        accelerator: &mut AccelWgpu,
+        buffer_size: usize,
+    ) -> (wgpu::Buffer, wgpu::Buffer, wgpu::Buffer) {
+        (
+            accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input")),
+            accelerator.create_buffer(BufferType::Gpu, buffer_size, Some("Storage")),
+            accelerator.create_buffer(BufferType::HostDst, buffer_size, Some("Output")),
+        )
+    }
+
+    //mp run
+    pub fn run(&self, numbers: &[u32]) -> Result<Vec<u32>, String> {
+        let byte_size = (numbers.len() * 4) as u64;
+        {
+            let (sender, receiver) = std::sync::mpsc::channel();
+            let buffer_slice = self.input_buffer.slice(0..byte_size);
+            buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
+            self.accelerator.block();
+            let Ok(Ok(())) = receiver.recv() else {
+                return Err("Failed to run compute on gpu!".into());
+            };
+            buffer_slice
+                .get_mapped_range_mut()
+                .copy_from_slice(bytemuck::cast_slice(numbers));
+            self.input_buffer.unmap();
+        }
+
+        let cmd_buffer = self.cmd_buffer(numbers.len())?;
+        self.accelerator.queue().submit(Some(cmd_buffer));
+
+        let result = {
+            let (sender, receiver) = std::sync::mpsc::channel();
+            let buffer_slice = self.output_buffer.slice(0..byte_size);
+            buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+            self.accelerator.block();
+            let Ok(Ok(())) = receiver.recv() else {
+                return Err("Failed to run compute on gpu!".into());
+            };
+            let data = buffer_slice.get_mapped_range();
+            bytemuck::cast_slice(&data).to_vec()
+        };
+        Ok(result)
+    }
+
+    //zz All done
+}
+
+//a Test
 //fi execute_gpu
 fn execute_gpu(numbers: &[u32]) -> Result<Vec<u32>, String> {
     let mut accelerator = AccelWgpu::new();
-    let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
-    let compute_pipeline = accelerator.create_pipeline(cs_module, "main")?;
-
-    // A bind group defines how buffers are accessed by shaders.
-    // It is to WebGPU what a descriptor set is to Vulkan.
-    // `binding` here refers to the `binding` of a buffer in the shader (`layout(set = 0, binding = 0) buffer`).
-
-    // Instantiates buffer with data (`numbers`).
-    // Usage allowing the buffer to be:
-    //   A storage buffer (can be bound within a bind group and thus available to a shader).
-    //   The destination of a copy.
-    //   The source of a copy.
-    let storage_buffer =
-        accelerator
-            .device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Storage Buffer"),
-                contents: bytemuck::cast_slice(numbers),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::COPY_SRC,
-            });
-    // Instantiates the bind group, once again specifying the binding of buffers.
-    let bind_group_layout = accelerator
-        .pipeline_err(compute_pipeline)?
-        .get_bind_group_layout(0);
-    let bind_group = accelerator
-        .device()
-        .create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: storage_buffer.as_entire_binding(),
-            }],
-        });
-
-    // A command encoder executes one or many pipelines.
-    let mut encoder = accelerator
-        .device()
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    {
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: None,
-            timestamp_writes: None,
-        });
-        cpass.set_pipeline(accelerator.pipeline_err(compute_pipeline)?);
-        cpass.set_bind_group(0, &bind_group, &[]);
-        cpass.insert_debug_marker("compute collatz iterations");
-        cpass.dispatch_workgroups(numbers.len() as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
-    }
-
-    // Instantiates buffer without data.
-    // `usage` of buffer specifies how it can be used:
-    //   `BufferUsages::MAP_READ` allows it to be read (outside the shader).
-    //   `BufferUsages::COPY_DST` allows it to be the destination of the copy.
-    let size = std::mem::size_of_val(numbers) as wgpu::BufferAddress;
-    let staging_buffer = accelerator.device().create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    // Sets adds copy operation to command encoder.
-    // Will copy data from storage buffer on GPU to staging buffer on CPU.
-    encoder.copy_buffer_to_buffer(&storage_buffer, 0, &staging_buffer, 0, size);
-
-    // Submits command encoder for processing
-    accelerator.queue().submit(Some(encoder.finish()));
-
-    // Note that we're not calling `.await` here.
-    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-    let buffer_slice = staging_buffer.slice(..);
-    let (sender, receiver) = std::sync::mpsc::channel();
-    buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-    // Poll the device in a blocking manner so that our future resolves.
-    // In an actual application, `device.poll(...)` should
-    // be called in an event loop or on another thread.
-    accelerator
-        .device()
-        .poll(wgpu::Maintain::wait())
-        .panic_on_timeout();
-
-    // Awaits until `buffer_future` can be read from
-    let Ok(Ok(())) = receiver.recv() else {
-        return Err("Failed to run compute on gpu!".into());
-    };
-
-    // Gets contents of buffer
-    let data = buffer_slice.get_mapped_range();
-
-    // Since contents are got in bytes, this converts these bytes back to u32
-    let result = bytemuck::cast_slice(&data).to_vec();
-
-    // With the current interface, we have to make sure all mapped views are
-    // dropped before we unmap the buffer.
-    drop(data);
-    staging_buffer.unmap(); // Unmaps buffer from memory
-                            // If you are familiar with C++ these 2 lines can be thought of similarly to:
-                            //   delete myPointer;
-                            //   myPointer = NULL;
-                            // It effectively frees the memory
-
-    // Returns data from buffer
-    Ok(result)
+    let img_acc = ImageAccelerator::new(accelerator, 1024)?;
+    img_acc.run(numbers)
 }
 
 //fp run
