@@ -53,6 +53,16 @@ impl ImageGray16 {
         &self.0
     }
 
+    //ac as_slice
+    pub(crate) fn as_slice(&self) -> &[u16] {
+        self.0.as_luma16().unwrap().as_raw()
+    }
+
+    //ac as_mut_slice
+    pub(crate) fn as_mut_slice(&mut self) -> image::FlatSamples<&mut [u16]> {
+        self.0.as_mut_luma16().unwrap().as_flat_samples_mut()
+    }
+
     //cp of_rgb
     pub fn of_rgb(image: &ImageRgb8, max: u32) -> Self {
         let (width, height) = image.size();
@@ -66,6 +76,35 @@ impl ImageGray16 {
             image_gray[(x, y)] = [l].into();
         }
         Self(image_gray.into())
+    }
+
+    //mp as_vec_u32
+    pub fn as_vec_u32(&self, as_width: Option<usize>) -> (usize, usize, Vec<u32>) {
+        let size = self.size();
+        let size = (size.0 as usize, size.1 as usize);
+        let (width, height) = as_width.map(|w| (w, w * size.1 / size.0)).unwrap_or(size);
+        let mut result: Vec<u32> = vec![0; width * height];
+        let s = self.as_slice();
+        let mut i = 0;
+        for y in 0..height {
+            let sy = y * size.1 / height;
+            let sy_ofs = sy * size.0;
+            for x in 0..width {
+                let sx = x * size.0 / width;
+                result[i] = s[sy_ofs + sx] as u32;
+                i += 1;
+            }
+        }
+        (width, height, result)
+    }
+
+    //cp of_vec_u32
+    pub fn of_vec_u32(width: usize, height: usize, data: Vec<u32>, scale: u32) -> Self {
+        let data_u16: Vec<u16> = data.into_iter().map(|x| (x / scale) as u16).collect();
+        let img =
+            ImageBuffer::<Luma<u16>, Vec<u16>>::from_raw(width as u32, height as u32, data_u16)
+                .unwrap();
+        Self(img.into())
     }
 
     //mp window_sum_x

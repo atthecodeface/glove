@@ -5,6 +5,29 @@
 pub struct AccelerateArgs {
     pub width: usize,
     pub height: usize,
+    pub window_size: usize,
+    pub scale: u32, // 24.8
+}
+
+impl From<(usize, usize)> for AccelerateArgs {
+    fn from((width, height): (usize, usize)) -> Self {
+        Self {
+            width,
+            height,
+            scale: 1,
+            ..std::default::Default::default()
+        }
+    }
+}
+impl AccelerateArgs {
+    pub fn with_window(mut self, window_size: usize) -> Self {
+        self.window_size = window_size;
+        self
+    }
+    pub fn with_scale(mut self, scale: u32) -> Self {
+        self.scale = scale;
+        self
+    }
 }
 
 pub trait Accelerate: std::fmt::Debug {
@@ -22,11 +45,11 @@ pub trait Accelerate: std::fmt::Debug {
     // input_buffer sized lumps, and run the whole command buffer many
     // times over
     //
-    fn run_shader<F: FnOnce(&[u8]) -> Result<(), String>>(
+    fn run_shader(
         &self,
         shader: &str,
-        src_data: &[u8],
         args: &AccelerateArgs,
-        callback: F,
+        src_data: Option<&[u32]>,
+        out_data: &mut [u32],
     ) -> Result<bool, String>;
 }

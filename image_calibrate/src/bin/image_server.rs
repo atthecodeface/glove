@@ -13,6 +13,7 @@ use image_calibrate::http::{
 };
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
+use image_calibrate::{AccelerateArgs, Kernels};
 use image_calibrate::{Image, ImageGray16, ImageRgb8, Patch};
 use image_calibrate::{Mesh, Project};
 
@@ -181,6 +182,8 @@ pub struct ProjectDecode {
     cip: Option<usize>,
     width: Option<f64>,
     height: Option<f64>,
+    px_per_model: Option<f64>,
+    window: Option<usize>,
     nps: Vec<String>,
 }
 
@@ -214,6 +217,12 @@ impl ProjectDecode {
         }
         if let Some(Ok(height)) = request.get_one::<f64>("height") {
             pd.height = Some(height);
+        }
+        if let Some(Ok(px_per_model)) = request.get_one::<f64>("px_per_model") {
+            pd.px_per_model = Some(px_per_model);
+        }
+        if let Some(Ok(window)) = request.get_one::<usize>("window") {
+            pd.window = Some(window);
         }
         for np in request.get_many::<String>("np") {
             if let Ok(np) = np {
@@ -531,30 +540,82 @@ impl ProjectSet {
         }
         let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
 
-        let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))?
+        let px_per_model = pd.px_per_model.unwrap_or(10.0);
+        let Some(patch) =
+            Patch::create(&src_img, px_per_model, &model_pts, &|m| camera.map_model(m))?
         else {
             return Err("Failled to create patch".into());
         };
+
+        let to_width = pd.width.map(|x| x as usize).unwrap_or(200);
+        let ws = pd.window.unwrap_or(4) as u32;
         let img = patch.img();
-        let mut img = ImageGray16::of_rgb(img, 0x10000);
-        let mut img_sq = img.clone();
+        let (w, h, mut img_data) = img.as_vec_gray_u32(Some(to_width));
+        let mut img_data_sq = img_data.clone();
+        let k = Kernels::new();
+        let args: AccelerateArgs = (w, h).into();
 
         // sum(x)^2 - sum(x^2)
 
-        let ws = 2;
-        img_sq.square(1);
-        img_sq.window_sum_x(ws, 256 / ws);
-        img_sq.window_sum_y(ws, 256 / ws);
+        let args = args.with_window(ws as usize);
+        k.run_shader(
+            "square",
+            &args.clone().with_scale(256),
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
+        k.run_shader(
+            "window_sum_x",
+            &args.clone().with_scale(256 / ws),
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
+        k.run_shader(
+            "window_sum_y",
+            &args.clone().with_scale(256 / ws),
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
 
-        img.window_sum_x(ws, 256 / ws);
-        img.window_sum_y(ws, 256 / ws);
-        img.square(1);
+        //img_data_sq is a 24-bti value
+        k.run_shader(
+            "window_sum_x",
+            &args.clone().with_scale(256 / ws),
+            None,
+            img_data.as_mut_slice(),
+        )?;
+        k.run_shader(
+            "window_sum_y",
+            &args.clone().with_scale(256 / ws),
+            None,
+            img_data.as_mut_slice(),
+        )?;
+        k.run_shader(
+            "square",
+            &args.clone().with_scale(256),
+            None,
+            img_data.as_mut_slice(),
+        )?;
 
-        img.add_scaled(&img_sq, -1, 1, 0x10_0000);
-        img.sqrt(0x100_0000);
+        // img_data is a 24-bit value
+
+        k.run_shader(
+            "sub_scaled",
+            &args.clone().with_scale(1),
+            Some(img_data.as_slice()),
+            img_data_sq.as_mut_slice(),
+        )?;
+
+        k.run_shader(
+            "sqrt",
+            &args.clone().with_scale(0x10000),
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
 
         // minus
         // square sum sum
+        let img = ImageGray16::of_vec_u32(w, h, img_data_sq, 1);
         let img_bytes = img.encode("png")?;
         response.content = img_bytes;
         response.mime_type = server.mime_type("png");

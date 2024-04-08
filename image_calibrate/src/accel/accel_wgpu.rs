@@ -231,9 +231,10 @@ pub struct ImageAccelerator {
 
 //ip ImageAccelerator
 impl ImageAccelerator {
-    fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
+    pub fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
         let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
-        let compute_pipeline = accelerator.create_pipeline(cs_module, "main", 1)?;
+        // let compute_pipeline = accelerator.create_pipeline(cs_module, "main", 1)?;
+        let compute_pipeline = accelerator.create_pipeline(cs_module, "vec_sqrt", 1)?;
         let (input_buffer, storage_buffer, output_buffer) =
             Self::create_buffers(&mut accelerator, buffer_size);
         let bind_group = accelerator
@@ -323,9 +324,9 @@ impl ImageAccelerator {
     }
 
     //mp copy_output
-    fn copy_output(&self, byte_size: usize) -> Result<wgpu::BufferView, String> {
+    fn copy_output(&self, byte_size: u64) -> Result<wgpu::BufferView, String> {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let buffer_slice = self.output_buffer.slice(0..byte_size as u64);
+        let buffer_slice = self.output_buffer.slice(0..byte_size);
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
         self.accelerator.block();
         let Ok(Ok(())) = receiver.recv() else {
@@ -334,16 +335,23 @@ impl ImageAccelerator {
         Ok(buffer_slice.get_mapped_range())
     }
     //mp run
-    fn run<F: FnOnce(&[u8]) -> Result<(), String>>(
+    fn run<F: Fn(&AccelerateArgs, &[u32], &mut [u32]) -> Result<(), String>>(
         &self,
-        src_data: &[u8],
+        args: &AccelerateArgs,
+        src_data: Option<&[u32]>,
+        out_data: &mut [u32],
         cmd_buffer: wgpu::CommandBuffer,
-        callback: F,
+        callback: &F,
     ) -> Result<(), String> {
-        self.copy_to_input(src_data)?;
+        let byte_size = std::mem::size_of_val(out_data) as u64;
+        if let Some(src_data) = src_data {
+            self.copy_to_input(bytemuck::cast_slice(src_data))?;
+        } else {
+            self.copy_to_input(bytemuck::cast_slice(out_data))?;
+        }
         self.accelerator.queue().submit(Some(cmd_buffer));
-        let data = self.copy_output(src_data.len())?;
-        callback(&data)?;
+        let data = self.copy_output(byte_size)?;
+        callback(args, bytemuck::cast_slice(&data), out_data)?;
         // Must drop data so that self.output_buffer has no BufferView's
         drop(data);
         // Must unmap self.output_buffer so it can be used in the future
@@ -357,64 +365,22 @@ impl ImageAccelerator {
 //ip Accelerate for ImageAccelerator
 impl Accelerate for ImageAccelerator {
     //mp run_shader
-    fn run_shader<F: FnOnce(&[u8]) -> Result<(), String>>(
+    fn run_shader(
         &self,
         shader: &str,
-        src_data: &[u8],
         args: &AccelerateArgs,
-        callback: F,
+        src_data: Option<&[u32]>,
+        out_data: &mut [u32],
     ) -> Result<bool, String> {
-        if shader == "collatz" {
-            let cmd_buffer = self.cmd_buffer(args.width)?;
-            self.run(src_data, cmd_buffer, callback)?;
+        if shader == "sqrt" {
+            let cmd_buffer = self.cmd_buffer(args.width * args.height)?;
+            self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                o.copy_from_slice(s);
+                Ok(())
+            })?;
             Ok(true)
         } else {
             Ok(false)
         }
     }
-}
-
-//a Test
-//fi execute_gpu
-fn execute_gpu(img_acc: &ImageAccelerator, numbers: &[u32]) -> Result<Vec<u32>, String> {
-    let args = AccelerateArgs {
-        width: numbers.len(),
-        ..std::default::Default::default()
-    };
-    let mut result: Vec<u32> = vec![];
-    img_acc.run_shader("collatz", bytemuck::cast_slice(numbers), &args, |data| {
-        result = bytemuck::cast_slice(data).to_vec();
-        Ok(())
-    })?;
-    Ok(result)
-}
-
-//fp run
-const OVERFLOW: u32 = 0xffffffff;
-pub fn run() -> Result<(), String> {
-    let numbers = if std::env::args().len() <= 2 {
-        let default = vec![1, 2, 3, 4];
-        println!("No numbers were provided, defaulting to {default:?}");
-        default
-    } else {
-        std::env::args()
-            .skip(2)
-            .map(|s| u32::from_str(&s).expect("You must pass a list of positive integers!"))
-            .collect()
-    };
-    let accelerator = AccelWgpu::new();
-    let img_acc = ImageAccelerator::new(accelerator, 1024)?;
-    for _ in 0..3 {
-        let steps = execute_gpu(&img_acc, &numbers)?;
-        let disp_steps: Vec<String> = steps
-            .iter()
-            .map(|&n| match n {
-                OVERFLOW => "OVERFLOW".to_string(),
-                _ => n.to_string(),
-            })
-            .collect();
-        println!("Steps: [{}]", disp_steps.join(", "));
-    }
-
-    Ok(())
 }
