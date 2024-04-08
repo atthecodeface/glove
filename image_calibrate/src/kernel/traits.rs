@@ -22,7 +22,7 @@ pub trait Accelerate: std::fmt::Debug {
         &self,
         shader: &str,
         args: &KernelArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
+        src_data: Option<&[f32]>,
+        out_data: &mut [f32],
     ) -> Result<bool, String>;
 }

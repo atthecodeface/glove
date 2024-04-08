@@ -53,24 +53,24 @@ impl ImageRgb8 {
         &self.0
     }
 
-    //mp as_vec_gray_u32
-    pub fn as_vec_gray_u32(&self, as_width: Option<usize>) -> (usize, usize, Vec<u32>) {
+    //mp as_vec_gray_f32
+    pub fn as_vec_gray_f32(&self, as_width: Option<usize>) -> (usize, usize, Vec<f32>) {
         let size = self.size();
         let size = (size.0 as usize, size.1 as usize);
         let (width, height) = as_width.map(|w| (w, w * size.1 / size.0)).unwrap_or(size);
-        let mut result: Vec<u32> = vec![0; width * height];
+        let mut result: Vec<f32> = vec![0.0; width * height];
         let mut i = 0;
-        let r_sc = 52;
-        let g_sc = 177;
-        let b_sc = 18;
+        let r_sc = 52.0;
+        let g_sc = 177.0;
+        let b_sc = 18.0;
         let img = self.0.as_rgb8().unwrap();
         for y in 0..height {
             let sy = y * size.1 / height;
             for x in 0..width {
                 let sx = x * size.0 / width;
                 let rgba = img[(sx as u32, sy as u32)];
-                let l = (rgba[0] as u32) * r_sc + (rgba[1] as u32) * g_sc + (rgba[2] as u32) * b_sc;
-                result[i] = l;
+                let l = (rgba[0] as f32) * r_sc + (rgba[1] as f32) * g_sc + (rgba[2] as f32) * b_sc;
+                result[i] = l / 65536.0;
                 i += 1;
             }
         }

@@ -334,11 +334,11 @@ impl ImageAccelerator {
         Ok(buffer_slice.get_mapped_range())
     }
     //mp run
-    fn run<F: Fn(&KernelArgs, &[u32], &mut [u32]) -> Result<(), String>>(
+    fn run<F: Fn(&KernelArgs, &[f32], &mut [f32]) -> Result<(), String>>(
         &self,
         args: &KernelArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
+        src_data: Option<&[f32]>,
+        out_data: &mut [f32],
         cmd_buffer: wgpu::CommandBuffer,
         callback: &F,
     ) -> Result<(), String> {
@@ -368,8 +368,8 @@ impl Accelerate for ImageAccelerator {
         &self,
         shader: &str,
         args: &KernelArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
+        src_data: Option<&[f32]>,
+        out_data: &mut [f32],
     ) -> Result<bool, String> {
         if shader == "sqrt" {
             let cmd_buffer = self.cmd_buffer(args.width * args.height)?;

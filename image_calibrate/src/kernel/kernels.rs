@@ -8,7 +8,7 @@ pub struct KernelArgs {
     pub width: usize,
     pub height: usize,
     pub window_size: usize,
-    pub scale: u32, // 24.8
+    pub scale: f32,
 }
 
 //ip From<(usize, usize)> for KernelArgs {
@@ -17,7 +17,7 @@ impl From<(usize, usize)> for KernelArgs {
         Self {
             width,
             height,
-            scale: 1,
+            scale: 1.0,
             ..std::default::Default::default()
         }
     }
@@ -29,7 +29,7 @@ impl KernelArgs {
         self.window_size = window_size;
         self
     }
-    pub fn with_scale(mut self, scale: u32) -> Self {
+    pub fn with_scale(mut self, scale: f32) -> Self {
         self.scale = scale;
         self
     }
@@ -66,8 +66,8 @@ impl Kernels {
         &self,
         shader: &str,
         args: &KernelArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
+        src_data: Option<&[f32]>,
+        out_data: &mut [f32],
     ) -> Result<(), String> {
         if let Some(wgpu) = &self.wgpu {
             if wgpu.run_shader(shader, args, src_data, out_data)? {

@@ -78,12 +78,12 @@ impl ImageGray16 {
         Self(image_gray.into())
     }
 
-    //mp as_vec_u32
-    pub fn as_vec_u32(&self, as_width: Option<usize>) -> (usize, usize, Vec<u32>) {
+    //mp as_vec_f32
+    pub fn as_vec_f32(&self, as_width: Option<usize>) -> (usize, usize, Vec<f32>) {
         let size = self.size();
         let size = (size.0 as usize, size.1 as usize);
         let (width, height) = as_width.map(|w| (w, w * size.1 / size.0)).unwrap_or(size);
-        let mut result: Vec<u32> = vec![0; width * height];
+        let mut result: Vec<f32> = vec![0.0; width * height];
         let s = self.as_slice();
         let mut i = 0;
         for y in 0..height {
@@ -91,16 +91,19 @@ impl ImageGray16 {
             let sy_ofs = sy * size.0;
             for x in 0..width {
                 let sx = x * size.0 / width;
-                result[i] = s[sy_ofs + sx] as u32;
+                result[i] = s[sy_ofs + sx] as f32 / 65536.0;
                 i += 1;
             }
         }
         (width, height, result)
     }
 
-    //cp of_vec_u32
-    pub fn of_vec_u32(width: usize, height: usize, data: Vec<u32>, scale: u32) -> Self {
-        let data_u16: Vec<u16> = data.into_iter().map(|x| (x / scale) as u16).collect();
+    //cp of_vec_f32
+    pub fn of_vec_f32(width: usize, height: usize, data: Vec<f32>, scale: f32) -> Self {
+        let data_u16: Vec<u16> = data
+            .into_iter()
+            .map(|x| ((x / scale) * 65535.9).floor() as u16)
+            .collect();
         let img =
             ImageBuffer::<Luma<u16>, Vec<u16>>::from_raw(width as u32, height as u32, data_u16)
                 .unwrap();
