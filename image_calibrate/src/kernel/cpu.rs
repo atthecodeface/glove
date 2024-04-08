@@ -9,11 +9,11 @@ pub struct ImageAccelerator();
 impl ImageAccelerator {
     //mp window_sum_y
     pub fn window_sum_y(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         let mut col = vec![0.0_f32; height];
-        let half_ws = args.window_size / 2;
+        let half_ws = args.size() / 2;
         let skip = 2 * half_ws - 1;
         for x in 0..width {
             let src = &src_data.unwrap_or(out_data);
@@ -38,11 +38,11 @@ impl ImageAccelerator {
 
     //mp window_sum_x
     pub fn window_sum_x(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         let mut row = vec![0.0_f32; width];
-        let half_ws = args.window_size / 2;
+        let half_ws = args.size() / 2;
         let skip = 2 * half_ws - 1;
         for y in 0..height {
             let src_row = &src_data.unwrap_or(out_data)[y * width..(y * width + width)];
@@ -67,9 +67,9 @@ impl ImageAccelerator {
 
     //mp add_scaled
     pub fn add_scaled(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         if let Some(src_data) = src_data {
             for i in 0..width * height {
                 out_data[i] = (out_data[i] + src_data[i]) * scale;
@@ -79,9 +79,9 @@ impl ImageAccelerator {
 
     //mp sub_scaled
     pub fn sub_scaled(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         if let Some(src_data) = src_data {
             for i in 0..width * height {
                 out_data[i] = (out_data[i] - src_data[i]) * scale;
@@ -91,9 +91,9 @@ impl ImageAccelerator {
 
     //mp square
     pub fn square(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         if let Some(src_data) = src_data {
             for i in 0..width * height {
                 out_data[i] = src_data[i] * src_data[i] * scale;
@@ -107,9 +107,9 @@ impl ImageAccelerator {
 
     //mp sqrt
     pub fn sqrt(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
-        let width = args.width;
-        let height = args.height;
-        let scale = args.scale;
+        let width = args.width();
+        let height = args.height();
+        let scale = args.scale();
         if let Some(src_data) = src_data {
             for i in 0..width * height {
                 out_data[i] = src_data[i].sqrt() * scale;
@@ -119,6 +119,39 @@ impl ImageAccelerator {
                 out_data[i] = out_data[i].sqrt() * scale;
             }
         }
+    }
+
+    //mp circle_fft16
+    pub fn circle_fft16(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
+        let width = args.width();
+        let height = args.height();
+        let radius = args.size();
+        let circle = [0.0_f32; 16];
+        let mut dxy = vec![0_usize; 32];
+        for angle in 0..16 {
+            let angle = 2.0 * 3.14159 * (angle as f32) / 16.0;
+            let dx = (radius as f32) * angle.cos();
+            let dy = (radius as f32) * angle.sin();
+            dxy.push(dx.round() as usize);
+            dxy.push(dy.round() as usize);
+        }
+        /*
+                if let Some(src_data) = src_data {
+                    for y in radius..(height-radius) {
+                        for x in radius..(width-radius) {
+                            for i in 0..16 {
+                                circle[i] = src_data[x+dxy[2*i+0]+(y+dxy[2*i+1])*width];
+                            }
+                        }
+                        fft[n] = sum(circle[i] * rot[n*i/16]);
+                        fft[8] = sum(circle[i] * rot[8*i/16])
+                        fft[0_rev] = sum(circle[i]);
+                        fft[1_rev] = sum(circle[even i]) - sum(circle[odd_i]);
+                        fft[2_rev] = sum(circle[4n]) - sum(circle[4n+2]), i*sum(circle[4n+1]) - sum(circle[4n+3]);
+                        out_data[i] = 0.0;
+                    }
+                }
+        */
     }
 
     //zz All done

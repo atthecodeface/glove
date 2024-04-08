@@ -3,11 +3,18 @@ use crate::kernel::{accel_wgpu, cpu};
 use crate::Accelerate;
 
 //tp KernelArgs
-#[derive(Debug, Default, Clone)]
+/// This type must be mappable for accelerators, hence u32 and f32
+/// only
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct KernelArgs {
-    pub width: usize,
-    pub height: usize,
-    pub window_size: usize,
+    /// Width of the 'image'
+    pub width: u32,
+    /// Height of the 'image'
+    pub height: u32,
+    /// Radius of a circle, window size, etc
+    pub size: u32,
+    /// Scale factor to apply (depends on kernel)
     pub scale: f32,
 }
 
@@ -15,8 +22,8 @@ pub struct KernelArgs {
 impl From<(usize, usize)> for KernelArgs {
     fn from((width, height): (usize, usize)) -> Self {
         Self {
-            width,
-            height,
+            width: width as u32,
+            height: height as u32,
             scale: 1.0,
             ..std::default::Default::default()
         }
@@ -25,13 +32,28 @@ impl From<(usize, usize)> for KernelArgs {
 
 //ip KernelArgs
 impl KernelArgs {
-    pub fn with_window(mut self, window_size: usize) -> Self {
-        self.window_size = window_size;
+    pub fn with_size(mut self, size: usize) -> Self {
+        self.size = size as u32;
         self
     }
     pub fn with_scale(mut self, scale: f32) -> Self {
         self.scale = scale;
         self
+    }
+    pub fn size(&self) -> usize {
+        self.size as usize
+    }
+    pub fn width(&self) -> usize {
+        self.width as usize
+    }
+    pub fn height(&self) -> usize {
+        self.height as usize
+    }
+    pub fn scale(&self) -> f32 {
+        self.scale
+    }
+    pub fn dims(&self) -> (usize, usize) {
+        (self.width as usize, self.height as usize)
     }
 }
 

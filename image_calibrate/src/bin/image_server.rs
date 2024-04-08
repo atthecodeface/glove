@@ -184,6 +184,7 @@ pub struct ProjectDecode {
     height: Option<f64>,
     px_per_model: Option<f64>,
     window: Option<usize>,
+    radius: Option<usize>,
     nps: Vec<String>,
 }
 
@@ -223,6 +224,9 @@ impl ProjectDecode {
         }
         if let Some(Ok(window)) = request.get_one::<usize>("window") {
             pd.window = Some(window);
+        }
+        if let Some(Ok(radius)) = request.get_one::<usize>("window") {
+            pd.radius = Some(radius);
         }
         for np in request.get_many::<String>("np") {
             if let Ok(np) = np {
@@ -284,15 +288,29 @@ impl ProjectDecode {
 
 //a ProjectSet
 //ti ProjectSet
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct ProjectSet {
     image_root: PathBuf,
     projects: Vec<NamedProject>,
     index_by_name: HashMap<String, usize>,
+    kernels: Kernels,
 }
 
 //ip ProjectSet
 impl ProjectSet {
+    fn new() -> Self {
+        let kernels = Kernels::new();
+        let image_root = "".into();
+        let projects = vec![];
+        let index_by_name = HashMap::new();
+        Self {
+            image_root,
+            projects,
+            index_by_name,
+            kernels,
+        }
+    }
+
     //mp set_image_root
     pub fn set_image_root<I: Into<PathBuf>>(&mut self, image_root: I) {
         self.image_root = image_root.into();
@@ -552,28 +570,38 @@ impl ProjectSet {
         let img = patch.img();
         let (w, h, mut img_data) = img.as_vec_gray_f32(Some(to_width));
         let mut img_data_sq = img_data.clone();
-        let k = Kernels::new();
         let args: KernelArgs = (w, h).into();
 
         // sum(x)^2 - sum(x^2)
 
-        let args = args.with_window(ws as usize);
+        let args = args.with_size(ws as usize);
         let ws_f = ws as f32;
         let args_mean = args.clone().with_scale(1.0 / ws_f);
-        k.run_shader("square", &args, None, img_data_sq.as_mut_slice())?;
-        k.run_shader("window_sum_x", &args_mean, None, img_data_sq.as_mut_slice())?;
-        k.run_shader("window_sum_y", &args_mean, None, img_data_sq.as_mut_slice())?;
-        k.run_shader("window_sum_x", &args_mean, None, img_data.as_mut_slice())?;
-        k.run_shader("window_sum_y", &args_mean, None, img_data.as_mut_slice())?;
-        k.run_shader("square", &args, None, img_data.as_mut_slice())?;
+        self.kernels
+            .run_shader("square", &args, None, img_data_sq.as_mut_slice())?;
+        self.kernels
+            .run_shader("window_sum_x", &args_mean, None, img_data_sq.as_mut_slice())?;
+        self.kernels
+            .run_shader("window_sum_y", &args_mean, None, img_data_sq.as_mut_slice())?;
+        self.kernels
+            .run_shader("window_sum_x", &args_mean, None, img_data.as_mut_slice())?;
+        self.kernels
+            .run_shader("window_sum_y", &args_mean, None, img_data.as_mut_slice())?;
+        self.kernels
+            .run_shader("square", &args, None, img_data.as_mut_slice())?;
 
-        k.run_shader(
+        self.kernels.run_shader(
             "sub_scaled",
             &args,
             Some(img_data.as_slice()),
             img_data_sq.as_mut_slice(),
         )?;
-        k.run_shader("sqrt", &args, None, img_data_sq.as_mut_slice())?;
+        self.kernels.run_shader(
+            "sqrt",
+            &args.clone().with_scale(2.0),
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
 
         // minus
         // square sum sum
@@ -676,14 +704,13 @@ fn main() -> Result<(), String> {
         return Err(format!("Port {port} must be in the range 1024..60000"));
     }
 
-    let mut project_set = ProjectSet::default();
+    let mut project_set = ProjectSet::new();
     project_set.set_image_root(image_root);
     project_set.fill_from_project_dir(project_root)?;
     HTTP_SRV
         .set(HttpServer::new(verbose, file_root, project_set))
         .map_err(|_| "Bug - faiiled to config server")?;
 
-    let k = Kernels::new();
     let pool = ThreadPool::new(4);
     let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
         .map_err(|_a| (format!("Failed to bind to port {port}")))?;
