@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::str::FromStr;
 
 use crate::utils::rtc::run_to_completion as rtc;
-use crate::{Accelerate, AccelerateArgs};
+use crate::{Accelerate, KernelArgs};
 
 //a Support types
 //tp Pipeline
@@ -233,7 +233,6 @@ pub struct ImageAccelerator {
 impl ImageAccelerator {
     pub fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
         let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
-        // let compute_pipeline = accelerator.create_pipeline(cs_module, "main", 1)?;
         let compute_pipeline = accelerator.create_pipeline(cs_module, "vec_sqrt", 1)?;
         let (input_buffer, storage_buffer, output_buffer) =
             Self::create_buffers(&mut accelerator, buffer_size);
@@ -335,9 +334,9 @@ impl ImageAccelerator {
         Ok(buffer_slice.get_mapped_range())
     }
     //mp run
-    fn run<F: Fn(&AccelerateArgs, &[u32], &mut [u32]) -> Result<(), String>>(
+    fn run<F: Fn(&KernelArgs, &[u32], &mut [u32]) -> Result<(), String>>(
         &self,
-        args: &AccelerateArgs,
+        args: &KernelArgs,
         src_data: Option<&[u32]>,
         out_data: &mut [u32],
         cmd_buffer: wgpu::CommandBuffer,
@@ -368,7 +367,7 @@ impl Accelerate for ImageAccelerator {
     fn run_shader(
         &self,
         shader: &str,
-        args: &AccelerateArgs,
+        args: &KernelArgs,
         src_data: Option<&[u32]>,
         out_data: &mut [u32],
     ) -> Result<bool, String> {

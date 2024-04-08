@@ -1,5 +1,5 @@
 //a Imports
-use crate::{Accelerate, AccelerateArgs};
+use crate::{Accelerate, KernelArgs};
 
 //tp ImageAccelerator
 #[derive(Debug, Default)]
@@ -8,12 +8,7 @@ pub struct ImageAccelerator();
 //ip ImageAccelerator
 impl ImageAccelerator {
     //mp window_sum_y
-    pub fn window_sum_y(
-        &self,
-        args: &AccelerateArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
-    ) {
+    pub fn window_sum_y(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -42,12 +37,7 @@ impl ImageAccelerator {
     }
 
     //mp window_sum_x
-    pub fn window_sum_x(
-        &self,
-        args: &AccelerateArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
-    ) {
+    pub fn window_sum_x(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -76,12 +66,7 @@ impl ImageAccelerator {
     }
 
     //mp add_scaled
-    pub fn add_scaled(
-        &self,
-        args: &AccelerateArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
-    ) {
+    pub fn add_scaled(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -93,12 +78,7 @@ impl ImageAccelerator {
     }
 
     //mp sub_scaled
-    pub fn sub_scaled(
-        &self,
-        args: &AccelerateArgs,
-        src_data: Option<&[u32]>,
-        out_data: &mut [u32],
-    ) {
+    pub fn sub_scaled(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -110,7 +90,7 @@ impl ImageAccelerator {
     }
 
     //mp square
-    pub fn square(&self, args: &AccelerateArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
+    pub fn square(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -126,7 +106,7 @@ impl ImageAccelerator {
     }
 
     //mp sqrt
-    pub fn sqrt(&self, args: &AccelerateArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
+    pub fn sqrt(&self, args: &KernelArgs, src_data: Option<&[u32]>, out_data: &mut [u32]) {
         let width = args.width;
         let height = args.height;
         let scale = args.scale;
@@ -150,7 +130,7 @@ impl Accelerate for ImageAccelerator {
     fn run_shader(
         &self,
         shader: &str,
-        args: &AccelerateArgs,
+        args: &KernelArgs,
         src_data: Option<&[u32]>,
         out_data: &mut [u32],
     ) -> Result<bool, String> {

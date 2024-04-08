@@ -13,8 +13,8 @@ use image_calibrate::http::{
 };
 use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::{AccelerateArgs, Kernels};
 use image_calibrate::{Image, ImageGray16, ImageRgb8, Patch};
+use image_calibrate::{KernelArgs, Kernels};
 use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
@@ -553,7 +553,7 @@ impl ProjectSet {
         let (w, h, mut img_data) = img.as_vec_gray_u32(Some(to_width));
         let mut img_data_sq = img_data.clone();
         let k = Kernels::new();
-        let args: AccelerateArgs = (w, h).into();
+        let args: KernelArgs = (w, h).into();
 
         // sum(x)^2 - sum(x^2)
 
