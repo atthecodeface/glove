@@ -1,0 +1,18 @@
+[package]
+name = "ic_http"
+edition.workspace = true
+version.workspace = true
+description.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ic_base.workspace = true
+ic_camera.workspace = true
+ic_image.workspace = true
+ic_kernel.workspace = true
+ic_mapping.workspace = true
