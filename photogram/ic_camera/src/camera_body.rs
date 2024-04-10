@@ -1,8 +1,9 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use crate::camera::CameraSensor;
-use crate::Point2D;
+use ic_base::Point2D;
+
+use crate::CameraSensor;
 
 //a Serialization
 //fp serialize_body_name

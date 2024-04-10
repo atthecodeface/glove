@@ -105,40 +105,32 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 //a Modules
 pub use ic_base::types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 pub use ic_base::utils::Rrc;
+pub use ic_base::Ray;
 pub use ic_base::{json, utils};
 
 pub use ic_image as image;
 pub use ic_image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
-pub mod cmdline_args;
-
-pub(crate) mod camera;
-pub(crate) mod camera_mapping;
-pub use camera::{
+pub use ic_camera::{
     CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraPolynomialCalibrate,
     CameraPolynomialDesc,
 };
 // Rename these traits?
-pub use camera::CameraProjection;
+pub use ic_camera::CameraProjection;
 // Don't expose this?
-pub use camera::polynomial;
+pub use ic_camera::polynomial;
 
-pub use camera_mapping::{CameraAdjustMapping, CameraPtMapping};
-// Don't expose this?
-pub use camera_mapping::BestMapping;
-pub use camera_mapping::CameraShowMapping;
+pub use ic_mapping::BestMapping;
+pub use ic_mapping::CameraShowMapping;
+pub use ic_mapping::ModelLineSet;
+pub use ic_mapping::{CameraAdjustMapping, CameraPtMapping};
+pub use ic_mapping::{NamedPoint, NamedPointSet};
+pub use ic_mapping::{PointMapping, PointMappingSet};
 
-mod mesh;
-pub use mesh::Mesh;
+pub mod cmdline_args;
 
 mod cip;
 mod project;
-
-mod points;
-pub use points::ModelLineSet;
-pub use points::Ray;
-pub use points::{NamedPoint, NamedPointSet};
-pub use points::{PointMapping, PointMappingSet};
 
 pub use ic_kernel as kernel;
 pub use ic_kernel::{Accelerate, KernelArgs, Kernels};

@@ -7,15 +7,18 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use clap::Command;
+
+use ic_base::json;
+use ic_base::Mesh;
+use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
+
 use image_calibrate::cmdline_args;
 use image_calibrate::http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use image_calibrate::json;
 use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::{Image, ImageGray16, ImageRgb8, Patch};
+use image_calibrate::Project;
 use image_calibrate::{KernelArgs, Kernels};
-use image_calibrate::{Mesh, Project};
 
 //a ProjectPath
 //tp ProjectPath
@@ -461,7 +464,7 @@ impl ProjectSet {
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
         let pms = cip_r.pms();
-        let mesh = Mesh::optimized(&pms.borrow());
+        let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| p.screen()));
         let triangles: Vec<_> = mesh.triangles().collect();
         eprintln!("Triangles of mesh {triangles:?}");
         let json = serde_json::to_string(&triangles).unwrap();

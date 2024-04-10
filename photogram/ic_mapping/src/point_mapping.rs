@@ -5,7 +5,10 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use crate::{json, Color, NamedPoint, NamedPointSet, Point2D, Point3D};
+use ic_base::{json, Point2D, Point3D};
+use ic_image::Color;
+
+use crate::{NamedPoint, NamedPointSet};
 
 //a PointMapping
 //tp PointMapping

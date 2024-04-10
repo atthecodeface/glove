@@ -1,7 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use crate::camera::CameraSensor;
+use crate::CameraSensor;
 use crate::{CameraBody, CameraLens};
 
 //a CameraDatabase

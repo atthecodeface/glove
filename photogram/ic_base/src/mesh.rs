@@ -6,7 +6,7 @@ use std::default::Default;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use crate::{Point2D, PointMappingSet};
+use crate::Point2D;
 
 //a PointIndex
 //tp PointIndex
@@ -356,8 +356,8 @@ impl std::ops::IndexMut<TriangleIndex> for Mesh {
 //ip Mesh
 impl Mesh {
     //cp new
-    pub fn new(pms: &PointMappingSet) -> Self {
-        let pxy = pms.mappings().iter().map(|p| p.screen()).collect();
+    pub fn new<I: Iterator<Item = Point2D>>(pts: I) -> Self {
+        let pxy = pts.collect();
         let lines = vec![];
         let triangles = vec![];
         let line_set = HashMap::new();
@@ -370,8 +370,8 @@ impl Mesh {
     }
 
     //cp optimized
-    pub fn optimized(pms: &PointMappingSet) -> Self {
-        let mut mesh = Self::new(pms);
+    pub fn optimized<I: Iterator<Item = Point2D>>(pts: I) -> Self {
+        let mut mesh = Self::new(pts);
         mesh.create_mesh_triangles();
         while mesh.optimize_mesh_quads() {}
         mesh

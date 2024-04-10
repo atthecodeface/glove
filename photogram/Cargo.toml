@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
-members = [ "ic_base", "ic_image", "ic_kernel", "image_calibrate", "image_server"]
+members = [ "ic_base", "ic_camera", "ic_image", "ic_kernel", "ic_mapping", "image_calibrate", "image_server"]
 exclude = []
-default-members = ["ic_base","ic_image","ic_kernel", "image_calibrate", "image_server"]
+default-members = ["ic_base", "ic_camera", "ic_image","ic_kernel", "ic_mapping", "image_calibrate", "image_server"]
 
 [workspace.package]
 edition = "2021"
@@ -18,8 +18,10 @@ repository = "https://github.com/atthecodeface/image_calibrate"
 [workspace.dependencies]
 image_calibrate = { version = "0.1.0", path = "./image_calibrate" }
 ic_base = { version = "0.1.0", path = "./ic_base" }
+ic_camera = { version = "0.1.0", path = "./ic_camera" }
 ic_image = { version = "0.1.0", path = "./ic_image" }
 ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
+ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
 
 nalgebra = "0.32.1"
 plotters = "0.3.3"

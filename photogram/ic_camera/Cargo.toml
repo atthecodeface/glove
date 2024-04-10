@@ -1,5 +1,5 @@
 [package]
-name = "ic_base"
+name = "ic_camera"
 edition.workspace = true
 version.workspace = true
 description.workspace = true
@@ -10,8 +10,13 @@ categories.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
 nalgebra.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
+
+ic_base.workspace = true
+

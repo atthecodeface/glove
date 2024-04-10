@@ -13,17 +13,11 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nalgebra.workspace = true
-plotters.workspace = true
-
-bytemuck.workspace = true
-wgpu.workspace = true
-image.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
 clap.workspace = true
 
 image_calibrate.workspace = true
-# image_calibrate-types = { workspace = true }
-# image_calibrate-types = { workspace = true, features = ["serde"] }
+ic_base.workspace = true
+ic_image.workspace = true

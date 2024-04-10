@@ -5,7 +5,8 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{json, Color, Point3D};
+use ic_base::{json, Point3D};
+use ic_image::Color;
 
 //a NamedPoint
 //tp NamedPoint

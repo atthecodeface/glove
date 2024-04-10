@@ -127,7 +127,7 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use crate::camera::polynomial::CalcPoly;
+use crate::polynomial::CalcPoly;
 
 //a Serialization
 //fp serialize_lens_name

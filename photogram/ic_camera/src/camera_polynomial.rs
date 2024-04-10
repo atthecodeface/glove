@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 
 use geo_nd::quat;
 
-use crate::camera::{serialize_body_name, serialize_lens_name};
-use crate::camera::{CameraProjection, CameraSensor};
-use crate::json;
-use crate::{CameraBody, CameraDatabase, CameraLens, Point2D, Point3D, Quat, RollYaw, TanXTanY};
+use ic_base::json;
+use ic_base::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
+
+use crate::{serialize_body_name, serialize_lens_name};
+use crate::{CameraBody, CameraDatabase, CameraLens};
+use crate::{CameraProjection, CameraSensor};
 
 //a CameraPolynomialDesc
 //tp CameraPolynomialDesc
