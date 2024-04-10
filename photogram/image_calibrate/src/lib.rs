@@ -103,6 +103,7 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 !*/
 
 //a Modules
+use ic_base::add;
 pub(crate) mod camera;
 
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
@@ -139,7 +140,7 @@ pub mod image;
 pub use image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
 pub mod kernel;
-pub use kernel::{Accelerate,KernelArgs, Kernels};
+pub use kernel::{Accelerate, KernelArgs, Kernels};
 
 pub use cip::{Cip, CipDesc};
 pub use project::Project;
