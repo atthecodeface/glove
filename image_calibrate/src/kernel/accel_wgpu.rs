@@ -245,8 +245,10 @@ pub struct ImageAccelerator {
     output_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied TO the GPU shader_uniform_buffer
     uniform_buffer: wgpu::Buffer,
-    /// The buffer in the GPU for *pure* input data - this is 'rs2' as it were
+    /// The buffer in the GPU for *pure* input data - this is 'rs2' as it were; img_a if required
     shader_in_data_buffer: wgpu::Buffer,
+    /// The buffer in the GPU for *pure* input data - this is 'rs2' as it were; img_b if required
+    shader_in_data_b_buffer: wgpu::Buffer,
     /// The buffer in the GPU for in-out data
     shader_in_out_data_buffer: wgpu::Buffer,
     /// The buffer in the GPU for in-out data
@@ -257,7 +259,10 @@ pub struct ImageAccelerator {
 //ip ImageAccelerator
 impl ImageAccelerator {
     pub fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
-        let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
+        let file_text = std::fs::read_to_string("shader.wgsl")
+            .map_err(|e| format!("Error reading json shader file {}", e))?;
+        // let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
+        let cs_module = accelerator.add_shader(&file_text, None)?;
         let in_out_data_bgle = wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::COMPUTE,
@@ -278,8 +283,18 @@ impl ImageAccelerator {
             },
             count: None,
         };
-        let uniform_bgle = wgpu::BindGroupLayoutEntry {
+        let in_data_b_bgle = wgpu::BindGroupLayoutEntry {
             binding: 2,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        };
+        let uniform_bgle = wgpu::BindGroupLayoutEntry {
+            binding: 3,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
@@ -292,7 +307,7 @@ impl ImageAccelerator {
             .device()
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
-                entries: &[in_out_data_bgle, in_data_bgle, uniform_bgle],
+                entries: &[in_out_data_bgle, in_data_bgle, in_data_b_bgle, uniform_bgle],
             });
         let pl = accelerator.create_pipeline_layout(&[&bgl]);
         let compute_vec_sqrt = accelerator.create_pipeline(cs_module, "vec_sqrt", Some(&pl), 1)?;
@@ -306,6 +321,8 @@ impl ImageAccelerator {
             accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input"));
         let shader_in_data_buffer =
             accelerator.create_buffer(BufferType::GpuData, buffer_size, Some("Shader In Data"));
+        let shader_in_data_b_buffer =
+            accelerator.create_buffer(BufferType::GpuData, buffer_size, Some("Shader In B Data"));
         let shader_in_out_data_buffer =
             accelerator.create_buffer(BufferType::GpuData, buffer_size, Some("Shader InOut Data"));
         let shader_uniform_buffer = accelerator.create_buffer(
@@ -336,6 +353,10 @@ impl ImageAccelerator {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
+                        resource: shader_in_data_b_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
                         resource: shader_uniform_buffer.as_entire_binding(),
                     },
                 ],
@@ -353,6 +374,7 @@ impl ImageAccelerator {
             output_buffer,
             shader_in_out_data_buffer,
             shader_in_data_buffer,
+            shader_in_data_b_buffer,
             shader_uniform_buffer,
             bind_group,
         })

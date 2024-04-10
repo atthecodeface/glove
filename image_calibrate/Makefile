@@ -38,6 +38,10 @@ IMAGE_GRID = 4v3a6028
 image_server:
 	cargo run --release --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/image_calibrate/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
 
+.PHONY: image_server_debug
+image_server_debug:
+	cargo run --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/image_calibrate/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
+
 ${IMG_CAL}: build
 
 .PHONY: build
