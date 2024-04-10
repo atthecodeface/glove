@@ -52,10 +52,10 @@ where
     Key: Hash + Ord + Clone + Sized + Eq + 'static,
 {
     //cp new
-    fn new(e: &Rc<dyn Cacheable<Key>>, use_time: usize) -> Self {
+    fn new(e: Rc<dyn Cacheable<Key>>, use_time: usize) -> Self {
         let key = e.key().clone();
         let size = e.size();
-        let data = Some(e.clone());
+        let data = Some(e);
         let last_use = use_time;
         Self {
             key,
@@ -63,6 +63,11 @@ where
             last_use,
             size,
         }
+    }
+
+    //ap last_use
+    fn last_use(&self) -> usize {
+        self.last_use
     }
 
     //mp is_empty
@@ -89,6 +94,23 @@ where
         }
     }
 
+    //mp empty
+    fn empty(&mut self) -> usize {
+        eprintln!("Try to empty {}", self.size);
+        if let Some(rc_e) = self.data.as_ref() {
+            eprintln!("Is some count {}", std::rc::Rc::strong_count(rc_e));
+            if std::rc::Rc::strong_count(rc_e) == 1 {
+                self.data = None;
+                eprintln!("Emptyied size {}", self.size);
+                self.size
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+
     //mp take_copy
     fn take_copy(&mut self, use_time: usize) -> Option<Rc<dyn Cacheable<Key>>> {
         if let Some(rc_e) = self.data.as_ref() {
@@ -100,13 +122,17 @@ where
     }
 
     //mp fill
-    fn fill(&mut self, e: &Rc<dyn Cacheable<Key>>, use_time: usize) -> bool {
+    fn fill(
+        &mut self,
+        e: Rc<dyn Cacheable<Key>>,
+        use_time: usize,
+    ) -> Option<Rc<dyn Cacheable<Key>>> {
         if self.is_empty() {
-            self.data = Some(e.clone());
+            self.data = Some(e);
             self.last_use = use_time;
-            true
+            None
         } else {
-            false
+            Some(e)
         }
     }
 }
@@ -157,7 +183,7 @@ where
     }
 
     //mp insert
-    fn insert(&mut self, e: &Rc<dyn Cacheable<Key>>) -> bool {
+    fn insert(&mut self, e: Rc<dyn Cacheable<Key>>) -> Option<Rc<dyn Cacheable<Key>>> {
         let k = e.key();
         if let Some(idx) = self.index.get(&k) {
             if self.entries[*idx].is_empty() {
@@ -165,9 +191,9 @@ where
                 self.entries[*idx].fill(e, self.use_count);
                 self.use_count += 1;
                 self.total_size += size;
-                true
+                None
             } else {
-                false
+                Some(e)
             }
         } else {
             let size = e.size();
@@ -176,7 +202,7 @@ where
             self.index.insert(k.clone(), n);
             self.use_count += 1;
             self.total_size += size;
-            true
+            None
         }
     }
 
@@ -195,30 +221,43 @@ where
         }
     }
 
+    //mp indices_by_age
+    fn indices_by_age(&self) -> Vec<usize> {
+        let mut indices: Vec<usize> = self.index.values().map(|x| *x).collect();
+        indices.sort_by(|a, b| {
+            self.entries[*a]
+                .last_use()
+                .cmp(&self.entries[*b].last_use())
+        });
+        indices
+    }
+
+    //mp shrink_to
+    fn shrink_to(&mut self, size: usize) -> bool {
+        eprintln!("Shrink to {size} when at {}", self.total_size);
+        if self.total_size < size {
+            return true;
+        }
+        let indices = self.indices_by_age();
+        eprintln!("indices {:?}", indices);
+        for i in indices.into_iter() {
+            eprintln!("Index {i}, {}", self.total_size);
+            if self.total_size < size {
+                return true;
+            }
+            self.total_size -= self.entries[i].empty();
+        }
+        self.total_size < size
+    }
+
     //zz All done
 }
 
 //a Tests
+//mi Mod test
 #[cfg(test)]
 mod test {
     use std::any::Any;
-    #[derive(PartialEq, Eq)]
-    pub(crate) enum Thing {
-        Int(usize),
-        Str(&'static str),
-    }
-    pub(crate) struct CacheThing {
-        pub name: String,
-        pub thing: Thing,
-    }
-    impl CacheThing {
-        pub fn int(name: &str, x: usize) -> Self {
-            CacheThing {
-                name: name.into(),
-                thing: Thing::Int(x),
-            }
-        }
-    }
     impl crate::Cacheable<String> for usize {
         fn key(&self) -> String {
             self.to_string()
@@ -230,6 +269,32 @@ mod test {
             self
         }
     }
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub(crate) enum Thing {
+        Int(usize),
+        Str(&'static str),
+        Huge(usize),
+    }
+    #[derive(Debug)]
+    pub(crate) struct CacheThing {
+        pub name: String,
+        pub thing: Thing,
+    }
+    impl CacheThing {
+        pub fn int(name: &str, x: usize) -> Self {
+            CacheThing {
+                name: name.into(),
+                thing: Thing::Int(x),
+            }
+        }
+        pub fn huge(name: &str, s: usize) -> Self {
+            CacheThing {
+                name: name.into(),
+                thing: Thing::Huge(s),
+            }
+        }
+    }
     impl crate::Cacheable<String> for CacheThing {
         fn key(&self) -> String {
             self.name.clone()
@@ -238,20 +303,27 @@ mod test {
             match self.thing {
                 Thing::Int(_) => 8,
                 Thing::Str(s) => 8 + s.len(),
+                Thing::Huge(s) => s,
             }
         }
-        //        fn as_any(&self) -> &(dyn Any + '_) {
         fn as_any(&self) -> &(dyn Any) {
             self
         }
     }
 }
+
+//tp test_cache
 #[test]
 fn test_cache() -> Result<(), ()> {
     use test::{CacheThing, Thing};
     let mut cache = Cache::default();
     let x: Rc<dyn Cacheable<_>> = Rc::new(CacheThing::int("First", 0));
-    assert!(cache.insert(&x), "Should be able to insert x");
+    let huge: Rc<dyn Cacheable<_>> = Rc::new(CacheThing::huge("Huge 1", 1000 * 1000));
+    assert!(cache.insert(x).is_none(), "Should be able to insert x");
+    assert!(
+        cache.insert(huge).is_none(),
+        "Should be able to insert huge"
+    );
     assert!(cache.contains("First"), "Cache must contain x");
     assert!(
         cache
@@ -263,14 +335,39 @@ fn test_cache() -> Result<(), ()> {
             .thing
             == Thing::Int(0)
     );
-    assert!(
+    let y: Rc<dyn Cacheable<_>> = Rc::new(3_usize);
+    assert!(cache.insert(y).is_none());
+    assert_eq!(cache.get("3").unwrap().downcast::<usize>().unwrap(), &3);
+    assert_eq!(
         cache
-            .get("First")
-            .expect("Must contain x")
+            .get("Huge 1")
+            .unwrap()
             .downcast::<CacheThing>()
-            .expect("Must be a CacheThing")
-            .thing
-            == Thing::Int(0)
+            .unwrap()
+            .thing,
+        Thing::Huge(1000 * 1000)
     );
+    assert_eq!(cache.get("3").unwrap().downcast::<usize>().unwrap(), &3);
+    cache.shrink_to(10_000_000);
+    assert!(cache.contains("Huge 1"), "Should still contain Huge 1");
+    assert!(
+        cache.contains("First"),
+        "Should still contain Huge 1, First and 3"
+    );
+    assert!(
+        cache.contains("3"),
+        "Should still contain Huge 1, First and 3"
+    );
+    cache.shrink_to(1_000_000);
+    assert!(
+        !cache.contains("Huge 1"),
+        "Should not contain Huge 1, nor First"
+    );
+    assert!(!cache.contains("First"), "Should not contain First");
+    assert!(cache.contains("3"), "Should still contain 3");
+    cache.shrink_to(0);
+    assert!(!cache.contains("Huge 1"), "Should not contain Huge 1");
+    assert!(!cache.contains("First"), "Should not contain First");
+    assert!(!cache.contains("3"), "Should not contain 3");
     Ok(())
 }
