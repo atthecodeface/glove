@@ -3,11 +3,12 @@ use std::rc::Rc;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
-use crate::{
-    image, json, CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate, CameraPtMapping, Cip,
-    Color, NamedPoint, NamedPointSet, Point3D, PointMapping, PointMappingSet, Project, Quat, Rrc,
-};
-use image::ImageRgb8;
+use ic_base::{json, Point3D, Quat, Rrc};
+use ic_camera::{CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate};
+use ic_image::{Color, ImageRgb8};
+use ic_mapping::{CameraPtMapping, NamedPoint, NamedPointSet, PointMapping, PointMappingSet};
+
+use ic_project::{Cip, Project};
 
 //a ThreadPool
 //fp add_threads_arg

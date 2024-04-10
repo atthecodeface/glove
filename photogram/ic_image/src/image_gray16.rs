@@ -57,11 +57,6 @@ impl ImageGray16 {
         self.0.as_luma16().unwrap().as_raw()
     }
 
-    //ac as_mut_slice
-    pub(crate) fn as_mut_slice(&mut self) -> image::FlatSamples<&mut [u16]> {
-        self.0.as_mut_luma16().unwrap().as_flat_samples_mut()
-    }
-
     //cp of_rgb
     pub fn of_rgb(image: &ImageRgb8, max: u32) -> Self {
         let (width, height) = image.size();
@@ -115,6 +110,9 @@ impl ImageGray16 {
 //ip Image for ImageGray16
 impl Image for ImageGray16 {
     type Pixel = u16;
+    fn new(width: usize, height: usize) -> Self {
+        Self(DynamicImage::new_luma16(width as u32, height as u32))
+    }
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
         self.0
             .save(path)

@@ -3,23 +3,43 @@ use geo_nd::{SqMatrix, Vector, Vector3};
 
 use ic_base::{Mat3x3, Point2D, Point3D};
 
-use crate::{Image, ImageRgb8};
+use crate::Image;
 
 //a Patch
 //tp Patch
 #[derive(Debug)]
-pub struct Patch {
-    img: ImageRgb8,
+pub struct Patch<I: Image> {
+    img: I,
     flat_origin: Point2D,
     model_origin: Point3D,
     flat_to_model: Mat3x3,
 }
 
 //ip Patch
-impl Patch {
+impl<I: Image> Patch<I> {
     //ap img
-    pub fn img(&self) -> &ImageRgb8 {
+    pub fn img(&self) -> &I {
         &self.img
+    }
+
+    //ap flat_origin
+    pub fn flat_origin(&self) -> Point2D {
+        self.flat_origin
+    }
+
+    //ap model_origin
+    pub fn model_origin(&self) -> Point3D {
+        self.model_origin
+    }
+
+    //mp normal
+    pub fn normal(&self) -> Point3D {
+        [
+            self.flat_to_model[2],
+            self.flat_to_model[5],
+            self.flat_to_model[8],
+        ]
+        .into()
     }
 
     //cp create
@@ -33,7 +53,7 @@ impl Patch {
     ///
     /// None is returned if the image would have been empty (no valid pixels)
     pub fn create<F>(
-        src_img: &ImageRgb8,
+        src_img: &I,
         px_per_model: f64,
         model_pts: &[Point3D],
         model_to_flat: &F,
@@ -100,7 +120,7 @@ impl Patch {
 
         let width = (irx - ilx) as usize;
         let height = (ity - iby) as usize;
-        let mut patch_img = ImageRgb8::read_or_create_image(width, height, None)?;
+        let mut patch_img = I::new(width, height);
 
         for x in 0..width {
             let model_fx =

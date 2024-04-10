@@ -3,10 +3,11 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::Rrc;
-use crate::CameraPolynomial as CameraInstance;
-use crate::CameraPolynomialDesc as CameraInstanceDesc;
-use crate::{CameraAdjustMapping, PointMappingSet, Project};
+use ic_base::Rrc;
+use ic_camera::{CameraInstance, CameraInstanceDesc};
+use ic_mapping::{CameraAdjustMapping, PointMappingSet};
+
+use crate::Project;
 
 //a Cip
 //tp CipDesc

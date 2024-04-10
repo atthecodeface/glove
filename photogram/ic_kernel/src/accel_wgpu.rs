@@ -53,7 +53,9 @@ pub enum BufferType {
 //tp AccelWgpu
 #[derive(Debug)]
 pub struct AccelWgpu {
+    #[allow(dead_code)]
     instance: wgpu::Instance,
+    #[allow(dead_code)]
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -179,18 +181,6 @@ impl AccelWgpu {
         }
         self.pipelines.push((pipeline, bgl));
         Ok(n.into())
-    }
-
-    //ap bind_group_layout
-    pub fn bind_group_layout(
-        &self,
-        pipeline: Pipeline,
-        index: usize,
-    ) -> Option<&wgpu::BindGroupLayout> {
-        self.pipelines
-            .get(pipeline.as_usize())
-            .map(|(_, bgl)| bgl.get(index))
-            .flatten()
     }
 
     //mp create_buffer

@@ -2,9 +2,10 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use image_calibrate::polynomial;
-use image_calibrate::polynomial::CalcPoly;
-use image_calibrate::{cmdline_args, Color, Image, ImageRgb8, Region};
+use ic_camera::polynomial;
+use ic_camera::polynomial::CalcPoly;
+use ic_cmdline as cmdline_args;
+use ic_image::{Color, Image, ImageRgb8, Region};
 
 //a Types
 //ti SubCmdFn
@@ -130,9 +131,7 @@ impl PolyIntercept {
                 (intercept, cy)
             }
         };
-        let Some(intercept_pts) = find_axis_pts(y_intercept, spacing / 3.0, (cx, cy), pts) else {
-            return None;
-        };
+        let intercept_pts = find_axis_pts(y_intercept, spacing / 3.0, (cx, cy), pts)?;
         let mut g = vec![];
         // if y_intercept then the x values will be diverse and the y values similar
         let mut x = vec![];

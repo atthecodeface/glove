@@ -88,6 +88,9 @@ impl ImageRgb8 {
 impl Image for ImageRgb8 {
     type Pixel = Color;
 
+    fn new(width: usize, height: usize) -> Self {
+        Self(DynamicImage::new_rgb8(width as u32, height as u32))
+    }
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
         self.0
             .save(path)

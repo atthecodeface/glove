@@ -4,11 +4,15 @@ use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
 
-use image_calibrate::{
-    cmdline_args, json, CameraAdjustMapping, CameraDatabase, CameraProjection, CameraPtMapping,
-    CameraShowMapping, Color, Image, ModelLineSet, NamedPointSet, Patch, PointMappingSet, Project,
-    Ray, Region,
+use ic_base::{json, Ray};
+use ic_camera::{CameraDatabase, CameraProjection};
+use ic_cmdline as cmdline_args;
+use ic_image::{Color, Image, Patch, Region};
+use ic_mapping::{
+    CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet, NamedPointSet,
+    PointMappingSet,
 };
+use ic_project::Project;
 
 //a Types
 //ti SubCmdFn

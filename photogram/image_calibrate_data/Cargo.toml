@@ -25,3 +25,4 @@ ic_camera.workspace = true
 ic_image.workspace = true
 ic_kernel.workspace = true
 ic_mapping.workspace = true
+ic_project.workspace = true

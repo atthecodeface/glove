@@ -127,18 +127,14 @@ pub use ic_mapping::{CameraAdjustMapping, CameraPtMapping};
 pub use ic_mapping::{NamedPoint, NamedPointSet};
 pub use ic_mapping::{PointMapping, PointMappingSet};
 
-pub mod cmdline_args;
-
-mod cip;
-mod project;
-
+// pub mod cmdline_args;
 pub use ic_kernel as kernel;
 pub use ic_kernel::{Accelerate, KernelArgs, Kernels};
 
-pub use cip::{Cip, CipDesc};
-pub use project::Project;
+pub use ic_project::Project;
+pub use ic_project::{Cip, CipDesc};
 // mod rotations;
 // pub use rotations::Rotations;
 
-pub mod http;
-pub mod thread_pool;
+// pub mod http;
+// pub mod thread_pool;

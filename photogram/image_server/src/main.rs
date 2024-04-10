@@ -10,15 +10,15 @@ use clap::Command;
 
 use ic_base::json;
 use ic_base::Mesh;
-use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
-
-use image_calibrate::cmdline_args;
-use image_calibrate::http::{
+use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use image_calibrate::thread_pool::ThreadPool;
-use image_calibrate::Project;
-use image_calibrate::{KernelArgs, Kernels};
+use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
+use ic_threads::ThreadPool;
+
+use ic_cmdline as cmdline_args;
+use ic_kernel::{KernelArgs, Kernels};
+use ic_project::Project;
 
 //a ProjectPath
 //tp ProjectPath
@@ -117,6 +117,7 @@ impl NamedProject {
     }
 
     //ap is_mapped
+    #[allow(dead_code)]
     pub fn is_mapped(&self) -> bool {
         self.project.lock().unwrap().is_some()
     }
@@ -160,6 +161,7 @@ impl NamedProject {
 
     //mp load
     /// Load the Project from to its Path; this creates it
+    #[allow(dead_code)]
     pub fn load(&self) -> Option<Result<(), String>> {
         let mut opt_project = self.project.lock().unwrap();
         opt_project.as_mut().map(|p| p.load(&self.path))
@@ -195,16 +197,12 @@ pub struct ProjectDecode {
 impl ProjectDecode {
     //cp decode_request
     pub fn decode_request(request: &HttpRequest) -> Option<Self> {
-        let Some(path) = request.uri.path() else {
-            return None;
-        };
+        let path = request.uri.path()?;
         if !path.starts_with("project") {
             return None;
         }
         let project = path.strip_prefix("project").unwrap();
-        let Some(project) = project.to_str() else {
-            return None;
-        };
+        let project = project.to_str()?;
         let mut pd = ProjectDecode {
             dec_type: ProjectDecodeType::Root,
             ..Default::default()
@@ -231,10 +229,8 @@ impl ProjectDecode {
         if let Some(Ok(radius)) = request.get_one::<usize>("window") {
             pd.radius = Some(radius);
         }
-        for np in request.get_many::<String>("np") {
-            if let Ok(np) = np {
-                pd.nps.push(np);
-            }
+        for np in request.get_many::<String>("np").flatten() {
+            pd.nps.push(np);
         }
         Some(pd)
     }
@@ -369,9 +365,7 @@ impl ProjectSet {
 
     //mp decode_project
     pub fn decode_project(&self, request: &HttpRequest) -> Option<ProjectDecode> {
-        let Some(mut pd) = ProjectDecode::decode_request(request) else {
-            return None;
-        };
+        let mut pd = ProjectDecode::decode_request(request)?;
         if pd.might_be_project() {
             let opt_idx = self.find_project(pd.project().unwrap());
             pd.set_project_idx(opt_idx);
@@ -536,7 +530,7 @@ impl ProjectSet {
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
         let path = self.image_root.as_path().join(cip_r.image());
-        let src_img = ImageRgb8::read_image(&path)?;
+        let src_img = ImageRgb8::read_image(path)?;
         let nps = p.nps_ref();
         let camera = cip_r.camera_ref();
 
@@ -579,7 +573,7 @@ impl ProjectSet {
 
         let args = args.with_size(ws as usize);
         let ws_f = ws as f32;
-        let args_mean = args.clone().with_scale(1.0 / ws_f);
+        let args_mean = args.with_scale(1.0 / ws_f);
         self.kernels
             .run_shader("square", &args, None, img_data_sq.as_mut_slice())?;
         self.kernels
@@ -601,7 +595,7 @@ impl ProjectSet {
         )?;
         self.kernels.run_shader(
             "sqrt",
-            &args.clone().with_scale(2.0),
+            &args.with_scale(2.0),
             None,
             img_data_sq.as_mut_slice(),
         )?;

@@ -11,6 +11,8 @@ mod camera_database;
 pub use camera_database::CameraDatabase;
 
 mod camera_polynomial;
+pub use camera_polynomial::CameraPolynomial as CameraInstance;
+pub use camera_polynomial::CameraPolynomialDesc as CameraInstanceDesc;
 pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
 
 mod camera_polynomial_calibrate;

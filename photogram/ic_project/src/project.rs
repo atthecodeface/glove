@@ -3,8 +3,11 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::Rrc;
-use crate::{json, CameraDatabase, CameraPtMapping, Cip, CipDesc, NamedPointSet, Point3D, Ray};
+use ic_base::{json, Point3D, Ray, Rrc};
+use ic_camera::CameraDatabase;
+use ic_mapping::{CameraPtMapping, NamedPointSet};
+
+use crate::{Cip, CipDesc};
 
 //a Project
 //tp ProjectDesc

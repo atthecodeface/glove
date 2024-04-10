@@ -66,6 +66,12 @@ pub struct Kernels {
     cpu: cpu::ImageAccelerator,
 }
 
+//ip Default for Kernels
+impl Default for Kernels {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 //ip Kernels
 impl Kernels {
     pub fn new() -> Self {

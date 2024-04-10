@@ -6,6 +6,7 @@ use ic_base::Point2D;
 //a Image trait
 pub trait Image {
     type Pixel;
+    fn new(width: usize, height: usize) -> Self;
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String>;
     fn encode(&self, extension: &str) -> Result<Vec<u8>, String>;
     fn get(&self, x: u32, y: u32) -> Self::Pixel;

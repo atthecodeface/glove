@@ -47,8 +47,8 @@ impl ImageAccelerator {
         for y in 0..height {
             let src_row = &src_data.unwrap_or(out_data)[y * width..(y * width + width)];
             let mut sum = 0.0;
-            for x in 0..skip {
-                sum += src_row[x];
+            for s in src_row.iter().take(skip) {
+                sum += s;
             }
             for x in skip..width {
                 sum += src_row[x];
@@ -99,8 +99,8 @@ impl ImageAccelerator {
                 out_data[i] = src_data[i] * src_data[i] * scale;
             }
         } else {
-            for i in 0..width * height {
-                out_data[i] = out_data[i] * out_data[i] * scale;
+            for od in out_data.iter_mut().take(width * height) {
+                *od = *od * *od * scale;
             }
         }
     }
@@ -115,13 +115,14 @@ impl ImageAccelerator {
                 out_data[i] = src_data[i].sqrt() * scale;
             }
         } else {
-            for i in 0..width * height {
-                out_data[i] = out_data[i].sqrt() * scale;
+            for od in out_data.iter_mut().take(width * height) {
+                *od = od.sqrt() * scale;
             }
         }
     }
 
     //mp circle_fft16
+    /*
     pub fn circle_fft16(&self, args: &KernelArgs, src_data: Option<&[f32]>, out_data: &mut [f32]) {
         let width = args.width();
         let height = args.height();
@@ -129,13 +130,12 @@ impl ImageAccelerator {
         let circle = [0.0_f32; 16];
         let mut dxy = vec![0_usize; 32];
         for angle in 0..16 {
-            let angle = 2.0 * 3.14159 * (angle as f32) / 16.0;
+            let angle = std::f32::consts::TAU * (angle as f32) / 16.0;
             let dx = (radius as f32) * angle.cos();
             let dy = (radius as f32) * angle.sin();
             dxy.push(dx.round() as usize);
             dxy.push(dy.round() as usize);
         }
-        /*
                 if let Some(src_data) = src_data {
                     for y in radius..(height-radius) {
                         for x in radius..(width-radius) {
@@ -151,8 +151,8 @@ impl ImageAccelerator {
                         out_data[i] = 0.0;
                     }
                 }
-        */
     }
+        */
 
     //zz All done
 }

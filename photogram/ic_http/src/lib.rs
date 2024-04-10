@@ -252,13 +252,12 @@ impl HttpRequest {
     //fi split_at_crlf
     fn split_at_crlf(buffer: &[u8]) -> Option<(&[u8], &[u8])> {
         let n = buffer.len();
-        let Some(cr) = buffer
+
+        let cr = buffer
             .iter()
             .enumerate()
-            .find_map(|(n, b)| (*b == b'\r').then_some(n))
-        else {
-            return None;
-        };
+            .find_map(|(n, b)| (*b == b'\r').then_some(n))?;
+
         if cr + 1 < n && buffer[cr + 1] == b'\n' {
             let (start, end) = buffer.split_at(cr);
             Some((start, &end[2..]))
@@ -303,23 +302,15 @@ impl HttpRequest {
 
     //mp parse_req_hdr
     fn parse_req_hdr<'buf>(&mut self, buffer: &'buf [u8]) -> Option<&'buf [u8]> {
-        let Some((b_req, b_rest)) = Self::split_at_crlf(buffer) else {
-            return None;
-        };
+        let (b_req, b_rest) = Self::split_at_crlf(buffer)?;
         if b_req.iter().any(|b| !b.is_ascii()) {
             return None;
         }
 
         let mut req_fields = b_req.splitn(3, |b| *b == b' ');
-        let Some(b_req_type) = req_fields.next() else {
-            return None;
-        };
-        let Some(b_uri) = req_fields.next() else {
-            return None;
-        };
-        let Some(b_http) = req_fields.next() else {
-            return None;
-        };
+        let b_req_type = req_fields.next()?;
+        let b_uri = req_fields.next()?;
+        let b_http = req_fields.next()?;
         if b_http != b"HTTP/1.1" {
             return None;
         }
@@ -337,9 +328,7 @@ impl HttpRequest {
     //cp parse_request
     pub fn parse_request(buffer: &[u8]) -> Option<(HttpRequest, &[u8])> {
         let mut request = HttpRequest::default();
-        let Some(mut rest) = request.parse_req_hdr(buffer) else {
-            return None;
-        };
+        let mut rest = request.parse_req_hdr(buffer)?;
         loop {
             let Some((b_req, b_rest)) = Self::split_at_crlf(rest) else {
                 break;

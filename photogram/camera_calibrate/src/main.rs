@@ -2,11 +2,12 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use image_calibrate::{
-    cmdline_args, polynomial, CameraDatabase, CameraPolynomial, CameraProjection, Image, ImageRgb8,
-    Point3D, RollYaw, TanXTanY,
-};
-use polynomial::CalcPoly;
+use ic_base::{Point3D, RollYaw, TanXTanY};
+use ic_camera::polynomial;
+use ic_camera::polynomial::CalcPoly;
+use ic_camera::{CameraDatabase, CameraInstance, CameraProjection};
+use ic_cmdline as cmdline_args;
+use ic_image::{Image, ImageRgb8};
 
 //a Types
 //ti SubCmdFn
@@ -71,7 +72,7 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
     eprintln!("cal camera {}", calibrate.camera());
     let mut camera_lens = calibrate.camera().lens().clone();
     camera_lens.set_polys(stw, wts);
-    let camera = CameraPolynomial::new(
+    let camera = CameraInstance::new(
         calibrate.camera().body().clone(),
         camera_lens,
         calibrate.camera().focus_distance(),
