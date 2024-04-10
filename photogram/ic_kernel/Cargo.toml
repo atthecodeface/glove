@@ -1,0 +1,18 @@
+[package]
+name = "ic_kernel"
+edition.workspace = true
+version.workspace = true
+description.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bytemuck.workspace = true
+wgpu.workspace = true
+geo-nd.workspace = true
+
+ic_base.workspace = true
