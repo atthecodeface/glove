@@ -2,10 +2,9 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::image::{Image, ImageRgb8};
+use crate::{Image, ImageRgb8};
 use image::io::Reader as ImageReader;
-pub use image::DynamicImage;
-
+use image::DynamicImage;
 use image::{GenericImageView, ImageBuffer, Luma};
 
 //a ImageGray16

@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
-members = [ "ic_base","image_calibrate", "image_server"]
+members = [ "ic_base", "ic_image","image_calibrate", "image_server"]
 exclude = []
-default-members = ["ic_base","image_calibrate", "image_server"]
+default-members = ["ic_base","ic_image","image_calibrate", "image_server"]
 
 [workspace.package]
 edition = "2021"
@@ -18,6 +18,7 @@ repository = "https://github.com/atthecodeface/image_calibrate"
 [workspace.dependencies]
 image_calibrate = { version = "0.1.0", path = "./image_calibrate" }
 ic_base = { version = "0.1.0", path = "./ic_base" }
+ic_image = { version = "0.1.0", path = "./ic_image" }
 
 nalgebra = "0.32.1"
 plotters = "0.3.3"

@@ -1,7 +1,7 @@
 //a Imports
 use std::path::Path;
 
-use crate::Point2D;
+use ic_base::Point2D;
 
 //a Image trait
 pub trait Image {

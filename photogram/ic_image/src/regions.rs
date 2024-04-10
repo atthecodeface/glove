@@ -2,8 +2,7 @@
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::image::{Image, ImageRgb8};
-use crate::Color;
+use crate::{Color, Image, ImageRgb8};
 
 //a Regions
 //tp Region

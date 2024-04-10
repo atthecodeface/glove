@@ -2,11 +2,11 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::image::{Color, Image, ImageGray16};
 use image::io::Reader as ImageReader;
-pub use image::DynamicImage;
-
+use image::DynamicImage;
 use image::{GenericImage, GenericImageView};
+
+use crate::{Color, Image, ImageGray16};
 
 //a ImageRbg8
 #[derive(Debug, Clone)]

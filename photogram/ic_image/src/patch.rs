@@ -1,6 +1,9 @@
 //a Imports
-use crate::{Image, ImageRgb8, Mat3x3, Point2D, Point3D};
 use geo_nd::{SqMatrix, Vector, Vector3};
+
+use ic_base::{Mat3x3, Point2D, Point3D};
+
+use crate::{Image, ImageRgb8};
 
 //a Patch
 //tp Patch

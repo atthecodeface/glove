@@ -103,15 +103,15 @@ k2/2 * Dir(XY02) - k1 * Dir(XY01) = 1/2 Dir(XY00)
 !*/
 
 //a Modules
-use ic_base::add;
+pub use ic_base::types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
+pub use ic_base::utils::Rrc;
+pub use ic_base::{json, utils};
+
+pub mod ic_image as image;
+pub use ic_image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
+
 pub(crate) mod camera;
-
-pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
-mod types;
-
-mod utils;
-pub use utils::Rrc;
-
+pub mod cmdline_args;
 pub use camera::{
     CameraAdjustMapping, CameraBody, CameraDatabase, CameraLens, CameraPolynomial,
     CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
@@ -136,9 +136,6 @@ pub use points::Ray;
 pub use points::{NamedPoint, NamedPointSet};
 pub use points::{PointMapping, PointMappingSet};
 
-pub mod image;
-pub use image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
-
 pub mod kernel;
 pub use kernel::{Accelerate, KernelArgs, Kernels};
 
@@ -147,7 +144,5 @@ pub use project::Project;
 // mod rotations;
 // pub use rotations::Rotations;
 
-pub mod cmdline_args;
 pub mod http;
-pub mod json;
 pub mod thread_pool;
