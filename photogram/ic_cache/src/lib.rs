@@ -6,22 +6,47 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 //a Cacheable
-pub trait Cacheable: Any {
-    type Key: Hash + Ord + Clone + Sized + Eq; // + 'static ?
-    fn key(&self) -> &Self::Key;
-    fn as_any(&self) -> &(dyn Any + '_);
+pub trait Cacheable<Key>: Any
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
+    fn key(&self) -> &Key;
+    // fn as_any(&self) -> &(dyn Any + '_);
+    fn as_any(&self) -> &dyn Any;
     fn size(&self) -> usize;
 }
 
-struct CacheEntry<E: Cacheable> {
-    key: E::Key,
-    data: Option<Rc<E>>,
+pub trait Blah {
+    //mp downcast
+    fn downcast<T: 'static>(&self) -> Option<&T>;
+}
+impl<Key> Blah for Rc<dyn Cacheable<Key>>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
+    fn downcast<T: 'static>(&self) -> Option<&T> {
+        self.as_any().downcast_ref::<T>()
+    }
+}
+//a CacheEntry
+//tp CacheEntry
+struct CacheEntry<Key>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
+    key: Key,
+    data: Option<Rc<dyn Cacheable<Key>>>,
     last_use: usize,
     size: usize,
 }
 
-impl<E: Cacheable> CacheEntry<E> {
-    fn new(e: &Rc<E>, use_time: usize) -> Self {
+//ip CacheEntry
+impl<Key> CacheEntry<Key>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
+    //cp new
+    fn new(e: &Rc<dyn Cacheable<Key>>, use_time: usize) -> Self {
         let key = e.key().clone();
         let size = e.size();
         let data = Some(e.clone());
@@ -33,15 +58,23 @@ impl<E: Cacheable> CacheEntry<E> {
             size,
         }
     }
+
+    //mp is_empty
     fn is_empty(&self) -> bool {
         self.data.is_none()
     }
-    fn key(&self) -> &E::Key {
+
+    //mp key
+    fn key(&self) -> &Key {
         &self.key
     }
+
+    //mp use_at
     fn use_at(&mut self, use_time: usize) {
         self.last_use = use_time;
     }
+
+    //mp can_empty
     fn can_empty(&self) -> bool {
         if let Some(rc_e) = self.data.as_ref() {
             std::rc::Rc::strong_count(rc_e) == 1
@@ -49,7 +82,9 @@ impl<E: Cacheable> CacheEntry<E> {
             false
         }
     }
-    fn take_copy(&mut self, use_time: usize) -> Option<Rc<E>> {
+
+    //mp take_copy
+    fn take_copy(&mut self, use_time: usize) -> Option<Rc<dyn Cacheable<Key>>> {
         if let Some(rc_e) = self.data.as_ref() {
             self.last_use = use_time;
             Some(rc_e.clone())
@@ -57,7 +92,9 @@ impl<E: Cacheable> CacheEntry<E> {
             None
         }
     }
-    fn fill(&mut self, e: &Rc<E>, use_time: usize) -> bool {
+
+    //mp fill
+    fn fill(&mut self, e: &Rc<dyn Cacheable<Key>>, use_time: usize) -> bool {
         if self.is_empty() {
             self.data = Some(e.clone());
             self.last_use = use_time;
@@ -68,16 +105,23 @@ impl<E: Cacheable> CacheEntry<E> {
     }
 }
 
+//a Cache
 //tp Cache
-pub struct Cache<E: Cacheable> {
+pub struct Cache<Key>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
     use_count: usize,
     total_size: usize,
-    entries: Vec<CacheEntry<E>>,
-    index: HashMap<E::Key, usize>,
+    entries: Vec<CacheEntry<Key>>,
+    index: HashMap<Key, usize>,
 }
 
 //ip Default for Cache
-impl<E: Cacheable> std::default::Default for Cache<E> {
+impl<Key> std::default::Default for Cache<Key>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
     fn default() -> Self {
         Cache {
             use_count: 0,
@@ -89,11 +133,14 @@ impl<E: Cacheable> std::default::Default for Cache<E> {
 }
 
 //ip Cache
-impl<E: Cacheable> Cache<E> {
+impl<Key> Cache<Key>
+where
+    Key: Hash + Ord + Clone + Sized + Eq + 'static,
+{
     //mp contains
     fn contains<Q>(&self, k: &Q) -> bool
     where
-        E::Key: Borrow<Q>,
+        Key: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         if let Some(idx) = self.index.get(&k) {
@@ -104,7 +151,7 @@ impl<E: Cacheable> Cache<E> {
     }
 
     //mp insert
-    fn insert(&mut self, e: &Rc<E>) -> bool {
+    fn insert(&mut self, e: &Rc<dyn Cacheable<Key>>) -> bool {
         let k = e.key();
         if let Some(idx) = self.index.get(&k) {
             if self.entries[*idx].is_empty() {
@@ -128,9 +175,9 @@ impl<E: Cacheable> Cache<E> {
     }
 
     //mp get
-    fn get<Q>(&mut self, k: &Q) -> Option<Rc<E>>
+    fn get<Q>(&mut self, k: &Q) -> Option<Rc<dyn Cacheable<Key>>>
     where
-        E::Key: Borrow<Q>,
+        Key: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         if let Some(idx) = self.index.get(&k) {
@@ -166,8 +213,7 @@ mod test {
             }
         }
     }
-    impl crate::Cacheable for CacheThing {
-        type Key = String;
+    impl crate::Cacheable<String> for CacheThing {
         fn key(&self) -> &String {
             &self.name
         }
@@ -177,7 +223,8 @@ mod test {
                 Thing::Str(s) => 8 + s.len(),
             }
         }
-        fn as_any(&self) -> &(dyn Any + '_) {
+        //        fn as_any(&self) -> &(dyn Any + '_) {
+        fn as_any(&self) -> &(dyn Any) {
             self
         }
     }
@@ -186,9 +233,27 @@ mod test {
 fn test_cache() -> Result<(), ()> {
     use test::{CacheThing, Thing};
     let mut cache = Cache::default();
-    let x = Rc::new(CacheThing::int("First", 0));
+    let x: Rc<dyn Cacheable<_>> = Rc::new(CacheThing::int("First", 0));
     assert!(cache.insert(&x), "Should be able to insert x");
     assert!(cache.contains("First"), "Cache must contain x");
-    assert!(cache.get("First").expect("Must contain x").thing == Thing::Int(0));
+    assert!(
+        cache
+            .get("First")
+            .expect("Must contain x")
+            .as_any()
+            .downcast_ref::<CacheThing>()
+            .expect("Must be a CacheThing")
+            .thing
+            == Thing::Int(0)
+    );
+    assert!(
+        cache
+            .get("First")
+            .expect("Must contain x")
+            .downcast::<CacheThing>()
+            .expect("Must be a CacheThing")
+            .thing
+            == Thing::Int(0)
+    );
     Ok(())
 }
