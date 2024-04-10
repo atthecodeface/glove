@@ -1,4 +1,4 @@
-pub use image::{DynamicImage, GenericImage, GenericImageView, Luma, Rgba};
+pub use image::{Luma, Rgba};
 use serde::{Deserialize, Serialize};
 
 //a Gray16

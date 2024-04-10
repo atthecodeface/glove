@@ -1,8 +1,8 @@
 //a Imports
 use std::borrow::Cow;
 
-use crate::utils::rtc::run_to_completion as rtc;
 use crate::{Accelerate, KernelArgs};
+use ic_base::utils::rtc::run_to_completion as rtc;
 
 //a Support types
 //tp Pipeline

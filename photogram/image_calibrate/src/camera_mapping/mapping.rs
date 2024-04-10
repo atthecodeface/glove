@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 
-use crate::camera::{BestMapping, CameraProjection};
+use crate::{BestMapping, CameraProjection};
 use crate::{
     CameraPolynomial, ModelLineSet, NamedPointSet, Point2D, Point3D, PointMapping, PointMappingSet,
     Quat, Ray,

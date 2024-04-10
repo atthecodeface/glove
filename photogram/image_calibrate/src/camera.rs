@@ -14,13 +14,7 @@ mod camera_polynomial;
 pub use camera_polynomial::{CameraPolynomial, CameraPolynomialDesc};
 
 mod camera_polynomial_calibrate;
-pub use camera_polynomial_calibrate::{CameraPolynomialCalibrate, CameraPolynomialCalibrateDesc};
-
-mod camera_mapping;
-pub use camera_mapping::{CameraAdjustMapping, CameraPtMapping, CameraShowMapping};
+pub use camera_polynomial_calibrate::CameraPolynomialCalibrate;
 
 mod traits;
 pub use traits::{CameraProjection, CameraSensor};
-
-mod best_mapping;
-pub use best_mapping::BestMapping;

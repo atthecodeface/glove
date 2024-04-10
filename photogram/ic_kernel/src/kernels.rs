@@ -1,6 +1,6 @@
 //a Imports
-use crate::kernel::{accel_wgpu, cpu};
 use crate::Accelerate;
+use crate::{accel_wgpu, cpu};
 
 //tp KernelArgs
 /// This type must be mappable for accelerators, hence u32 and f32

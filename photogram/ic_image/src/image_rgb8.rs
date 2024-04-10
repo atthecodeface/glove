@@ -4,7 +4,7 @@ use std::path::Path;
 
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
-use image::{GenericImage, GenericImageView};
+use image::GenericImageView;
 
 use crate::{Color, Image, ImageGray16};
 

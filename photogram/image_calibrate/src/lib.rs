@@ -107,22 +107,26 @@ pub use ic_base::types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXT
 pub use ic_base::utils::Rrc;
 pub use ic_base::{json, utils};
 
-pub mod ic_image as image;
+pub use ic_image as image;
 pub use ic_image::{Color, Image, ImageGray16, ImageRgb8, Patch, Region};
 
-pub(crate) mod camera;
 pub mod cmdline_args;
+
+pub(crate) mod camera;
+pub(crate) mod camera_mapping;
 pub use camera::{
-    CameraAdjustMapping, CameraBody, CameraDatabase, CameraLens, CameraPolynomial,
-    CameraPolynomialCalibrate, CameraPolynomialDesc, CameraPtMapping,
+    CameraBody, CameraDatabase, CameraLens, CameraPolynomial, CameraPolynomialCalibrate,
+    CameraPolynomialDesc,
 };
 // Rename these traits?
 pub use camera::CameraProjection;
 // Don't expose this?
 pub use camera::polynomial;
+
+pub use camera_mapping::{CameraAdjustMapping, CameraPtMapping};
 // Don't expose this?
-pub use camera::BestMapping;
-pub use camera::CameraShowMapping;
+pub use camera_mapping::BestMapping;
+pub use camera_mapping::CameraShowMapping;
 
 mod mesh;
 pub use mesh::Mesh;
@@ -136,8 +140,8 @@ pub use points::Ray;
 pub use points::{NamedPoint, NamedPointSet};
 pub use points::{PointMapping, PointMappingSet};
 
-pub mod kernel;
-pub use kernel::{Accelerate, KernelArgs, Kernels};
+pub use ic_kernel as kernel;
+pub use ic_kernel::{Accelerate, KernelArgs, Kernels};
 
 pub use cip::{Cip, CipDesc};
 pub use project::Project;
