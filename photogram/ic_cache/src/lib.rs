@@ -6,25 +6,31 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 //a Cacheable
-pub trait Cacheable<Key>: Any
+/// Note that Any requires 'static, so we require that here too
+pub trait Cacheable<Key>: Any + 'static
 where
     Key: Hash + Ord + Clone + Sized + Eq + 'static,
 {
-    fn key(&self) -> &Key;
+    fn key(&self) -> Key;
     // fn as_any(&self) -> &(dyn Any + '_);
     fn as_any(&self) -> &dyn Any;
     fn size(&self) -> usize;
 }
 
-pub trait Blah {
+//tp CacheAccess
+/// This trait is implemented for Rc<dyn Cacheable> so
+/// that the content can be easily accessed
+pub trait CacheAccess {
     //mp downcast
     fn downcast<T: 'static>(&self) -> Option<&T>;
 }
-impl<Key> Blah for Rc<dyn Cacheable<Key>>
+
+//ip CacheAccess for Rc<dyn Cacheable<Key>>
+impl<Key> CacheAccess for Rc<dyn Cacheable<Key>>
 where
     Key: Hash + Ord + Clone + Sized + Eq + 'static,
 {
-    fn downcast<T: 'static>(&self) -> Option<&T> {
+    fn downcast<'a, T: 'static>(&'a self) -> Option<&'a T> {
         self.as_any().downcast_ref::<T>()
     }
 }
@@ -213,9 +219,20 @@ mod test {
             }
         }
     }
+    impl crate::Cacheable<String> for usize {
+        fn key(&self) -> String {
+            self.to_string()
+        }
+        fn size(&self) -> usize {
+            4
+        }
+        fn as_any(&self) -> &(dyn Any) {
+            self
+        }
+    }
     impl crate::Cacheable<String> for CacheThing {
-        fn key(&self) -> &String {
-            &self.name
+        fn key(&self) -> String {
+            self.name.clone()
         }
         fn size(&self) -> usize {
             match self.thing {
