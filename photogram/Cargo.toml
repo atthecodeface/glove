@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "camera_calibrate", "ic_base", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_threads", "image_analyze", "image_calibrate", "image_server"]
+members = [ "camera_calibrate", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_threads", "image_analyze", "image_calibrate", "image_server"]
 
 [workspace.package]
 edition = "2021"
@@ -15,6 +15,7 @@ repository = "https://github.com/atthecodeface/image_calibrate"
 
 [workspace.dependencies]
 ic_base = { version = "0.1.0", path = "./ic_base" }
+ic_cache = { version = "0.1.0", path = "./ic_cache" }
 ic_camera = { version = "0.1.0", path = "./ic_camera" }
 ic_cmdline = { version = "0.1.0", path = "./ic_cmdline" }
 ic_http = { version = "0.1.0", path = "./ic_http" }
