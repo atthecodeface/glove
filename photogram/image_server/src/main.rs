@@ -1,289 +1,28 @@
 //a Imports
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::OnceLock;
 
 use clap::Command;
 
-use ic_base::json;
 use ic_base::Mesh;
+// use ic_cache::{Cache, CacheEntry, Cacheable};
+use ic_cmdline as cmdline_args;
 use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
 use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
+use ic_kernel::{KernelArgs, Kernels};
 use ic_threads::ThreadPool;
 
-use ic_cmdline as cmdline_args;
-use ic_kernel::{KernelArgs, Kernels};
-use ic_project::Project;
+mod project_decode;
+mod project_entry;
 
-//a ProjectPath
-//tp ProjectPath
-#[derive(Debug)]
-pub struct ProjectPath(Box<Path>);
-
-//ip Display for ProjectPath
-impl std::fmt::Display for ProjectPath {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        std::fmt::Debug::fmt(&self.0, fmt)
-    }
-}
-//ip AsRef<Path> for ProjectPath {
-impl std::convert::AsRef<Path> for ProjectPath {
-    fn as_ref(&self) -> &Path {
-        &self.0
-    }
-}
-//ip Deref for ProjectPath {
-impl std::ops::Deref for ProjectPath {
-    type Target = Path;
-    fn deref(&self) -> &Path {
-        &self.0
-    }
-}
-
-//a ProjectWrap
-//ip Send for ProjectWrap
-unsafe impl Send for ProjectWrap {}
-
-//ti ProjectWrap
-#[derive(Debug, Default)]
-struct ProjectWrap(Project);
-
-//ii ProjectWrap
-impl ProjectWrap {
-    //mp of_json
-    /// Set to be a project from some Json
-    fn of_json(&mut self, project_json: &str) -> Result<(), String> {
-        self.0 = json::from_json("project", project_json)?;
-        Ok(())
-    }
-
-    //mp load
-    /// Load the project from a path - it drops the old project
-    fn load<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<(), String> {
-        let project_json = json::read_file(path)?;
-        self.of_json(&project_json)
-    }
-
-    //mp save
-    /// Save the project to a path
-    fn save<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<(), String> {
-        let mut f = File::create(&path).map_err(|e| format!("Failed to open file {path}: {e}"))?;
-        let json = self.0.to_json(true)?;
-        f.write(json.as_bytes())
-            .map_err(|e| format!("Failed to write Json to {path}: {e}"))?;
-        Ok(())
-    }
-
-    //zz All done
-}
-
-//a NamedProject
-//ti NamedProject
-#[derive(Debug)]
-struct NamedProject {
-    name: String,
-    path: ProjectPath,
-    project: Mutex<Option<ProjectWrap>>,
-}
-
-//ii NamedProject
-impl NamedProject {
-    //ap name
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    //cp new
-    /// Create a new [NamedProject] given a path
-    ///
-    /// The project is not loaded by default
-    pub fn new(path: Box<Path>) -> Result<Self, String> {
-        let path = ProjectPath(path);
-        let Some(name) = path.file_stem() else {
-            return Err(format!("Could not get name of file from path {path}"));
-        };
-        let name = name.to_string_lossy().to_string();
-        let project = None.into();
-        Ok(Self {
-            name,
-            path,
-            project,
-        })
-    }
-
-    //ap is_mapped
-    #[allow(dead_code)]
-    pub fn is_mapped(&self) -> bool {
-        self.project.lock().unwrap().is_some()
-    }
-
-    //ap ensure_loaded
-    pub fn ensure_loaded(&self) -> Result<MutexGuard<Option<ProjectWrap>>, String> {
-        let mut p = self.project.lock().unwrap();
-        if p.is_none() {
-            let mut project = ProjectWrap::default();
-            project.load(&self.path)?;
-            *p = Some(project);
-        }
-        Ok(p)
-    }
-
-    //mp of_json
-    pub fn of_json(&self, json: &str) -> Result<(), String> {
-        let mut p = self.project.lock().unwrap();
-        let mut project = ProjectWrap::default();
-        project.of_json(json)?;
-        *p = Some(project);
-        Ok(())
-    }
-
-    //mp map
-    /// Apply a function to the enclosed project, if it has been loaded
-    pub fn map<R, F>(&self, f: F) -> Option<R>
-    where
-        F: FnOnce(&Project) -> R,
-    {
-        let opt_project = self.project.lock().unwrap();
-        opt_project.as_ref().map(|p| f(&p.0))
-    }
-
-    //mp save
-    /// Save the Project back to its Path, if it has been loaded
-    pub fn save(&self) -> Option<Result<(), String>> {
-        let opt_project = self.project.lock().unwrap();
-        opt_project.as_ref().map(|p| p.save(&self.path))
-    }
-
-    //mp load
-    /// Load the Project from to its Path; this creates it
-    #[allow(dead_code)]
-    pub fn load(&self) -> Option<Result<(), String>> {
-        let mut opt_project = self.project.lock().unwrap();
-        opt_project.as_mut().map(|p| p.load(&self.path))
-    }
-}
-
-//a ProjectDecode
-//tp ProjectDecodeType
-#[derive(Debug, Default)]
-pub enum ProjectDecodeType {
-    #[default]
-    Root,
-    UnknownProject,
-    Project,
-}
-
-//tp ProjectDecode
-#[derive(Debug, Default)]
-pub struct ProjectDecode {
-    dec_type: ProjectDecodeType,
-    project: String,
-    idx: usize,
-    cip: Option<usize>,
-    width: Option<f64>,
-    height: Option<f64>,
-    px_per_model: Option<f64>,
-    window: Option<usize>,
-    radius: Option<usize>,
-    nps: Vec<String>,
-}
-
-//ip ProjectDecode
-impl ProjectDecode {
-    //cp decode_request
-    pub fn decode_request(request: &HttpRequest) -> Option<Self> {
-        let path = request.uri.path()?;
-        if !path.starts_with("project") {
-            return None;
-        }
-        let project = path.strip_prefix("project").unwrap();
-        let project = project.to_str()?;
-        let mut pd = ProjectDecode {
-            dec_type: ProjectDecodeType::Root,
-            ..Default::default()
-        };
-        if !project.is_empty() {
-            pd.dec_type = ProjectDecodeType::UnknownProject;
-            pd.project = project.into();
-        }
-        if let Some(Ok(cip)) = request.get_one::<usize>("cip") {
-            pd.cip = Some(cip);
-        }
-        if let Some(Ok(width)) = request.get_one::<f64>("width") {
-            pd.width = Some(width);
-        }
-        if let Some(Ok(height)) = request.get_one::<f64>("height") {
-            pd.height = Some(height);
-        }
-        if let Some(Ok(px_per_model)) = request.get_one::<f64>("px_per_model") {
-            pd.px_per_model = Some(px_per_model);
-        }
-        if let Some(Ok(window)) = request.get_one::<usize>("window") {
-            pd.window = Some(window);
-        }
-        if let Some(Ok(radius)) = request.get_one::<usize>("window") {
-            pd.radius = Some(radius);
-        }
-        for np in request.get_many::<String>("np").flatten() {
-            pd.nps.push(np);
-        }
-        Some(pd)
-    }
-
-    //mp set_project_idx
-    fn set_project_idx(&mut self, idx: Option<usize>) {
-        if let Some(idx) = idx {
-            self.dec_type = ProjectDecodeType::Project;
-            self.idx = idx;
-        } else {
-            self.dec_type = ProjectDecodeType::UnknownProject;
-            self.idx = 0;
-        }
-    }
-
-    //ap is_root
-    fn is_root(&self) -> bool {
-        matches!(self.dec_type, ProjectDecodeType::Root)
-    }
-
-    //ap is_project
-    fn is_project(&self) -> bool {
-        matches!(self.dec_type, ProjectDecodeType::Project)
-    }
-
-    //ap might_be_project
-    fn might_be_project(&self) -> bool {
-        matches!(
-            self.dec_type,
-            ProjectDecodeType::Project | ProjectDecodeType::UnknownProject
-        )
-    }
-
-    //ap project_idx
-    fn project_idx(&self) -> Option<usize> {
-        self.is_project().then_some(self.idx)
-    }
-
-    //ap project
-    fn project(&self) -> Option<&str> {
-        match self.dec_type {
-            ProjectDecodeType::Project => Some(&self.project),
-            ProjectDecodeType::UnknownProject => Some(&self.project),
-            _ => None,
-        }
-    }
-    //ap cip
-    fn cip(&self) -> Option<usize> {
-        self.cip
-    }
-
-    //zz All done
-}
+use project_decode::ProjectDecode;
+use project_entry::NamedProject;
+mod image_cache;
+use image_cache::ImageCache;
 
 //a ProjectSet
 //ti ProjectSet
@@ -450,8 +189,8 @@ impl ProjectSet {
         pd: &ProjectDecode,
     ) -> Result<(), String> {
         let cip = pd.cip().unwrap_or_default();
-        let p = self.projects[pd.idx].ensure_loaded()?;
-        let p = &p.as_ref().unwrap().0;
+        let up = self.projects[pd.idx].ensure_loaded()?;
+        let p = up.as_ref();
         if cip >= p.ncips() {
             return Err("Cip out of range".into());
         }
@@ -479,8 +218,8 @@ impl ProjectSet {
         pd: &ProjectDecode,
     ) -> Result<(), String> {
         let cip = pd.cip().unwrap_or_default();
-        let p = self.projects[pd.idx].ensure_loaded()?;
-        let p = &p.as_ref().unwrap().0;
+        let up = self.projects[pd.idx].ensure_loaded()?;
+        let p = up.as_ref();
         if cip >= p.ncips() {
             return Err("Cip out of range".into());
         }
@@ -522,8 +261,8 @@ impl ProjectSet {
         pd: &ProjectDecode,
     ) -> Result<(), String> {
         let cip = pd.cip().unwrap_or_default();
-        let p = self.projects[pd.idx].ensure_loaded()?;
-        let p = &p.as_ref().unwrap().0;
+        let up = self.projects[pd.idx].ensure_loaded()?;
+        let p = up.as_ref();
         if cip >= p.ncips() {
             return Err("Cip out of range".into());
         }
