@@ -2,6 +2,8 @@
 *pyc
 *.o
 *.a
+*.tgz
+*#*#
 *.cmt
 *.cmi
 *.cmti
@@ -9,5 +11,9 @@
 *.cmxa
 *.merlin
 *.jpg
+*.png
 *.gray
 _build
+target/
+Cargo.lock
+.DS_Store

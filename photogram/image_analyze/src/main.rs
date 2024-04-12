@@ -5,7 +5,8 @@ use clap::Command;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_cmdline as cmdline_args;
-use ic_image::{Color, Image, ImageRgb8, Region};
+use ic_image::{Color, Image, ImageGray16, ImageRgb8, Region};
+use ic_kernel::{KernelArgs, Kernels};
 
 //a Types
 //ti SubCmdFn
@@ -342,6 +343,155 @@ fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
     Ok(())
 }
 
+//a Luma
+//hi AS_LUMA_LONG_HELP
+const AS_LUMA_LONG_HELP: &str = "\
+Generate a 16-bit luma image
+";
+
+//fi as_luma_cmd
+fn as_luma_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("as_luma")
+        .about("Generate a 16-bit luma image")
+        .long_about(AS_LUMA_LONG_HELP);
+    (cmd, as_luma_fn)
+}
+
+//fi as_luma_fn
+fn as_luma_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+    let img = base_args.image;
+    eprintln!("Read initial image, size is {:?}", img.size());
+    let (w, h, img_data) = img.as_vec_gray_f32(None);
+    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+    eprintln!("Created luma image");
+
+    if let Some(write_filename) = &base_args.write_filename {
+        img.write(write_filename)?;
+        eprintln!("Image written");
+    } else {
+        eprintln!("Image not written as no output image provided");
+    }
+    Ok(())
+}
+
+//hi LUMA_WINDOW_LONG_HELP
+const LUMA_WINDOW_LONG_HELP: &str = "\
+Analyze an image in luma space using a window
+";
+
+//fi luma_window_cmd
+fn luma_window_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("luma_window")
+        .about("Analyze an image in luma space using a window")
+        .long_about(LUMA_WINDOW_LONG_HELP);
+    (cmd, luma_window_fn)
+}
+
+//fi luma_window_fn
+fn luma_window_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+    let img = base_args.image;
+    eprintln!(
+        "Read initial image, size is {:?} (max pixels in kernel is 4M)",
+        img.size()
+    );
+    let (w, h) = img.size();
+    let npix = w as usize * h as usize;
+    let max = 4 * 1024 * 1024;
+    let scale =
+        (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
+    let (w, h, mut img_data) = img.as_vec_gray_f32(scale);
+    eprintln!(
+        "Using size {w}, {h} ({:.2} Mpx)",
+        (w * h) as f32 / 1024.0 / 1024.0
+    );
+
+    let kernels = Kernels::new();
+    let ws = 8;
+    let args: KernelArgs = (w, h).into();
+    let args = args.with_size(ws as usize);
+    let ws_f = ws as f32;
+    let args_mean = args.with_scale(1.0 / ws_f);
+
+    kernels.run_shader("window_var", &args_mean, None, img_data.as_mut_slice())?;
+
+    eprintln!("Completed kernel");
+    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+    eprintln!("Created luma image");
+
+    if let Some(write_filename) = &base_args.write_filename {
+        img.write(write_filename)?;
+        eprintln!("Image written");
+    } else {
+        eprintln!("Image not written as no output image provided");
+    }
+    Ok(())
+}
+
+//hi LUMA_KERNEL_LONG_HELP
+const LUMA_KERNEL_LONG_HELP: &str = "\
+Analyze kernels to an image in luma space
+
+Convert the image to a 16-bit luma
+
+Apply a number of kernels (with a single set of size, scale etc arguments)
+
+Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
+";
+
+//fi luma_kernel_cmd
+fn luma_kernel_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("luma_kernel")
+        .about("Apply kernels to an image in luma space")
+        .long_about(LUMA_KERNEL_LONG_HELP);
+    let cmd = cmdline_args::kernels::add_kernel_arg(cmd, true);
+    let cmd = cmdline_args::kernels::add_scale_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_size_arg(cmd, false);
+    (cmd, luma_kernel_fn)
+}
+
+//fi luma_kernel_fn
+fn luma_kernel_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+    let img = base_args.image;
+    let ws = cmdline_args::kernels::get_size(matches)?;
+    let scale = cmdline_args::kernels::get_scale(matches)?;
+    let kernels_to_apply = cmdline_args::kernels::get_kernels(matches)?;
+    eprintln!(
+        "Read initial image, size is {:?} (max pixels in kernel is 4M)",
+        img.size()
+    );
+    let (w, h) = img.size();
+    let npix = w as usize * h as usize;
+    let max = 4 * 1024 * 1024;
+    let img_scale =
+        (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
+    let (w, h, mut img_data) = img.as_vec_gray_f32(img_scale);
+    eprintln!(
+        "Using size {w}, {h} ({:.2} Mpx)",
+        (w * h) as f32 / 1024.0 / 1024.0
+    );
+
+    let kernels = Kernels::new();
+    let args: KernelArgs = (w, h).into();
+    let args = args.with_size(ws as usize);
+    let args = args.with_scale(scale);
+
+    for k in kernels_to_apply {
+        kernels.run_shader(&k, &args, None, img_data.as_mut_slice())?;
+    }
+
+    eprintln!("Completed kernel");
+    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+    eprintln!("Created luma image");
+
+    if let Some(write_filename) = &base_args.write_filename {
+        img.write(write_filename)?;
+        eprintln!("Image written");
+    } else {
+        eprintln!("Image not written as no output image provided");
+    }
+    Ok(())
+}
+
 //a Main
 //fi print_err
 fn print_err(s: String) -> String {
@@ -355,22 +505,28 @@ fn main() -> Result<(), String> {
         .about("Image analysis tool")
         .version("0.1.0")
         .subcommand_required(true);
-    let cmd = cmdline_args::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::add_image_write_arg(cmd, false);
-    let cmd = cmdline_args::add_bg_color_arg(cmd, false);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_write_arg(cmd, false);
+    let cmd = cmdline_args::image::add_bg_color_arg(cmd, false);
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
-    for (c, f) in [find_regions_cmd(), find_grid_points_cmd()] {
+    for (c, f) in [
+        find_regions_cmd(),
+        find_grid_points_cmd(),
+        as_luma_cmd(),
+        luma_window_cmd(),
+        luma_kernel_cmd(),
+    ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);
     }
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let image = cmdline_args::get_image_read(&matches)?;
-    let write_filename = cmdline_args::get_opt_image_write_filename(&matches)?;
-    let bg_color = cmdline_args::get_opt_bg_color(&matches)?;
+    let image = cmdline_args::image::get_image_read(&matches)?;
+    let write_filename = cmdline_args::image::get_opt_image_write_filename(&matches)?;
+    let bg_color = cmdline_args::image::get_opt_bg_color(&matches)?;
     let base_args = BaseArgs {
         image,
         write_filename,

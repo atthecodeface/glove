@@ -1,19 +1,28 @@
 //a Imports
-use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::Cacheable;
 
 pub struct CacheRef {
-    data: Rc<dyn Cacheable>,
+    data: Arc<dyn Cacheable>,
+}
+impl std::fmt::Debug for CacheRef {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "CacheRef({:?} of {:?})",
+            Arc::as_ptr(&self.data),
+            self.data.as_any().type_id()
+        )
+    }
 }
 impl CacheRef {
     fn ref_cnt(&self) -> usize {
-        std::rc::Rc::strong_count(&self.data)
+        Arc::strong_count(&self.data)
     }
     #[inline]
     pub fn new<C: Cacheable>(c: C) -> Self {
-        let data: Rc<dyn Cacheable> = Rc::new(c);
+        let data: Arc<dyn Cacheable> = Arc::new(c);
         Self { data }
     }
     pub fn downcast<'a, T: 'static>(&'a self) -> Option<&'a T> {
@@ -35,20 +44,21 @@ impl std::clone::Clone for CacheRef {
     }
 }
 impl std::ops::Deref for CacheRef {
-    type Target = Rc<dyn Cacheable>;
-    fn deref(&self) -> &Rc<dyn Cacheable> {
+    type Target = Arc<dyn Cacheable>;
+    fn deref(&self) -> &Arc<dyn Cacheable> {
         &self.data
     }
 }
 
-impl std::convert::AsRef<Rc<dyn Cacheable>> for CacheRef {
-    fn as_ref(&self) -> &Rc<dyn Cacheable> {
+impl std::convert::AsRef<Arc<dyn Cacheable>> for CacheRef {
+    fn as_ref(&self) -> &Arc<dyn Cacheable> {
         &self.data
     }
 }
 
 //a CacheEntry
 //tp CacheEntry
+#[derive(Debug)]
 pub struct CacheEntry {
     data: Option<CacheRef>,
     last_use: usize,
@@ -80,6 +90,7 @@ impl CacheEntry {
     }
 
     //mp can_empty
+    #[allow(dead_code)]
     pub fn can_empty(&self) -> bool {
         if let Some(rc_e) = self.data.as_ref() {
             rc_e.ref_cnt() == 1

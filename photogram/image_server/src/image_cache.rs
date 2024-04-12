@@ -1,22 +1,14 @@
 //a Imports
-use std::collections::HashMap;
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::OnceLock;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 
-use clap::Command;
-
-use ic_base::Mesh;
 use ic_cache::{Cache, CacheRef, Cacheable};
-use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
-use ic_kernel::{KernelArgs, Kernels};
-use ic_threads::ThreadPool;
+use ic_image::{Image, ImageGray16, ImageRgb8};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 enum KeyType {
     ImagePath { path: PathBuf },
+    Derived { name: String },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
@@ -34,6 +26,8 @@ impl ImageCacheKey {
 #[derive(Debug)]
 pub enum ImageCacheEntry {
     Rgb(ImageRgb8),
+    Gray(ImageGray16),
+    F32(usize, usize, Vec<f32>),
 }
 impl Cacheable for ImageCacheEntry {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -45,9 +39,45 @@ impl Cacheable for ImageCacheEntry {
                 let (w, h) = i.size();
                 w as usize * h as usize * 4
             }
+            ImageCacheEntry::Gray(i) => {
+                let (w, h) = i.size();
+                w as usize * h as usize * 2
+            }
+            ImageCacheEntry::F32(w, h, _) => w * h * 4,
         }
     }
 }
+impl ImageCacheEntry {
+    fn as_rgb8(&self) -> &ImageRgb8 {
+        match &self {
+            Self::Rgb(i) => i,
+            _ => panic!("Cannot unmap as ImageRgb8"),
+        }
+    }
+    fn as_gray16(&self) -> &ImageGray16 {
+        match &self {
+            Self::Gray(i) => i,
+            _ => panic!("Cannot unmap as ImageGray16"),
+        }
+    }
+    fn as_f32(&self) -> (usize, usize, &[f32]) {
+        match &self {
+            Self::F32(w, h, v) => (*w, *h, v),
+            _ => panic!("Cannot unmap as Float32 array"),
+        }
+    }
+    pub fn cr_as_rgb8(cr: &CacheRef) -> &ImageRgb8 {
+        cr.downcast::<Self>().unwrap().as_rgb8()
+    }
+    pub fn cr_as_gray16(cr: &CacheRef) -> &ImageGray16 {
+        cr.downcast::<Self>().unwrap().as_gray16()
+    }
+    pub fn cr_as_f32(cr: &CacheRef) -> (usize, usize, &[f32]) {
+        cr.downcast::<Self>().unwrap().as_f32()
+    }
+}
+
+#[derive(Debug)]
 pub struct ImageCache {
     m_cache: Mutex<Cache<ImageCacheKey>>,
 }
@@ -57,14 +87,21 @@ impl ImageCache {
         Self { m_cache }
     }
 
-    pub fn src_image<P: AsRef<Path>>(&mut self, path: P) -> Result<CacheRef, String> {
+    pub fn src_image<P: AsRef<Path>>(&self, path: P) -> Result<CacheRef, String> {
         let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
         let key = ImageCacheKey::of_image_path(&path);
         if !cache.contains(&key) {
+            eprintln!("Cache miss for {:?}", path.as_ref());
             let src_img = ImageRgb8::read_image(path)?;
             let src_img = ImageCacheEntry::Rgb(src_img);
             cache.insert(key.clone(), src_img);
         }
         Ok(cache.get(&key).unwrap())
+    }
+
+    pub fn shrink_cache(&mut self, to_size: usize) -> Result<usize, String> {
+        let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
+        cache.shrink_to(to_size);
+        Ok(cache.total_size())
     }
 }

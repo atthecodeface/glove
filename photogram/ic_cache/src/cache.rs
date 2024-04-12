@@ -2,12 +2,12 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::rc::Rc;
 
 use crate::{CacheEntry, CacheRef, Cacheable};
 
 //a Cache
 //tp Cache
+#[derive(Debug)]
 pub struct Cache<Key>
 where
     Key: Hash + Ord + Sized + Eq + 'static,
@@ -38,6 +38,11 @@ impl<Key> Cache<Key>
 where
     Key: Hash + Ord + Sized + Eq + 'static,
 {
+    //ap total_size
+    pub fn total_size(&self) -> usize {
+        self.total_size
+    }
+
     //mp contains
     pub fn contains<Q>(&self, k: &Q) -> bool
     where

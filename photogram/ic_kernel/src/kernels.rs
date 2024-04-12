@@ -77,7 +77,7 @@ impl Kernels {
     pub fn new() -> Self {
         let accelerator = accel_wgpu::AccelWgpu::new();
         let wgpu = {
-            match accel_wgpu::ImageAccelerator::new(accelerator, 1024 * 1024) {
+            match accel_wgpu::ImageAccelerator::new(accelerator, 16 * 1024 * 1024) {
                 Err(e) => {
                     eprintln!("Wgpu acceleration failed, not using that : {e}");
                     None

@@ -50,33 +50,37 @@ fn image_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("image")
         .about("Read image and draw crosses on named and mapped points")
         .long_about(IMAGE_LONG_HELP);
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
-    let cmd = cmdline_args::add_image_read_arg(cmd, false);
-    let cmd = cmdline_args::add_image_write_arg(cmd, true);
-    let cmd = cmdline_args::add_color_arg(
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, false);
+    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
+    let cmd = cmdline_args::image::add_color_arg(
         cmd,
         "pms_color",
         "Color for original PMS frame crosses",
         false,
     );
-    let cmd =
-        cmdline_args::add_color_arg(cmd, "model_color", "Color for mapped model crosses", false);
+    let cmd = cmdline_args::image::add_color_arg(
+        cmd,
+        "model_color",
+        "Color for mapped model crosses",
+        false,
+    );
     (cmd, image_fn)
 }
 
 //fi image_fn
 fn image_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::get_camera(matches, base_args.project())?;
-    let mut img = cmdline_args::get_image_read_or_create(matches, &camera)?;
-    let pms_color = cmdline_args::get_opt_color(matches, "pms_color")?;
-    let model_color = cmdline_args::get_opt_color(matches, "model_color")?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
+    let mut img = cmdline_args::image::get_image_read_or_create(matches, &camera)?;
+    let pms_color = cmdline_args::image::get_opt_color(matches, "pms_color")?;
+    let model_color = cmdline_args::image::get_opt_color(matches, "model_color")?;
     let use_nps_colors = pms_color.is_none() && model_color.is_none();
 
     let mappings = pms.mappings();
 
-    let write_filename = cmdline_args::get_opt_image_write_filename(matches)?.unwrap();
+    let write_filename = cmdline_args::image::get_opt_image_write_filename(matches)?.unwrap();
     if pms_color.is_some() || use_nps_colors {
         for m in mappings {
             let c = pms_color.as_ref().unwrap_or(m.model.color());
@@ -104,10 +108,10 @@ fn image_patch_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("image_patch")
         .about("Extract a patch from an image")
         .long_about(IMAGE_PATCH_LONG_HELP);
-    let cmd = cmdline_args::add_cip_arg(cmd, false);
+    let cmd = cmdline_args::project::add_cip_arg(cmd, false);
     // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
-    let cmd = cmdline_args::add_image_read_arg(cmd, false);
-    let cmd = cmdline_args::add_image_write_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, false);
+    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
     let cmd = cmd.arg(
         Arg::new("np")
             .required(true)
@@ -119,11 +123,11 @@ fn image_patch_cmd() -> (Command, SubCmdFn) {
 
 //fi image_patch_fn
 fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let cip = cmdline_args::get_cip(matches, base_args.project())?;
+    let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
     let camera = cip.camera_ref();
-    let src_img = cmdline_args::get_image_read(matches)?;
-    let write_filename = cmdline_args::get_opt_image_write_filename(matches)?.unwrap();
+    let src_img = cmdline_args::image::get_image_read(matches)?;
+    let write_filename = cmdline_args::image::get_opt_image_write_filename(matches)?.unwrap();
 
     let mut model_pts = vec![];
     for name in matches.get_many::<String>("np").unwrap() {
@@ -157,15 +161,15 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
 fn show_mappings_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("show_mappings")
         .about("Show the total and worst error for a point mapping set");
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     (cmd, show_mappings_fn)
 }
 
 //fi show_mappings_fn
 fn show_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
 
     let mappings = pms.mappings();
 
@@ -196,15 +200,15 @@ fn get_point_mappings_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("get_point_mappings")
         .about("Read image and find regions")
         .long_about(GET_POINT_MAPPINGS_LONG_HELP);
-    let cmd = cmdline_args::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::add_bg_color_arg(cmd, false);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::image::add_bg_color_arg(cmd, false);
     (cmd, get_point_mappings_fn)
 }
 
 //fi get_point_mappings_fn
 fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let img = cmdline_args::get_image_read(matches)?;
-    let bg_color = cmdline_args::get_opt_bg_color(matches)?;
+    let img = cmdline_args::image::get_image_read(matches)?;
+    let bg_color = cmdline_args::image::get_opt_bg_color(matches)?;
     let bg_color = bg_color.unwrap_or(Color::black());
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color));
     let mut pms = PointMappingSet::default();
@@ -239,15 +243,15 @@ fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Res
 fn locate_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("locate")
         .about("Find location and orientation for a camera to map points to model");
-    let cmd = cmdline_args::add_cip_arg(cmd, false);
-    let cmd = cmdline_args::add_pms_arg(cmd, false);
-    let cmd = cmdline_args::add_camera_arg(cmd, false);
+    let cmd = cmdline_args::project::add_cip_arg(cmd, false);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, false);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, false);
     (cmd, locate_fn)
 }
 
 //fi locate_fn
 fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let cip = cmdline_args::get_cip(matches, base_args.project())?;
+    let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
     let mut camera = cip.camera_ref().clone();
     let pms = cip.pms_ref();
@@ -288,15 +292,15 @@ fn orient_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("orient")
         .about("Set the orientation for a camera using weighted average of pairs of point mappings")
         .long_about(ORIENT_LONG_HELP);
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     (cmd, orient_fn)
 }
 
 //fi orient_fn
 fn orient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let mut camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
 
     camera.orient_using_rays_from_model(pms.mappings());
 
@@ -330,15 +334,15 @@ fn reorient_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("reorient")
         .about("Improve orientation for a camera to map points to model")
         .long_about(REORIENT_LONG_HELP);
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     (cmd, reorient_fn)
 }
 
 //fi reorient_fn
 fn reorient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let mut camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     camera.reorient_using_rays_from_model(pms.mappings());
 
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
@@ -366,7 +370,7 @@ fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("combine_rays_from_model")
         .about("Combine rays from a model")
         .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     let cmd = cmd.arg(
         Arg::new("rays")
             .required(true)
@@ -382,7 +386,7 @@ fn combine_rays_from_model_fn(
     base_args: BaseArgs,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let mut camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let ray_filename = matches.get_one::<String>("rays").unwrap();
 
     let r_json = json::read_file(ray_filename)?;
@@ -496,8 +500,8 @@ fn create_rays_from_model_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("create_rays_from_model")
         .about("Create rays for a given located camera and its mappings")
         .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     (cmd, create_rays_from_model_fn)
 }
 
@@ -506,8 +510,8 @@ fn create_rays_from_model_fn(
     base_args: BaseArgs,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let mappings = pms.mappings();
 
     let named_rays = camera.get_rays(mappings, false);
@@ -527,8 +531,8 @@ fn create_rays_from_model_fn(
 fn create_rays_from_camera_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("create_rays_from_camera")
         .about("Create rays for a given located camera and its mappings");
-    let cmd = cmdline_args::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
     (cmd, create_rays_from_camera_fn)
 }
 
@@ -537,8 +541,8 @@ fn create_rays_from_camera_fn(
     base_args: BaseArgs,
     matches: &clap::ArgMatches,
 ) -> Result<(), String> {
-    let pms = cmdline_args::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::get_camera(matches, base_args.project())?;
+    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
+    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let mappings = pms.mappings();
 
     println!(
@@ -570,13 +574,14 @@ fn get_model_points_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("get_model_points")
         .about("Get model points from camera and pms")
         .long_about(GET_MODEL_POINTS_LONG_HELP);
-    let cmd = cmdline_args::add_camera_pms_arg(cmd); // positional
+    let cmd = cmdline_args::mapping::add_camera_pms_arg(cmd); // positional
     (cmd, get_model_points_fn)
 }
 
 //fi get_model_points_fn
 fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let camera_pms = cmdline_args::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
+    let camera_pms =
+        cmdline_args::mapping::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
     let mut result_nps = NamedPointSet::default();
     for (name, np) in base_args.nps().iter() {
         let mut ray_list = Vec::new();
@@ -614,7 +619,7 @@ fn project_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("project")
         .about("Get model points from camera and pms")
         .long_about(PROJECT_LONG_HELP);
-    // let cmd = cmdline_args::add_project_arg(cmd, true);
+    // let cmd = cmdline_args::project::add_project_arg(cmd, true);
     (cmd, project_fn)
 }
 
@@ -643,9 +648,9 @@ fn main() -> Result<(), String> {
         .about("Image calibration tool")
         .version("0.1.0")
         .subcommand_required(true);
-    let cmd = cmdline_args::add_project_arg(cmd, false);
-    let cmd = cmdline_args::add_camera_database_arg(cmd, false);
-    let cmd = cmdline_args::add_nps_arg(cmd, false);
+    let cmd = cmdline_args::project::add_project_arg(cmd, false);
+    let cmd = cmdline_args::camera::add_camera_database_arg(cmd, false);
+    let cmd = cmdline_args::mapping::add_nps_arg(cmd, false);
     let cmd = cmdline_args::add_verbose_arg(cmd);
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
@@ -671,7 +676,7 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let project = cmdline_args::get_project(&matches).map_err(print_err)?;
+    let project = cmdline_args::project::get_project(&matches).map_err(print_err)?;
     let verbose = cmdline_args::get_verbose(&matches);
 
     let base_args = BaseArgs { project, verbose };

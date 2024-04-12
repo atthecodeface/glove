@@ -229,6 +229,9 @@ pub struct ImageAccelerator {
     compute_vec_square: Pipeline,
     compute_window_sum_x: Pipeline,
     compute_window_sum_y: Pipeline,
+    compute_window_mean: Pipeline,
+    compute_window_var: Pipeline,
+    compute_window_var_scaled: Pipeline,
     /// Buffer for data that gets copied TO the GPU shader_in_out_data_buffer
     input_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied FROM the GPU shader_in_out_data_buffer
@@ -300,13 +303,20 @@ impl ImageAccelerator {
                 entries: &[in_out_data_bgle, in_data_bgle, in_data_b_bgle, uniform_bgle],
             });
         let pl = accelerator.create_pipeline_layout(&[&bgl]);
-        let compute_vec_sqrt = accelerator.create_pipeline(cs_module, "vec_sqrt", Some(&pl), 1)?;
+        let compute_vec_sqrt =
+            accelerator.create_pipeline(cs_module, "compute_vec_sqrt", Some(&pl), 1)?;
         let compute_vec_square =
-            accelerator.create_pipeline(cs_module, "vec_square", Some(&pl), 1)?;
+            accelerator.create_pipeline(cs_module, "compute_vec_square", Some(&pl), 1)?;
         let compute_window_sum_x =
-            accelerator.create_pipeline(cs_module, "window_sum_x", Some(&pl), 1)?;
+            accelerator.create_pipeline(cs_module, "compute_window_sum_x", Some(&pl), 1)?;
         let compute_window_sum_y =
-            accelerator.create_pipeline(cs_module, "window_sum_y", Some(&pl), 1)?;
+            accelerator.create_pipeline(cs_module, "compute_window_sum_y", Some(&pl), 1)?;
+        let compute_window_mean =
+            accelerator.create_pipeline(cs_module, "compute_window_mean", Some(&pl), 1)?;
+        let compute_window_var =
+            accelerator.create_pipeline(cs_module, "compute_window_var", Some(&pl), 1)?;
+        let compute_window_var_scaled =
+            accelerator.create_pipeline(cs_module, "compute_window_var_scaled", Some(&pl), 1)?;
         let input_buffer =
             accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input"));
         let shader_in_data_buffer =
@@ -359,6 +369,9 @@ impl ImageAccelerator {
             compute_vec_square,
             compute_window_sum_x,
             compute_window_sum_y,
+            compute_window_mean,
+            compute_window_var,
+            compute_window_var_scaled,
             input_buffer,
             uniform_buffer,
             output_buffer,
@@ -403,6 +416,8 @@ impl ImageAccelerator {
             cpass.set_pipeline(self.accelerator.pipeline_err(pipeline)?);
             cpass.insert_debug_marker("image accelerator slice");
             // Number of cells to run, the (x,y,z) size of item being processed
+            // If number of ops is bigger than 65536 then split - but then we need to specify an offset in the uniform?
+            // Should set_push_constants
             cpass.dispatch_workgroups(number_of_ops as u32, 1, 1);
         }
         encoder.copy_buffer_to_buffer(
@@ -412,6 +427,40 @@ impl ImageAccelerator {
             0,
             self.buffer_size as u64,
         );
+
+        Ok(encoder.finish())
+    }
+
+    //mp create_cmd_buffer
+    fn create_cmd_buffer(
+        &self,
+        number_of_ops: [usize; 3],
+        pipeline: Pipeline,
+        buffers_in: &[((&wgpu::Buffer, usize), (&wgpu::Buffer, usize), usize)],
+        buffers_out: &[((&wgpu::Buffer, usize), (&wgpu::Buffer, usize), usize)],
+    ) -> Result<wgpu::CommandBuffer, String> {
+        let mut encoder = self
+            .accelerator
+            .device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        for (bi, bo, size) in buffers_in {
+            encoder.copy_buffer_to_buffer(bi.0, bi.1 as u64, bo.0, bo.1 as u64, *size as u64);
+        }
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: None,
+            timestamp_writes: None,
+        });
+        cpass.set_bind_group(0, &self.bind_group, &[]);
+        cpass.set_pipeline(self.accelerator.pipeline_err(pipeline)?);
+        cpass.dispatch_workgroups(
+            number_of_ops[0] as u32,
+            number_of_ops[1] as u32,
+            number_of_ops[2] as u32,
+        );
+        drop(cpass); // so encoder can be mutable again
+        for (bi, bo, size) in buffers_out {
+            encoder.copy_buffer_to_buffer(bi.0, bi.1 as u64, bo.0, bo.1 as u64, *size as u64);
+        }
 
         Ok(encoder.finish())
     }
@@ -504,7 +553,7 @@ impl Accelerate for ImageAccelerator {
         match shader {
             "sqrt" => {
                 let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height(), self.compute_vec_sqrt)?;
+                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_vec_sqrt)?;
                 self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
                     o.copy_from_slice(s);
                     Ok(())
@@ -513,7 +562,7 @@ impl Accelerate for ImageAccelerator {
             }
             "square" => {
                 let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height(), self.compute_vec_square)?;
+                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_vec_square)?;
                 self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
                     o.copy_from_slice(s);
                     Ok(())
@@ -522,7 +571,7 @@ impl Accelerate for ImageAccelerator {
             }
             "window_sum_x" => {
                 let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height(), self.compute_window_sum_x)?;
+                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_window_sum_x)?;
                 self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
                     o.copy_from_slice(s);
                     Ok(())
@@ -530,8 +579,111 @@ impl Accelerate for ImageAccelerator {
                 Ok(true)
             }
             "window_sum_y" => {
-                let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height(), self.compute_window_sum_y)?;
+                let cmd_buffer = self.create_cmd_buffer(
+                    [args.width() / 64, args.height(), 1],
+                    self.compute_window_sum_y,
+                    &[
+                        (
+                            (&self.input_buffer, 0),
+                            (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.uniform_buffer, 0),
+                            (&self.shader_uniform_buffer, 0),
+                            std::mem::size_of::<KernelArgs>(),
+                        ),
+                    ],
+                    &[(
+                        (&self.shader_in_out_data_buffer, 0),
+                        (&self.output_buffer, 0),
+                        self.buffer_size,
+                    )],
+                )?;
+                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                    o.copy_from_slice(s);
+                    Ok(())
+                })?;
+                Ok(true)
+            }
+            "window_mean" => {
+                let cmd_buffer = self.create_cmd_buffer(
+                    [args.width() * args.height() / 256, 1, 1],
+                    self.compute_window_mean,
+                    &[
+                        (
+                            (&self.input_buffer, 0),
+                            (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.uniform_buffer, 0),
+                            (&self.shader_uniform_buffer, 0),
+                            std::mem::size_of::<KernelArgs>(),
+                        ),
+                    ],
+                    &[(
+                        (&self.shader_in_out_data_buffer, 0),
+                        (&self.output_buffer, 0),
+                        self.buffer_size,
+                    )],
+                )?;
+                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                    o.copy_from_slice(s);
+                    Ok(())
+                })?;
+                Ok(true)
+            }
+            "window_var" => {
+                let cmd_buffer = self.create_cmd_buffer(
+                    [args.width() * args.height() / 256, 1, 1],
+                    self.compute_window_var,
+                    &[
+                        (
+                            (&self.input_buffer, 0),
+                            (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.uniform_buffer, 0),
+                            (&self.shader_uniform_buffer, 0),
+                            std::mem::size_of::<KernelArgs>(),
+                        ),
+                    ],
+                    &[(
+                        (&self.shader_in_out_data_buffer, 0),
+                        (&self.output_buffer, 0),
+                        self.buffer_size,
+                    )],
+                )?;
+                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                    o.copy_from_slice(s);
+                    Ok(())
+                })?;
+                Ok(true)
+            }
+            "window_var_scaled" => {
+                let cmd_buffer = self.create_cmd_buffer(
+                    [args.width() * args.height() / 256, 1, 1],
+                    self.compute_window_var_scaled,
+                    &[
+                        (
+                            (&self.input_buffer, 0),
+                            (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.uniform_buffer, 0),
+                            (&self.shader_uniform_buffer, 0),
+                            std::mem::size_of::<KernelArgs>(),
+                        ),
+                    ],
+                    &[(
+                        (&self.shader_in_out_data_buffer, 0),
+                        (&self.output_buffer, 0),
+                        self.buffer_size,
+                    )],
+                )?;
                 self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
                     o.copy_from_slice(s);
                     Ok(())

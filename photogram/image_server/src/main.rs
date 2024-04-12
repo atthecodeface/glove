@@ -22,7 +22,7 @@ mod project_entry;
 use project_decode::ProjectDecode;
 use project_entry::NamedProject;
 mod image_cache;
-use image_cache::ImageCache;
+use image_cache::{ImageCache, ImageCacheEntry};
 
 //a ProjectSet
 //ti ProjectSet
@@ -32,6 +32,7 @@ struct ProjectSet {
     projects: Vec<NamedProject>,
     index_by_name: HashMap<String, usize>,
     kernels: Kernels,
+    image_cache: ImageCache,
 }
 
 //ip ProjectSet
@@ -41,11 +42,13 @@ impl ProjectSet {
         let image_root = "".into();
         let projects = vec![];
         let index_by_name = HashMap::new();
+        let image_cache = ImageCache::new();
         Self {
             image_root,
             projects,
             index_by_name,
             kernels,
+            image_cache,
         }
     }
 
@@ -227,7 +230,10 @@ impl ProjectSet {
         let cip_r = cip.borrow();
         let path = self.image_root.as_path().join(cip_r.image());
         server.verbose().then(|| eprintln!("Open image {path:?}"));
-        let src_img = ImageRgb8::read_image(&path)?;
+
+        let src_img_ref = self.image_cache.src_image(&path)?;
+        let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
+
         let src_size = src_img.size();
         let src_size = (src_size.0 as f64, src_size.1 as f64);
         let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
@@ -269,7 +275,11 @@ impl ProjectSet {
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
         let path = self.image_root.as_path().join(cip_r.image());
-        let src_img = ImageRgb8::read_image(path)?;
+
+        let src_img_ref = self.image_cache.src_image(&path)?;
+        let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
+        // let src_img = ImageRgb8::read_image(path)?;
+
         let nps = p.nps_ref();
         let camera = cip_r.camera_ref();
 
@@ -296,7 +306,7 @@ impl ProjectSet {
 
         let px_per_model = pd.px_per_model.unwrap_or(10.0);
         let Some(patch) =
-            Patch::create(&src_img, px_per_model, &model_pts, &|m| camera.map_model(m))?
+            Patch::create(src_img, px_per_model, &model_pts, &|m| camera.map_model(m))?
         else {
             return Err("Failled to create patch".into());
         };
@@ -418,19 +428,19 @@ fn main() -> Result<(), String> {
         .about("Image calibration/correlation server")
         .version("0.1.0");
     let cmd = cmdline_args::add_verbose_arg(cmd);
-    let cmd = cmdline_args::add_threads_arg(cmd);
-    let cmd = cmdline_args::add_port_arg(cmd);
-    let cmd = cmdline_args::add_file_root_arg(cmd, true);
-    let cmd = cmdline_args::add_image_root_arg(cmd, true);
-    let cmd = cmdline_args::add_project_root_arg(cmd, true);
+    let cmd = cmdline_args::threads::add_threads_arg(cmd);
+    let cmd = cmdline_args::threads::add_port_arg(cmd);
+    let cmd = cmdline_args::file_system::add_file_root_arg(cmd, true);
+    let cmd = cmdline_args::file_system::add_image_root_arg(cmd, true);
+    let cmd = cmdline_args::file_system::add_project_root_arg(cmd, true);
 
     let matches = cmd.get_matches();
     let verbose = cmdline_args::get_verbose(&matches);
-    let num_threads = cmdline_args::get_threads(&matches)?;
-    let port = cmdline_args::get_port(&matches)?;
-    let file_root = cmdline_args::get_file_root(&matches)?;
-    let image_root = cmdline_args::get_image_root(&matches)?;
-    let project_root = cmdline_args::get_project_root(&matches)?;
+    let num_threads = cmdline_args::threads::get_threads(&matches)?;
+    let port = cmdline_args::threads::get_port(&matches)?;
+    let file_root = cmdline_args::file_system::get_file_root(&matches)?;
+    let image_root = cmdline_args::file_system::get_image_root(&matches)?;
+    let project_root = cmdline_args::file_system::get_project_root(&matches)?;
     if num_threads == 0 || num_threads > 20 {
         return Err(format!(
             "Number of threads {num_threads} must be non-zero and no more than 20"

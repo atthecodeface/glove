@@ -21,15 +21,15 @@ fn calibrate_cmd() -> (Command, SubCmdFn) {
         .long_about(
             "This uses the camera calibration JSON file in conjunction with a camera body/lens and focus distance to generate the tan-tan mapping for the lens as world-to-screen (and vice-versa) polynomials. The camera calibration JSON file includes 'mappings' that is a list of (grid xmm, grid ymm, x pixel, y pixel) tuples each being the mapping of a grid x,y to a frame pixel x,y on an image. If read and write imnages are provided then the immage is read and red crosses superimposed on the image at the post-calibrated points using the provided grid x,y points as sources (so they should align with the actual grid points on the image)"
         );
-    let cmd = cmdline_args::add_camera_calibrate_arg(cmd, true);
-    let cmd = cmdline_args::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::add_image_write_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_calibrate_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
     (cmd, calibrate_fn)
 }
 
 //fi calibrate_fn
 fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), String> {
-    let calibrate = cmdline_args::get_camera_calibrate(matches, &cdb)?;
+    let calibrate = cmdline_args::camera::get_camera_calibrate(matches, &cdb)?;
     let v = calibrate.get_pairings();
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
@@ -124,15 +124,15 @@ fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), S
 //fi image_grid_cmd
 fn image_grid_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("image_grid").about("Read image and draw crosses on grid coordinates");
-    let cmd = cmdline_args::add_camera_arg(cmd, true);
-    let cmd = cmdline_args::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::add_image_write_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
+    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
     (cmd, image_grid_fn)
 }
 
 //fi image_grid_fn
 fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), String> {
-    let mut camera = cmdline_args::get_camera(matches, &cdb)?;
+    let mut camera = cmdline_args::camera::get_camera(matches, &cdb)?;
     let camera_pt_z: Point3D = [-0.2, -1.2, -460.].into();
     let q = quat::new();
     camera = camera.placed_at(camera_pt_z);
@@ -180,7 +180,7 @@ fn main() -> Result<(), String> {
         .about("Camera calibration tool")
         .version("0.1.0")
         .subcommand_required(true);
-    let cmd = cmdline_args::add_camera_database_arg(cmd, true);
+    let cmd = cmdline_args::camera::add_camera_database_arg(cmd, true);
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
@@ -194,7 +194,7 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let cdb = cmdline_args::get_camera_database(&matches).map_err(print_err)?;
+    let cdb = cmdline_args::camera::get_camera_database(&matches).map_err(print_err)?;
 
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
