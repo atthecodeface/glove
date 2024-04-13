@@ -535,35 +535,46 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
         "Read initial image, size is {:?} (max pixels in kernel is 4M) : xy {xy:?}",
         img.size()
     );
-    let (w, h) = img.size();
-    let npix = w as usize * h as usize;
-    let max = (4 * 1024 * 1024).min(npix);
-    let img_scale = Some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
-    let (w, h, mut src_img) = img.as_vec_gray_f32(img_scale);
+
+    let (src_w, src_h) = img.size();
+    let src_npix = src_w as usize * src_h as usize;
+    let src_max = (4 * 1024 * 1024).min(src_npix);
+    let src_img_scale =
+        Some(((src_max as f32 / src_npix as f32).sqrt() * src_w as f32).floor() as usize);
+    let (src_w, src_h, mut src_img) = img.as_vec_gray_f32(src_img_scale);
     eprintln!(
-        "Using size {w}, {h} ({:.2} Mpx)",
-        (w * h) as f32 / 1024.0 / 1024.0
+        "Using size {src_w}, {src_h} ({:.2} Mpx)",
+        (src_w * src_h) as f32 / 1024.0 / 1024.0
     );
 
-    let (ow, oh, mut img_data) = base_args.images[1].as_vec_gray_f32(img_scale);
+    let (dst_w, dst_h) = img.size();
+    let dst_npix = dst_w as usize * dst_h as usize;
+    let dst_max = (4 * 1024 * 1024).min(dst_npix);
+    let dst_img_scale =
+        Some(((dst_max as f32 / dst_npix as f32).sqrt() * dst_w as f32).floor() as usize);
+    let (dst_w, dst_h, mut img_data) = base_args.images[1].as_vec_gray_f32(dst_img_scale);
     eprintln!(
-        "Other size {ow}, {oh} ({:.2} Mpx)",
-        (ow * oh) as f32 / 1024.0 / 1024.0
+        "Other size {dst_w}, {dst_h} ({:.2} Mpx)",
+        (dst_w * dst_h) as f32 / 1024.0 / 1024.0
     );
 
     let kernels = Kernels::new();
-    let args: KernelArgs = (w, h).into();
 
     if flags & 1 != 0 {
-        let args = args.with_size(4);
         eprintln!("Applying window_var_scaled to both");
-        kernels.run_shader("window_var_scaled", &args, None, img_data.as_mut_slice())?;
+        let args: KernelArgs = (src_w, src_h).into();
+        let args = args.with_size(4);
         kernels.run_shader("window_var_scaled", &args, None, src_img.as_mut_slice())?;
+        let args: KernelArgs = (dst_w, dst_h).into();
+        let args = args.with_size(4);
+        kernels.run_shader("window_var_scaled", &args, None, img_data.as_mut_slice())?;
     }
 
+    let args: KernelArgs = (dst_w, dst_h).into();
     let args = args.with_size(ws as usize);
     let args = args.with_scale(scale);
     let args = args.with_xy(xy);
+    let args = args.with_src((src_w, src_h));
 
     for k in kernels_to_apply {
         eprintln!("Applying {k} with {args:?}");
@@ -571,7 +582,7 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     }
 
     eprintln!("Completed kernel");
-    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+    let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data, 1.0);
     eprintln!("Created luma image");
 
     if let Some(write_filename) = &base_args.write_filename {
