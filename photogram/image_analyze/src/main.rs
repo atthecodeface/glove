@@ -14,7 +14,7 @@ type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<(), String>
 
 //tp BaseArgs
 struct BaseArgs {
-    image: ImageRgb8,
+    images: Vec<ImageRgb8>,
     write_filename: Option<String>,
     bg_color: Option<Color>,
 }
@@ -261,9 +261,9 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 
 //fi find_regions_fn
 fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
-    let img = base_args.image;
+    let img = &base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg));
+    let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(Color, (f64, f64))> =
         regions.into_iter().map(|x| (x.color(), x.cog())).collect();
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
@@ -299,10 +299,10 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi find_grid_points_fn
-fn find_grid_points_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
-    let mut img = base_args.image;
+fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+    let img = &mut base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg));
+    let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     let (xsz, ysz) = img.size();
     let xsz = xsz as f64;
@@ -359,7 +359,7 @@ fn as_luma_cmd() -> (Command, SubCmdFn) {
 
 //fi as_luma_fn
 fn as_luma_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
-    let img = base_args.image;
+    let img = &base_args.images[0];
     eprintln!("Read initial image, size is {:?}", img.size());
     let (w, h, img_data) = img.as_vec_gray_f32(None);
     let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
@@ -389,7 +389,7 @@ fn luma_window_cmd() -> (Command, SubCmdFn) {
 
 //fi luma_window_fn
 fn luma_window_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
-    let img = base_args.image;
+    let img = &base_args.images[0];
     eprintln!(
         "Read initial image, size is {:?} (max pixels in kernel is 4M)",
         img.size()
@@ -446,14 +446,16 @@ fn luma_kernel_cmd() -> (Command, SubCmdFn) {
     let cmd = cmdline_args::kernels::add_kernel_arg(cmd, true);
     let cmd = cmdline_args::kernels::add_scale_arg(cmd, false);
     let cmd = cmdline_args::kernels::add_size_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_xy_arg(cmd, false);
     (cmd, luma_kernel_fn)
 }
 
 //fi luma_kernel_fn
 fn luma_kernel_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
-    let img = base_args.image;
+    let img = &base_args.images[0];
     let ws = cmdline_args::kernels::get_size(matches)?;
     let scale = cmdline_args::kernels::get_scale(matches)?;
+    let xy = cmdline_args::kernels::get_xy(matches)?;
     let kernels_to_apply = cmdline_args::kernels::get_kernels(matches)?;
     eprintln!(
         "Read initial image, size is {:?} (max pixels in kernel is 4M)",
@@ -474,9 +476,98 @@ fn luma_kernel_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
     let args: KernelArgs = (w, h).into();
     let args = args.with_size(ws as usize);
     let args = args.with_scale(scale);
+    let args = args.with_xy(xy);
 
     for k in kernels_to_apply {
         kernels.run_shader(&k, &args, None, img_data.as_mut_slice())?;
+    }
+
+    eprintln!("Completed kernel");
+    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+    eprintln!("Created luma image");
+
+    if let Some(write_filename) = &base_args.write_filename {
+        img.write(write_filename)?;
+        eprintln!("Image written");
+    } else {
+        eprintln!("Image not written as no output image provided");
+    }
+    Ok(())
+}
+
+//hi LUMA_KERNEL_PAIR_LONG_HELP
+const LUMA_KERNEL_PAIR_LONG_HELP: &str = "\
+Apply kernels to a pair of images in luma space
+
+Convert the images to 16-bit luma
+
+Apply a number of kernels (with a single set of size, scale etc arguments)
+
+Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
+";
+
+//fi luma_kernel_pair_cmd
+fn luma_kernel_pair_cmd() -> (Command, SubCmdFn) {
+    let cmd = Command::new("luma_kernel_pair")
+        .about("Apply kernels to a pair of images in luma space")
+        .long_about(LUMA_KERNEL_PAIR_LONG_HELP);
+    let cmd = cmdline_args::kernels::add_kernel_arg(cmd, true);
+    let cmd = cmdline_args::kernels::add_scale_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_size_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_xy_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_flags_arg(cmd, false);
+    (cmd, luma_kernel_pair_fn)
+}
+
+//fi luma_kernel_pair_fn
+fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+    if base_args.images.len() != 2 {
+        return Err("Two 'read' images are required for a kernel on a pair of images".into());
+    }
+    let ws = cmdline_args::kernels::get_size(matches)?;
+    let scale = cmdline_args::kernels::get_scale(matches)?;
+    let xy = cmdline_args::kernels::get_xy(matches)?;
+    let flags = cmdline_args::kernels::get_flags(matches)?;
+    let kernels_to_apply = cmdline_args::kernels::get_kernels(matches)?;
+
+    let img = &base_args.images[0];
+    eprintln!(
+        "Read initial image, size is {:?} (max pixels in kernel is 4M) : xy {xy:?}",
+        img.size()
+    );
+    let (w, h) = img.size();
+    let npix = w as usize * h as usize;
+    let max = (4 * 1024 * 1024).min(npix);
+    let img_scale = Some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
+    let (w, h, mut src_img) = img.as_vec_gray_f32(img_scale);
+    eprintln!(
+        "Using size {w}, {h} ({:.2} Mpx)",
+        (w * h) as f32 / 1024.0 / 1024.0
+    );
+
+    let (ow, oh, mut img_data) = base_args.images[1].as_vec_gray_f32(img_scale);
+    eprintln!(
+        "Other size {ow}, {oh} ({:.2} Mpx)",
+        (ow * oh) as f32 / 1024.0 / 1024.0
+    );
+
+    let kernels = Kernels::new();
+    let args: KernelArgs = (w, h).into();
+
+    if flags & 1 != 0 {
+        let args = args.with_size(4);
+        eprintln!("Applying window_var_scaled to both");
+        kernels.run_shader("window_var_scaled", &args, None, img_data.as_mut_slice())?;
+        kernels.run_shader("window_var_scaled", &args, None, src_img.as_mut_slice())?;
+    }
+
+    let args = args.with_size(ws as usize);
+    let args = args.with_scale(scale);
+    let args = args.with_xy(xy);
+
+    for k in kernels_to_apply {
+        eprintln!("Applying {k} with {args:?}");
+        kernels.run_shader(&k, &args, Some(src_img.as_slice()), img_data.as_mut_slice())?;
     }
 
     eprintln!("Completed kernel");
@@ -517,6 +608,7 @@ fn main() -> Result<(), String> {
         as_luma_cmd(),
         luma_window_cmd(),
         luma_kernel_cmd(),
+        luma_kernel_pair_cmd(),
     ] {
         subcmds.insert(c.get_name().into(), f);
         cmd = cmd.subcommand(c);
@@ -524,11 +616,11 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let image = cmdline_args::image::get_image_read(&matches)?;
+    let images = cmdline_args::image::get_image_read_all(&matches)?;
     let write_filename = cmdline_args::image::get_opt_image_write_filename(&matches)?;
     let bg_color = cmdline_args::image::get_opt_bg_color(&matches)?;
     let base_args = BaseArgs {
-        image,
+        images,
         write_filename,
         bg_color,
     };

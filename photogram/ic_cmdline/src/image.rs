@@ -13,7 +13,7 @@ pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {
             .short('r')
             .required(required)
             .help("Image to read")
-            .action(ArgAction::Set),
+            .action(ArgAction::Append),
     )
 }
 
@@ -24,6 +24,16 @@ pub fn get_image_read(matches: &ArgMatches) -> Result<ImageRgb8, String> {
         .ok_or("An image filename to read is required")?;
     let img = ImageRgb8::read_image(read_filename)?;
     Ok(img)
+}
+
+//fp get_image_read_all
+pub fn get_image_read_all(matches: &ArgMatches) -> Result<Vec<ImageRgb8>, String> {
+    let mut images = vec![];
+    for read_filename in matches.get_many::<String>("read").unwrap() {
+        let img = ImageRgb8::read_image(read_filename)?;
+        images.push(img);
+    }
+    Ok(images)
 }
 
 //fp get_image_read_or_create

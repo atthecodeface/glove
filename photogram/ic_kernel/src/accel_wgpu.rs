@@ -232,8 +232,11 @@ pub struct ImageAccelerator {
     compute_window_mean: Pipeline,
     compute_window_var: Pipeline,
     compute_window_var_scaled: Pipeline,
+    compute_window_corr: Pipeline,
     /// Buffer for data that gets copied TO the GPU shader_in_out_data_buffer
     input_buffer: wgpu::Buffer,
+    /// Buffer for data that gets copied TO the GPU shader_in_data_b_buffer
+    input_b_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied FROM the GPU shader_in_out_data_buffer
     output_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied TO the GPU shader_uniform_buffer
@@ -317,8 +320,12 @@ impl ImageAccelerator {
             accelerator.create_pipeline(cs_module, "compute_window_var", Some(&pl), 1)?;
         let compute_window_var_scaled =
             accelerator.create_pipeline(cs_module, "compute_window_var_scaled", Some(&pl), 1)?;
+        let compute_window_corr =
+            accelerator.create_pipeline(cs_module, "compute_window_corr", Some(&pl), 1)?;
         let input_buffer =
             accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input"));
+        let input_b_buffer =
+            accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input B"));
         let shader_in_data_buffer =
             accelerator.create_buffer(BufferType::GpuData, buffer_size, Some("Shader In Data"));
         let shader_in_data_b_buffer =
@@ -372,7 +379,9 @@ impl ImageAccelerator {
             compute_window_mean,
             compute_window_var,
             compute_window_var_scaled,
+            compute_window_corr,
             input_buffer,
+            input_b_buffer,
             uniform_buffer,
             output_buffer,
             shader_in_out_data_buffer,
@@ -482,6 +491,23 @@ impl ImageAccelerator {
         Ok(())
     }
 
+    //mp copy_to_input_b
+    fn copy_to_input_b(&self, src_data: &[u8]) -> Result<(), String> {
+        let byte_size = src_data.len() as u64;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let buffer_slice = self.input_b_buffer.slice(0..byte_size);
+        buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
+        self.accelerator.block();
+        let Ok(Ok(())) = receiver.recv() else {
+            return Err("Failed to run compute on gpu!".into());
+        };
+        buffer_slice
+            .get_mapped_range_mut()
+            .copy_from_slice(bytemuck::cast_slice(src_data));
+        self.input_b_buffer.unmap();
+        Ok(())
+    }
+
     //mp copy_uniform
     fn copy_uniform(&self, args: &KernelArgs) -> Result<(), String> {
         let byte_size = std::mem::size_of::<KernelArgs>() as u64;
@@ -523,6 +549,7 @@ impl ImageAccelerator {
         let byte_size = std::mem::size_of_val(out_data) as u64;
         if let Some(src_data) = src_data {
             self.copy_to_input(bytemuck::cast_slice(src_data))?;
+            self.copy_to_input_b(bytemuck::cast_slice(out_data))?;
         } else {
             self.copy_to_input(bytemuck::cast_slice(out_data))?;
         }
@@ -670,6 +697,39 @@ impl Accelerate for ImageAccelerator {
                         (
                             (&self.input_buffer, 0),
                             (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.uniform_buffer, 0),
+                            (&self.shader_uniform_buffer, 0),
+                            std::mem::size_of::<KernelArgs>(),
+                        ),
+                    ],
+                    &[(
+                        (&self.shader_in_out_data_buffer, 0),
+                        (&self.output_buffer, 0),
+                        self.buffer_size,
+                    )],
+                )?;
+                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                    o.copy_from_slice(s);
+                    Ok(())
+                })?;
+                Ok(true)
+            }
+            "window_corr" => {
+                let cmd_buffer = self.create_cmd_buffer(
+                    [args.width() * args.height() / 256, 1, 1],
+                    self.compute_window_corr,
+                    &[
+                        (
+                            (&self.input_buffer, 0),
+                            (&self.shader_in_data_buffer, 0),
+                            self.buffer_size,
+                        ),
+                        (
+                            (&self.input_b_buffer, 0),
+                            (&self.shader_in_data_b_buffer, 0),
                             self.buffer_size,
                         ),
                         (
