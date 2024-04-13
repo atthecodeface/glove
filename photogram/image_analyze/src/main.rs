@@ -513,6 +513,7 @@ fn luma_kernel_pair_cmd() -> (Command, SubCmdFn) {
         .long_about(LUMA_KERNEL_PAIR_LONG_HELP);
     let cmd = cmdline_args::kernels::add_kernel_arg(cmd, true);
     let cmd = cmdline_args::kernels::add_scale_arg(cmd, false);
+    let cmd = cmdline_args::kernels::add_angle_arg(cmd, false);
     let cmd = cmdline_args::kernels::add_size_arg(cmd, false);
     let cmd = cmdline_args::kernels::add_xy_arg(cmd, false);
     let cmd = cmdline_args::kernels::add_flags_arg(cmd, false);
@@ -526,6 +527,7 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     }
     let ws = cmdline_args::kernels::get_size(matches)?;
     let scale = cmdline_args::kernels::get_scale(matches)?;
+    let angle = cmdline_args::kernels::get_angle(matches)?;
     let xy = cmdline_args::kernels::get_xy(matches)?;
     let flags = cmdline_args::kernels::get_flags(matches)?;
     let kernels_to_apply = cmdline_args::kernels::get_kernels(matches)?;
@@ -573,6 +575,7 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     let args: KernelArgs = (dst_w, dst_h).into();
     let args = args.with_size(ws as usize);
     let args = args.with_scale(scale);
+    let args = args.with_angle(angle.to_radians());
     let args = args.with_xy(xy);
     let args = args.with_src((src_w, src_h));
 

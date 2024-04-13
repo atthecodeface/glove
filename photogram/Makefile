@@ -42,7 +42,10 @@ image_server:
 image_server_debug:
 	cargo run --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/photogram/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
 
-KERNEL_FLAGS ?= 0
+FLAGS ?= 0
+ANGLE ?= 0.0
+KERNEL = window_corr 
+KERNEL_FLAGS = --kernel ${KERNEL} --kernel_flags ${FLAGS} --kernel_angle ${ANGLE}
 
 .PHONY: correlate
 correlate:
@@ -50,12 +53,12 @@ correlate:
 	# 888x274 maps to 1170x262 ? 888x266, 735x70, 1221x206, 1155x126 - all badly with flags 1
 	# 259x914 maps to 203x434
 	# 825x774 maps to 203x434
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 20 --kernel_scale 1.000 --kernel_x 259 --kernel_y 914 --kernel_flags  ${KERNEL_FLAGS}
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 10 --kernel_scale 1.000 --kernel_x 667 --kernel_y 263 --kernel_flags  ${KERNEL_FLAGS}
-	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 10 --kernel_scale 1.000 --kernel_x 888 --kernel_y 274 --kernel_flags  ${KERNEL_FLAGS}
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 40 --kernel_scale 1.000 --kernel_x 825 --kernel_y 774 --kernel_flags  ${KERNEL_FLAGS}
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 40 --kernel_scale 1.000 --kernel_x 499 --kernel_y 636 --kernel_flags  ${KERNEL_FLAGS}
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/1683_at_825_774.jpg --read ${IMAGE_DIR}/1683_at_825_774.jpg --write correlated.png luma_kernel_pair --kernel window_corr --kernel_size 40 --kernel_scale 1.000 --kernel_x 60 --kernel_y 160 --kernel_flags ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 20 --kernel_scale 1.000 --kernel_x 259 --kernel_y 914 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 10 --kernel_scale 1.000 --kernel_x 667 --kernel_y 263 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 10 --kernel_scale 1.000 --kernel_x 888 --kernel_y 274 ${KERNEL_FLAGS}
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 825 --kernel_y 774 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 499 --kernel_y 636 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/1683_at_825_774.jpg --read ${IMAGE_DIR}/1683_at_825_774.jpg --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 60 --kernel_y 160 ${KERNEL_FLAGS}
 
 ${IMG_CAL}: build
 

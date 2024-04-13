@@ -1,5 +1,6 @@
 //a Imports
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use crate::{Accelerate, KernelArgs};
 use ic_base::utils::rtc::run_to_completion as rtc;
@@ -225,14 +226,7 @@ impl AccelWgpu {
 pub struct ImageAccelerator {
     accelerator: AccelWgpu,
     buffer_size: usize,
-    compute_vec_sqrt: Pipeline,
-    compute_vec_square: Pipeline,
-    compute_window_sum_x: Pipeline,
-    compute_window_sum_y: Pipeline,
-    compute_window_mean: Pipeline,
-    compute_window_var: Pipeline,
-    compute_window_var_scaled: Pipeline,
-    compute_window_corr: Pipeline,
+    pipelines: HashMap<&'static str, (Pipeline, bool)>,
     /// Buffer for data that gets copied TO the GPU shader_in_out_data_buffer
     input_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied TO the GPU shader_in_data_b_buffer
@@ -306,22 +300,80 @@ impl ImageAccelerator {
                 entries: &[in_out_data_bgle, in_data_bgle, in_data_b_bgle, uniform_bgle],
             });
         let pl = accelerator.create_pipeline_layout(&[&bgl]);
-        let compute_vec_sqrt =
-            accelerator.create_pipeline(cs_module, "compute_vec_sqrt", Some(&pl), 1)?;
-        let compute_vec_square =
-            accelerator.create_pipeline(cs_module, "compute_vec_square", Some(&pl), 1)?;
-        let compute_window_sum_x =
-            accelerator.create_pipeline(cs_module, "compute_window_sum_x", Some(&pl), 1)?;
-        let compute_window_sum_y =
-            accelerator.create_pipeline(cs_module, "compute_window_sum_y", Some(&pl), 1)?;
-        let compute_window_mean =
-            accelerator.create_pipeline(cs_module, "compute_window_mean", Some(&pl), 1)?;
-        let compute_window_var =
-            accelerator.create_pipeline(cs_module, "compute_window_var", Some(&pl), 1)?;
-        let compute_window_var_scaled =
-            accelerator.create_pipeline(cs_module, "compute_window_var_scaled", Some(&pl), 1)?;
-        let compute_window_corr =
-            accelerator.create_pipeline(cs_module, "compute_window_corr", Some(&pl), 1)?;
+        let mut pipelines = HashMap::new();
+        pipelines.insert(
+            "sqrt",
+            (
+                accelerator.create_pipeline(cs_module, "compute_vec_sqrt", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "square",
+            (
+                accelerator.create_pipeline(cs_module, "compute_vec_square", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_sum_x",
+            (
+                accelerator.create_pipeline(cs_module, "compute_window_sum_x", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_sum_y",
+            (
+                accelerator.create_pipeline(cs_module, "compute_window_sum_y", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_mean",
+            (
+                accelerator.create_pipeline(cs_module, "compute_window_mean", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_var",
+            (
+                accelerator.create_pipeline(cs_module, "compute_window_var", Some(&pl), 1)?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_var_scaled",
+            (
+                accelerator.create_pipeline(
+                    cs_module,
+                    "compute_window_var_scaled",
+                    Some(&pl),
+                    1,
+                )?,
+                false,
+            ),
+        );
+        pipelines.insert(
+            "window_corr",
+            (
+                accelerator.create_pipeline(cs_module, "compute_window_corr", Some(&pl), 1)?,
+                true,
+            ),
+        );
+        pipelines.insert(
+            "window_corr_arb",
+            (
+                accelerator.create_pipeline(
+                    cs_module,
+                    "compute_window_corr_arbitrary",
+                    Some(&pl),
+                    1,
+                )?,
+                true,
+            ),
+        );
         let input_buffer =
             accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input"));
         let input_b_buffer =
@@ -372,14 +424,7 @@ impl ImageAccelerator {
         Ok(Self {
             accelerator,
             buffer_size,
-            compute_vec_sqrt,
-            compute_vec_square,
-            compute_window_sum_x,
-            compute_window_sum_y,
-            compute_window_mean,
-            compute_window_var,
-            compute_window_var_scaled,
-            compute_window_corr,
+            pipelines,
             input_buffer,
             input_b_buffer,
             uniform_buffer,
@@ -577,180 +622,72 @@ impl Accelerate for ImageAccelerator {
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
     ) -> Result<bool, String> {
-        match shader {
-            "sqrt" => {
-                let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_vec_sqrt)?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "square" => {
-                let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_vec_square)?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "window_sum_x" => {
-                let cmd_buffer =
-                    self.cmd_buffer(args.width() * args.height() / 64, self.compute_window_sum_x)?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "window_sum_y" => {
-                let cmd_buffer = self.create_cmd_buffer(
-                    [args.width() / 64, args.height(), 1],
-                    self.compute_window_sum_y,
-                    &[
-                        (
-                            (&self.input_buffer, 0),
-                            (&self.shader_in_data_buffer, 0),
+        if let Some((p, x)) = self.pipelines.get(shader) {
+            match *x {
+                false => {
+                    let cmd_buffer = self.create_cmd_buffer(
+                        [args.width() * args.height() / 256, 1, 1],
+                        *p,
+                        &[
+                            (
+                                (&self.input_buffer, 0),
+                                (&self.shader_in_data_buffer, 0),
+                                self.buffer_size,
+                            ),
+                            (
+                                (&self.uniform_buffer, 0),
+                                (&self.shader_uniform_buffer, 0),
+                                std::mem::size_of::<KernelArgs>(),
+                            ),
+                        ],
+                        &[(
+                            (&self.shader_in_out_data_buffer, 0),
+                            (&self.output_buffer, 0),
                             self.buffer_size,
-                        ),
-                        (
-                            (&self.uniform_buffer, 0),
-                            (&self.shader_uniform_buffer, 0),
-                            std::mem::size_of::<KernelArgs>(),
-                        ),
-                    ],
-                    &[(
-                        (&self.shader_in_out_data_buffer, 0),
-                        (&self.output_buffer, 0),
-                        self.buffer_size,
-                    )],
-                )?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "window_mean" => {
-                let cmd_buffer = self.create_cmd_buffer(
-                    [args.width() * args.height() / 256, 1, 1],
-                    self.compute_window_mean,
-                    &[
-                        (
-                            (&self.input_buffer, 0),
-                            (&self.shader_in_data_buffer, 0),
+                        )],
+                    )?;
+                    self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                        o.copy_from_slice(s);
+                        Ok(())
+                    })?;
+                    Ok(true)
+                }
+                true => {
+                    let cmd_buffer = self.create_cmd_buffer(
+                        [args.width() * args.height() / 256, 1, 1],
+                        *p,
+                        &[
+                            (
+                                (&self.input_buffer, 0),
+                                (&self.shader_in_data_buffer, 0),
+                                self.buffer_size,
+                            ),
+                            (
+                                (&self.input_b_buffer, 0),
+                                (&self.shader_in_data_b_buffer, 0),
+                                self.buffer_size,
+                            ),
+                            (
+                                (&self.uniform_buffer, 0),
+                                (&self.shader_uniform_buffer, 0),
+                                std::mem::size_of::<KernelArgs>(),
+                            ),
+                        ],
+                        &[(
+                            (&self.shader_in_out_data_buffer, 0),
+                            (&self.output_buffer, 0),
                             self.buffer_size,
-                        ),
-                        (
-                            (&self.uniform_buffer, 0),
-                            (&self.shader_uniform_buffer, 0),
-                            std::mem::size_of::<KernelArgs>(),
-                        ),
-                    ],
-                    &[(
-                        (&self.shader_in_out_data_buffer, 0),
-                        (&self.output_buffer, 0),
-                        self.buffer_size,
-                    )],
-                )?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
+                        )],
+                    )?;
+                    self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
+                        o.copy_from_slice(s);
+                        Ok(())
+                    })?;
+                    Ok(true)
+                }
             }
-            "window_var" => {
-                let cmd_buffer = self.create_cmd_buffer(
-                    [args.width() * args.height() / 256, 1, 1],
-                    self.compute_window_var,
-                    &[
-                        (
-                            (&self.input_buffer, 0),
-                            (&self.shader_in_data_buffer, 0),
-                            self.buffer_size,
-                        ),
-                        (
-                            (&self.uniform_buffer, 0),
-                            (&self.shader_uniform_buffer, 0),
-                            std::mem::size_of::<KernelArgs>(),
-                        ),
-                    ],
-                    &[(
-                        (&self.shader_in_out_data_buffer, 0),
-                        (&self.output_buffer, 0),
-                        self.buffer_size,
-                    )],
-                )?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "window_var_scaled" => {
-                let cmd_buffer = self.create_cmd_buffer(
-                    [args.width() * args.height() / 256, 1, 1],
-                    self.compute_window_var_scaled,
-                    &[
-                        (
-                            (&self.input_buffer, 0),
-                            (&self.shader_in_data_buffer, 0),
-                            self.buffer_size,
-                        ),
-                        (
-                            (&self.uniform_buffer, 0),
-                            (&self.shader_uniform_buffer, 0),
-                            std::mem::size_of::<KernelArgs>(),
-                        ),
-                    ],
-                    &[(
-                        (&self.shader_in_out_data_buffer, 0),
-                        (&self.output_buffer, 0),
-                        self.buffer_size,
-                    )],
-                )?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            "window_corr" => {
-                let cmd_buffer = self.create_cmd_buffer(
-                    [args.width() * args.height() / 256, 1, 1],
-                    self.compute_window_corr,
-                    &[
-                        (
-                            (&self.input_buffer, 0),
-                            (&self.shader_in_data_buffer, 0),
-                            self.buffer_size,
-                        ),
-                        (
-                            (&self.input_b_buffer, 0),
-                            (&self.shader_in_data_b_buffer, 0),
-                            self.buffer_size,
-                        ),
-                        (
-                            (&self.uniform_buffer, 0),
-                            (&self.shader_uniform_buffer, 0),
-                            std::mem::size_of::<KernelArgs>(),
-                        ),
-                    ],
-                    &[(
-                        (&self.shader_in_out_data_buffer, 0),
-                        (&self.output_buffer, 0),
-                        self.buffer_size,
-                    )],
-                )?;
-                self.run(args, src_data, out_data, cmd_buffer, &|_a, s, o| {
-                    o.copy_from_slice(s);
-                    Ok(())
-                })?;
-                Ok(true)
-            }
-            _ => Ok(false),
+        } else {
+            Ok(false)
         }
     }
 }

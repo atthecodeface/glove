@@ -65,6 +65,26 @@ pub fn get_scale(matches: &ArgMatches) -> Result<f32, String> {
     Ok(scale)
 }
 
+//fp add_angle_arg
+pub fn add_angle_arg(cmd: Command, required: bool) -> Command {
+    cmd.arg(
+        Arg::new("kernel_angle")
+            .long("kernel_angle")
+            .default_value("1")
+            .help("Angle (f32) for the kernel")
+            .long_help("The angle (f32) for the kernel")
+            .value_parser(value_parser!(f32))
+            .required(required)
+            .action(ArgAction::Set),
+    )
+}
+
+//fp get_angle
+pub fn get_angle(matches: &ArgMatches) -> Result<f32, String> {
+    let angle = *matches.get_one::<f32>("kernel_angle").unwrap();
+    Ok(angle)
+}
+
 //fp add_xy_arg
 pub fn add_xy_arg(cmd: Command, required: bool) -> Command {
     cmd.arg(

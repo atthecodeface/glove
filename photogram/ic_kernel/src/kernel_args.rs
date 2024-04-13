@@ -18,10 +18,10 @@ pub struct KernelArgs {
     pub size: u32,
     /// Scale factor to apply (depends on kernel)
     pub scale: f32,
-    /// Rotated dx
-    pub dx: f32,
-    /// Rotated dy
-    pub dy: f32,
+    /// Angle as cos
+    pub cos_a: f32,
+    /// Angle as cos
+    pub sin_a: f32,
     /// Width of the source 'image'
     pub src_width: u32,
     /// Height of the source 'image'
@@ -38,8 +38,8 @@ impl std::default::Default for KernelArgs {
             cy: 0,
             size: 0,
             scale: 1.0,
-            dx: 1.0,
-            dy: 1.0,
+            cos_a: 1.0,
+            sin_a: 0.0,
             src_width: 0,
             src_height: 0,
         }
@@ -71,6 +71,11 @@ impl KernelArgs {
     pub fn with_src(mut self, (w, h): (usize, usize)) -> Self {
         self.src_width = w as u32;
         self.src_height = h as u32;
+        self
+    }
+    pub fn with_angle(mut self, angle: f32) -> Self {
+        self.cos_a = angle.cos();
+        self.sin_a = angle.sin();
         self
     }
     pub fn with_xy(mut self, (x, y): (usize, usize)) -> Self {
