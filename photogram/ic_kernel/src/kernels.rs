@@ -10,6 +10,7 @@ use crate::{accel_wgpu, cpu, Accelerate, KernelArgs};
 pub struct Kernels {
     wgpu: Option<accel_wgpu::ImageAccelerator>,
     cpu: cpu::ImageAccelerator,
+    verbose: bool,
 }
 
 //ip Default for Kernels
@@ -56,7 +57,13 @@ impl Kernels {
                 Ok(s) => Some(s),
             }
         };
-        Self { wgpu, cpu }
+        let verbose = false;
+        Self { wgpu, cpu, verbose }
+    }
+
+    //mp set_verbose
+    fn set_verbose(&mut self, verbose: bool) {
+        self.verbose = verbose;
     }
 
     //mp run_shader
@@ -68,7 +75,9 @@ impl Kernels {
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
     ) -> Result<(), String> {
-        eprintln!("Run shader {shader} with {work_items} items");
+        if self.verbose {
+            eprintln!("Run shader {shader} with {work_items} items");
+        }
         if let Some(wgpu) = &self.wgpu {
             if wgpu.run_shader(shader, args, work_items, src_data, out_data)? {
                 return Ok(());
@@ -92,7 +101,7 @@ impl Kernels {
         loop {
             let new_pts = self.find_next_best_above_x(size, min_dist, data, value)?;
             if new_pts.is_empty() {
-                result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                result.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
                 result.truncate(n);
                 break;
             }
@@ -112,7 +121,6 @@ impl Kernels {
             }
             result.extend(new_pts);
         }
-        eprintln!("Points {:?}", result);
         Ok(result)
     }
 
@@ -171,9 +179,17 @@ impl Kernels {
         //
         // If two points are found in non-adjacent regions then they
         // MUST be more than min_dist apart
+        //
+        // The smaller the region size, the larger the regions found
+        // will be, so this is a trade-off somewhat between wasted
+        // work done in the kernel and fewer iterations
+        //
+        // If the expectation is one point will exceed the value then
+        // the region size should be large; if many are expected then
+        // a smaller region size makes sense
         let region_size = {
-            if min_dist < 128 {
-                128
+            if min_dist < 32 {
+                32
             } else {
                 min_dist
             }
@@ -209,7 +225,6 @@ impl Kernels {
             }
         }
 
-        eprintln!("{:?}", &selected_points);
         Ok(selected_points)
     }
 

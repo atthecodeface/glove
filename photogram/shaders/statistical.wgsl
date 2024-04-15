@@ -137,9 +137,9 @@ fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair 
     }
     // There are ws*ws pixels in our window
     let n = f32(ws*ws);
-    let value_unbounded = max((n * ab - a * b) / (a2 * n - a * a), 0.);
-    //  let value_unbounded = max((n * ab - a * b) / sqrt(a2 * n - a * a) / max(0.25*f32(n), sqrt(b2 * n - b * b)), 0.);
-    let is_noisy = 1 == 0;
+    //  let value_unbounded = max((n * ab - a * b) / (a2 * n - a * a), 0.);
+    let value_unbounded = max((n * ab - a * b) / sqrt(a2 * n - a * a)/ sqrt(b2 * n - b * b), 0.);
+    let is_noisy = (n * ab - a * b) / (a2 * n - a * a) < 0.5;
     let value = select(value_unbounded, 0.0, out_of_bounds || src_out_of_bounds || is_noisy );
     // Can use square here as value is >=0
     let other = value * value;

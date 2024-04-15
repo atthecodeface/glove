@@ -634,26 +634,8 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     }
 
     if flags & 2 != 0 {
-        let mut pts = vec![];
-        let mut n = 0;
-        let mut x = 0.7;
-        loop {
-            let new_pts =
-                find_best_n_above_x(&kernels, dst_w, dst_h, 64, img_data.as_mut_slice(), x)?;
-            if new_pts.is_empty() && pts.is_empty() && x > 0.01 {
-                x = x * 0.9;
-                continue;
-            }
-            if new_pts.is_empty() {
-                break;
-            }
-            pts.extend(new_pts);
-            n += 1;
-            if n > 20 {
-                break;
-            }
-        }
-        pts.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        let pts =
+            kernels.find_best_n_above_value((dst_w, dst_h), img_data.as_mut_slice(), 500, 0.7, 64);
         eprintln!("Points {:?}", pts);
     }
 
@@ -668,84 +650,6 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
         eprintln!("Image not written as no output image provided");
     }
     Ok(())
-}
-
-//fi find_best_n_above_x
-fn find_best_n_above_x(
-    kernels: &Kernels,
-    img_w: usize,
-    img_h: usize,
-    min_dist: usize,
-    img: &mut [f32],
-    x: f32,
-) -> Result<Vec<(u32, u32, f32)>, String> {
-    let mut max_of_region_slice: Vec<f32> = img.into();
-    let region_size = 128.max(min_dist);
-    let args: KernelArgs = (img_w, img_h).into();
-    let args = args.with_scale(x);
-    let args = args.with_size(region_size);
-    kernels.run_shader(
-        "max_of_region",
-        &args,
-        img_w * img_h,
-        None,
-        &mut max_of_region_slice,
-    )?;
-    let mut centers_found: Vec<(usize, usize, usize, usize, f32)> = vec![];
-    for y in (0..img_h).step_by(region_size) {
-        for x in (0..img_w).step_by(region_size) {
-            let idx = x + y * img_w;
-            let ofs = bytemuck::cast::<f32, u32>(max_of_region_slice[idx]) as usize; // as u32 not f32!
-            let value = max_of_region_slice[idx + 1];
-            let n = max_of_region_slice[idx + 2];
-            if n > 0.0 {
-                centers_found.push((
-                    x / region_size,
-                    y / region_size,
-                    ofs % img_w,
-                    ofs / img_w,
-                    value,
-                ));
-            }
-        }
-    }
-    centers_found.sort_by(|a, b| (b.4).partial_cmp(&a.4).unwrap());
-    if centers_found.is_empty() {
-        return Ok(vec![]);
-    }
-    let mut selected_centers: Vec<(u32, u32, f32)> = vec![];
-    for (i, (rx, ry, x, y, value)) in centers_found.iter().enumerate() {
-        let mut ignore = false;
-        for (orx, ory, _, _, _) in &centers_found[0..i] {
-            if (*rx == *orx || *rx == *orx + 1 || *rx + 1 == *orx)
-                && (*ry == *ory || *ry == *ory + 1 || *ry + 1 == *ory)
-            {
-                ignore = true;
-                break;
-            }
-        }
-        if !ignore {
-            selected_centers.push((*x as u32, *y as u32, *value));
-        }
-    }
-    eprintln!("{:?}", &selected_centers);
-    kernels.run_shader("copy", &args, img_w * img_h, None, img)?;
-    let things_to_reduce: Vec<f32> = selected_centers
-        .iter()
-        .flat_map(|a| [a.0 as f32, a.1 as f32])
-        .collect();
-    let args: KernelArgs = (img_w, img_h).into();
-    let args = args.with_scale(0.0);
-    let args = args.with_cos(0.0);
-    let args = args.with_size(2 * min_dist);
-    kernels.run_shader(
-        "reduce_value",
-        &args,
-        things_to_reduce.len() / 2,
-        Some(&things_to_reduce),
-        img,
-    )?;
-    Ok(selected_centers)
 }
 
 //a Main
