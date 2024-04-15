@@ -21,24 +21,24 @@ struct KernelArgs {
      src_height: u32,
 }
 
-@group(0) @binding(0)
-var<storage, read_write> out_data: array<f32>; // this is used as both input and output for convenience
-
-@group(0) @binding(1)
-var<storage, read> in_data: array<f32>; // this is used as input only
-
-@group(0) @binding(2)
-var<storage, read> in_data_b: array<f32>; // this is used as input only
-
-@group(0) @binding(3)
-var<uniform> kernel_args: KernelArgs;
-
-
 struct ResultPair {
   ofs: u32,
   value: f32,
   other: f32,
 }
+
+@group(0) @binding(0)
+var<uniform> kernel_args: KernelArgs;
+
+@group(0) @binding(1)
+var<storage, read_write> out_data: array<f32>; // this is used as both input and output for convenience
+
+@group(0) @binding(2)
+var<storage, read> in_data: array<f32>; // this is used as input only
+
+@group(0) @binding(3)
+var<storage, read> in_data_b: array<f32>; // this is used as input only
+
 
 // Invoke with a centre x,y of the window
 fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
@@ -97,6 +97,8 @@ fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
 }
 
 // Invoke with a centre x,y of the window
+//
+// angle is the rotation anticlockwise of the source
 fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
     let ws = half_ws * 2;
@@ -112,9 +114,8 @@ fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair 
     var b = 0.0;
     var b2 = 0.0;
     var a2 = 0.0;
-    let cmp_ofs : u32 = select((x - half_ws) + (y-half_ws) * kernel_args.width, 0u, out_of_bounds);
-    let src_ofs : u32 = select((src_x - src_half_ws) + (src_y-src_half_ws) * kernel_args.src_width, 0u, src_out_of_bounds);
-    let center_ofs = cmp_ofs + half_ws + half_ws * kernel_args.width;
+    let center_ofs = x + y * kernel_args.width;
+    let cmp_ofs : u32 = center_ofs - half_ws - half_ws * kernel_args.width;
     for ( var dy: u32 = 0; dy < ws; dy++ ) {
         var x_cmp_ofs = cmp_ofs + dy * kernel_args.width;
         let row_src_x = f32(src_x) - (f32(dy) - f32(half_ws)) * kernel_args.sin_a;
@@ -136,12 +137,15 @@ fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair 
     }
     // There are ws*ws pixels in our window
     let n = f32(ws*ws);
-    let value_unbounded = clamp((n * ab - a * b) / (a2 * n - a * a), 0., 1.);
-    let value = select(value_unbounded, 0.0, out_of_bounds || src_out_of_bounds);
+    let value_unbounded = max((n * ab - a * b) / (a2 * n - a * a), 0.);
+    //  let value_unbounded = max((n * ab - a * b) / sqrt(a2 * n - a * a) / max(0.25*f32(n), sqrt(b2 * n - b * b)), 0.);
+    let is_noisy = 1 == 0;
+    let value = select(value_unbounded, 0.0, out_of_bounds || src_out_of_bounds || is_noisy );
     // Can use square here as value is >=0
     let other = value * value;
    
-    return ResultPair ( center_ofs, value, other );
+    return ResultPair ( center_ofs, value * kernel_args.scale, other * kernel_args.scale );
+//    return ResultPair ( center_ofs, in_data_b[center_ofs], other * kernel_args.scale );
 }
 
 // Invoke with a centre x,y of the window
@@ -228,7 +232,7 @@ fn compute_window_corr_arbitrary(@builtin(global_invocation_id) global_id: vec3<
     let x = global_id.x % kernel_args.width;
     let y = global_id.x / kernel_args.width;
     let result = window_correlate_arbitrary(cx, cy, x, y);
-    out_data[result.ofs] = result.other * kernel_args.scale;
+    out_data[result.ofs] = result.value;
 }
 
 @compute
@@ -256,6 +260,15 @@ fn compute_window_var_scaled(@builtin(global_invocation_id) global_id: vec3<u32>
     let y = global_id.x / kernel_args.width;
     let result = window_mean_variance(x, y);
     out_data[result.ofs] = result.other * kernel_args.scale / result.value;
+}
+
+@compute
+@workgroup_size(256,1)
+fn compute_copy(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let out_of_bounds = global_id.x > kernel_args.width*kernel_args.height;
+    if !out_of_bounds {
+        out_data[global_id.x] = in_data[global_id.x];
+    }
 }
 
 

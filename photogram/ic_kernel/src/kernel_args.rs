@@ -78,6 +78,14 @@ impl KernelArgs {
         self.sin_a = angle.sin();
         self
     }
+    pub fn with_cos(mut self, cos_a: f32) -> Self {
+        self.cos_a = cos_a;
+        self
+    }
+    pub fn with_sin(mut self, sin_a: f32) -> Self {
+        self.sin_a = sin_a;
+        self
+    }
     pub fn with_xy(mut self, (x, y): (usize, usize)) -> Self {
         self.cx = x as u32;
         self.cy = y as u32;

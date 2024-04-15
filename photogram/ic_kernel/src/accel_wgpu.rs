@@ -1,11 +1,38 @@
 //a Imports
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
 
 use crate::{Accelerate, KernelArgs};
 use ic_base::utils::rtc::run_to_completion as rtc;
 
 //a Support types
+//tp ShaderDesc
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ShaderDesc {
+    kernel: String,
+    shader: String,
+    x_worksize: usize,
+    binary: bool,
+}
+
+//tp ShaderFileDesc
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ShaderFileDesc {
+    path: PathBuf,
+    shader_descs: Vec<ShaderDesc>,
+}
+
+impl ShaderFileDesc {
+    //cp from_json
+    pub fn from_json(path: PathBuf, json: &str) -> Result<Self, serde_json::Error> {
+        let shader_descs = serde_json::from_str::<Vec<ShaderDesc>>(json)?;
+        Ok(Self { path, shader_descs })
+    }
+}
+
 //tp Pipeline
 #[derive(Debug, Clone, Copy)]
 pub struct Pipeline(usize);
@@ -226,7 +253,8 @@ impl AccelWgpu {
 pub struct ImageAccelerator {
     accelerator: AccelWgpu,
     buffer_size: usize,
-    pipelines: HashMap<&'static str, (Pipeline, bool)>,
+    pipeline_layout: wgpu::PipelineLayout,
+    pipelines: HashMap<String, (Pipeline, ShaderDesc)>,
     /// Buffer for data that gets copied TO the GPU shader_in_out_data_buffer
     input_buffer: wgpu::Buffer,
     /// Buffer for data that gets copied TO the GPU shader_in_data_b_buffer
@@ -248,13 +276,20 @@ pub struct ImageAccelerator {
 
 //ip ImageAccelerator
 impl ImageAccelerator {
-    pub fn new(mut accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
-        let file_text = std::fs::read_to_string("shader.wgsl")
-            .map_err(|e| format!("Error reading json shader file {}", e))?;
-        // let cs_module = accelerator.add_shader(include_str!("shader.wgsl"), None)?;
-        let cs_module = accelerator.add_shader(&file_text, None)?;
-        let in_out_data_bgle = wgpu::BindGroupLayoutEntry {
+    //fp new
+    pub fn new(accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
+        let uniform_bgle = wgpu::BindGroupLayoutEntry {
             binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        };
+        let in_out_data_bgle = wgpu::BindGroupLayoutEntry {
+            binding: 1,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: false },
@@ -264,16 +299,6 @@ impl ImageAccelerator {
             count: None,
         };
         let in_data_bgle = wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        };
-        let in_data_b_bgle = wgpu::BindGroupLayoutEntry {
             binding: 2,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Buffer {
@@ -283,11 +308,11 @@ impl ImageAccelerator {
             },
             count: None,
         };
-        let uniform_bgle = wgpu::BindGroupLayoutEntry {
+        let in_data_b_bgle = wgpu::BindGroupLayoutEntry {
             binding: 3,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
@@ -299,81 +324,6 @@ impl ImageAccelerator {
                 label: None,
                 entries: &[in_out_data_bgle, in_data_bgle, in_data_b_bgle, uniform_bgle],
             });
-        let pl = accelerator.create_pipeline_layout(&[&bgl]);
-        let mut pipelines = HashMap::new();
-        pipelines.insert(
-            "sqrt",
-            (
-                accelerator.create_pipeline(cs_module, "compute_vec_sqrt", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "square",
-            (
-                accelerator.create_pipeline(cs_module, "compute_vec_square", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_sum_x",
-            (
-                accelerator.create_pipeline(cs_module, "compute_window_sum_x", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_sum_y",
-            (
-                accelerator.create_pipeline(cs_module, "compute_window_sum_y", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_mean",
-            (
-                accelerator.create_pipeline(cs_module, "compute_window_mean", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_var",
-            (
-                accelerator.create_pipeline(cs_module, "compute_window_var", Some(&pl), 1)?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_var_scaled",
-            (
-                accelerator.create_pipeline(
-                    cs_module,
-                    "compute_window_var_scaled",
-                    Some(&pl),
-                    1,
-                )?,
-                false,
-            ),
-        );
-        pipelines.insert(
-            "window_corr",
-            (
-                accelerator.create_pipeline(cs_module, "compute_window_corr", Some(&pl), 1)?,
-                true,
-            ),
-        );
-        pipelines.insert(
-            "window_corr_arb",
-            (
-                accelerator.create_pipeline(
-                    cs_module,
-                    "compute_window_corr_arbitrary",
-                    Some(&pl),
-                    1,
-                )?,
-                true,
-            ),
-        );
         let input_buffer =
             accelerator.create_buffer(BufferType::HostSrc, buffer_size, Some("Input"));
         let input_b_buffer =
@@ -404,26 +354,30 @@ impl ImageAccelerator {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: shader_in_out_data_buffer.as_entire_binding(),
+                        resource: shader_uniform_buffer.as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: shader_in_data_buffer.as_entire_binding(),
+                        resource: shader_in_out_data_buffer.as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: shader_in_data_b_buffer.as_entire_binding(),
+                        resource: shader_in_data_buffer.as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: shader_uniform_buffer.as_entire_binding(),
+                        resource: shader_in_data_b_buffer.as_entire_binding(),
                     },
                 ],
             });
 
+        let pipeline_layout = accelerator.create_pipeline_layout(&[&bgl]);
+
+        let pipelines = HashMap::new();
         Ok(Self {
             accelerator,
             buffer_size,
+            pipeline_layout,
             pipelines,
             input_buffer,
             input_b_buffer,
@@ -437,52 +391,21 @@ impl ImageAccelerator {
         })
     }
 
-    //mp cmd_buffer
-    fn cmd_buffer(
-        &self,
-        number_of_ops: usize,
-        pipeline: Pipeline,
-    ) -> Result<wgpu::CommandBuffer, String> {
-        let mut encoder = self
-            .accelerator
-            .device()
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        encoder.copy_buffer_to_buffer(
-            &self.input_buffer,
-            0,
-            &self.shader_in_data_buffer,
-            0,
-            self.buffer_size as u64,
-        );
-        encoder.copy_buffer_to_buffer(
-            &self.uniform_buffer,
-            0,
-            &self.shader_uniform_buffer,
-            0,
-            std::mem::size_of::<KernelArgs>() as u64,
-        );
-        {
-            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: None,
-                timestamp_writes: None,
-            });
-            cpass.set_bind_group(0, &self.bind_group, &[]);
-            cpass.set_pipeline(self.accelerator.pipeline_err(pipeline)?);
-            cpass.insert_debug_marker("image accelerator slice");
-            // Number of cells to run, the (x,y,z) size of item being processed
-            // If number of ops is bigger than 65536 then split - but then we need to specify an offset in the uniform?
-            // Should set_push_constants
-            cpass.dispatch_workgroups(number_of_ops as u32, 1, 1);
+    //mp create_pipelines
+    pub fn create_pipelines(&mut self, shader_file: ShaderFileDesc) -> Result<(), String> {
+        let file_text = std::fs::read_to_string(&shader_file.path)
+            .map_err(|e| format!("Error reading WGSL shader file {}", e))?;
+        let cs_module = self.accelerator.add_shader(&file_text, None)?;
+        for sd in shader_file.shader_descs.into_iter() {
+            let pipeline = self.accelerator.create_pipeline(
+                cs_module,
+                &sd.shader,
+                Some(&self.pipeline_layout),
+                1,
+            )?;
+            self.pipelines.insert(sd.kernel.clone(), (pipeline, sd));
         }
-        encoder.copy_buffer_to_buffer(
-            &self.shader_in_out_data_buffer,
-            0,
-            &self.output_buffer,
-            0,
-            self.buffer_size as u64,
-        );
-
-        Ok(encoder.finish())
+        Ok(())
     }
 
     //mp create_cmd_buffer
@@ -519,11 +442,11 @@ impl ImageAccelerator {
         Ok(encoder.finish())
     }
 
-    //mp copy_to_input
-    fn copy_to_input(&self, src_data: &[u8]) -> Result<(), String> {
+    //mp copy_to_buffer
+    fn copy_to_buffer(&self, src_data: &[u8], buffer: &wgpu::Buffer) -> Result<(), String> {
         let byte_size = src_data.len() as u64;
         let (sender, receiver) = std::sync::mpsc::channel();
-        let buffer_slice = self.input_buffer.slice(0..byte_size);
+        let buffer_slice = buffer.slice(0..byte_size);
         buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
         self.accelerator.block();
         let Ok(Ok(())) = receiver.recv() else {
@@ -532,46 +455,12 @@ impl ImageAccelerator {
         buffer_slice
             .get_mapped_range_mut()
             .copy_from_slice(bytemuck::cast_slice(src_data));
-        self.input_buffer.unmap();
+        buffer.unmap();
         Ok(())
     }
 
-    //mp copy_to_input_b
-    fn copy_to_input_b(&self, src_data: &[u8]) -> Result<(), String> {
-        let byte_size = src_data.len() as u64;
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let buffer_slice = self.input_b_buffer.slice(0..byte_size);
-        buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
-        self.accelerator.block();
-        let Ok(Ok(())) = receiver.recv() else {
-            return Err("Failed to run compute on gpu!".into());
-        };
-        buffer_slice
-            .get_mapped_range_mut()
-            .copy_from_slice(bytemuck::cast_slice(src_data));
-        self.input_b_buffer.unmap();
-        Ok(())
-    }
-
-    //mp copy_uniform
-    fn copy_uniform(&self, args: &KernelArgs) -> Result<(), String> {
-        let byte_size = std::mem::size_of::<KernelArgs>() as u64;
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let buffer_slice = self.uniform_buffer.slice(0..byte_size);
-        buffer_slice.map_async(wgpu::MapMode::Write, move |v| sender.send(v).unwrap());
-        self.accelerator.block();
-        let Ok(Ok(())) = receiver.recv() else {
-            return Err("Failed to run compute on gpu!".into());
-        };
-        buffer_slice
-            .get_mapped_range_mut()
-            .copy_from_slice(bytemuck::cast_slice(&[*args]));
-        self.uniform_buffer.unmap();
-        Ok(())
-    }
-
-    //mp copy_output
-    fn copy_output(&self, byte_size: u64) -> Result<wgpu::BufferView, String> {
+    //mp map_output
+    fn map_output(&self, byte_size: u64) -> Result<wgpu::BufferView, String> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let buffer_slice = self.output_buffer.slice(0..byte_size);
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
@@ -593,17 +482,18 @@ impl ImageAccelerator {
     ) -> Result<(), String> {
         let byte_size = std::mem::size_of_val(out_data) as u64;
         if let Some(src_data) = src_data {
-            self.copy_to_input(bytemuck::cast_slice(src_data))?;
-            self.copy_to_input_b(bytemuck::cast_slice(out_data))?;
+            self.copy_to_buffer(bytemuck::cast_slice(src_data), &self.input_buffer)?;
+            self.copy_to_buffer(bytemuck::cast_slice(out_data), &self.input_b_buffer)?;
         } else {
-            self.copy_to_input(bytemuck::cast_slice(out_data))?;
+            self.copy_to_buffer(bytemuck::cast_slice(out_data), &self.input_buffer)?;
         }
-        self.copy_uniform(args)?;
+        self.copy_to_buffer(bytemuck::cast_slice(&[*args]), &self.uniform_buffer)?;
         self.accelerator.queue().submit(Some(cmd_buffer));
-        let data = self.copy_output(byte_size)?;
-        callback(args, bytemuck::cast_slice(&data), out_data)?;
-        // Must drop data so that self.output_buffer has no BufferView's
-        drop(data);
+        {
+            let data = self.map_output(byte_size)?;
+            callback(args, bytemuck::cast_slice(&data), out_data)?;
+            // Must drop data so that self.output_buffer has no BufferView's
+        }
         // Must unmap self.output_buffer so it can be used in the future
         self.output_buffer.unmap();
         Ok(())
@@ -619,14 +509,15 @@ impl Accelerate for ImageAccelerator {
         &self,
         shader: &str,
         args: &KernelArgs,
+        work_items: usize,
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
     ) -> Result<bool, String> {
-        if let Some((p, x)) = self.pipelines.get(shader) {
-            match *x {
+        if let Some((p, sd)) = self.pipelines.get(shader) {
+            match sd.binary {
                 false => {
                     let cmd_buffer = self.create_cmd_buffer(
-                        [args.width() * args.height() / 256, 1, 1],
+                        [work_items / sd.x_worksize, 1, 1],
                         *p,
                         &[
                             (
@@ -654,7 +545,7 @@ impl Accelerate for ImageAccelerator {
                 }
                 true => {
                     let cmd_buffer = self.create_cmd_buffer(
-                        [args.width() * args.height() / 256, 1, 1],
+                        [work_items / sd.x_worksize, 1, 1],
                         *p,
                         &[
                             (
@@ -690,4 +581,6 @@ impl Accelerate for ImageAccelerator {
             Ok(false)
         }
     }
+
+    //zz All done
 }

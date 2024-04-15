@@ -1,0 +1,12 @@
+[
+    [ "copy", "compute_copy", 256, false],
+    [ "sqrt", "compute_vec_sqrt", 256, false],
+    [ "square", "compute_vec_square", 256, false],
+    [ "window_sum_x", "compute_window_sum_x", 256, false],
+    [ "window_sum_y", "compute_window_sum_y", 256, false],
+    [ "window_mean", "compute_window_mean", 256, false],
+    [ "window_var", "compute_window_var", 256, false],
+    [ "window_var_scaled", "compute_window_var_scaled", 256, false],
+    [ "window_corr", "compute_window_corr", 256, true],
+    [ "window_corr_arb", "compute_window_corr_arbitrary", 256, true]
+    ]

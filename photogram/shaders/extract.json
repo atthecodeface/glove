@@ -1,0 +1,4 @@
+[
+    [ "max_of_region", "compute_max_of_region", 64, false],
+    [ "reduce_value", "compute_reduce_value_around_region", 1, true]
+]

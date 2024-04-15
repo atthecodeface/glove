@@ -164,6 +164,7 @@ impl Accelerate for ImageAccelerator {
         &self,
         shader: &str,
         args: &KernelArgs,
+        _work_items: usize,
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
     ) -> Result<bool, String> {

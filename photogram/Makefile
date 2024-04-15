@@ -34,6 +34,9 @@ NPS_GPM = --nps ${NPS_BASE_JSON} --nps ${OUTPUT_DIR}nps_gpm.json
 IMAGE = 4v3a6040
 IMAGE_GRID = 4v3a6028
 
+all:
+	@echo "All"
+
 .PHONY: image_server
 image_server:
 	cargo run --release --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/photogram/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
@@ -44,8 +47,10 @@ image_server_debug:
 
 FLAGS ?= 0
 ANGLE ?= 0.0
+# DO NOT USE!
+# COPY ?= --kernel copy
 KERNEL = window_corr 
-KERNEL_FLAGS = --kernel ${KERNEL} --kernel_flags ${FLAGS} --kernel_angle ${ANGLE}
+KERNEL_FLAGS = ${COPY} --kernel ${KERNEL} --kernel_flags ${FLAGS} --kernel_angle ${ANGLE}
 
 .PHONY: correlate
 correlate:
@@ -53,12 +58,41 @@ correlate:
 	# 888x274 maps to 1170x262 ? 888x266, 735x70, 1221x206, 1155x126 - all badly with flags 1
 	# 259x914 maps to 203x434
 	# 825x774 maps to 203x434
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 20 --kernel_scale 1.000 --kernel_x 259 --kernel_y 914 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated${ANGLE}.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 259 --kernel_y 914 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated${ANGLE}.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 259 --kernel_y 914 ${KERNEL_FLAGS}
 	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 10 --kernel_scale 1.000 --kernel_x 667 --kernel_y 263 ${KERNEL_FLAGS}
-	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 10 --kernel_scale 1.000 --kernel_x 888 --kernel_y 274 ${KERNEL_FLAGS}
-	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 825 --kernel_y 774 ${KERNEL_FLAGS}
+	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 12 --kernel_scale 1.000 --kernel_x 888 --kernel_y 274 ${KERNEL_FLAGS}
+	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1684_sm.JPG --write correlated${ANGLE}.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 825 --kernel_y 774 ${KERNEL_FLAGS}
 	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/IMG_1683_sm.JPG --read ${IMAGE_DIR}/IMG_1683_sm.JPG --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 499 --kernel_y 636 ${KERNEL_FLAGS}
 	# ${IMAGE_ANALYZE} --read ${IMAGE_DIR}/1683_at_825_774.jpg --read ${IMAGE_DIR}/1683_at_825_774.jpg --write correlated.png luma_kernel_pair --kernel_size 40 --kernel_scale 1.000 --kernel_x 60 --kernel_y 160 ${KERNEL_FLAGS}
+
+.PHONY:corr90
+corr90:
+	${MAKE} correlate ANGLE=0
+	${MAKE} correlate ANGLE=05
+	${MAKE} correlate ANGLE=10
+	${MAKE} correlate ANGLE=15
+	${MAKE} correlate ANGLE=20
+	${MAKE} correlate ANGLE=25
+	${MAKE} correlate ANGLE=30
+	${MAKE} correlate ANGLE=35
+	${MAKE} correlate ANGLE=40
+	${MAKE} correlate ANGLE=45
+	${MAKE} correlate ANGLE=50
+	${MAKE} correlate ANGLE=55
+	${MAKE} correlate ANGLE=60
+	${MAKE} correlate ANGLE=65
+	${MAKE} correlate ANGLE=70
+	${MAKE} correlate ANGLE=75
+	${MAKE} correlate ANGLE=80
+	${MAKE} correlate ANGLE=85
+	${MAKE} correlate ANGLE=90
+	${MAKE} correlate ANGLE=330
+	${MAKE} correlate ANGLE=335
+	${MAKE} correlate ANGLE=340
+	${MAKE} correlate ANGLE=345
+	${MAKE} correlate ANGLE=350
+	${MAKE} correlate ANGLE=355
 
 ${IMG_CAL}: build
 

@@ -324,27 +324,49 @@ impl ProjectSet {
         let ws_f = ws as f32;
         let args_mean = args.with_scale(1.0 / ws_f);
         self.kernels
-            .run_shader("square", &args, None, img_data_sq.as_mut_slice())?;
+            .run_shader("square", &args, w * h, None, img_data_sq.as_mut_slice())?;
+        self.kernels.run_shader(
+            "window_sum_x",
+            &args_mean,
+            w * h,
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
+        self.kernels.run_shader(
+            "window_sum_y",
+            &args_mean,
+            w * h,
+            None,
+            img_data_sq.as_mut_slice(),
+        )?;
+        self.kernels.run_shader(
+            "window_sum_x",
+            &args_mean,
+            w * h,
+            None,
+            img_data.as_mut_slice(),
+        )?;
+        self.kernels.run_shader(
+            "window_sum_y",
+            &args_mean,
+            w * h,
+            None,
+            img_data.as_mut_slice(),
+        )?;
         self.kernels
-            .run_shader("window_sum_x", &args_mean, None, img_data_sq.as_mut_slice())?;
-        self.kernels
-            .run_shader("window_sum_y", &args_mean, None, img_data_sq.as_mut_slice())?;
-        self.kernels
-            .run_shader("window_sum_x", &args_mean, None, img_data.as_mut_slice())?;
-        self.kernels
-            .run_shader("window_sum_y", &args_mean, None, img_data.as_mut_slice())?;
-        self.kernels
-            .run_shader("square", &args, None, img_data.as_mut_slice())?;
+            .run_shader("square", &args, w * h, None, img_data.as_mut_slice())?;
 
         self.kernels.run_shader(
             "sub_scaled",
             &args,
+            w * h,
             Some(img_data.as_slice()),
             img_data_sq.as_mut_slice(),
         )?;
         self.kernels.run_shader(
             "sqrt",
             &args.with_scale(2.0),
+            w * h,
             None,
             img_data_sq.as_mut_slice(),
         )?;
