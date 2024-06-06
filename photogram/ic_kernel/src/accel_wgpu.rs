@@ -195,11 +195,13 @@ impl AccelWgpu {
         layout: Option<&wgpu::PipelineLayout>,
         num_bind_groups: usize,
     ) -> Result<Pipeline, String> {
+        let compilation_options = Default::default();
         let pipeline_desc = wgpu::ComputePipelineDescriptor {
             label: None,
             layout,
             module: self.shader_err(shader)?,
             entry_point,
+            compilation_options,
         };
         let pipeline = self.device().create_compute_pipeline(&pipeline_desc);
         let n = self.pipelines.len();

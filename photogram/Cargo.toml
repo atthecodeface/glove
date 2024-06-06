@@ -33,7 +33,7 @@ version = ">=1.15.0"
 features = ["derive"]
 
 [workspace.dependencies.wgpu]
-version = ">=0.19"
+version = ">=0.20"
 
 [workspace.dependencies.image]
 version = "0.25"
