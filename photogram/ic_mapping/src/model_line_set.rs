@@ -70,6 +70,7 @@ impl ModelLine {
         let l = p.dot(&d);
         self.pts[0] + (d * (l / len_d2))
     }
+
     //mp cos_angle_subtended
     /// Get cos(angle) for the angle subtended by the line when viewed from p
     #[allow(dead_code)]
@@ -109,6 +110,103 @@ impl From<(Point3D, Point3D)> for ModelLine {
 //a ModelLineSubtended
 //tp ModelLineSubtended
 /// A line in model space and an angle subtended
+///
+/// A model line is two known fixed points in model space. When viewed
+/// by a camera, the line is perceived to subtend an angle θ
+///
+/// This type models such a view of a model line - it does not encode
+/// the position or orientation of the camera, just the points on the
+/// line and the angle that the camera perceives the line to be
+///
+/// The camera could lie at any point on a surface of revolution
+/// (whose axis is the ModelLine) - i.e. the camera position is a
+/// vector along the ModelLine (maybe κ.ML) plus a vector
+/// perpendicular to this of a given radius, whose radius depends on
+/// κ. For any given κ, the camera can be at any point on a circle
+/// of that radius around the line, as this does not change the angle
+/// subtended (which depends only on κ and the radius).
+///
+/// It is thus worth considering a transformation to a
+/// ModelLine-centric frame of reference, with the ModelLine being
+/// (-1,0,0) to (1,0,0); the locus of the points is a surface of
+/// revolution around the X-axis; the locus of points with z=0 can be
+/// denoted (κ,ρ,0). (And all points are (κ,ρ.cos(φ),ρ.sin(φ)), for φ
+/// in 0..2π.)
+///
+/// Note that for every point (κ,ρ) the angle subtended by the
+/// ModelLine is θ. One can thus the treat the ModelLine is the chord
+/// of some circle whose points include the locus (κ,ρ), as the
+/// inscribed angle of a (major/minor arc of a) circle for a chord is
+/// the constant.
+///
+/// For θ being greater than 90 (π/2) the locus of the ModelLineSubtended is
+/// the minor arc.
+///
+/// This circle has center (0,C) for some C, if the ModelLine is
+/// viewed as (-1,0) to (1,0). The angle subtended by the ModelLine
+/// from the centre (0,C) is 2θ; hence C = 1/tan(0) = tan(π/2-0). The
+/// angular range for the arc is -π+0 to π-0; the radius R of this
+/// circle is the 1/sin(θ).
+///
+/// We can hence describe the locus of points using two parameters, μ
+/// in range -1 to 1 and φ in range 0..2π; we define further
+/// γ=μ*(π-0).
+///
+/// In ModelLineSubtended space with z=0 the locus is (0,C) + (R.sin(γ), R.cos(γ))
+///
+/// With the surface of rotation about the X axis we have
+///
+///  [ R.sin(γ), (C+R.cos(γ)).cos(φ), (C+R.cos(γ)).sin(φ)) ]
+///
+/// The unit normal to this surface is the vector [sin(γ), cos(γ).cos(φ), cos(γ).sin(φ)]
+///
+/// The final step is to find the transformation from ModelLine space
+/// to World space; this can be done by first creating the 'dx'
+/// mapping, which maps (-1,0,0) to one end of the ModelLine, and
+/// (1,0,0) to the other end of the ModelLine (note that this has
+/// length 2, so the unit vector is half of it). *Any* unit normal to this
+/// can then be created, and used as 'dy' - and there is a method for
+/// this in ModelLine to create a normal. The cross product of these
+/// two is then usable as 'dz'.
+///
+/// Error of a world point
+///
+/// Given a world point P, a reasonable error with regard to a
+/// ModelLineSubtended would be the error in the angle subtended
+/// (which should be in the range 0 to π). This can be calculated
+/// relatively easily by the scalar product of the vectors from P to
+/// the two ModelLine points.
+///
+/// Background visualiazation
+///
+/// A way to visualize it is to consider the ModelLine with its center
+/// at the origin, with the line being the X axis from (-1,0) to (1,0).
+///
+/// Now there is a locus of points (κ,ρ) such that the angle between
+/// (κ,ρ)->(-1,0) and (κ,ρ)->(1,0) is the angle subtended (θ).
+///
+/// Indeed, cos(θ) = (κ+1,ρ) . (κ-1,ρ) / |(κ+1,ρ)| |(κ-1,ρ)|
+///
+/// A different parametertization is the angle between the y-direction
+/// and the point (1,0) - call this α. There is a similar angle
+/// between the y-direction and the point (-1,0) - call this β. We
+/// have the triangle (-1,0), (1,0), (κ,ρ) with angles at those
+/// vertices of (90-β, 90-α, θ); the side lengths opposite these
+/// angles we can say are (Λβ, Λα, 2).
+///
+/// From this we know θ = α+β.
+///
+/// From the sine rule for the triangle we have sin(θ)/2 = sin(90-β)/Λβ,
+///
+///    Λβ = 2cos(β)/sin(θ) = 2cos(θ-α)/sin(θ)
+///
+/// From the right-angle triangle (1,0), (κ,0), (κ,ρ) with angles
+/// 90-α, 90, α and side lengths ρ, Λβ, 1-k, we have
+///
+///   ρ = Λβ cos(α)  ; 1-k = Λβ sin(α)
+///
+///   ρ = 2.cos(θ-α).cos(α)/sin(θ)  ;  k = 1 - 2cos(θ-α).sin(α)/sin(θ)
+///
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ModelLineSubtended {
     model_line: ModelLine,
@@ -182,6 +280,12 @@ impl ModelLineSubtended {
     //mp error_in_p
     pub fn error_in_p(&self, p: &Point3D) -> f64 {
         self.model_line.radius_of_circumcircle(p) - self.circle_radius
+    }
+
+    //mp error_in_p_angle
+    pub fn error_in_p_angle(&self, p: &Point3D) -> f64 {
+        let cos_theta = self.model_line.cos_angle_subtended(p);
+        cos_theta.acos() - self.theta
     }
 
     //mp surface
@@ -329,7 +433,12 @@ where
     C: CameraPtMapping + Clone + Sized,
 {
     camera: C,
+
+    /// The derived center-of-gravity for the model lines; i.e. the
+    /// average of the midpoints of all the ModelLineSubtended
     model_cog: Point3D,
+
+    /// The set of lines and the angle subtended by each
     lines: Vec<ModelLineSubtended>,
 }
 
@@ -384,6 +493,21 @@ where
         Some(n)
     }
 
+    //mp add_line_of_models
+    pub fn add_line_of_models(
+        &mut self,
+        model_p0: Point3D,
+        model_p1: Point3D,
+        angle: f64,
+    ) -> usize {
+        let model_line = ModelLine::new(model_p0, model_p1);
+        let mls = ModelLineSubtended::new(&model_line, angle);
+        let n = self.lines.len();
+        self.lines.push(mls);
+        self.model_cog = Point3D::zero();
+        n
+    }
+
     //mp find_approx_location_using_pt
     pub fn find_approx_location_using_pt(
         &self,
@@ -399,7 +523,7 @@ where
                 if i == index {
                     continue;
                 }
-                let err = l.error_in_p(&p);
+                let err = l.error_in_p_angle(&p);
                 err2 += err * err;
                 if err2 >= min_err2 {
                     break;
@@ -418,7 +542,7 @@ where
     pub fn total_err2(&self, p: Point3D) -> f64 {
         let mut err2 = 0.0;
         for l in &self.lines {
-            let err = l.error_in_p(&p);
+            let err = l.error_in_p_angle(&p);
             err2 += err * err;
         }
         err2

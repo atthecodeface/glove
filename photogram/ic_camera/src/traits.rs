@@ -97,6 +97,8 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
 
     //fp camera_txty_to_world_dir (derived)
     /// Convert a TanXTanY in camera space to a direction from the camera in world space
+    ///
+    /// This applies the orientation of the camera
     fn camera_txty_to_world_dir(&self, txty: &TanXTanY) -> Point3D {
         let camera_xyz = txty.to_unit_vector();
         quat::apply3(

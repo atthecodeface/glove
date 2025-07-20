@@ -2,8 +2,12 @@
   "camera": {
     "body": "Canon EOS 5D mark IV",
     "lens": "EF50mm f1.8",
-    "mm_focus_distance": 9000.0
+      "mm_focus_distance": 2300000.0,
+      "position": [0.0, 0.0, 0.0],
+      "orientation": [ 1.0, 0.0, 0.0, 0.0]
   },
+
+
     "distance": 410.0,
     "centred_on": [ -0.28, 1.59], 
     "z_rotation": 0.00,

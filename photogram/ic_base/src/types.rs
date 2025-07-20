@@ -13,6 +13,10 @@ pub type Quat = geo_nd::QArray<f64, Point3D, Point4D>;
 /// A view-space effectively encoding a direction vector [x,y,-1]
 ///
 /// This is held as a Point2D vector (X, Y)
+///
+/// This might be used to represent a 'normalized' XY position of a
+/// ray through a focal point - be it the model side or the camera
+/// side of a lens.
 #[derive(Debug, Clone, Copy)]
 pub struct TanXTanY {
     /// X and Y coordinates
@@ -27,6 +31,7 @@ impl TanXTanY {
     pub fn to_ry(self) -> RollYaw {
         RollYaw::from_txty(self)
     }
+
     //fp to_unit_vector
     /// Convert to a unit vector
     #[inline]
@@ -147,7 +152,11 @@ impl std::fmt::Display for TanXTanY {
 /// rotate around [0,0,-1] to place the point on the Z=0 plane with +ve
 /// X.
 ///
-/// The Euclidean vector is (tan(yaw).cos(roll), tan(yaw).sin(roll), -1)
+/// The Euclidean vector is (tan(yaw).cos(roll), tan(yaw).sin(roll), -1) normalized.
+///
+/// (len is sqrt(1+tan^2(yaw)) = sec(yaw)); 1/len = cos(yaw)
+///
+/// Hence the unit vector is (sin(yaw).cos(roll), sin(yaw).sin(roll), -cos(yaw))
 ///
 /// To 'look at' a point in a framed image, roll around the -ve 'z'
 /// axis (in/out of the frame), putting the point on the +ve X axis,
@@ -158,6 +167,7 @@ pub struct RollYaw {
     ///
     /// Held as a tan
     tan_yaw: f64,
+
     /// Angle that yaw([0,0,-1]) must be rotated around the
     /// -ve Z axis to achieve the direction inndicated by this RollYaw
     ///
