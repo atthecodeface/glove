@@ -518,6 +518,9 @@ where
         let mut pt = Point3D::default();
         let mut min_err2 = 1E8;
         for p in self.lines[index].surface(n_phi, n_theta) {
+            if p[2] < 0.0 {
+                continue;
+            }
             let mut err2 = 0.0;
             for (i, l) in self.lines.iter().enumerate() {
                 if i == index {

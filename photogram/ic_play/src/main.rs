@@ -1,3 +1,116 @@
+//a Documentation
+//! Test of camera calibration
+//!
+//! This is trying to calibrate to a grid
+//!
+//! The grid was captured on a Canon 5D mark IV, with a 50mm lens focuses on 'infinity'
+//!
+//! The camera is face-on to the grid (which is graph paper); the
+//! approximate interscetions of 550 grid lines was capture as sensor pixel
+//! coordinates XY and mm XY pairings. The grid is assumed to be at Z=0.
+//!
+//! Some of the pairings (given by pt_indices) are used to create a
+//! ModelLineSet, which is a set of ModelLines (between grid points,
+//! hence all in the plane Z=0) and the angles subtended by the
+//! camera, given by the sensor pixel coordinates through the
+//! camera/lens model from the database (i.e. this includes the lens
+//! mapping)
+//!
+//! Note that this does not assume the orientation of position of the
+//! camera; it purely uses the absolute pixel XY to relative pixel XY
+//! to TanXTanY to RollYaw through the lens mapping to a new RollYaw
+//! to a TanXTanY in model space to a unit direction vector.
+//!
+//! From this ModelLineSet a position in space is determined, using
+//! the 'million possible points on a ModelLinetSubtended surface)
+//! approach.
+//!
+//! This camera position is then optimized further by delta
+//! adjustments in the ModelLineSet.
+//!
+//! From this 'known good position' the best orientation can be
+//! determined, by creating quaternion orientations for every pair of
+//! pairings in the pt_indices by:
+//!
+//!   1. Find the unit direction from the camera to both of the model points (A, B)
+//!
+//!   2. Find the the unit direction for the camera on it sensor (from the pairing)
+//!
+//!   3. Generate a quaternion qm that rotates model point direction A to the vector (0,0,1)
+//!
+//!   4. Generate a quaternion qc that rotates camera point direction A to the vector (0,0,1)
+//!
+//!   5. Apply qm to model point direction B to yield dj_m
+//!
+//!   6. Apply qc' to camera point direction B to yield dj_c
+//!
+//!   7. Note that dj_m and dj_c should have the same *yaw* but a different *roll*
+//!
+//!   8. Determine the roll required to map dj_m to dj_c
+//!
+//!   9. Generate quaternion qz which is the rotation around Z for the roll
+//!
+//!   10. Generate quaternion q = qm.qz.qc
+//!
+//!   11. Note that q transforms model point direction A to camera point direction A
+//!
+//!   12. Note that q transforms model point direction B to camera point direction B (if the yaws were identical)
+//!
+//!   13. Note hence that q is the orientation of a camera that matches the view of model points A and B
+//!
+//! The value 'q' is inaccurate if the *yaw* values are different -
+//! i.e. if the angle subtended by the line between the two points on
+//! the camera does not match the angle subtended by the line between
+//! the two points in model space as seen by the camera at its given location.
+//!
+//! The value of 'q' for *every* pair of pairings (A to B, and also B
+//! to A) is generated, and an average of these quaternions is used as
+//! the orientation of the camera
+//!
+//! Given the position and orientation of the camera the unit
+//! direction vector to every model point from the camera can be
+//! determined, and converted to a *roll* and *yaw*. The corresponding
+//! camera sensor direction (potentially without going through the lens mapping)
+//! can be determined, and presented also as a *roll* and *yaw*.
+//!
+//! A graph of camera yaw versus model yaw can be produced; if no lens
+//! mapping had been used the this should be approximately a single
+//! curve that is the polynomial for the lens (mapping yaw in camera
+//! to yaw in model space).
+//!
+//! However, if the *centre* of the camera (upon which the absolute
+//! camera sensor XY to camera unit direction vectors depend) has an
+//! incorrect value (is the lens centred on the mid-point of the
+//! sensor?) then the curve for the yaw-yaw for the camera points in
+//! the upper right quadrant of the sensor will have approximately the
+//! same shape, but will have a differentoffset, to that from the
+//! lower right quadrant.
+//!
+//! So here we plot *four* graphs, one for each quadrant.
+//!
+//! For *all* of the points together a pair of polynomials (one
+//! camera-to-model, the other the inverse) are generated
+//!
+//! The process to calibrate the camera is thus to:
+//!
+//!  1. Reset its lens mapping polynomial
+//!
+//!  2. Reset the centre of the lens (to the middle of the sensor)
+//!
+//!  3. Run the program and inspect the graphs
+//!
+//!  4. Adjust the centre of the sensor if the four graphs are
+//!  noticeable offset from each other; repeat from step 3
+//!
+//!  5. Once the graphs are all deemed reasonable, copy the
+//!  polynomials calculated in to the lens mapping.
+//!
+//!  6. Rerun, and the graphs should be near identity, and the
+//!  calibration is complete.
+//!  
+
+//a Imports
+
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -13,6 +126,7 @@ use ic_image::{Color, Image, ImageRgb8};
 
 use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
 
+//a Main
 pub fn main() -> Result<(), String> {
     let camera_db_filename = "nac/camera_db.json";
     let camera_filename = "nac/camera_calibrate_6028.json";
@@ -95,7 +209,7 @@ pub fn main() -> Result<(), String> {
     let (best_cam_pos, e) = mls.find_best_min_err_location(1000, 1000);
     eprintln!("{best_cam_pos} {e}",);
 
-    let best_cam_pos: Point3D = [13.76943098455281, -4.4539157030506376, 410.03914507909536].into();
+    // let best_cam_pos: Point3D = [13.76943098455281, -4.4539157030506376, 410.03914507909536].into();
     // let best_cam_pos: Point3D = [7.54435219975766, -2.2904012588912086, -407.86139540073606].into();
 
     // We can get N model direction vectors given the camera position,
@@ -109,6 +223,7 @@ pub fn main() -> Result<(), String> {
         let di_m = (best_cam_pos - model_xyz).normalize();
         let z_axis: Point3D = [0., 0., 1.].into();
         let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
+        let qi_m: Quat = quat::rotation_of_vec_to_vec(&di_m.into(), &z_axis.into()).into();
         for p1 in pt_indices {
             if *p1 == *p0 {
                 continue;
@@ -119,7 +234,6 @@ pub fn main() -> Result<(), String> {
             let model_xyz: Point3D = [model_xy[0], model_xy[1], 0.].into();
             let dj_m = (best_cam_pos - model_xyz).normalize();
 
-            let qi_m: Quat = quat::rotation_of_vec_to_vec(&di_m.into(), &z_axis.into()).into();
             let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
             let dj_m_rotated: Point3D = quat::apply3(qi_m.as_ref(), dj_m.as_ref()).into();
 
