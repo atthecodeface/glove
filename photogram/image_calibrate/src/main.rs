@@ -261,7 +261,7 @@ fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), Stri
     for (i, j) in pms.get_good_screen_pairs(&|_f| true) {
         mls.add_line((&mappings[i], &mappings[j]));
     }
-    let (location, _err) = mls.find_best_min_err_location(100, 500);
+    let (location, _err) = mls.find_best_min_err_location(&|_| true, 100, 500);
 
     camera.set_position(location);
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());

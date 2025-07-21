@@ -509,16 +509,20 @@ where
     }
 
     //mp find_approx_location_using_pt
-    pub fn find_approx_location_using_pt(
+    pub fn find_approx_location_using_pt<F>(
         &self,
+        filter: &F,
         index: usize,
         n_phi: usize,
         n_theta: usize,
-    ) -> (Point3D, f64) {
+    ) -> (Point3D, f64)
+    where
+        F: Fn(&Point3D) -> bool,
+    {
         let mut pt = Point3D::default();
         let mut min_err2 = 1E8;
         for p in self.lines[index].surface(n_phi, n_theta) {
-            if p[2] < 0.0 {
+            if !filter(&p) {
                 continue;
             }
             let mut err2 = 0.0;
@@ -570,10 +574,18 @@ where
     }
 
     //mp find_best_min_err_location
-    pub fn find_best_min_err_location(&self, n_phi: usize, n_theta: usize) -> (Point3D, f64) {
-        let (mut location, mut err) = self.find_approx_location_using_pt(0, n_phi, n_theta);
+    pub fn find_best_min_err_location<F>(
+        &self,
+        filter: &F,
+        n_phi: usize,
+        n_theta: usize,
+    ) -> (Point3D, f64)
+    where
+        F: Fn(&Point3D) -> bool,
+    {
+        let (mut location, mut err) = self.find_approx_location_using_pt(filter, 0, n_phi, n_theta);
         for i in 1..self.num_lines() {
-            let (l, e) = self.find_approx_location_using_pt(i, n_phi, n_theta);
+            let (l, e) = self.find_approx_location_using_pt(filter, i, n_phi, n_theta);
             if e < err {
                 err = e;
                 location = l;

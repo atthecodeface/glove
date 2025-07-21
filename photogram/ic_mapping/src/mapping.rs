@@ -271,7 +271,7 @@ impl CameraAdjustMapping for CameraPolynomial {
         for (i, j) in pms.get_good_screen_pairs(&f) {
             mls.add_line((&mappings[i], &mappings[j]));
         }
-        let (location, err) = mls.find_best_min_err_location(30, 500);
+        let (location, err) = mls.find_best_min_err_location(&|_| true, 30, 500);
         self.set_position(location);
         err
     }
