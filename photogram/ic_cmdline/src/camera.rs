@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::{json, Point3D, Quat};
+use ic_base::{json, Point3D, Quat, Result};
 use ic_camera::{CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate};
 use ic_project::Project;
 
@@ -42,16 +42,10 @@ pub fn add_camera_projection_args(cmd: Command, required: bool) -> Command {
 pub fn get_camera_projection(
     matches: &ArgMatches,
     db: &CameraDatabase,
-) -> Result<Rc<CameraPolynomial>, String> {
-    let mm_focus_distance = *matches
-        .get_one::<f64>("focus")
-        .ok_or("A mm focus distance is required (float)")?;
-    let body_name = matches
-        .get_one::<String>("body")
-        .ok_or("A camera body name is required")?;
-    let lens_name = matches
-        .get_one::<String>("lens")
-        .ok_or("A lens name is required")?;
+) -> Result<Rc<CameraPolynomial>> {
+    let mm_focus_distance = *matches.get_one::<f64>("focus").unwrap();
+    let body_name = matches.get_one::<String>("body").unwrap();
+    let lens_name = matches.get_one::<String>("lens").unwrap();
     let body = db.get_body_err(body_name)?.clone();
     let lens = db.get_lens_err(lens_name)?.clone();
     let position = Point3D::default();
@@ -74,10 +68,8 @@ pub fn add_camera_database_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_camera_database
-pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase, String> {
-    let camera_db_filename = matches
-        .get_one::<String>("camera_db")
-        .ok_or("Either a project or a camera database JSON is required")?;
+pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase> {
+    let camera_db_filename = matches.get_one::<String>("camera_db").unwrap();
     let camera_db_json = json::read_file(camera_db_filename)?;
     let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
     camera_db.derive();
@@ -97,10 +89,8 @@ pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_camera
-pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolynomial, String> {
-    let camera_filename = matches
-        .get_one::<String>("camera")
-        .ok_or("A camera position/orientation JSON is required")?;
+pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolynomial> {
+    let camera_filename = matches.get_one::<String>("camera").unwrap();
     let camera_json = json::read_file(camera_filename)?;
     CameraPolynomial::from_json(&project.cdb_ref(), &camera_json)
 }
@@ -122,10 +112,8 @@ pub fn add_camera_calibrate_arg(cmd: Command, required: bool) -> Command {
 pub fn get_camera_calibrate(
     matches: &ArgMatches,
     cdb: &CameraDatabase,
-) -> Result<CameraPolynomialCalibrate, String> {
-    let camera_filename = matches
-        .get_one::<String>("camera")
-        .ok_or("A camera calibration position/orientation JSON is required")?;
+) -> Result<CameraPolynomialCalibrate> {
+    let camera_filename = matches.get_one::<String>("camera").unwrap();
     let camera_json = json::read_file(camera_filename)?;
     CameraPolynomialCalibrate::from_json(cdb, &camera_json)
 }

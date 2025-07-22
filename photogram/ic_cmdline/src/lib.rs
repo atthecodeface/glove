@@ -12,6 +12,8 @@ pub mod mapping;
 pub mod project;
 pub mod threads;
 
+pub mod builder;
+
 //a Errors
 //fp add_errors_arg
 pub fn add_errors_arg(cmd: Command) -> Command {

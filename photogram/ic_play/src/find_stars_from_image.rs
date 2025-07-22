@@ -118,7 +118,7 @@ use star_catalog::{hipparcos, Catalog, CatalogIndex, Subcube};
 
 use ic_base::json;
 use ic_base::Quat;
-use ic_base::{Point2D, Point3D, RollYaw, TanXTanY};
+use ic_base::{Point2D, Point3D, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{serialize_body_name, serialize_lens_name};
@@ -231,7 +231,7 @@ impl StarCalibrate {
     }
 
     //cp from_desc
-    pub fn from_desc(cdb: &CameraDatabase, desc: StarCalibrateDesc) -> Result<Self, String> {
+    pub fn from_desc(cdb: &CameraDatabase, desc: StarCalibrateDesc) -> Result<Self> {
         let position = Point3D::default();
         let direction = Quat::default();
 
@@ -258,7 +258,7 @@ impl StarCalibrate {
     }
 
     //cp from_json
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
         let desc: StarCalibrateDesc = json::from_json("camera calibration descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
@@ -266,7 +266,7 @@ impl StarCalibrate {
 
 //a Main
 // 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
-pub fn main() -> Result<(), String> {
+pub fn main() -> Result<()> {
     let camera_db_filename = "nac/camera_db.json";
     let camera_filename = "nac/camera_calibrate_stars_4924.json";
     let read_filename = Some("/Users/gjstark/Git/Images/IMG_4924.JPG");

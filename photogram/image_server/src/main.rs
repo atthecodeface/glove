@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use clap::Command;
 
-use ic_base::Mesh;
+use ic_base::{Mesh, Result};
 // use ic_cache::{Cache, CacheEntry, Cacheable};
 use ic_cmdline as cmdline_args;
 use ic_http::{
@@ -61,7 +61,7 @@ impl ProjectSet {
     pub fn fill_from_project_dir<P: AsRef<Path> + std::fmt::Display>(
         &mut self,
         path: P,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         for d in path
             .as_ref()
             .read_dir()
@@ -91,7 +91,7 @@ impl ProjectSet {
     }
 
     //mp add_project
-    pub fn add_project(&mut self, path: Box<Path>) -> Result<(), String> {
+    pub fn add_project(&mut self, path: Box<Path>) -> Result<()> {
         let named_project = NamedProject::new(path)?;
         let n = self.projects.len();
         self.index_by_name
@@ -122,7 +122,7 @@ impl ProjectSet {
         _request: &HttpRequest,
         _content: &[u8],
         response: &mut HttpResponse,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let names: Vec<String> = self.index_by_name.keys().cloned().collect();
         let json = serde_json::to_string(&names).unwrap();
         response.content = json.into_bytes();
@@ -139,7 +139,7 @@ impl ProjectSet {
         _content: &[u8],
         response: &mut HttpResponse,
         idx: usize,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         self.projects[idx]
             .ensure_loaded()
             .map(|_x| ())
@@ -159,14 +159,14 @@ impl ProjectSet {
         content: &[u8],
         response: &mut HttpResponse,
         idx: usize,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let mut str_content = "";
         let mut e = match std::str::from_utf8(content) {
             Ok(c) => {
                 str_content = c;
                 None
             }
-            Err(_e) => Some("Bad UTF8 in JSon".to_string()),
+            Err(_e) => Some("Bad UTF8 in JSon".to_string().into()),
         };
         if e.is_none() {
             e = self.projects[idx].of_json(str_content).err();
@@ -175,7 +175,7 @@ impl ProjectSet {
             e = self.projects[idx].save().unwrap().err();
         }
         if let Some(e) = e {
-            Err(format!("Failed to save project {idx} with json {e}:"))
+            Err(format!("Failed to save project {idx} with json {e}:").into())
         } else {
             response.resp_type = HttpResponseType::FileRead;
             Ok(())
@@ -190,12 +190,12 @@ impl ProjectSet {
         _content: &[u8],
         response: &mut HttpResponse,
         pd: &ProjectDecode,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
         if cip >= p.ncips() {
-            return Err("Cip out of range".into());
+            return Err(format!("Cip out of range").into());
         }
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
@@ -219,7 +219,7 @@ impl ProjectSet {
         _content: &[u8],
         response: &mut HttpResponse,
         pd: &ProjectDecode,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
@@ -265,7 +265,7 @@ impl ProjectSet {
         _content: &[u8],
         response: &mut HttpResponse,
         pd: &ProjectDecode,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
@@ -289,14 +289,15 @@ impl ProjectSet {
                 let model = n.model().0;
                 model_pts.push((name, model, camera.map_model(model)))
             } else {
-                return Err(format!("Could not find NP {name} in the project"));
+                return Err(format!("Could not find NP {name} in the project").into());
             }
         }
         if model_pts.len() < 3 {
             return Err(format!(
                 "Need at least 3 points for a patch, got {}",
                 model_pts.len()
-            ));
+            )
+            .into());
         }
 
         for m in &model_pts {
@@ -424,7 +425,7 @@ impl HttpServerExt for ProjectSet {
                     Err("Bad request type".into())
                 }
             } else {
-                Err(format!("Failed to find project {}", pd.project().unwrap()))
+                Err(format!("Failed to find project {}", pd.project().unwrap()).into())
             }
         };
         match result {
@@ -445,7 +446,7 @@ impl HttpServerExt for ProjectSet {
 static HTTP_SRV: OnceLock<HttpServer<ProjectSet>> = OnceLock::new();
 
 //fp main
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     let cmd = Command::new("image_server")
         .about("Image calibration/correlation server")
         .version("0.1.0");
@@ -466,10 +467,11 @@ fn main() -> Result<(), String> {
     if num_threads == 0 || num_threads > 20 {
         return Err(format!(
             "Number of threads {num_threads} must be non-zero and no more than 20"
-        ));
+        )
+        .into());
     }
     if !(1024..=60000).contains(&port) {
-        return Err(format!("Port {port} must be in the range 1024..60000"));
+        return Err(format!("Port {port} must be in the range 1024..60000").into());
     }
 
     let mut project_set = ProjectSet::new();
@@ -477,7 +479,7 @@ fn main() -> Result<(), String> {
     project_set.fill_from_project_dir(project_root)?;
     HTTP_SRV
         .set(HttpServer::new(verbose, file_root, project_set))
-        .map_err(|_| "Bug - faiiled to config server")?;
+        .map_err(|_| format!("Bug - faiiled to config server"))?;
 
     let pool = ThreadPool::new(4);
     let listener = TcpListener::bind(format!("127.0.0.1:{port}"))

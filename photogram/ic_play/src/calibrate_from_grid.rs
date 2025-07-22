@@ -118,7 +118,7 @@ use geo_nd::{quat, Quaternion, Vector};
 
 use ic_base::json;
 use ic_base::Quat;
-use ic_base::{Point3D, RollYaw, TanXTanY};
+use ic_base::{Point3D, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CameraDatabase, CameraInstance, CameraPolynomialCalibrate, CameraProjection};
@@ -127,7 +127,7 @@ use ic_image::{Color, Image, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
 
 //a Main
-pub fn main() -> Result<(), String> {
+pub fn main() -> Result<()> {
     //cb Files to use
     let camera_db_filename = "nac/camera_db.json";
     let camera_filename = "nac/camera_calibrate_6028.json";

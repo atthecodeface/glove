@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use ic_base::json;
+use ic_base::{json, Result};
 use ic_project::Project;
 
 //a ProjectPath
@@ -14,7 +14,7 @@ pub struct ProjectPath(Box<Path>);
 
 //ip Display for ProjectPath
 impl std::fmt::Display for ProjectPath {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         std::fmt::Debug::fmt(&self.0, fmt)
     }
 }
@@ -44,21 +44,21 @@ unsafe impl Send for ProjectWrap {}
 impl ProjectWrap {
     //mp of_json
     /// Set to be a project from some Json
-    fn of_json(&mut self, project_json: &str) -> Result<(), String> {
+    fn of_json(&mut self, project_json: &str) -> Result<()> {
         self.0 = json::from_json("project", project_json)?;
         Ok(())
     }
 
     //mp load
     /// Load the project from a path - it drops the old project
-    fn load<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<(), String> {
+    fn load<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<()> {
         let project_json = json::read_file(path)?;
         self.of_json(&project_json)
     }
 
     //mp save
     /// Save the project to a path
-    fn save<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<(), String> {
+    fn save<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<()> {
         let mut f = File::create(&path).map_err(|e| format!("Failed to open file {path}: {e}"))?;
         let json = self.0.to_json(true)?;
         f.write(json.as_bytes())
@@ -110,10 +110,10 @@ impl NamedProject {
     /// Create a new [NamedProject] given a path
     ///
     /// The project is not loaded by default
-    pub fn new(path: Box<Path>) -> Result<Self, String> {
+    pub fn new(path: Box<Path>) -> Result<Self> {
         let path = ProjectPath(path);
         let Some(name) = path.file_stem() else {
-            return Err(format!("Could not get name of file from path {path}"));
+            return Err(format!("Could not get name of file from path {path}").into());
         };
         let name = name.to_string_lossy().to_string();
         let project = None.into();
@@ -131,7 +131,7 @@ impl NamedProject {
     }
 
     //ap ensure_loaded
-    pub fn ensure_loaded(&self) -> Result<UniqueProjectRef, String> {
+    pub fn ensure_loaded(&self) -> Result<UniqueProjectRef> {
         let mut p = self.project.lock().unwrap();
         if p.is_none() {
             let mut project = ProjectWrap::default();
@@ -142,7 +142,7 @@ impl NamedProject {
     }
 
     //mp of_json
-    pub fn of_json(&self, json: &str) -> Result<(), String> {
+    pub fn of_json(&self, json: &str) -> Result<()> {
         let mut p = self.project.lock().unwrap();
         let mut project = ProjectWrap::default();
         project.of_json(json)?;
@@ -162,7 +162,7 @@ impl NamedProject {
 
     //mp save
     /// Save the Project back to its Path, if it has been loaded
-    pub fn save(&self) -> Option<Result<(), String>> {
+    pub fn save(&self) -> Option<Result<()>> {
         let opt_project = self.project.lock().unwrap();
         opt_project.as_ref().map(|p| p.save(&self.path))
     }
@@ -170,7 +170,7 @@ impl NamedProject {
     //mp load
     /// Load the Project from to its Path; this creates it
     #[allow(dead_code)]
-    pub fn load(&self) -> Option<Result<(), String>> {
+    pub fn load(&self) -> Option<Result<()>> {
         let mut opt_project = self.project.lock().unwrap();
         opt_project.as_mut().map(|p| p.load(&self.path))
     }

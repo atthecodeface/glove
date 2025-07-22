@@ -45,6 +45,12 @@ features = ["postcard", "hipp_bright", "image"]
 version = ">=1.15.0"
 features = ["derive"]
 
+[workspace.dependencies.thiserror]
+version = "2.0"
+
+[workspace.dependencies.anyhow]
+version = "1.0.98"
+
 [workspace.dependencies.wgpu]
 version = "=0.20"
 

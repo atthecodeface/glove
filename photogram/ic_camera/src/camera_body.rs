@@ -1,7 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::Point2D;
+use ic_base::{Point2D, Result};
 
 use crate::CameraSensor;
 
@@ -10,7 +10,7 @@ use crate::CameraSensor;
 pub fn serialize_body_name<S: serde::Serializer>(
     body: &CameraBody,
     serializer: S,
-) -> Result<S::Ok, S::Error> {
+) -> std::result::Result<S::Ok, S::Error> {
     serializer.serialize_str(body.name())
 }
 
@@ -99,7 +99,7 @@ impl std::default::Default for CameraBody {
 
 //ip Display for CameraBody
 impl std::fmt::Display for CameraBody {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             fmt,
             "{}: {}x{} @ {} by {}",

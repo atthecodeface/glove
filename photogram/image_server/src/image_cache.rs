@@ -2,6 +2,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
 use ic_image::{Image, ImageGray16, ImageRgb8};
 
@@ -87,7 +88,7 @@ impl ImageCache {
         Self { m_cache }
     }
 
-    pub fn src_image<P: AsRef<Path>>(&self, path: P) -> Result<CacheRef, String> {
+    pub fn src_image<P: AsRef<Path>>(&self, path: P) -> Result<CacheRef> {
         let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
         let key = ImageCacheKey::of_image_path(&path);
         if !cache.contains(&key) {
@@ -99,7 +100,7 @@ impl ImageCache {
         Ok(cache.get(&key).unwrap())
     }
 
-    pub fn shrink_cache(&mut self, to_size: usize) -> Result<usize, String> {
+    pub fn shrink_cache(&mut self, to_size: usize) -> Result<usize> {
         let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
         cache.shrink_to(to_size);
         Ok(cache.total_size())

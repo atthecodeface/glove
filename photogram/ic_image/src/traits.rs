@@ -1,14 +1,14 @@
 //a Imports
 use std::path::Path;
 
-use ic_base::Point2D;
+use ic_base::{Point2D, Result};
 
 //a Image trait
 pub trait Image {
     type Pixel;
     fn new(width: usize, height: usize) -> Self;
-    fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String>;
-    fn encode(&self, extension: &str) -> Result<Vec<u8>, String>;
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    fn encode(&self, extension: &str) -> Result<Vec<u8>>;
     fn get(&self, x: u32, y: u32) -> Self::Pixel;
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel);
     fn size(&self) -> (u32, u32);

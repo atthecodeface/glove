@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Point3D, Ray, Rrc};
+use ic_base::{json, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraDatabase;
 use ic_mapping::{CameraPtMapping, NamedPointSet};
 
@@ -44,7 +44,7 @@ pub struct Project {
 
 //ip Deserialize for Project
 impl<'de> Deserialize<'de> for Project {
-    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
     where
         DE: serde::Deserializer<'de>,
     {
@@ -108,7 +108,7 @@ impl Project {
     }
 
     //cp from_json
-    pub fn from_json(json: &str) -> Result<Self, String> {
+    pub fn from_json(json: &str) -> Result<Self> {
         json::from_json("project", json)
     }
 
@@ -132,11 +132,11 @@ impl Project {
     }
 
     //mp to_json
-    pub fn to_json(&self, pretty: bool) -> Result<String, String> {
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
-            serde_json::to_string_pretty(self).map_err(|e| format!("{}", e))
+            Ok(serde_json::to_string_pretty(self)?)
         } else {
-            serde_json::to_string(self).map_err(|e| format!("{}", e))
+            Ok(serde_json::to_string(self)?)
         }
     }
 

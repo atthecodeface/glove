@@ -3,6 +3,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::{Error, Result};
+
 //a Public functions
 //fp remove_comments
 pub fn remove_comments(s: &str) -> String {
@@ -20,14 +22,13 @@ pub fn remove_comments(s: &str) -> String {
 }
 
 //fp read_file
-pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String, String> {
-    let file_text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Error reading json file {}: {}", path, e))?;
+pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String> {
+    let file_text = std::fs::read_to_string(&path).map_err(|e| Error::from((path, e)))?;
     Ok(remove_comments(&file_text))
 }
 
 //fi json_error
-fn json_error(reason: &str, json: &str, err: serde_json::Error) -> String {
+fn json_error(reason: &str, json: &str, err: serde_json::Error) -> Error {
     let line = err.line();
     let column = err.column();
     let mut result = format!(
@@ -44,10 +45,10 @@ fn json_error(reason: &str, json: &str, err: serde_json::Error) -> String {
             break;
         }
     }
-    result
+    Error::JsonCtxt(result)
 }
 
 //fp from_json
-pub fn from_json<'de, P: Deserialize<'de>>(reason: &str, json: &'de str) -> Result<P, String> {
+pub fn from_json<'de, P: Deserialize<'de>>(reason: &str, json: &'de str) -> Result<P> {
     serde_json::from_str(json).map_err(|e| json_error(reason, json, e))
 }

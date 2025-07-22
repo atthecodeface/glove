@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::json;
+use ic_base::{json, Result};
 use ic_camera::{CameraDatabase, CameraPolynomial};
 use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
@@ -22,7 +22,7 @@ pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_nps
-pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet, String> {
+pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet> {
     let mut nps = NamedPointSet::new();
     for nps_filename in matches.get_many::<String>("nps").unwrap() {
         let nps_json = json::read_file(nps_filename)?;
@@ -44,7 +44,7 @@ pub fn add_np_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_np
-pub fn get_np(matches: &ArgMatches, nps: &NamedPointSet) -> Result<Rc<NamedPoint>, String> {
+pub fn get_np(matches: &ArgMatches, nps: &NamedPointSet) -> Result<Rc<NamedPoint>> {
     let np = matches.get_one::<String>("np").unwrap();
     nps.get_pt_err(np)
 }
@@ -64,7 +64,7 @@ pub fn add_pms_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_pms
-pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMappingSet, String> {
+pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMappingSet> {
     let mut pms = PointMappingSet::new();
     for pms_filename in matches.get_many::<String>("pms").unwrap() {
         let pms_json = json::read_file(pms_filename)?;
@@ -92,7 +92,7 @@ pub fn get_camera_pms(
     matches: &ArgMatches,
     cdb: &CameraDatabase,
     nps: &NamedPointSet,
-) -> Result<Vec<(CameraPolynomial, PointMappingSet)>, String> {
+) -> Result<Vec<(CameraPolynomial, PointMappingSet)>> {
     let mut result = vec![];
     let mut cam = None;
     for filename in matches.get_many::<String>("camera_pms").unwrap() {

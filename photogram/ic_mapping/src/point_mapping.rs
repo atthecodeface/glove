@@ -5,7 +5,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Point2D, Point3D};
+use ic_base::{json, Error, Point2D, Point3D, Result};
 use ic_image::Color;
 
 use crate::{NamedPoint, NamedPointSet};
@@ -53,7 +53,7 @@ impl PartialOrd for PointMapping {
 
 //ip Serialize for PointMapping
 impl Serialize for PointMapping {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -68,7 +68,7 @@ impl Serialize for PointMapping {
 
 //ip Deserialize for PointMapping
 impl<'de> Deserialize<'de> for PointMapping {
-    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
     where
         DE: serde::Deserializer<'de>,
     {
@@ -150,7 +150,7 @@ pub struct PointMappingSet {
 
 //ip Serialize for PointMappingSet
 impl Serialize for PointMappingSet {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -166,7 +166,7 @@ impl Serialize for PointMappingSet {
 
 //ip Deserialize for PointMappingSet
 impl<'de> Deserialize<'de> for PointMappingSet {
-    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
     where
         DE: serde::Deserializer<'de>,
     {
@@ -200,10 +200,10 @@ impl PointMappingSet {
         nps: &NamedPointSet,
         toml: &str,
         allow_not_found: bool,
-    ) -> Result<String, String> {
+    ) -> Result<String> {
         let (pms, nf) = Self::from_json(nps, toml)?;
         if !allow_not_found && !nf.is_empty() {
-            Err(nf)
+            Err(Error::Msg(nf))
         } else {
             self.merge(pms);
             Ok(nf)
@@ -211,7 +211,7 @@ impl PointMappingSet {
     }
 
     //fp from_json
-    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String), String> {
+    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
         let mut pms: Self = json::from_json("point map set", json)?;
         let not_found = pms.rebuild_with_named_point_set(nps);
         if not_found.is_empty() {
@@ -231,8 +231,8 @@ impl PointMappingSet {
     }
 
     //fp to_json
-    pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    pub fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(self)?)
     }
 
     //mp rebuild_with_named_point_set

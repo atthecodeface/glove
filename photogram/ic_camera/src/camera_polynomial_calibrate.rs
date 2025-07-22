@@ -3,7 +3,7 @@ use geo_nd::{quat, Quaternion};
 use serde::{Deserialize, Serialize};
 
 use ic_base::json;
-use ic_base::{Point2D, Point3D, Quat, RollYaw};
+use ic_base::{Point2D, Point3D, Quat, Result, RollYaw};
 
 use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens, CameraPolynomial};
@@ -79,10 +79,7 @@ impl CameraPolynomialCalibrate {
     }
 
     //cp from_desc
-    pub fn from_desc(
-        cdb: &CameraDatabase,
-        desc: CameraPolynomialCalibrateDesc,
-    ) -> Result<Self, String> {
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialCalibrateDesc) -> Result<Self> {
         let position = [desc.centred_on.0, desc.centred_on.1, desc.distance].into();
         let direction: Quat = quat::look_at(&[0., 0., -1.], &[0., 1., 0.]).into();
         let rotate_x: Quat = quat::of_axis_angle(&[1., 0., 0.], desc.x_rotation).into();
@@ -122,7 +119,7 @@ impl CameraPolynomialCalibrate {
     }
 
     //cp from_json
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
         let desc: CameraPolynomialCalibrateDesc =
             json::from_json("camera calibration descriptor", json)?;
         Self::from_desc(cdb, desc)

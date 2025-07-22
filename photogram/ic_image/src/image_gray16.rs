@@ -2,10 +2,13 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::{Image, ImageRgb8};
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::{GenericImageView, ImageBuffer, Luma};
+
+use ic_base::{Error, Result};
+
+use crate::{Image, ImageRgb8};
 
 //a ImageGray16
 #[derive(Debug, Clone)]
@@ -14,12 +17,9 @@ pub struct ImageGray16(DynamicImage);
 //a ip ImageGray16
 impl ImageGray16 {
     //cp read_image
-    pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self, String> {
-        let img: ImageBuffer<Luma<u16>, Vec<u16>> = ImageReader::open(path)
-            .map_err(|e| format!("Failed to open file {}", e))?
-            .decode()
-            .map_err(|e| format!("Failed to decode image {}", e))?
-            .into_luma16();
+    pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let img: ImageBuffer<Luma<u16>, Vec<u16>> =
+            ImageReader::open(path)?.decode()?.into_luma16();
         Ok(Self(img.into()))
     }
 
@@ -28,7 +28,7 @@ impl ImageGray16 {
         width: usize,
         height: usize,
         opt_filename: Option<&str>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         let width = width as u32;
         let height = height as u32;
         if let Some(filename) = opt_filename {
@@ -38,7 +38,8 @@ impl ImageGray16 {
                 Err(format!(
                     "Image read has incorrect dimensions of ({},{}) instead of ({width},{height})",
                     w, h,
-                ))
+                )
+                .into())
             } else {
                 Ok(img)
             }
@@ -113,13 +114,13 @@ impl Image for ImageGray16 {
     fn new(width: usize, height: usize) -> Self {
         Self(DynamicImage::new_luma16(width as u32, height as u32))
     }
-    fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.0
             .save(path)
             .map_err(|e| format!("Failed to encode image {}", e))?;
         Ok(())
     }
-    fn encode(&self, extension: &str) -> Result<Vec<u8>, String> {
+    fn encode(&self, extension: &str) -> Result<Vec<u8>> {
         let format = {
             match extension {
                 "jpg" => image::ImageFormat::Jpeg,

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
 
-use ic_base::{json, Ray};
+use ic_base::{json, Ray, Result};
 use ic_camera::{CameraDatabase, CameraProjection};
 use ic_cmdline as cmdline_args;
 use ic_image::{Color, Image, Patch, Region};
@@ -16,7 +16,7 @@ use ic_project::Project;
 
 //a Types
 //ti SubCmdFn
-type SubCmdFn = fn(BaseArgs, &clap::ArgMatches) -> Result<(), String>;
+type SubCmdFn = fn(BaseArgs, &clap::ArgMatches) -> Result<()>;
 
 //tp BaseArgs
 struct BaseArgs {
@@ -70,7 +70,7 @@ fn image_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi image_fn
-fn image_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn image_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let mut img = cmdline_args::image::get_image_read_or_create(matches, &camera)?;
@@ -122,7 +122,7 @@ fn image_patch_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi image_patch_fn
-fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
     let camera = cip.camera_ref();
@@ -135,14 +135,15 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(),
             let model = n.model().0;
             model_pts.push((name, model, camera.map_model(model)))
         } else {
-            return Err(format!("Could not find NP {name} in the project"));
+            return Err(format!("Could not find NP {name} in the project").into());
         }
     }
     if model_pts.len() < 3 {
         return Err(format!(
             "Need at least 3 points for a patch, got {}",
             model_pts.len()
-        ));
+        )
+        .into());
     }
 
     for m in &model_pts {
@@ -167,7 +168,7 @@ fn show_mappings_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi show_mappings_fn
-fn show_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn show_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
 
@@ -206,7 +207,7 @@ fn get_point_mappings_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi get_point_mappings_fn
-fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let img = cmdline_args::image::get_image_read(matches)?;
     let bg_color = cmdline_args::image::get_opt_bg_color(matches)?;
     let bg_color = bg_color.unwrap_or(Color::black());
@@ -250,7 +251,7 @@ fn locate_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi locate_fn
-fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
     let cip = cip.borrow();
     let mut camera = cip.camera_ref().clone();
@@ -298,7 +299,7 @@ fn orient_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi orient_fn
-fn orient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn orient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
 
@@ -340,7 +341,7 @@ fn reorient_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi reorient_fn
-fn reorient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn reorient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     camera.reorient_using_rays_from_model(pms.mappings());
@@ -382,10 +383,7 @@ fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi combine_rays_from_model_fn
-fn combine_rays_from_model_fn(
-    base_args: BaseArgs,
-    matches: &clap::ArgMatches,
-) -> Result<(), String> {
+fn combine_rays_from_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let ray_filename = matches.get_one::<String>("rays").unwrap();
 
@@ -401,7 +399,8 @@ fn combine_rays_from_model_fn(
         return Err(format!(
             "Not enough rays ({}) to combine to generate a position for the camera",
             ray_list.len()
-        ));
+        )
+        .into());
     }
 
     let position = Ray::closest_point(&ray_list, &|r| 1.0 / r.tan_error()).unwrap();
@@ -435,10 +434,7 @@ fn combine_rays_from_camera_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi combine_rays_from_camera_fn
-fn combine_rays_from_camera_fn(
-    base_args: BaseArgs,
-    matches: &clap::ArgMatches,
-) -> Result<(), String> {
+fn combine_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let ray_filenames: Vec<String> = matches
         .get_many::<String>("rays")
         .unwrap()
@@ -506,10 +502,7 @@ fn create_rays_from_model_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi create_rays_from_model_fn
-fn create_rays_from_model_fn(
-    base_args: BaseArgs,
-    matches: &clap::ArgMatches,
-) -> Result<(), String> {
+fn create_rays_from_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let mappings = pms.mappings();
@@ -537,10 +530,7 @@ fn create_rays_from_camera_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi create_rays_from_camera_fn
-fn create_rays_from_camera_fn(
-    base_args: BaseArgs,
-    matches: &clap::ArgMatches,
-) -> Result<(), String> {
+fn create_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
     let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
     let mappings = pms.mappings();
@@ -579,7 +569,7 @@ fn get_model_points_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi get_model_points_fn
-fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let camera_pms =
         cmdline_args::mapping::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
     let mut result_nps = NamedPointSet::default();
@@ -624,7 +614,7 @@ fn project_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi project_fn
-fn project_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn project_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let camera = base_args.project.cip(0).borrow().camera().clone();
     eprintln!("Camera {camera:?}");
     eprintln!("Mapping {}", camera.borrow().map_model([0., 0., 0.].into()));
@@ -643,7 +633,7 @@ fn print_err(s: String) -> String {
 }
 
 //fi main
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     let cmd = Command::new("image_calibrate")
         .about("Image calibration tool")
         .version("0.1.0")
@@ -676,14 +666,14 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let project = cmdline_args::project::get_project(&matches).map_err(print_err)?;
+    let project = cmdline_args::project::get_project(&matches)?;
     let verbose = cmdline_args::get_verbose(&matches);
 
     let base_args = BaseArgs { project, verbose };
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return sub_cmd_fn(base_args, submatches).map_err(print_err);
+            return Ok(sub_cmd_fn(base_args, submatches)?);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

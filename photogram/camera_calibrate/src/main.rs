@@ -1,7 +1,9 @@
 //a Imports
 use std::collections::HashMap;
 
+use anyhow::Result;
 use clap::Command;
+
 use ic_base::{Point3D, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
@@ -11,7 +13,7 @@ use ic_image::{Image, ImageRgb8};
 
 //a Types
 //ti SubCmdFn
-type SubCmdFn = fn(CameraDatabase, &clap::ArgMatches) -> Result<(), String>;
+type SubCmdFn = fn(CameraDatabase, &clap::ArgMatches) -> Result<()>;
 
 //a Calibrate
 //fi calibrate_cmd
@@ -28,7 +30,7 @@ fn calibrate_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi calibrate_fn
-fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), String> {
+fn calibrate_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<()> {
     let calibrate = cmdline_args::camera::get_camera_calibrate(matches, &cdb)?;
     let v = calibrate.get_pairings();
     let mut world_yaws = vec![];
@@ -168,14 +170,8 @@ fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), 
  */
 
 //a Main
-//fi print_err
-fn print_err(s: String) -> String {
-    eprintln!("{}", s);
-    s
-}
-
 //fi main
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     let cmd = Command::new("camera_calibrate")
         .about("Camera calibration tool")
         .version("0.1.0")
@@ -194,12 +190,12 @@ fn main() -> Result<(), String> {
     let cmd = cmd;
 
     let matches = cmd.get_matches();
-    let cdb = cmdline_args::camera::get_camera_database(&matches).map_err(print_err)?;
+    let cdb = cmdline_args::camera::get_camera_database(&matches)?;
 
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return sub_cmd_fn(cdb, submatches).map_err(print_err);
+            return Ok(sub_cmd_fn(cdb, submatches)?);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

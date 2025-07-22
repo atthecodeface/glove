@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Point3D};
+use ic_base::{json, Error, Point3D, Result};
 use ic_image::Color;
 
 //a NamedPoint
@@ -27,7 +27,9 @@ pub struct NamedPoint {
 }
 
 #[allow(dead_code)]
-fn deserialize_model<'de, D>(deserializer: D) -> Result<RefCell<Option<(Point3D, f64)>>, D::Error>
+fn deserialize_model<'de, D>(
+    deserializer: D,
+) -> std::result::Result<RefCell<Option<(Point3D, f64)>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -120,13 +122,13 @@ impl NamedPointSet {
     }
 
     //fp from_json
-    pub fn from_json(json: &str) -> Result<Self, String> {
+    pub fn from_json(json: &str) -> Result<Self> {
         json::from_json("named point set", json)
     }
 
     //mp to_json
-    pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    pub fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(self)?)
     }
 
     //mp merge
@@ -185,9 +187,10 @@ impl NamedPointSet {
     }
 
     //fp get_pt_err
-    pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>, String> {
-        self.get_pt(name)
-            .ok_or_else(|| format!("Named point set does not contain name '{}'", name))
+    pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>> {
+        self.get_pt(name).ok_or_else(|| {
+            Error::Database(format!("Named point set does not contain name '{}'", name))
+        })
     }
 
     //fp iter
@@ -198,7 +201,7 @@ impl NamedPointSet {
 
 //ip Serialize for NamedPointSet
 impl Serialize for NamedPointSet {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -218,7 +221,7 @@ impl Serialize for NamedPointSet {
 
 //ip Deserialize for NamedPointSet
 impl<'de> Deserialize<'de> for NamedPointSet {
-    fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
     where
         DE: serde::Deserializer<'de>,
     {

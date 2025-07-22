@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::Rrc;
+use ic_base::{Result, Rrc};
 use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_mapping::{CameraAdjustMapping, PointMappingSet};
 
@@ -68,7 +68,7 @@ impl Cip {
         project: &Project,
         camera_json: &str,
         pms_json: &str,
-    ) -> Result<String, String> {
+    ) -> Result<String> {
         let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?;
         let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
         self.camera = camera.into();
@@ -77,7 +77,7 @@ impl Cip {
     }
 
     //cp from_desc
-    pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String), String> {
+    pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
         let image = cip_desc.image;
         let camera = CameraInstance::from_desc(&project.cdb().borrow(), cip_desc.camera)?.into();
         let pms: Rrc<PointMappingSet> = cip_desc.pms.into();

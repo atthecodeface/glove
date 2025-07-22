@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use geo_nd::quat;
 
 use ic_base::json;
-use ic_base::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
+use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
 use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens};
@@ -101,7 +101,7 @@ impl CameraPolynomial {
     }
 
     //cp from_desc
-    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self, String> {
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self> {
         let body = cdb.get_body_err(&desc.body)?.clone();
         let lens = cdb.get_lens_err(&desc.lens)?.clone();
         Ok(Self::new(
@@ -113,15 +113,15 @@ impl CameraPolynomial {
         ))
     }
 
-    //cp from_json
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+    //cp from_json`
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
         let desc: CameraPolynomialDesc = json::from_json("camera instance descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
 
     //fp to_json
-    pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("{}", e))
+    pub fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(self)?)
     }
 
     //mp set_lens
@@ -156,7 +156,7 @@ impl CameraPolynomial {
 
 //ip Display for CameraPolynomial
 impl std::fmt::Display for CameraPolynomial {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             fmt,
             "CamPoly[{}x{} lens {} @ {}mm]",

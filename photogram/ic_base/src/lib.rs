@@ -4,6 +4,10 @@
 !*/
 
 //a Modules
+mod error;
+pub use error::Error;
+pub type Result<T> = std::result::Result<T, Error>;
+
 pub mod json;
 pub mod types;
 pub mod utils;

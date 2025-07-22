@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use clap::Command;
+use ic_base::Result;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_cmdline as cmdline_args;
@@ -10,7 +11,7 @@ use ic_kernel::{KernelArgs, Kernels};
 
 //a Types
 //ti SubCmdFn
-type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<(), String>;
+type SubCmdFn = fn(base_args: BaseArgs, &clap::ArgMatches) -> Result<()>;
 
 //tp BaseArgs
 struct BaseArgs {
@@ -64,7 +65,7 @@ fn find_axis_pts(
 }
 
 //fi spacing_of_coords
-fn spacing_of_coords(pts: &[(usize, f64)]) -> Result<f64, String> {
+fn spacing_of_coords(pts: &[(usize, f64)]) -> Result<f64> {
     let mut coords: Vec<f64> = pts.iter().map(|(_, n)| *n).collect();
     coords.sort_by(|f0, f1| f0.partial_cmp(f1).unwrap());
     let mut min_spacing = coords[1] - coords[0];
@@ -260,7 +261,7 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi find_regions_fn
-fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
     let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
@@ -299,7 +300,7 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi find_grid_points_fn
-fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &mut base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
     let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
@@ -358,7 +359,7 @@ fn as_luma_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi as_luma_fn
-fn as_luma_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn as_luma_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &base_args.images[0];
     eprintln!("Read initial image, size is {:?}", img.size());
     let (w, h, img_data) = img.as_vec_gray_f32(None);
@@ -388,7 +389,7 @@ fn luma_window_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi luma_window_fn
-fn luma_window_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<(), String> {
+fn luma_window_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &base_args.images[0];
     eprintln!(
         "Read initial image, size is {:?} (max pixels in kernel is 4M)",
@@ -457,7 +458,7 @@ fn luma_kernel_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi luma_kernel_fn
-fn luma_kernel_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn luma_kernel_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     let img = &base_args.images[0];
     let ws = cmdline_args::kernels::get_size(matches)?;
     let scale = cmdline_args::kernels::get_scale(matches)?;
@@ -527,9 +528,11 @@ fn luma_kernel_pair_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi luma_kernel_pair_fn
-fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(), String> {
+fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     if base_args.images.len() != 2 {
-        return Err("Two 'read' images are required for a kernel on a pair of images".into());
+        return Err(
+            format!("Two 'read' images are required for a kernel on a pair of images").into(),
+        );
     }
     let ws = cmdline_args::kernels::get_size(matches)?;
     let scale = cmdline_args::kernels::get_scale(matches)?;
@@ -660,7 +663,7 @@ fn print_err(s: String) -> String {
 }
 
 //fi main
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     let cmd = Command::new("image_analyze")
         .about("Image analysis tool")
         .version("0.1.0")
@@ -697,7 +700,7 @@ fn main() -> Result<(), String> {
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return sub_cmd_fn(base_args, submatches).map_err(print_err);
+            return Ok(sub_cmd_fn(base_args, submatches)?);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

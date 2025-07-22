@@ -6,6 +6,8 @@ use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
 
+use ic_base::Result;
+
 use crate::{Color, Image, ImageGray16};
 
 //a ImageRbg8
@@ -15,12 +17,8 @@ pub struct ImageRgb8(DynamicImage);
 //a Public functions
 impl ImageRgb8 {
     //cp read_image
-    pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self, String> {
-        let img = ImageReader::open(path)
-            .map_err(|e| format!("Failed to open file {}", e))?
-            .decode()
-            .map_err(|e| format!("Failed to decode image {}", e))?
-            .into_rgb8();
+    pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let img = ImageReader::open(path)?.decode()?.into_rgb8();
         Ok(Self(img.into()))
     }
 
@@ -29,7 +27,7 @@ impl ImageRgb8 {
         width: usize,
         height: usize,
         opt_filename: Option<&str>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         let width = width as u32;
         let height = height as u32;
         if let Some(filename) = opt_filename {
@@ -39,7 +37,8 @@ impl ImageRgb8 {
                 Err(format!(
                     "Image read has incorrect dimensions of ({},{}) instead of ({width},{height})",
                     w, h,
-                ))
+                )
+                .into())
             } else {
                 Ok(img)
             }
@@ -91,13 +90,13 @@ impl Image for ImageRgb8 {
     fn new(width: usize, height: usize) -> Self {
         Self(DynamicImage::new_rgb8(width as u32, height as u32))
     }
-    fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.0
             .save(path)
             .map_err(|e| format!("Failed to encode image {}", e))?;
         Ok(())
     }
-    fn encode(&self, extension: &str) -> Result<Vec<u8>, String> {
+    fn encode(&self, extension: &str) -> Result<Vec<u8>> {
         let format = {
             match extension {
                 "jpg" => image::ImageFormat::Jpeg,

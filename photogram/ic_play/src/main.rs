@@ -118,7 +118,7 @@ use star_catalog::{hipparcos, Catalog, CatalogIndex, Subcube};
 
 use ic_base::json;
 use ic_base::Quat;
-use ic_base::{Point2D, Point3D, RollYaw, TanXTanY};
+use ic_base::{Point2D, Point3D, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{serialize_body_name, serialize_lens_name};
@@ -127,6 +127,23 @@ use ic_camera::{CameraDatabase, CameraInstance, CameraProjection};
 use ic_image::{Color, Image, ImageRgb8};
 
 use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
+
+use ic_cmdline::builder::{ArgFn, CommandArgs, CommandBuilder, CommandFn, CommandSet};
+
+#[derive(Default)]
+pub struct CmdArgs {
+    cdb: Option<CameraDatabase>,
+    cal: Option<StarCalibrate>,
+    read_img: Option<String>,
+    write_img: Option<String>,
+}
+impl CommandArgs for CmdArgs {
+    type Error = ic_base::Error;
+    type Value = ();
+}
+fn arg_camera_db(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    Ok(())
+}
 
 //a Useful functions
 //fi orientation_mapping
@@ -231,7 +248,7 @@ impl StarCalibrate {
     }
 
     //cp from_desc
-    pub fn from_desc(cdb: &CameraDatabase, desc: StarCalibrateDesc) -> Result<Self, String> {
+    pub fn from_desc(cdb: &CameraDatabase, desc: StarCalibrateDesc) -> Result<Self> {
         let position = Point3D::default();
         let direction = Quat::default();
 
@@ -258,7 +275,7 @@ impl StarCalibrate {
     }
 
     //cp from_json
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self, String> {
+    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
         let desc: StarCalibrateDesc = json::from_json("camera calibration descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
@@ -266,7 +283,24 @@ impl StarCalibrate {
 
 //a Main
 // 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
-pub fn main() -> Result<(), String> {
+pub fn main() -> Result<()> {
+    let command = clap::Command::new("ic_play")
+        .about("Camera calibration tool")
+        .version("0.1.0");
+    let mut build = CommandBuilder::new(command, None);
+    build.add_arg(
+        clap::Arg::new("camera_db")
+            .long("db")
+            .alias("database")
+            .required(true)
+            .help("Camera database JSON")
+            .action(clap::ArgAction::Set),
+        Box::new(arg_camera_db),
+    );
+    let mut cmd_args = CmdArgs::default();
+    let mut command: CommandSet<CmdArgs> = build.into();
+    command.execute_env(&mut cmd_args)?;
+
     let camera_db_filename = "nac/camera_db.json";
     let read_filename: Option<&str> = None;
     let camera_filename = "nac/camera_calibrate_stars_4924.json";

@@ -484,7 +484,7 @@ impl<T: HttpServerExt> HttpServer<T> {
                 };
                 ofs += n;
                 if let Some(r_cs) = HttpRequest::parse_request(&buffer[0..ofs]) {
-                    break (r_cs);
+                    break r_cs;
                 }
                 if n == 0 {
                     // Connection shut down without a full header
