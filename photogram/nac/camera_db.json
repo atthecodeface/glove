@@ -14,7 +14,10 @@
             //
             // However, it might just be dependent on the *derived*
             // camera position which the graphs are generated from?
-            "px_centre":[3420.0,2100.0],
+            // "px_centre":[3420.0,2100.0],
+            // "px_centre":[3360.0,2240.0],
+            // "px_centre":[3360.0,2600.0],
+             "px_centre":[3360.0,2240.0],
             "px_width":6720.0,
             "px_height":4480.0,
             "flip_y":true,
@@ -25,6 +28,7 @@
             "name": "Canon EOS REBEL T2i",
             "aliases": ["T2i"],
             "px_centre":[2592.0,1728.0],
+//            "px_centre":[2670.0,1726.0],
             "px_width":5184.0,
             "px_height":3456.0,
             "flip_y":true,
@@ -45,13 +49,33 @@
         {
             "name":"EF50mm f1.8",
             "aliases": ["50mm"],
-            "mm_focal_length":50.0,
+            "mm_focal_length":51.3,
             // Polynomials derived from the grid using the best rgyb alignment and the centre of 3420, 2100
-            "wts_poly": [0.00011205712249306998, 1.0049495719613333, 0.02608420079195639, -0.23024427011841908, 0.09925313468556851],
-            "stw_poly": [-0.00010211540217142101, 0.9947138802899644, -0.020866514729277696, 0.196689730102662, -0.02838135792990215]
+            // with 50mm
+            // "wts_poly": [0.00011205712249306998, 1.0049495719613333, 0.02608420079195639, -0.23024427011841908, 0.09925313468556851],
+            // "stw_poly": [-0.00010211540217142101, 0.9947138802899644, -0.020866514729277696, 0.196689730102662, -0.02838135792990215]
 
-            // "stw_poly":[0.0, 1.0],
-            // "wts_poly":[0.0, 1.0]
+            // focal length of 51.3 from T2i star calibration with linear
+
+            // Polynomials derived from the grid using the best rgyb alignment and the centre of 3360, 2400
+            // with 51.3mm
+ "wts_poly": [0.0, 1.0036247448133508, -0.018318503669433994, -0.049721250048605725, -0.15135348329204135],
+ "stw_poly": [0.0, 0.996278845046163, 0.021130792640178697, 0.025611542689148337, 0.21943029935937375]
+
+        },
+        {
+            "name":"EF50mm f1.8 linear",
+            "aliases": ["50mm"],
+            "mm_focal_length":51.3,
+            "stw_poly":[0.0, 1.0],
+            "wts_poly":[0.0, 1.0]
+        },
+        {
+            "name":"EF15mm f/2.8 Fisheye",
+            "aliases": ["15mm"],
+            "mm_focal_length":14.7,
+            "stw_poly":[0.0, 1.0],
+            "wts_poly":[0.0, 1.0]
         },
         {
             "name": "Logitech C270",

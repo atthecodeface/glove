@@ -17,10 +17,18 @@ ic_camera.workspace = true
 ic_mapping.workspace = true
 geo-nd.workspace = true
 poloto.workspace = true
+serde.workspace = true
+postcard.workspace = true
+star-catalog.workspace = true
 
 [[bin]]
 name="ic_play"
 path = "src/main.rs"
+
+
+[[bin]]
+name="find_stars_from_image"
+path = "src/find_stars_from_image.rs"
 
 [[bin]]
 name="calibrate_from_grid"

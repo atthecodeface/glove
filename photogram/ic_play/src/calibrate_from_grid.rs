@@ -128,6 +128,7 @@ use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
 
 //a Main
 pub fn main() -> Result<(), String> {
+    //cb Files to use
     let camera_db_filename = "nac/camera_db.json";
     let camera_filename = "nac/camera_calibrate_6028.json";
     let read_filename: Option<&str> = None;
@@ -135,16 +136,19 @@ pub fn main() -> Result<(), String> {
     let read_filename = Some("/Users/gjstark/Git/Images/4V3A6028.JPG");
     let write_filename = Some("a.png");
 
+    //cb Load CameraDb and Calibration JSON
     let camera_db_json = json::read_file(camera_db_filename)?;
     let mut cdb: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
     cdb.derive();
     let camera_json = json::read_file(camera_filename)?;
     let calibrate = CameraPolynomialCalibrate::from_json(&cdb, &camera_json)?;
 
+    //cb Set up 'cam' as the camera
     let mut cam = calibrate.camera().clone();
     cam.set_position([0., 0., 0.].into());
     cam.set_orientation(Quat::default());
 
+    //cb Set up HashMaps and collections
     let mut grid_dir_of_xy = HashMap::new();
 
     let pt_indices = &[(40, -40), (-40, -40), (40, 40), (-40, 40)];
@@ -153,6 +157,7 @@ pub fn main() -> Result<(), String> {
     let mut pms = PointMappingSet::default();
     let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
 
+    //cb Add calibrations to NamedPointSet and PointMappingSet
     let v = calibrate.get_xy_pairings();
     for (grid_xy, pxy_abs) in v.iter() {
         let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
@@ -162,12 +167,14 @@ pub fn main() -> Result<(), String> {
         pms.add_mapping(&nps, &name, pxy_abs, 0.);
     }
 
+    //cb Add all pairings to grid_dir_of_xy
     for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
         let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
         let grid_dir = txty.to_unit_vector();
         grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
     }
 
+    //cb For required pairings, display data
     for p in pt_indices {
         let name = format!("{},{}", p.0, p.1);
         if let Some(np) = nps.get_pt(&name) {
@@ -181,6 +188,7 @@ pub fn main() -> Result<(), String> {
         }
     }
 
+    //cb Create ModelLineSet
     let pairings = calibrate.get_xy_pairings();
 
     let mut mls = ModelLineSet::new(&cam);
@@ -205,6 +213,7 @@ pub fn main() -> Result<(), String> {
         }
     }
 
+    //cb Find best position given ModelLineSet
     // Find best location 'p' for camera
     let (best_cam_pos, e) = mls.find_best_min_err_location(&|p| p[2] > 0., 1000, 1000);
     eprintln!("{best_cam_pos} {e}",);
@@ -212,6 +221,7 @@ pub fn main() -> Result<(), String> {
     // let best_cam_pos: Point3D = [13.76943098455281, -4.4539157030506376, 410.03914507909536].into();
     // let best_cam_pos: Point3D = [7.54435219975766, -2.2904012588912086, -407.86139540073606].into();
 
+    //cb Find best orientation given position
     // We can get N model direction vectors given the camera position,
     // and for each we have a camera direction vector
     let mut qs = vec![];
@@ -270,10 +280,12 @@ pub fn main() -> Result<(), String> {
 
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
 
+    //cb Clone to new camera with correct position/orientation
     let mut camera = cam.clone();
     camera.set_position(best_cam_pos);
     camera.set_orientation(qr);
 
+    //cb Calculate Roll/Yaw for each point given camera
     // dbg!(&camera);
     let mut pts = vec![vec![], vec![], vec![], vec![]];
     let mut world_yaws = vec![];
@@ -287,8 +299,10 @@ pub fn main() -> Result<(), String> {
         // eprintln!("{cam_txty}, {cam_txty2} {model_txty}");
         let model_ry: RollYaw = model_txty.into();
         let cam_ry: RollYaw = cam_txty.into();
-        world_yaws.push(model_ry.yaw());
-        camera_yaws.push(cam_ry.yaw());
+        if cam_ry.yaw() > 0.01 {
+            world_yaws.push(model_ry.yaw());
+            camera_yaws.push(cam_ry.yaw());
+        }
         if (model_ry.yaw() / cam_ry.yaw()) > 1.2 {
             continue;
         }
@@ -301,12 +315,22 @@ pub fn main() -> Result<(), String> {
             // Y < 0
             quad += 2;
         }
-        pts[quad].push((cam_ry.yaw(), model_ry.yaw() / cam_ry.yaw() - 1.0));
+        if cam_ry.yaw() > 0.01 {
+            pts[quad].push((cam_ry.yaw(), model_ry.yaw() / cam_ry.yaw() - 1.0));
+        }
     }
 
+    //cb Calculate Polynomials for camera-to-world and vice-versa
+    // encourage it to go through the origin
     let poly_degree = 5;
-    let wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
-    let stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
+    for _ in 0..10 {
+        world_yaws.push(0.);
+        camera_yaws.push(0.);
+    }
+    let mut wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
+    let mut stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
+    wts[0] = 0.0;
+    stw[0] = 0.0;
     let (max_sq_err, max_n, sq_err) =
         polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
     let avg_sq_err = sq_err / (world_yaws.len() as f64);
@@ -322,10 +346,11 @@ pub fn main() -> Result<(), String> {
             );
         }
     }
-    eprintln!(" wts: {wts:?}");
-    eprintln!(" stw: {stw:?}");
+    eprintln!(" \"wts_poly\": {wts:?},");
+    eprintln!(" \"stw_poly\": {stw:?},");
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
+    //cb Plot 4 graphs for quadrants and one for the polynomial
     use poloto::build::PlotIterator;
     let plots = poloto::build::origin();
     let plot = poloto::build::plot("Quad x>0 y>0");
@@ -342,8 +367,8 @@ pub fn main() -> Result<(), String> {
     let plots = plots.chain(plot);
 
     let mut wts_poly_pts = vec![];
-    for i in 1..=100 {
-        let world = (i as f64) * 0.35 / 100.0;
+    for i in 2..=100 {
+        let world = (i as f64) * 0.40 / 100.0;
         let sensor = stw.calc(world);
         wts_poly_pts.push((world, sensor / world - 1.0));
     }
@@ -359,6 +384,7 @@ pub fn main() -> Result<(), String> {
         .map_err(|e| format!("{e:?}"))?;
     println!("{}", plot_initial);
 
+    //cb Create points for crosses for output image
     let xy_pairs = calibrate.get_xy_pairings();
     let mut pts = vec![];
     let n = 30;
@@ -382,6 +408,8 @@ pub fn main() -> Result<(), String> {
             pts.push((pt, rgba));
         }
     }
+
+    //cb Read source image and draw on it, write output image
     if let Some(read_filename) = read_filename {
         let mut img = ImageRgb8::read_image(read_filename)?;
         if let Some(write_filename) = write_filename {
