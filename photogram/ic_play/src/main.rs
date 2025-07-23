@@ -312,7 +312,7 @@ pub fn main() -> Result<()> {
         .about("Camera calibration tool")
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(stuff)));
+    let mut build = CommandBuilder::new(command, None);
     build.add_arg(
         clap::Arg::new("camera_db")
             .long("db")
@@ -350,14 +350,23 @@ pub fn main() -> Result<()> {
         Box::new(arg_star_calibrate),
     );
 
+    let ms_command =
+        clap::Command::new("map_stars").about("Map all stars in the catalog onto an output image");
+    let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(map_stars)));
+    build.add_subcommand(ms_build);
+
+    let fs_command = clap::Command::new("find_stars").about("Find stars from an image");
+    let mut fs_build = CommandBuilder::new(fs_command, Some(Box::new(find_stars_from_image)));
+    build.add_subcommand(fs_build);
+
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<CmdArgs> = build.into();
     command.execute_env(&mut cmd_args)?;
     Ok(())
 }
 
-//a Stuff
-fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Map stars in catalog, and plot them on an image
+fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.cal.as_ref().unwrap();
 
     let mut cam = calibrate.camera().clone();
@@ -386,7 +395,7 @@ fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
         cat_index.push(catalog_full.find_sorted(*hipp));
     }
 
-    //cb Find candidates for the three stars
+    //cb Find orientations for every pair of *mapped* stars
     let mut qs = vec![];
     for (i, ci) in cat_index.iter().enumerate() {
         if ci.is_none() {
@@ -475,6 +484,218 @@ fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
         }
         img.write(cmd_args.write_img.as_ref().unwrap())?;
     }
+
+    Ok(())
+}
+
+//a find_stars_from_image
+// 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
+pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
+    let calibrate = cmd_args.cal.as_ref().unwrap();
+
+    let mut cam = calibrate.camera().clone();
+    cam.set_position([0., 0., 0.].into());
+    cam.set_orientation(Quat::default());
+
+    //cb Create Vec of camera unit direction vectors
+    /// Apply lens mapping
+    let mut star_directions_c = vec![];
+    for (px, py, _mag, _hipp) in calibrate.mappings() {
+        let txty = cam.px_abs_xy_to_camera_txty([*px as f64, *py as f64].into());
+        star_directions_c.push(-txty.to_unit_vector());
+    }
+
+    //cb Load Hipparocs catalog
+    // let mut grid_dir_of_xy = HashMap::new();
+    // fine for the big ones (mag 2.5 or brighter)
+    //
+    // Some in big dipper are 3.4 though
+    //
+    // for others, we need down to 5.8 or 6.1
+
+    let mut catalog: Catalog = postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
+        .map_err(|e| format!("{e:?}"))?;
+    catalog.retain(|s, _n| s.brighter_than(5.5));
+    catalog.sort();
+    catalog.derive_data();
+
+    //cb Load catalog_full
+    let mut catalog_full: Catalog = postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
+        .map_err(|e| format!("{e:?}"))?;
+    catalog_full.retain(|s, _n| s.brighter_than(6.5));
+    catalog_full.sort();
+    catalog_full.derive_data();
+
+    //cb Create list of mag1_stars and directions to them, and mag2 if possible
+    let mut mag1_stars = vec![];
+    let mut mag2_stars = vec![];
+    for (n, (_px, _py, mag, _hipp)) in calibrate.mappings().iter().enumerate() {
+        if *mag == 1 {
+            mag1_stars.push(n);
+        }
+        if *mag == 2 {
+            mag2_stars.push(n);
+        }
+    }
+    assert!(mag1_stars.len() >= 3);
+    assert!(mag2_stars.len() >= 3);
+    let mag1_directions_c: Vec<Point3D> =
+        mag1_stars.iter().map(|n| star_directions_c[*n]).collect();
+    let mag2_directions_c: Vec<Point3D> =
+        mag2_stars.iter().map(|n| star_directions_c[*n]).collect();
+
+    //cb Create angles between first three mag1 stars
+    let mag1_angles = [
+        mag1_directions_c[0].dot(&mag1_directions_c[1]).acos(),
+        mag1_directions_c[1].dot(&mag1_directions_c[2]).acos(),
+        mag1_directions_c[2].dot(&mag1_directions_c[0]).acos(),
+    ];
+    let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
+    eprintln!("angles: {:?}", angle_degrees);
+
+    //cb Find candidates for the three stars
+    let subcube_iter = Subcube::iter_all();
+    let candidate_tris = catalog.find_star_triangles(subcube_iter, &mag1_angles, 0.003);
+    // let candidate_tris = catalog.find_star_triangles(subcube_iter, &mag1_angles, 0.03);
+    let mut printed = 0;
+    let mut candidate_q_m_to_c = vec![];
+    for (n, tri) in candidate_tris.iter().enumerate() {
+        let q_m_to_c = orientation_mapping_triangle(
+            catalog[tri.0].vector.as_ref(),
+            catalog[tri.1].vector.as_ref(),
+            catalog[tri.2].vector.as_ref(),
+            mag1_directions_c[1],
+            mag1_directions_c[0],
+            mag1_directions_c[2],
+        );
+
+        candidate_q_m_to_c.push((n, q_m_to_c));
+        printed += 1;
+        if printed < 10 {
+            eprintln!(
+                "{n}: {}, {}, {}",
+                catalog[tri.1].id, catalog[tri.0].id, catalog[tri.2].id,
+            );
+        }
+    }
+
+    //cb Find candidates for the first three mag2 stars if given
+    let mut mag2_candidate_q_m_to_c = vec![];
+    let mag2_angles = [
+        mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
+        mag2_directions_c[1].dot(&mag2_directions_c[2]).acos(),
+        mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
+    ];
+    let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
+    eprintln!("mag2 angles: {:?}", angle_degrees);
+
+    //cb Find candidates for the three stars
+    let subcube_iter = Subcube::iter_all();
+    let mag2_candidate_tris = catalog.find_star_triangles(subcube_iter, &mag2_angles, 0.003);
+    for (n, tri) in mag2_candidate_tris.iter().enumerate() {
+        let q_m_to_c = orientation_mapping_triangle(
+            catalog[tri.0].vector.as_ref(),
+            catalog[tri.1].vector.as_ref(),
+            catalog[tri.2].vector.as_ref(),
+            mag2_directions_c[1],
+            mag2_directions_c[0],
+            mag2_directions_c[2],
+        );
+
+        mag2_candidate_q_m_to_c.push((n, q_m_to_c));
+    }
+
+    //cb Find mag1 that match mag2
+    let mut mag1_mag2_pairs = vec![];
+    for (n1, mag1_q_m_to_c) in candidate_q_m_to_c.iter() {
+        for (n2, mag2_q_m_to_c) in mag2_candidate_q_m_to_c.iter() {
+            let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
+            let r = q.as_rijk().0;
+            if r > 0.9995 {
+                let qs = [
+                    (1.0, mag1_q_m_to_c.into_array()),
+                    (1.0, mag2_q_m_to_c.into_array()),
+                ];
+                let q_r: Quat = quat::weighted_average_many(qs.into_iter()).into();
+                let mag1_tri = &candidate_tris[*n1];
+                let mag2_tri = &mag2_candidate_tris[*n2];
+                mag1_mag2_pairs.push((r, q_r, *mag1_tri, *mag2_tri));
+                eprintln!(
+                    "{},{},{} {},{},{} {r} : {}",
+                    catalog[mag1_tri.1].id,
+                    catalog[mag1_tri.0].id,
+                    catalog[mag1_tri.2].id,
+                    catalog[mag2_tri.1].id,
+                    catalog[mag2_tri.0].id,
+                    catalog[mag2_tri.2].id,
+                    catalog[mag2_tri.2].de.to_degrees(),
+                );
+            }
+        }
+    }
+    mag1_mag2_pairs.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
+
+    //cb Generate results
+    let mut printed = 0;
+    for (_r, q_r, tri_mag1, tri_mag2) in mag1_mag2_pairs.iter() {
+        // for (n, q_m_to_c) in candidate_q_m_to_c.iter() {
+        let verbose = printed < 3;
+        printed += 1;
+        let mut total_error = 0.;
+        let q_c_to_m = q_r.conjugate();
+        for (i, s) in star_directions_c.iter().enumerate() {
+            let star_m = quat::apply3(q_c_to_m.as_ref(), s.as_ref());
+            if let Some((err, id)) = closest_star(&catalog_full, star_m.into()) {
+                total_error += (1.0 - err).powi(2);
+                if verbose {
+                    eprintln!(
+                        "[{}, {}, {}, {}], // {i} : {err:0.4e} :{}",
+                        calibrate.mappings()[i].0,
+                        calibrate.mappings()[i].1,
+                        calibrate.mappings()[i].2,
+                        catalog_full[id].id,
+                        catalog_full[id].mag
+                    );
+                }
+            } else if verbose {
+                eprintln!("{i} : None");
+            }
+        }
+        if verbose {
+            eprintln!(
+                "{:0.4e} : {}, {}, {}, {}, {}, {}\n,",
+                total_error.sqrt(),
+                catalog[tri_mag1.1].id,
+                catalog[tri_mag1.0].id,
+                catalog[tri_mag1.2].id,
+                catalog[tri_mag2.1].id,
+                catalog[tri_mag2.0].id,
+                catalog[tri_mag2.2].id,
+            );
+        }
+    }
+
+    /*
+        if let Some(read_filename) = read_filename {
+            let mut img = ImageRgb8::read_image(read_filename)?;
+            if let Some(write_filename) = write_filename {
+                let c = &[255, 0, 0, 0].into();
+                for (_g, p) in &xy_pairs {
+                    img.draw_cross(*p, 5.0, c);
+                }
+                for (p, c) in &pts {
+                    let mapped = camera.map_model(*p);
+                    if c.0[0] == 100 {
+                        let xyz = camera.world_xyz_to_camera_xyz(*p);
+                        let txy = camera.world_xyz_to_camera_txty(*p);
+                        eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
+                    }
+                    img.draw_cross(mapped, 5.0, c);
+                }
+                img.write(write_filename)?;
+            }
+    }
+        */
 
     Ok(())
 }
