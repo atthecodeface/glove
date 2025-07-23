@@ -23,6 +23,7 @@ postcard.workspace = true
 star-catalog.workspace = true
 clap.workspace = true
 anyhow.workspace = true
+serde_json.workspace = true
 
 [[bin]]
 name="ic_play"

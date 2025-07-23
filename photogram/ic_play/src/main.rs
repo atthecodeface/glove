@@ -134,6 +134,7 @@ use ic_cmdline::builder::{ArgFn, CommandArgs, CommandBuilder, CommandFn, Command
 pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
     cal: Option<StarCalibrate>,
+    catalog: Option<Box<Catalog>>,
     read_img: Vec<String>,
     write_img: Option<String>,
 }
@@ -166,6 +167,25 @@ fn arg_star_calibrate(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<
         args.cdb.as_ref().unwrap(),
         &calibrate_json,
     )?);
+    Ok(())
+}
+fn arg_star_catalog(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
+    if catalog_filename == "hipp_bright" {
+        args.catalog = Some(
+            postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
+                .map_err(|e| format!("{e:?}"))?,
+        );
+    } else {
+        let s = std::fs::read_to_string(catalog_filename)?;
+        args.catalog = Some(serde_json::from_str(&s)?);
+    }
+    args.catalog
+        .as_mut()
+        .unwrap()
+        .retain(|s, _n| s.brighter_than(6.5));
+    args.catalog.as_mut().unwrap().sort();
+    args.catalog.as_mut().unwrap().derive_data();
     Ok(())
 }
 
@@ -349,6 +369,14 @@ pub fn main() -> Result<()> {
             .action(clap::ArgAction::Set),
         Box::new(arg_star_calibrate),
     );
+    build.add_arg(
+        clap::Arg::new("star_catalog")
+            .long("catalog")
+            .required(true)
+            .help("Star catalog to use")
+            .action(clap::ArgAction::Set),
+        Box::new(arg_star_catalog),
+    );
 
     let ms_command =
         clap::Command::new("map_stars").about("Map all stars in the catalog onto an output image");
@@ -368,6 +396,7 @@ pub fn main() -> Result<()> {
 //a Map stars in catalog, and plot them on an image
 fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.cal.as_ref().unwrap();
+    let catalog_full = cmd_args.catalog.as_ref().unwrap();
 
     let mut cam = calibrate.camera().clone();
     cam.set_position([0., 0., 0.].into());
@@ -380,13 +409,6 @@ fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
         let txty = cam.px_abs_xy_to_camera_txty([*px as f64, *py as f64].into());
         star_directions.push(-txty.to_unit_vector());
     }
-
-    //cb Load Hipparocs catalog
-    let mut catalog_full: Catalog = postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
-        .map_err(|e| format!("{e:?}"))?;
-    catalog_full.retain(|s, _n| s.brighter_than(6.5));
-    catalog_full.sort();
-    catalog_full.derive_data();
 
     //cb Create Vec of stars
     /// Apply lens mapping
