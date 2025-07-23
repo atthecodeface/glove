@@ -108,41 +108,43 @@
 //!  
 
 //a Imports
-
-use std::collections::HashMap;
-use std::rc::Rc;
-
+use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
 use serde::{Deserialize, Serialize};
-use star_catalog::{hipparcos, Catalog, CatalogIndex, Subcube};
+use star_catalog::{Catalog, CatalogIndex, Subcube};
 
 use ic_base::json;
 use ic_base::Quat;
-use ic_base::{Point2D, Point3D, Result, RollYaw, TanXTanY};
-use ic_camera::polynomial;
-use ic_camera::polynomial::CalcPoly;
+use ic_base::{Point2D, Point3D, Result};
 use ic_camera::{serialize_body_name, serialize_lens_name};
 use ic_camera::{CameraBody, CameraLens, CameraPolynomial, CameraPolynomialDesc};
-use ic_camera::{CameraDatabase, CameraInstance, CameraProjection};
-use ic_image::{Color, Image, ImageRgb8};
+use ic_camera::{CameraDatabase, CameraProjection};
+use ic_image::{Image, ImageRgb8};
 
-use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
+use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 
-use ic_cmdline::builder::{ArgFn, CommandArgs, CommandBuilder, CommandFn, CommandSet};
-
+//a CmdArgs
+//tp  CmdArgs
 #[derive(Default)]
 pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
     cal: Option<StarCalibrate>,
+    search_brightness: f32,
+    match_brightness: f32,
     catalog: Option<Box<Catalog>>,
     read_img: Vec<String>,
     write_img: Option<String>,
 }
+
+//ip CommandArgs for CmdArgs
 impl CommandArgs for CmdArgs {
     type Error = ic_base::Error;
     type Value = ();
 }
-fn arg_camera_db(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+
+//a arg commands
+//fp arg_camera_db
+fn arg_camera_db(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     let camera_db_filename = matches.get_one::<String>("camera_db").unwrap();
     let camera_db_json = json::read_file(camera_db_filename)?;
     let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
@@ -150,17 +152,23 @@ fn arg_camera_db(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
     args.cdb = Some(camera_db);
     Ok(())
 }
-fn arg_read_image(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+
+//fp arg_read_image
+fn arg_read_image(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     for read_filename in matches.get_many::<String>("read_image").unwrap() {
         args.read_img.push(read_filename.clone());
     }
     Ok(())
 }
-fn arg_write_image(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+
+//fp arg_write_image
+fn arg_write_image(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     args.write_img = matches.get_one::<String>("write_image").cloned();
     Ok(())
 }
-fn arg_star_calibrate(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+
+//fp arg_star_calibrate
+fn arg_star_calibrate(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     let calibrate_filename = matches.get_one::<String>("star_calibrate").unwrap();
     let calibrate_json = json::read_file(calibrate_filename)?;
     args.cal = Some(StarCalibrate::from_json(
@@ -169,7 +177,9 @@ fn arg_star_calibrate(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<
     )?);
     Ok(())
 }
-fn arg_star_catalog(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+
+//fp arg_star_catalog
+fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
     if catalog_filename == "hipp_bright" {
         args.catalog = Some(
@@ -180,17 +190,25 @@ fn arg_star_catalog(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()
         let s = std::fs::read_to_string(catalog_filename)?;
         args.catalog = Some(serde_json::from_str(&s)?);
     }
-    args.catalog
-        .as_mut()
-        .unwrap()
-        .retain(|s, _n| s.brighter_than(6.5));
     args.catalog.as_mut().unwrap().sort();
     args.catalog.as_mut().unwrap().derive_data();
     Ok(())
 }
 
+//fp arg_search_brightness
+fn arg_search_brightness(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+    args.search_brightness = *matches.get_one::<f32>("search_brightness").unwrap();
+    Ok(())
+}
+
+//fp arg_match_brightness
+fn arg_match_brightness(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+    args.match_brightness = *matches.get_one::<f32>("match_brightness").unwrap();
+    Ok(())
+}
+
 //a Useful functions
-//fi orientation_mapping
+//fi orientation_mapping_triangle
 /// Get q which maps model to camera
 ///
 /// dc === quat::apply3(q, dm)
@@ -211,6 +229,8 @@ fn orientation_mapping_triangle(
     qs.push((1.0, orientation_mapping(dk_m, dj_m, dk_c, dj_c).into()));
     quat::weighted_average_many(qs.iter().copied()).into()
 }
+
+//fp orientation_mapping
 fn orientation_mapping(di_m: &[f64; 3], dj_m: &[f64; 3], di_c: Point3D, dj_c: Point3D) -> Quat {
     let z_axis: Point3D = [0., 0., 1.].into();
     let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
@@ -229,6 +249,8 @@ fn orientation_mapping(di_m: &[f64; 3], dj_m: &[f64; 3], di_c: Point3D, dj_c: Po
 
     qi_c.conjugate() * q_z * qi_m
 }
+
+//fp closest_star
 fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
     let s = Subcube::of_vector(&v.into_array().into());
     let mut closest = None;
@@ -262,6 +284,9 @@ pub struct StarCalibrateDesc {
 
 //a StarCalibrate
 //tp StarCalibrate
+/// Star calibration file
+///
+/// This serializes to a [StarCalibrateDesc] - in theory
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct StarCalibrate {
     /// Description of the camera body
@@ -277,6 +302,8 @@ pub struct StarCalibrate {
     /// Derived camera instance
     #[serde(skip)]
     camera: CameraPolynomial,
+    /// Directions to all the stars
+    star_directions: Vec<Point3D>,
 }
 
 //ip StarCalibrate
@@ -286,9 +313,19 @@ impl StarCalibrate {
         &self.camera
     }
 
+    //ap camera_mut
+    pub fn camera_mut(&mut self) -> &mut CameraPolynomial {
+        &mut self.camera
+    }
+
     //ap mappings
     pub fn mappings(&self) -> &[(isize, isize, usize, usize)] {
         &self.mappings
+    }
+
+    //ap star_directions
+    pub fn star_directions(&self) -> &[Point3D] {
+        &self.star_directions
     }
 
     //cp from_desc
@@ -305,15 +342,13 @@ impl StarCalibrate {
             position,
             direction,
         );
-        // eprintln!("{camera}");
-        // let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -desc.distance].into());
-        // eprintln!("Camera {camera} focused on {m}");
         let s = Self {
             body,
             lens,
             camera,
             mm_focus_distance: desc.camera.mm_focus_distance,
             mappings: desc.mappings,
+            star_directions: vec![],
         };
         Ok(s)
     }
@@ -323,68 +358,166 @@ impl StarCalibrate {
         let desc: StarCalibrateDesc = json::from_json("camera calibration descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
+
+    //mp recalculate_star_directions
+    /// Create Vec of camera unit direction vectors
+    ///
+    /// Maps the absolute pixel px,py to camera direction, ignoring the orientation of the camera
+    ///
+    /// It *does* apply the lens mapping of the camera
+    pub fn recalculate_star_directions(&mut self) {
+        self.star_directions = vec![];
+        for (px, py, _mag, _hipp) in &self.mappings {
+            let txty = self
+                .camera
+                .px_abs_xy_to_camera_txty([*px as f64, *py as f64].into());
+            self.star_directions.push(-txty.to_unit_vector());
+        }
+    }
+
+    //mp find_stars_in_catalog
+    /// Maps each entry to a CatalogIndex (or none if not found)
+    pub fn find_stars_in_catalog(&self, catalog: &Catalog) -> Vec<Option<CatalogIndex>> {
+        self.mappings
+            .iter()
+            .map(|(_, _, _, id)| catalog.find_sorted(*id))
+            .collect()
+    }
+
+    //mp set_orientation
+    pub fn set_orientation(&mut self, q: Quat, verbose: bool) {
+        self.camera.set_position([0., 0., 0.].into());
+        self.camera.set_orientation(q);
+        if verbose {
+            let q_r_c = q.conjugate(); // Get camera-to-model
+                                       // Map 0,0,1 camera to model - then we have the direction the camera is looking at
+                                       //
+                                       // Then right-ascension is atan(y/x), and declination is asin(z)
+            let z_axis: Point3D = [0.0, 0., -1.].into(); // z of [1][0] and [2][0] q_r.conjugate()
+            let pts_at: Point3D = quat::apply3(q_r_c.as_ref(), z_axis.as_ref()).into();
+            let ra = pts_at[1].atan2(pts_at[0]).to_degrees();
+            let de = pts_at[2].asin().to_degrees();
+            eprintln!("Camera seems to point at right-ascension {ra:0.3} declination {de:0.3}");
+            eprintln!("Camera : {}", self.camera());
+            eprintln!(" orientation: {q}");
+        }
+    }
+
+    //mp map_stars
+    pub fn map_stars(&self, catalog: &Catalog) -> Vec<Point2D> {
+        let mut pts = vec![];
+
+        eprintln!(" [px, py, mag, catalog_id] - suitable for use in calibrate.json file",);
+
+        let mut total_error = 0.;
+        for (i, s) in self.star_directions.iter().enumerate() {
+            let star_m = self.camera.camera_xyz_to_world_xyz(*s);
+            if let Some((err, id)) = closest_star(catalog, star_m.into()) {
+                let star = &catalog[id];
+                let sv: &[f64; 3] = star.vector.as_ref();
+                let star_pxy = self.camera.world_xyz_to_px_abs_xy((*sv).into());
+                pts.push(star_pxy);
+                total_error += (1.0 - err).powi(2);
+                eprintln!(
+                    "[{}, {}, {}, {}], // {i} : {err:0.4e} : mag {} : [{}, {}]",
+                    self.mappings[i].0,
+                    self.mappings[i].1,
+                    self.mappings[i].2,
+                    star.id,
+                    star.mag,
+                    star_pxy[0] as isize,
+                    star_pxy[1] as isize,
+                );
+            } else {
+                eprintln!(
+                    "[{}, {}, {}, 0], // {i} : No mapping",
+                    self.mappings[i].0, self.mappings[i].1, self.mappings[i].2,
+                );
+            }
+        }
+        eprintln!("\nTotal error {:0.4e}", total_error.sqrt(),);
+        pts
+    }
 }
 
 //a Main
 // 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
 pub fn main() -> Result<()> {
-    let command = clap::Command::new("ic_play")
+    let command = Command::new("ic_play")
         .about("Camera calibration tool")
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, None);
     build.add_arg(
-        clap::Arg::new("camera_db")
+        Arg::new("camera_db")
             .long("db")
             .alias("database")
             .required(true)
             .help("Camera database JSON")
-            .action(clap::ArgAction::Set),
+            .action(ArgAction::Set),
         Box::new(arg_camera_db),
     );
     build.add_arg(
-        clap::Arg::new("read_image")
-            .long("read")
-            .short('r')
-            .required(false)
-            .help("Image to read")
-            .action(clap::ArgAction::Append),
-        Box::new(arg_read_image),
-    );
-    build.add_arg(
-        clap::Arg::new("write_image")
-            .long("write")
-            .short('w')
-            .required(false)
-            .help("Image to write")
-            .action(clap::ArgAction::Set),
-        Box::new(arg_write_image),
-    );
-    build.add_arg(
-        clap::Arg::new("star_calibrate")
+        Arg::new("star_calibrate")
             // .long("star")
             // .alias("database")
             .required(true)
             .help("Star calibration JSON")
-            .action(clap::ArgAction::Set),
+            .action(ArgAction::Set),
         Box::new(arg_star_calibrate),
     );
     build.add_arg(
-        clap::Arg::new("star_catalog")
+        Arg::new("star_catalog")
             .long("catalog")
             .required(true)
             .help("Star catalog to use")
-            .action(clap::ArgAction::Set),
+            .action(ArgAction::Set),
         Box::new(arg_star_catalog),
+    );
+    build.add_arg(
+        Arg::new("search_brightness")
+            .long("search_brightness")
+            .value_parser(value_parser!(f32))
+            .default_value("5.0")
+            .help("Maximum brightness of stars to use for searching with triangles")
+            .action(ArgAction::Set),
+        Box::new(arg_search_brightness),
+    );
+    build.add_arg(
+        Arg::new("match_brightness")
+            .long("match_brightness")
+            .value_parser(value_parser!(f32))
+            .default_value("5.0")
+            .help("Maximum brightness of stars to use for matching all the points")
+            .action(ArgAction::Set),
+        Box::new(arg_match_brightness),
+    );
+    build.add_arg(
+        Arg::new("read_image")
+            .long("read")
+            .short('r')
+            .required(false)
+            .help("Image to read")
+            .action(ArgAction::Append),
+        Box::new(arg_read_image),
+    );
+    build.add_arg(
+        Arg::new("write_image")
+            .long("write")
+            .short('w')
+            .required(false)
+            .help("Image to write")
+            .action(ArgAction::Set),
+        Box::new(arg_write_image),
     );
 
     let ms_command =
-        clap::Command::new("map_stars").about("Map all stars in the catalog onto an output image");
+        Command::new("map_stars").about("Map all stars in the catalog onto an output image");
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(map_stars)));
     build.add_subcommand(ms_build);
 
-    let fs_command = clap::Command::new("find_stars").about("Find stars from an image");
-    let mut fs_build = CommandBuilder::new(fs_command, Some(Box::new(find_stars_from_image)));
+    let fs_command = Command::new("find_stars").about("Find stars from an image");
+    let fs_build = CommandBuilder::new(fs_command, Some(Box::new(find_stars_from_image)));
     build.add_subcommand(fs_build);
 
     let mut cmd_args = CmdArgs::default();
@@ -395,27 +528,26 @@ pub fn main() -> Result<()> {
 
 //a Map stars in catalog, and plot them on an image
 fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
-    let calibrate = cmd_args.cal.as_ref().unwrap();
+    let brightness = cmd_args.search_brightness;
+    cmd_args
+        .catalog
+        .as_mut()
+        .unwrap()
+        .retain(move |s, _n| s.brighter_than(brightness));
+    cmd_args.catalog.as_mut().unwrap().sort();
+    cmd_args.catalog.as_mut().unwrap().derive_data();
     let catalog_full = cmd_args.catalog.as_ref().unwrap();
 
-    let mut cam = calibrate.camera().clone();
-    cam.set_position([0., 0., 0.].into());
-    cam.set_orientation(Quat::default());
+    let calibrate = cmd_args.cal.as_mut().unwrap();
+    calibrate.recalculate_star_directions();
+
+    calibrate.camera_mut().set_position([0., 0., 0.].into());
 
     //cb Create Vec of unit direction vectors
-    /// Apply lens mapping
-    let mut star_directions = vec![];
-    for (px, py, _mag, _hipp) in calibrate.mappings() {
-        let txty = cam.px_abs_xy_to_camera_txty([*px as f64, *py as f64].into());
-        star_directions.push(-txty.to_unit_vector());
-    }
+    let star_directions = calibrate.star_directions();
 
     //cb Create Vec of stars
-    /// Apply lens mapping
-    let mut cat_index = vec![];
-    for (_px, _py, _mag, hipp) in calibrate.mappings() {
-        cat_index.push(catalog_full.find_sorted(*hipp));
-    }
+    let cat_index = calibrate.find_stars_in_catalog(catalog_full);
 
     //cb Find orientations for every pair of *mapped* stars
     let mut qs = vec![];
@@ -423,6 +555,8 @@ fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
         if ci.is_none() {
             continue;
         }
+        let di_m = catalog_full[ci.unwrap()].vector.as_ref();
+        let di_c = star_directions[i];
         for (j, cj) in cat_index.iter().enumerate() {
             if i == j {
                 continue;
@@ -430,38 +564,27 @@ fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
             if cj.is_none() {
                 continue;
             }
-            let di_m = catalog_full[ci.unwrap()].vector.as_ref();
             let dj_m = catalog_full[cj.unwrap()].vector.as_ref();
-            let di_c = star_directions[i];
             let dj_c = star_directions[j];
             qs.push((1.0, orientation_mapping(di_m, dj_m, di_c, dj_c).into()));
         }
     }
+
+    //cb Get best orientation (mapping from model-to-camera), and the reverse
     let q_r: Quat = quat::weighted_average_many(qs.iter().copied()).into();
-    let q_r_c = q_r.conjugate(); // Get camera-to-model
-                                 // Map 0,0,1 camera to model - then we have the direction the camera is looking at
-                                 //
-                                 // Then right-ascension is atan(y/x), and declination is asin(z)
-    let z_axis: Point3D = [0.0, 0., -1.].into(); // z of [1][0] and [2][0] q_r.conjugate()
-    let pts_at: Point3D = quat::apply3(q_r_c.as_ref(), z_axis.as_ref()).into();
-    eprintln!("Quat {q_r_c}, {pts_at}");
-    for i in 0..3 {
-        for j in 0..3 {
-            eprintln!("{}", pts_at[i].atan2(pts_at[j]).to_degrees());
-        }
-    }
+    calibrate.set_orientation(q_r, true);
 
-    let ra = pts_at[1].atan2(pts_at[0]).to_degrees();
-    let de = pts_at[2].asin().to_degrees();
-    eprintln!("{ra} {de}");
-
+    //cb Stuff
+    let cam = calibrate.camera();
     let mut pts = vec![];
-    let s = Subcube::of_vector(&catalog_full[cat_index[0].unwrap()].vector);
-    for s in s.iter_range(5) {
+    for s in Subcube::iter_all() {
         let color = [125, 125, 125, 255].into();
         for index in catalog_full[s].iter() {
             let pt: &[f64; 3] = catalog_full[*index].vector.as_ref();
-            pts.push((30.0, (*pt).into(), color));
+            let mapped = cam.world_xyz_to_camera_xyz((*pt).into());
+            if mapped[2] < -0.05 {
+                pts.push((30.0, (*pt).into(), color));
+            }
         }
     }
     for c in &cat_index {
@@ -472,27 +595,8 @@ fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
         let pt: &[f64; 3] = catalog_full[c.unwrap()].vector.as_ref();
         pts.push((20.0, (*pt).into(), color));
     }
-    cam.set_orientation(q_r);
-    eprintln!("{cam}");
-    eprintln!("{cam:?}");
 
-    let mut total_err = 0.;
-    for (i, s) in star_directions.iter().enumerate() {
-        let q_c_to_m = q_r.conjugate();
-        let star_m = quat::apply3(q_c_to_m.as_ref(), s.as_ref());
-        if let Some((err, id)) = closest_star(&catalog_full, star_m.into()) {
-            if false {
-                eprintln!(
-                    "{i} {} {} {} {err}",
-                    calibrate.mappings()[i].3,
-                    catalog_full[id].id,
-                    catalog_full[id].mag
-                );
-            }
-            total_err += (1.0 - err).powi(2);
-        }
-    }
-    eprintln!("Total error {:0.4e}", total_err.sqrt());
+    calibrate.map_stars(&catalog_full);
 
     if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
         let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
@@ -513,35 +617,25 @@ fn map_stars(cmd_args: &mut CmdArgs) -> Result<()> {
 //a find_stars_from_image
 // 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
 pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
-    let calibrate = cmd_args.cal.as_ref().unwrap();
+    let brightness = cmd_args.search_brightness;
+    cmd_args
+        .catalog
+        .as_mut()
+        .unwrap()
+        .retain(move |s, _n| s.brighter_than(brightness));
+    cmd_args.catalog.as_mut().unwrap().sort();
+    cmd_args.catalog.as_mut().unwrap().derive_data();
+    let catalog = cmd_args.catalog.as_ref().unwrap();
+
+    let calibrate = cmd_args.cal.as_mut().unwrap();
+    calibrate.recalculate_star_directions();
 
     let mut cam = calibrate.camera().clone();
-    cam.set_position([0., 0., 0.].into());
-    cam.set_orientation(Quat::default());
 
     //cb Create Vec of camera unit direction vectors
-    /// Apply lens mapping
-    let mut star_directions_c = vec![];
-    for (px, py, _mag, _hipp) in calibrate.mappings() {
-        let txty = cam.px_abs_xy_to_camera_txty([*px as f64, *py as f64].into());
-        star_directions_c.push(-txty.to_unit_vector());
-    }
+    let star_directions_c = calibrate.star_directions();
 
-    //cb Load Hipparocs catalog
-    // let mut grid_dir_of_xy = HashMap::new();
-    // fine for the big ones (mag 2.5 or brighter)
-    //
-    // Some in big dipper are 3.4 though
-    //
-    // for others, we need down to 5.8 or 6.1
-
-    let mut catalog: Catalog = postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
-        .map_err(|e| format!("{e:?}"))?;
-    catalog.retain(|s, _n| s.brighter_than(5.5));
-    catalog.sort();
-    catalog.derive_data();
-
-    //cb Load catalog_full
+    //cb Load catalog_full - should use max_brightness
     let mut catalog_full: Catalog = postcard::from_bytes(star_catalog::hipparcos::HIPP_BRIGHT_PST)
         .map_err(|e| format!("{e:?}"))?;
     catalog_full.retain(|s, _n| s.brighter_than(6.5));
@@ -559,8 +653,16 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
             mag2_stars.push(n);
         }
     }
-    assert!(mag1_stars.len() >= 3);
-    assert!(mag2_stars.len() >= 3);
+
+    if mag1_stars.len() < 3 || mag2_stars.len() < 3 {
+        return Err(format!(
+            "The calibration requires three 'mag 1' and three 'mag 2' stars; there were {} and {}",
+            mag1_stars.len(),
+            mag2_stars.len()
+        )
+        .into());
+    }
+
     let mag1_directions_c: Vec<Point3D> =
         mag1_stars.iter().map(|n| star_directions_c[*n]).collect();
     let mag2_directions_c: Vec<Point3D> =
@@ -573,7 +675,22 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
         mag1_directions_c[2].dot(&mag1_directions_c[0]).acos(),
     ];
     let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
-    eprintln!("angles: {:?}", angle_degrees);
+    eprintln!(
+        "Angles (just using focal length of lens) between first three magnitude '1' stars: {:?}",
+        angle_degrees
+    );
+
+    //cb Create angles between first three mag2 stars
+    let mag2_angles = [
+        mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
+        mag2_directions_c[1].dot(&mag2_directions_c[2]).acos(),
+        mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
+    ];
+    let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
+    eprintln!(
+        "Angles (just using focal length of lens) between first three magnitude '2' stars: {:?}",
+        angle_degrees
+    );
 
     //cb Find candidates for the three stars
     let subcube_iter = Subcube::iter_all();
@@ -581,6 +698,9 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
     // let candidate_tris = catalog.find_star_triangles(subcube_iter, &mag1_angles, 0.03);
     let mut printed = 0;
     let mut candidate_q_m_to_c = vec![];
+    eprintln!(
+        "\nGenerating candidate StarCatalog 'id's for the three stars for magnitude 1 triangle",
+    );
     for (n, tri) in candidate_tris.iter().enumerate() {
         let q_m_to_c = orientation_mapping_triangle(
             catalog[tri.0].vector.as_ref(),
@@ -593,23 +713,23 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
 
         candidate_q_m_to_c.push((n, q_m_to_c));
         printed += 1;
-        if printed < 10 {
-            eprintln!(
-                "{n}: {}, {}, {}",
-                catalog[tri.1].id, catalog[tri.0].id, catalog[tri.2].id,
-            );
+        match printed.cmp(&10) {
+            std::cmp::Ordering::Equal => {
+                eprintln!("...");
+            }
+            std::cmp::Ordering::Less => {
+                eprintln!(
+                    "{n}: {}, {}, {}",
+                    catalog[tri.1].id, catalog[tri.0].id, catalog[tri.2].id,
+                );
+            }
+            _ => {}
         }
     }
+    eprintln!("Total: {} candidates", candidate_q_m_to_c.len());
 
     //cb Find candidates for the first three mag2 stars if given
     let mut mag2_candidate_q_m_to_c = vec![];
-    let mag2_angles = [
-        mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
-        mag2_directions_c[1].dot(&mag2_directions_c[2]).acos(),
-        mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
-    ];
-    let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
-    eprintln!("mag2 angles: {:?}", angle_degrees);
 
     //cb Find candidates for the three stars
     let subcube_iter = Subcube::iter_all();
@@ -628,6 +748,8 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
     }
 
     //cb Find mag1 that match mag2
+    eprintln!("\nFinding matching orientations for magnitude 1 and magnitude 2 candidates",);
+    let mut printed = 0;
     let mut mag1_mag2_pairs = vec![];
     for (n1, mag1_q_m_to_c) in candidate_q_m_to_c.iter() {
         for (n2, mag2_q_m_to_c) in mag2_candidate_q_m_to_c.iter() {
@@ -642,82 +764,60 @@ pub fn find_stars_from_image(cmd_args: &mut CmdArgs) -> Result<()> {
                 let mag1_tri = &candidate_tris[*n1];
                 let mag2_tri = &mag2_candidate_tris[*n2];
                 mag1_mag2_pairs.push((r, q_r, *mag1_tri, *mag2_tri));
-                eprintln!(
-                    "{},{},{} {},{},{} {r} : {}",
-                    catalog[mag1_tri.1].id,
-                    catalog[mag1_tri.0].id,
-                    catalog[mag1_tri.2].id,
-                    catalog[mag2_tri.1].id,
-                    catalog[mag2_tri.0].id,
-                    catalog[mag2_tri.2].id,
-                    catalog[mag2_tri.2].de.to_degrees(),
-                );
+                printed += 1;
+                match printed.cmp(&10) {
+                    std::cmp::Ordering::Equal => {
+                        eprintln!("...");
+                    }
+                    std::cmp::Ordering::Less => {
+                        eprintln!(
+                            "{},{},{} {},{},{} {r} : {}",
+                            catalog[mag1_tri.1].id,
+                            catalog[mag1_tri.0].id,
+                            catalog[mag1_tri.2].id,
+                            catalog[mag2_tri.1].id,
+                            catalog[mag2_tri.0].id,
+                            catalog[mag2_tri.2].id,
+                            catalog[mag2_tri.2].de.to_degrees(),
+                        );
+                    }
+                    _ => {}
+                }
             }
         }
     }
+    eprintln!("Total: {} matching orientations", mag1_mag2_pairs.len());
     mag1_mag2_pairs.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
 
     //cb Generate results
-    let mut printed = 0;
-    for (_r, q_r, tri_mag1, tri_mag2) in mag1_mag2_pairs.iter() {
-        // for (n, q_m_to_c) in candidate_q_m_to_c.iter() {
-        let verbose = printed < 3;
-        printed += 1;
-        let mut total_error = 0.;
-        let q_c_to_m = q_r.conjugate();
-        for (i, s) in star_directions_c.iter().enumerate() {
-            let star_m = quat::apply3(q_c_to_m.as_ref(), s.as_ref());
-            if let Some((err, id)) = closest_star(&catalog_full, star_m.into()) {
-                total_error += (1.0 - err).powi(2);
-                if verbose {
-                    eprintln!(
-                        "[{}, {}, {}, {}], // {i} : {err:0.4e} :{}",
-                        calibrate.mappings()[i].0,
-                        calibrate.mappings()[i].1,
-                        calibrate.mappings()[i].2,
-                        catalog_full[id].id,
-                        catalog_full[id].mag
-                    );
-                }
-            } else if verbose {
-                eprintln!("{i} : None");
-            }
-        }
-        if verbose {
-            eprintln!(
-                "{:0.4e} : {}, {}, {}, {}, {}, {}\n,",
-                total_error.sqrt(),
-                catalog[tri_mag1.1].id,
-                catalog[tri_mag1.0].id,
-                catalog[tri_mag1.2].id,
-                catalog[tri_mag2.1].id,
-                catalog[tri_mag2.0].id,
-                catalog[tri_mag2.2].id,
-            );
-        }
-    }
+    let (_r, q_r, tri_mag1, tri_mag2) = mag1_mag2_pairs[0];
+    calibrate.set_orientation(q_r, true);
 
-    /*
-        if let Some(read_filename) = read_filename {
-            let mut img = ImageRgb8::read_image(read_filename)?;
-            if let Some(write_filename) = write_filename {
-                let c = &[255, 0, 0, 0].into();
-                for (_g, p) in &xy_pairs {
-                    img.draw_cross(*p, 5.0, c);
-                }
-                for (p, c) in &pts {
-                    let mapped = camera.map_model(*p);
-                    if c.0[0] == 100 {
-                        let xyz = camera.world_xyz_to_camera_xyz(*p);
-                        let txy = camera.world_xyz_to_camera_txty(*p);
-                        eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
-                    }
-                    img.draw_cross(mapped, 5.0, c);
-                }
-                img.write(write_filename)?;
-            }
+    eprintln!("\nThe best match of the candidate triangles:");
+    eprintln!(
+        "    {}, {}, {}, {}, {}, {},",
+        catalog[tri_mag1.1].id,
+        catalog[tri_mag1.0].id,
+        catalog[tri_mag1.2].id,
+        catalog[tri_mag2.1].id,
+        catalog[tri_mag2.0].id,
+        catalog[tri_mag2.2].id,
+    );
+
+    let star_pts = calibrate.map_stars(&catalog_full);
+
+    if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
+        let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
+        let color = [125, 125, 125, 255].into();
+        for p in &star_pts {
+            img.draw_cross(*p, 20.0, &color);
+        }
+        let color = [255, 0, 255, 255].into();
+        for (px, py, _mag, _hipp) in calibrate.mappings() {
+            img.draw_cross([*px as f64, *py as f64].into(), 10.0, &color);
+        }
+        img.write(cmd_args.write_img.as_ref().unwrap())?;
     }
-        */
 
     Ok(())
 }

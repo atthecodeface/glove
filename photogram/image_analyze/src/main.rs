@@ -656,12 +656,6 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
 }
 
 //a Main
-//fi print_err
-fn print_err(s: String) -> String {
-    eprintln!("{}", s);
-    s
-}
-
 //fi main
 fn main() -> Result<()> {
     let cmd = Command::new("image_analyze")

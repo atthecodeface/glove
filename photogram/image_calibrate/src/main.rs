@@ -626,12 +626,6 @@ fn project_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
 }
 
 //a Main
-//fi print_err
-fn print_err(s: String) -> String {
-    eprintln!("{}", s);
-    s
-}
-
 //fi main
 fn main() -> Result<()> {
     let cmd = Command::new("image_calibrate")
