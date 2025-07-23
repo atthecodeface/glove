@@ -358,23 +358,7 @@ pub fn main() -> Result<()> {
 
 //a Stuff
 fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
-    let camera_db_filename = "nac/camera_db.json";
-    let read_filename: Option<&str> = None;
-    let camera_filename = "nac/camera_calibrate_stars_4924.json";
-    let read_filename = Some("/Users/gjstark/Git/Images/IMG_4924.JPG");
-    let camera_filename = "nac/camera_calibrate_stars_5005.json";
-    let read_filename = Some("/Users/gjstark/Git/Images/IMG_5005.JPG");
-    let camera_filename = "nac/camera_calibrate_stars_5006.json";
-    let read_filename = Some("/Users/gjstark/Git/Images/IMG_5006.JPG");
-    let write_filename: Option<&str> = None;
-    let write_filename = Some("a.png");
-
-    let camera_db_json = json::read_file(camera_db_filename)?;
-    let mut cdb: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
-    cdb.derive();
-
-    let camera_json = json::read_file(camera_filename)?;
-    let calibrate = StarCalibrate::from_json(&cdb, &camera_json)?;
+    let calibrate = cmd_args.cal.as_ref().unwrap();
 
     let mut cam = calibrate.camera().clone();
     cam.set_position([0., 0., 0.].into());
@@ -479,19 +463,17 @@ fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
     }
     eprintln!("Total error {:0.4e}", total_err.sqrt());
 
-    if let Some(read_filename) = read_filename {
-        let mut img = ImageRgb8::read_image(read_filename)?;
-        if let Some(write_filename) = write_filename {
-            for (w, p, c) in &pts {
-                let mapped = cam.map_model(*p);
-                img.draw_cross(mapped, *w, c);
-            }
-            let color = [255, 0, 255, 255].into();
-            for (px, py, _mag, _hipp) in calibrate.mappings() {
-                img.draw_cross([*px as f64, *py as f64].into(), 10.0, &color);
-            }
-            img.write(write_filename)?;
+    if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
+        let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
+        for (w, p, c) in &pts {
+            let mapped = cam.map_model(*p);
+            img.draw_cross(mapped, *w, c);
         }
+        let color = [255, 0, 255, 255].into();
+        for (px, py, _mag, _hipp) in calibrate.mappings() {
+            img.draw_cross([*px as f64, *py as f64].into(), 10.0, &color);
+        }
+        img.write(cmd_args.write_img.as_ref().unwrap())?;
     }
 
     Ok(())
