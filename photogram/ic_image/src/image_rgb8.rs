@@ -2,9 +2,9 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
+use image::ImageReader;
 
 use ic_base::Result;
 

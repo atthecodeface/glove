@@ -2,10 +2,10 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command};
 
 pub trait CommandArgs {
-    type Error: std::convert::From<String>;
+    type Error: std::convert::From<String> + std::fmt::Display;
     type Value: std::default::Default;
 }
 
@@ -22,7 +22,7 @@ pub struct CommandBuilder<C: CommandArgs> {
     command: Command,
     handler: Option<Box<dyn CommandFn<C>>>,
     sub_cmds: HashMap<String, CommandBuilder<C>>,
-    args: HashMap<String, Box<dyn ArgFn<C>>>,
+    args: Vec<(String, Box<dyn ArgFn<C>>)>,
 }
 
 impl<C: CommandArgs> CommandBuilder<C> {
@@ -31,7 +31,8 @@ impl<C: CommandArgs> CommandBuilder<C> {
             command = command.subcommand_required(true);
         }
         let sub_cmds = HashMap::default();
-        let args = HashMap::default();
+        let args = vec![];
+
         Self {
             command,
             handler,
@@ -43,7 +44,7 @@ impl<C: CommandArgs> CommandBuilder<C> {
     pub fn add_arg(&mut self, arg: Arg, handler: Box<dyn ArgFn<C>>) {
         let name = arg.get_id().as_str().into();
         self.command = std::mem::take(&mut self.command).arg(arg);
-        self.args.insert(name, handler);
+        self.args.push((name, handler));
     }
 
     pub fn add_subcommand(&mut self, subcommand: Self) {
@@ -69,14 +70,14 @@ impl<C: CommandArgs> CommandBuilder<C> {
 pub struct CommandHandlerSet<C: CommandArgs> {
     handler: Option<Box<dyn CommandFn<C>>>,
     sub_cmds: HashMap<String, CommandHandlerSet<C>>,
-    args: HashMap<String, Box<dyn ArgFn<C>>>,
+    args: Vec<(String, Box<dyn ArgFn<C>>)>,
 }
 
 impl<C: CommandArgs> CommandHandlerSet<C> {
     fn new(
         handler: Option<Box<dyn CommandFn<C>>>,
         sub_cmds: HashMap<String, CommandHandlerSet<C>>,
-        args: HashMap<String, Box<dyn ArgFn<C>>>,
+        args: Vec<(String, Box<dyn ArgFn<C>>)>,
     ) -> Self {
         Self {
             handler,
@@ -142,15 +143,21 @@ impl<C: CommandArgs> CommandSet<C> {
         T: Into<OsString> + Clone,
     {
         match self.command.try_get_matches_from_mut(itr) {
-            Err(e) if e.kind() == clap::error::ErrorKind::DisplayHelp => Ok(C::Value::default()),
-            Err(e) if e.kind() == clap::error::ErrorKind::DisplayVersion => Ok(C::Value::default()),
-            Err(e) => Ok(C::Value::default()),
+            Err(e) => {
+                e.exit();
+            }
             Ok(matches) => self.handler_set.handle_matches(cmd_args, &matches),
         }
     }
 
     pub fn execute_env(&mut self, cmd_args: &mut C) -> Result<C::Value, C::Error> {
-        self.execute(std::env::args_os().skip(1), cmd_args)
+        match self.execute(std::env::args_os().skip(1), cmd_args) {
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(4);
+            }
+            x => x,
+        }
     }
 }
 

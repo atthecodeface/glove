@@ -91,7 +91,8 @@ impl ModelLine {
     ///
     /// The equation really is |a||b||c| / (2|a x b|)
     ///
-    /// which is |c| / 2sin(ACB) = |b| / 2sin(CBA) = |a| / 2sin(BAC)    
+    /// which is |c| / 2sin(ACB) = |b| / 2sin(CBA) = |a| / 2sin(BAC)
+    #[allow(dead_code)]
     pub fn radius_of_circumcircle(&self, p: &Point3D) -> f64 {
         let p0p = *p - self.pts[0];
         let p1p = *p - self.pts[1];
@@ -278,11 +279,13 @@ impl ModelLineSubtended {
     }
 
     //mp error_in_p
+    #[allow(dead_code)]
     pub fn error_in_p(&self, p: &Point3D) -> f64 {
         self.model_line.radius_of_circumcircle(p) - self.circle_radius
     }
 
     //mp error_in_p_angle
+    #[allow(dead_code)]
     pub fn error_in_p_angle(&self, p: &Point3D) -> f64 {
         let cos_theta = self.model_line.cos_angle_subtended(p);
         cos_theta.acos() - self.theta

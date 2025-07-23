@@ -134,7 +134,7 @@ use ic_cmdline::builder::{ArgFn, CommandArgs, CommandBuilder, CommandFn, Command
 pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
     cal: Option<StarCalibrate>,
-    read_img: Option<String>,
+    read_img: Vec<String>,
     write_img: Option<String>,
 }
 impl CommandArgs for CmdArgs {
@@ -142,6 +142,30 @@ impl CommandArgs for CmdArgs {
     type Value = ();
 }
 fn arg_camera_db(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    let camera_db_filename = matches.get_one::<String>("camera_db").unwrap();
+    let camera_db_json = json::read_file(camera_db_filename)?;
+    let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
+    camera_db.derive();
+    args.cdb = Some(camera_db);
+    Ok(())
+}
+fn arg_read_image(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    for read_filename in matches.get_many::<String>("read_image").unwrap() {
+        args.read_img.push(read_filename.clone());
+    }
+    Ok(())
+}
+fn arg_write_image(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    args.write_img = matches.get_one::<String>("write_image").cloned();
+    Ok(())
+}
+fn arg_star_calibrate(args: &mut CmdArgs, matches: &clap::ArgMatches) -> Result<()> {
+    let calibrate_filename = matches.get_one::<String>("star_calibrate").unwrap();
+    let calibrate_json = json::read_file(calibrate_filename)?;
+    args.cal = Some(StarCalibrate::from_json(
+        args.cdb.as_ref().unwrap(),
+        &calibrate_json,
+    )?);
     Ok(())
 }
 
@@ -287,7 +311,8 @@ pub fn main() -> Result<()> {
     let command = clap::Command::new("ic_play")
         .about("Camera calibration tool")
         .version("0.1.0");
-    let mut build = CommandBuilder::new(command, None);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(stuff)));
     build.add_arg(
         clap::Arg::new("camera_db")
             .long("db")
@@ -297,10 +322,42 @@ pub fn main() -> Result<()> {
             .action(clap::ArgAction::Set),
         Box::new(arg_camera_db),
     );
+    build.add_arg(
+        clap::Arg::new("read_image")
+            .long("read")
+            .short('r')
+            .required(false)
+            .help("Image to read")
+            .action(clap::ArgAction::Append),
+        Box::new(arg_read_image),
+    );
+    build.add_arg(
+        clap::Arg::new("write_image")
+            .long("write")
+            .short('w')
+            .required(false)
+            .help("Image to write")
+            .action(clap::ArgAction::Set),
+        Box::new(arg_write_image),
+    );
+    build.add_arg(
+        clap::Arg::new("star_calibrate")
+            // .long("star")
+            // .alias("database")
+            .required(true)
+            .help("Star calibration JSON")
+            .action(clap::ArgAction::Set),
+        Box::new(arg_star_calibrate),
+    );
+
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<CmdArgs> = build.into();
     command.execute_env(&mut cmd_args)?;
+    Ok(())
+}
 
+//a Stuff
+fn stuff(cmd_args: &mut CmdArgs) -> Result<()> {
     let camera_db_filename = "nac/camera_db.json";
     let read_filename: Option<&str> = None;
     let camera_filename = "nac/camera_calibrate_stars_4924.json";

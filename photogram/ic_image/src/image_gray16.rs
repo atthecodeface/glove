@@ -2,11 +2,11 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::io::Reader as ImageReader;
 use image::DynamicImage;
+use image::ImageReader;
 use image::{GenericImageView, ImageBuffer, Luma};
 
-use ic_base::{Error, Result};
+use ic_base::Result;
 
 use crate::{Image, ImageRgb8};
 

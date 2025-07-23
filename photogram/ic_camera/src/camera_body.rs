@@ -1,7 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Point2D, Result};
+use ic_base::Point2D;
 
 use crate::CameraSensor;
 
@@ -17,8 +17,7 @@ pub fn serialize_body_name<S: serde::Serializer>(
 //a CameraBody
 //tp CameraBody
 /// A rectangular camera sensor
-///
-/// This provides an implementation of [CameraSensor], which allows mapping from a known point on an image (captured by the sensor) to relative positions
+////// This provides an implementation of [CameraSensor], which allows mapping from a known point on an image (captured by the sensor) to relative positions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraBody {
     /// Name

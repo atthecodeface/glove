@@ -62,6 +62,7 @@ impl Kernels {
     }
 
     //mp set_verbose
+    #[allow(dead_code)]
     fn set_verbose(&mut self, verbose: bool) {
         self.verbose = verbose;
     }
