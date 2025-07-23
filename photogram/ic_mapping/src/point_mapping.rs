@@ -220,12 +220,12 @@ impl PointMappingSet {
             let mut r = String::new();
             let mut sep = "";
             for nf in not_found {
-                r.push_str(&format!("{}'{}'", sep, nf));
+                r.push_str(&format!("{sep}'{nf}'"));
                 sep = ", ";
             }
             Ok((
                 pms,
-                format!("Failed to find points {} to map in named point set", r),
+                format!("Failed to find points {r} to map in named point set"),
             ))
         }
     }

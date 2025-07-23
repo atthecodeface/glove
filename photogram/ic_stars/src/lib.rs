@@ -98,13 +98,13 @@
 //!  3. Run the program and inspect the graphs
 //!
 //!  4. Adjust the centre of the sensor if the four graphs are
-//!  noticeable offset from each other; repeat from step 3
+//!     noticeable offset from each other; repeat from step 3
 //!
 //!  5. Once the graphs are all deemed reasonable, copy the
-//!  polynomials calculated in to the lens mapping.
+//!     polynomials calculated in to the lens mapping.
 //!
 //!  6. Rerun, and the graphs should be near identity, and the
-//!  calibration is complete.
+//!     calibration is complete.
 //!  
 
 //a Imports
@@ -117,9 +117,7 @@ use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 use ic_camera::{serialize_body_name, serialize_lens_name};
 use ic_camera::{CameraBody, CameraLens, CameraPolynomial, CameraPolynomialDesc};
 use ic_camera::{CameraDatabase, CameraProjection};
-use ic_image::{Color, Image, ImageRgb8};
-
-use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
+use ic_image::{Image, ImageRgb8};
 
 //a ImgPt
 //tp ImgPt
@@ -180,13 +178,14 @@ fn orientation_mapping_triangle(
     dj_c: Point3D,
     dk_c: Point3D,
 ) -> Quat {
-    let mut qs = vec![];
-    qs.push((1.0, orientation_mapping(di_m, dj_m, di_c, dj_c).into()));
-    qs.push((1.0, orientation_mapping(di_m, dk_m, di_c, dk_c).into()));
-    qs.push((1.0, orientation_mapping(dj_m, dk_m, dj_c, dk_c).into()));
-    qs.push((1.0, orientation_mapping(dj_m, di_m, dj_c, di_c).into()));
-    qs.push((1.0, orientation_mapping(dk_m, di_m, dk_c, di_c).into()));
-    qs.push((1.0, orientation_mapping(dk_m, dj_m, dk_c, dj_c).into()));
+    let qs = vec![
+        (1.0, orientation_mapping(di_m, dj_m, di_c, dj_c).into()),
+        (1.0, orientation_mapping(di_m, dk_m, di_c, dk_c).into()),
+        (1.0, orientation_mapping(dj_m, dk_m, dj_c, dk_c).into()),
+        (1.0, orientation_mapping(dj_m, di_m, dj_c, di_c).into()),
+        (1.0, orientation_mapping(dk_m, di_m, dk_c, di_c).into()),
+        (1.0, orientation_mapping(dk_m, dj_m, dk_c, dj_c).into()),
+    ];
     quat::weighted_average_many(qs.iter().copied()).into()
 }
 
@@ -374,7 +373,7 @@ impl StarCalibrate {
         let mut total_error = 0.;
         for (i, s) in self.star_directions.iter().enumerate() {
             let star_m = self.camera.camera_xyz_to_world_xyz(*s);
-            if let Some((err, id)) = closest_star(catalog, star_m.into()) {
+            if let Some((err, id)) = closest_star(catalog, star_m) {
                 let star = &catalog[id];
                 let sv: &[f64; 3] = star.vector.as_ref();
                 let star_pxy = self.camera.world_xyz_to_px_abs_xy((*sv).into());
@@ -503,9 +502,9 @@ impl StarCalibrate {
         ];
         let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
         eprintln!(
-        "Angles (just using focal length of lens) between first three magnitude '1' stars: {:?}",
-        angle_degrees
-    );
+        "Angles (just using focal length of lens) between first three magnitude '1' stars: {angle_degrees:?}"
+        
+        );
 
         //cb Create angles between first three mag2 stars
         let mag2_angles = [
@@ -515,9 +514,8 @@ impl StarCalibrate {
         ];
         let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
         eprintln!(
-        "Angles (just using focal length of lens) between first three magnitude '2' stars: {:?}",
-        angle_degrees
-    );
+        "Angles (just using focal length of lens) between first three magnitude '2' stars: {angle_degrees:?}"
+        );
 
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();

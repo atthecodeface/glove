@@ -396,7 +396,7 @@ impl ImageAccelerator {
     //mp create_pipelines
     pub fn create_pipelines(&mut self, shader_file: ShaderFileDesc) -> Result<(), String> {
         let file_text = std::fs::read_to_string(&shader_file.path)
-            .map_err(|e| format!("Error reading WGSL shader file {}", e))?;
+            .map_err(|e| format!("Error reading WGSL shader file {e}"))?;
         let cs_module = self.accelerator.add_shader(&file_text, None)?;
         for sd in shader_file.shader_descs.into_iter() {
             let pipeline = self.accelerator.create_pipeline(

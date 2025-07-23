@@ -100,13 +100,13 @@
 //!  3. Run the program and inspect the graphs
 //!
 //!  4. Adjust the centre of the sensor if the four graphs are
-//!  noticeable offset from each other; repeat from step 3
+//!     noticeable offset from each other; repeat from step 3
 //!
 //!  5. Once the graphs are all deemed reasonable, copy the
-//!  polynomials calculated in to the lens mapping.
+//!     polynomials calculated in to the lens mapping.
 //!
 //!  6. Rerun, and the graphs should be near identity, and the
-//!  calibration is complete.
+//!     calibration is complete.
 //!  
 
 //a Imports
@@ -118,10 +118,10 @@ use geo_nd::{quat, Quaternion, Vector};
 
 use ic_base::json;
 use ic_base::Quat;
-use ic_base::{Point3D, Result, RollYaw, TanXTanY};
+use ic_base::{Point3D, Result, RollYaw};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_camera::{CameraDatabase, CameraInstance, CameraPolynomialCalibrate, CameraProjection};
+use ic_camera::{CameraDatabase, CameraPolynomialCalibrate, CameraProjection};
 use ic_image::{Color, Image, ImageRgb8};
 
 use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
@@ -131,8 +131,8 @@ pub fn main() -> Result<()> {
     //cb Files to use
     let camera_db_filename = "nac/camera_db.json";
     let camera_filename = "nac/camera_calibrate_6028.json";
-    let read_filename: Option<&str> = None;
-    let write_filename: Option<&str> = None;
+    // let read_filename: Option<&str> = None;
+    // let write_filename: Option<&str> = None;
     let read_filename = Some("/Users/gjstark/Git/Images/4V3A6028.JPG");
     let write_filename = Some("a.png");
 
@@ -179,7 +179,7 @@ pub fn main() -> Result<()> {
         let name = format!("{},{}", p.0, p.1);
         if let Some(np) = nps.get_pt(&name) {
             nps_of_pts.insert(*p, np);
-            let (n, grid_dir) = grid_dir_of_xy.get(p).unwrap();
+            let (n, _grid_dir) = grid_dir_of_xy.get(p).unwrap();
             let (grid_xy, pxy_abs) = &v[*n];
             // Px Abs -> Px Rel -> TxTy -> lens mapping
             let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
@@ -196,7 +196,7 @@ pub fn main() -> Result<()> {
     for p0 in pt_indices {
         let (n0, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
         let dir0 = *grid_dir;
-        let pm0 = pms.mapping_of_np(nps_of_pts.get(p0).unwrap()).unwrap();
+        let _pm0 = pms.mapping_of_np(nps_of_pts.get(p0).unwrap()).unwrap();
         for p1 in pt_indices {
             if *p1 == *p0 {
                 continue;
@@ -287,7 +287,7 @@ pub fn main() -> Result<()> {
 
     //cb Calculate Roll/Yaw for each point given camera
     // dbg!(&camera);
-    let mut pts = vec![vec![], vec![], vec![], vec![]];
+    let mut pts = [vec![], vec![], vec![], vec![]];
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
     for (grid_xy, pxy_abs) in pairings {
@@ -382,7 +382,7 @@ pub fn main() -> Result<()> {
         .append_to(poloto::header().light_theme())
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
-    println!("{}", plot_initial);
+    println!("{plot_initial}");
 
     //cb Create points for crosses for output image
     let xy_pairs = calibrate.get_xy_pairings();

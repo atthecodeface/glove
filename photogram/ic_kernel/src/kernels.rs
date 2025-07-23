@@ -35,11 +35,11 @@ impl Kernels {
             let mut x = root.clone();
             x.set_extension("json");
             let json = std::fs::read_to_string(&x)
-                .map_err(|e| format!("Error reading Json describing shader file {}", e))?;
+                .map_err(|e| format!("Error reading Json describing shader file {e}"))?;
             root.set_extension("wgsl");
             let x = root.clone();
             let shader_desc_file = accel_wgpu::ShaderFileDesc::from_json(x, &json)
-                .map_err(|e| format!("Error parsing JSON file {}: {}", root.display(), e))?;
+                .map_err(|e| format!("Error parsing JSON file {}: {e}", root.display()))?;
             wgpu.create_pipelines(shader_desc_file)?;
         }
         Ok(wgpu)

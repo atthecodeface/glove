@@ -311,11 +311,11 @@ fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> 
     let origin = find_center_point((xsz / 2.0, ysz / 2.0), &cogs);
     eprintln!("{origin} {:?}", cogs[origin]);
     let x_axis = find_axis_pts(true, 50.0, cogs[origin], &cogs).unwrap();
-    eprintln!("{:?}", x_axis);
+    eprintln!("{x_axis:?}");
     let x_spacing = spacing_of_coords(&x_axis)?;
     eprintln!("{x_spacing}");
     let y_axis = find_axis_pts(false, 50.0, cogs[origin], &cogs).unwrap();
-    eprintln!("{:?}", y_axis);
+    eprintln!("{y_axis:?}");
     let y_spacing = spacing_of_coords(&y_axis)?;
     eprintln!("{y_spacing}");
 
@@ -530,9 +530,7 @@ fn luma_kernel_pair_cmd() -> (Command, SubCmdFn) {
 //fi luma_kernel_pair_fn
 fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
     if base_args.images.len() != 2 {
-        return Err(
-            format!("Two 'read' images are required for a kernel on a pair of images").into(),
-        );
+        return Err("Two 'read' images are required for a kernel on a pair of images".into());
     }
     let ws = cmdline_args::kernels::get_size(matches)?;
     let scale = cmdline_args::kernels::get_scale(matches)?;
@@ -639,7 +637,7 @@ fn luma_kernel_pair_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
     if flags & 2 != 0 {
         let pts =
             kernels.find_best_n_above_value((dst_w, dst_h), img_data.as_mut_slice(), 500, 0.7, 64);
-        eprintln!("Points {:?}", pts);
+        eprintln!("Points {pts:?}");
     }
 
     eprintln!("Completed kernel");
@@ -694,7 +692,7 @@ fn main() -> Result<()> {
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return Ok(sub_cmd_fn(base_args, submatches)?);
+            return sub_cmd_fn(base_args, submatches);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

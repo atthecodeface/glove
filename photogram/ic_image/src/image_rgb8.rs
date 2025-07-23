@@ -35,8 +35,7 @@ impl ImageRgb8 {
             let (w, h) = img.size();
             if w != width || h != height {
                 Err(format!(
-                    "Image read has incorrect dimensions of ({},{}) instead of ({width},{height})",
-                    w, h,
+                    "Image read has incorrect dimensions of ({w},{h}) instead of ({width},{height})",
                 )
                 .into())
             } else {
@@ -93,7 +92,7 @@ impl Image for ImageRgb8 {
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.0
             .save(path)
-            .map_err(|e| format!("Failed to encode image {}", e))?;
+            .map_err(|e| format!("Failed to encode image {e}"))?;
         Ok(())
     }
     fn encode(&self, extension: &str) -> Result<Vec<u8>> {
@@ -109,7 +108,7 @@ impl Image for ImageRgb8 {
         let mut bytes: Vec<u8> = Vec::new();
         self.0
             .write_to(&mut Cursor::new(&mut bytes), format)
-            .map_err(|e| format!("Failed to encode image {}", e))?;
+            .map_err(|e| format!("Failed to encode image {e}"))?;
         Ok(bytes)
     }
     fn put(&mut self, x: u32, y: u32, color: &Color) {

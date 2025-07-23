@@ -2,7 +2,6 @@ use crate::KernelArgs;
 
 //pt Accelerate
 /// This should probably be sync + send + clone
-
 pub trait Accelerate: std::fmt::Debug {
     // The accelerator will already have input and output buffers, and
     // any internal buffers and bindings

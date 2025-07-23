@@ -8,8 +8,13 @@ use ic_image::{Image, ImageGray16, ImageRgb8};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 enum KeyType {
-    ImagePath { path: PathBuf },
-    Derived { name: String },
+    ImagePath {
+        path: PathBuf,
+    },
+    #[allow(dead_code)]
+    Derived {
+        name: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
@@ -27,7 +32,9 @@ impl ImageCacheKey {
 #[derive(Debug)]
 pub enum ImageCacheEntry {
     Rgb(ImageRgb8),
+    #[allow(dead_code)]
     Gray(ImageGray16),
+    #[allow(dead_code)]
     F32(usize, usize, Vec<f32>),
 }
 impl Cacheable for ImageCacheEntry {
@@ -55,12 +62,14 @@ impl ImageCacheEntry {
             _ => panic!("Cannot unmap as ImageRgb8"),
         }
     }
+    #[allow(dead_code)]
     fn as_gray16(&self) -> &ImageGray16 {
         match &self {
             Self::Gray(i) => i,
             _ => panic!("Cannot unmap as ImageGray16"),
         }
     }
+    #[allow(dead_code)]
     fn as_f32(&self) -> (usize, usize, &[f32]) {
         match &self {
             Self::F32(w, h, v) => (*w, *h, v),
@@ -70,9 +79,11 @@ impl ImageCacheEntry {
     pub fn cr_as_rgb8(cr: &CacheRef) -> &ImageRgb8 {
         cr.downcast::<Self>().unwrap().as_rgb8()
     }
+    #[allow(dead_code)]
     pub fn cr_as_gray16(cr: &CacheRef) -> &ImageGray16 {
         cr.downcast::<Self>().unwrap().as_gray16()
     }
+    #[allow(dead_code)]
     pub fn cr_as_f32(cr: &CacheRef) -> (usize, usize, &[f32]) {
         cr.downcast::<Self>().unwrap().as_f32()
     }
@@ -100,6 +111,7 @@ impl ImageCache {
         Ok(cache.get(&key).unwrap())
     }
 
+    #[allow(dead_code)]
     pub fn shrink_cache(&mut self, to_size: usize) -> Result<usize> {
         let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
         cache.shrink_to(to_size);

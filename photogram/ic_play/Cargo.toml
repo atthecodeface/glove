@@ -30,11 +30,6 @@ serde_json.workspace = true
 name="ic_play"
 path = "src/main.rs"
 
-
-[[bin]]
-name="find_stars_from_image"
-path = "src/find_stars_from_image.rs"
-
 [[bin]]
 name="calibrate_from_grid"
 path = "src/calibrate_from_grid.rs"

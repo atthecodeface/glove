@@ -178,7 +178,7 @@ fn show_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<(
     let we = camera.worst_error(mappings);
     camera.show_mappings(mappings);
     camera.show_point_set(&base_args.nps());
-    println!("WE {:.2} TE {:.2}", we, te);
+    println!("WE {we:.2} TE {te:.2}");
 
     Ok(())
 }
@@ -466,7 +466,7 @@ fn combine_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) 
         let ray_list = named_point_rays.get(name).unwrap();
         if ray_list.len() > 1 {
             let p = Ray::closest_point(ray_list, &|r| 1.0 / r.tan_error()).unwrap();
-            eprintln!("Point '{}' - even weight - {}", name, p);
+            eprintln!("Point '{name}' - even weight - {p}");
         }
     }
 
@@ -667,7 +667,7 @@ fn main() -> Result<()> {
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return Ok(sub_cmd_fn(base_args, submatches)?);
+            return sub_cmd_fn(base_args, submatches);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

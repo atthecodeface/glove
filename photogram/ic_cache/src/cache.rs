@@ -112,7 +112,7 @@ where
             return true;
         }
         let indices = self.indices_by_age();
-        eprintln!("indices {:?}", indices);
+        eprintln!("indices {indices:?}");
         for i in indices.into_iter() {
             eprintln!("Index {i}, {}", self.total_size);
             if self.total_size < size {

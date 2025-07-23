@@ -70,7 +70,7 @@ pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMapping
         let pms_json = json::read_file(pms_filename)?;
         let nf = pms.read_json(nps, &pms_json, true)?;
         if !nf.is_empty() {
-            eprintln!("Warning: {}", nf);
+            eprintln!("Warning: {nf}");
         }
     }
     Ok(pms)
@@ -104,7 +104,7 @@ pub fn get_camera_pms(
             let pms_json = json::read_file(filename)?;
             let nf = pms.read_json(nps, &pms_json, true)?;
             if !nf.is_empty() {
-                eprintln!("Warning: {}", nf);
+                eprintln!("Warning: {nf}");
             }
             result.push((cam.unwrap(), pms));
             cam = None;

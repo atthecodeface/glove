@@ -1,10 +1,14 @@
+#![allow(non_upper_case_globals)]
+#![allow(non_snake_case)]
 const π: f64 = std::f64::consts::PI;
 fn plot_of_theta(θ: f64) -> impl poloto::build::PlotIterator<L = (f64, f64)> {
     let μs = (0..=200).map(move |x| -1.0 + (x as f64) / 100.0);
     let sθ = θ.sin();
+
+    #[allow(unused_variables)]
     let r = move |μ: f64| {
         let α = μ * π / 2.0;
-        ///   ρ = 2.cos(θ-α).cos(α)/sin(θ)  ;  k = 1 - 2cos(θ-α).sin(α)/sin(θ)
+        //   ρ = 2.cos(θ-α).cos(α)/sin(θ)  ;  k = 1 - 2cos(θ-α).sin(α)/sin(θ)
         let θ_m_α = θ - α;
         let c_θ_m_α = θ_m_α.cos().max(0.0);
         let c = c_θ_m_α / sθ * 2.0;

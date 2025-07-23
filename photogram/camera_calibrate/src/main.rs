@@ -180,6 +180,7 @@ fn main() -> Result<()> {
 
     let mut subcmds: HashMap<String, SubCmdFn> = HashMap::new();
     let mut cmd = cmd;
+    #[allow(clippy::single_element_loop)]
     for (c, f) in [
         calibrate_cmd(),
         // image_grid_cmd()
@@ -195,7 +196,7 @@ fn main() -> Result<()> {
     let (subcommand, submatches) = matches.subcommand().unwrap();
     for (name, sub_cmd_fn) in subcmds {
         if subcommand == name {
-            return Ok(sub_cmd_fn(cdb, submatches)?);
+            return sub_cmd_fn(cdb, submatches);
         }
     }
     unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`");

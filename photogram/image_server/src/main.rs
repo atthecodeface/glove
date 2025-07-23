@@ -195,7 +195,7 @@ impl ProjectSet {
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
         if cip >= p.ncips() {
-            return Err(format!("Cip out of range").into());
+            return Err("Cip out of range".into());
         }
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
@@ -479,7 +479,7 @@ fn main() -> Result<()> {
     project_set.fill_from_project_dir(project_root)?;
     HTTP_SRV
         .set(HttpServer::new(verbose, file_root, project_set))
-        .map_err(|_| format!("Bug - faiiled to config server"))?;
+        .map_err(|_| "Bug - faiiled to config server".to_string())?;
 
     let pool = ThreadPool::new(4);
     let listener = TcpListener::bind(format!("127.0.0.1:{port}"))

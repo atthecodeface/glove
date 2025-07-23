@@ -208,11 +208,9 @@ impl CameraShowMapping for CameraPolynomial {
             }
             let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model().0);
             eprintln!(
-                "model {} : {}+-{} maps to {}",
-                name,
+                "model {name} : {}+-{} maps to {camera_scr_xy}",
                 model.model().0,
                 model.model().1,
-                camera_scr_xy,
             );
         }
     }
@@ -227,17 +225,10 @@ impl CameraShowMapping for CameraPolynomial {
         let dxdy = self.get_pm_dxdy(pm).unwrap();
         let esq = self.get_pm_sq_error(pm);
         eprintln!(
-            "esq {:.2} {} {} <> {:.2}: Maps to {:.2}, dxdy {:.2}: model rot {:.2} by {:.2} dxdydz {:.2} dist {:.3}  ",
-            esq,
+            "esq {esq:.2} {} {} <> {:.2}: Maps to {camera_scr_xy:.2}, dxdy {dxdy:.2}: model rot {model_axis:.2} by {model_angle:.2} dxdydz {model_dxdy:.2} dist {model_error:.3}  ",
             pm.name(),
             pm.model(),
             pm.screen,
-            camera_scr_xy,
-            dxdy,
-            model_axis,
-            model_angle,
-            model_dxdy,
-            model_error
         );
     }
 
@@ -469,7 +460,7 @@ impl CameraAdjustMapping for CameraPolynomial {
         cp.set_orientation(best_mapping.data().1);
         let mut cp_best_mapping = BestMapping::new(false, cp.clone());
         cp_best_mapping.update_best(best_mapping.we(), best_mapping.te(), &cp);
-        eprintln!("=> {}", cp_best_mapping);
+        eprintln!("=> {cp_best_mapping}");
         cp_best_mapping
     }
 }

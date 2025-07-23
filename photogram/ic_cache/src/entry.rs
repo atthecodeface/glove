@@ -25,7 +25,7 @@ impl CacheRef {
         let data: Arc<dyn Cacheable> = Arc::new(c);
         Self { data }
     }
-    pub fn downcast<'a, T: 'static>(&'a self) -> Option<&'a T> {
+    pub fn downcast<T: 'static>(&self) -> Option<&T> {
         self.data.as_any().downcast_ref::<T>()
     }
 }

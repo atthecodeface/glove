@@ -112,7 +112,7 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
     }
 
     fn handle_matches(&self, cmd_args: &mut C, matches: &ArgMatches) -> Result<C::Value, C::Error> {
-        self.handle_args(cmd_args, matches);
+        self.handle_args(cmd_args, matches)?;
         if let Some((subcommand, submatches)) = matches.subcommand() {
             self.execute_sub_cmd(subcommand, cmd_args, submatches)
         } else {

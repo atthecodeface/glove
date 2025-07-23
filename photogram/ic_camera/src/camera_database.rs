@@ -19,11 +19,11 @@ impl std::fmt::Display for CameraDatabase {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         writeln!(fmt, "Bodies:")?;
         for b in self.bodies.iter() {
-            writeln!(fmt, "{}", b)?;
+            writeln!(fmt, "{b}")?;
         }
         writeln!(fmt, "Lenses:")?;
         for l in self.lenses.iter() {
-            writeln!(fmt, "{}", l)?;
+            writeln!(fmt, "{l}")?;
         }
         Ok(())
     }
@@ -58,8 +58,7 @@ impl CameraDatabase {
     //ap get_body_err
     pub fn get_body_err(&self, name: &str) -> Result<&CameraBody> {
         self.get_body(name).ok_or(Error::Database(format!(
-            "Body '{}' was not in the database",
-            name
+            "Body '{name}' was not in the database",
         )))
     }
 
@@ -84,8 +83,7 @@ impl CameraDatabase {
     //ap get_lens_err
     pub fn get_lens_err(&self, name: &str) -> Result<&CameraLens> {
         self.get_lens(name).ok_or(Error::Database(format!(
-            "Lens '{}' was not in the database",
-            name
+            "Lens '{name}' was not in the database",
         )))
     }
 

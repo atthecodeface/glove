@@ -189,7 +189,7 @@ impl NamedPointSet {
     //fp get_pt_err
     pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>> {
         self.get_pt(name).ok_or_else(|| {
-            Error::Database(format!("Named point set does not contain name '{}'", name))
+            Error::Database(format!("Named point set does not contain name '{name}'"))
         })
     }
 
