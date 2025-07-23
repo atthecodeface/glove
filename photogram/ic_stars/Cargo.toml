@@ -1,5 +1,5 @@
 [package]
-name = "ic_play"
+name = "ic_stars"
 edition.workspace = true
 version.workspace = true
 description.workspace = true
@@ -12,7 +12,6 @@ repository.workspace = true
 
 [dependencies]
 ic_base.workspace = true
-ic_stars.workspace = true
 ic_image.workspace = true
 ic_camera.workspace = true
 ic_mapping.workspace = true
@@ -22,23 +21,5 @@ poloto.workspace = true
 serde.workspace = true
 postcard.workspace = true
 star-catalog.workspace = true
-clap.workspace = true
-anyhow.workspace = true
 serde_json.workspace = true
 
-[[bin]]
-name="ic_play"
-path = "src/main.rs"
-
-
-[[bin]]
-name="find_stars_from_image"
-path = "src/find_stars_from_image.rs"
-
-[[bin]]
-name="calibrate_from_grid"
-path = "src/calibrate_from_grid.rs"
-
-[[bin]]
-name="mls_loci"
-path = "src/model_line_set_loci.rs"
