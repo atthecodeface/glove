@@ -547,7 +547,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
         .about("From calibrate_from_grid")
         .long_about("");
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(grid_lens_calibrate_fn)));
+    let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
     build.add_arg(
         ic_cmdline::camera::camera_calibrate_arg(true),
         Box::new(|args, matches| {
