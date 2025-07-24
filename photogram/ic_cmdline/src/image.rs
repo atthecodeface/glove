@@ -6,16 +6,24 @@ use ic_camera::CameraPolynomial;
 use ic_image::{Color, ImageRgb8};
 
 //a Image options
+//fp image_read_arg
+pub fn image_read_arg(required: bool, num_args: Option<usize>) -> Arg {
+    let arg = Arg::new("read")
+        .long("read")
+        .short('r')
+        .required(required)
+        .help("Image to read")
+        .action(ArgAction::Append);
+    if let Some(num_args) = num_args {
+        arg.num_args(num_args)
+    } else {
+        arg
+    }
+}
+
 //fp add_image_read_arg
 pub fn add_image_read_arg(cmd: Command, required: bool) -> Command {
-    cmd.arg(
-        Arg::new("read")
-            .long("read")
-            .short('r')
-            .required(required)
-            .help("Image to read")
-            .action(ArgAction::Append),
-    )
+    cmd.arg(image_read_arg(required, None))
 }
 
 //fp get_image_read
@@ -23,6 +31,15 @@ pub fn get_image_read(matches: &ArgMatches) -> Result<ImageRgb8> {
     let read_filename = matches.get_one::<String>("read").unwrap();
     let img = ImageRgb8::read_image(read_filename)?;
     Ok(img)
+}
+
+//fp get_image_read_filenames
+pub fn get_image_read_filenames(matches: &ArgMatches) -> Result<Vec<String>> {
+    Ok(matches
+        .get_many::<String>("read")
+        .unwrap()
+        .cloned()
+        .collect())
 }
 
 //fp get_image_read_all
@@ -49,16 +66,19 @@ pub fn get_image_read_or_create(
     Ok(img)
 }
 
+//fp image_write_arg
+pub fn image_write_arg(required: bool) -> Arg {
+    Arg::new("write")
+        .long("write")
+        .short('w')
+        .required(required)
+        .help("Image to write")
+        .action(ArgAction::Set)
+}
+
 //fp add_image_write_arg
 pub fn add_image_write_arg(cmd: Command, required: bool) -> Command {
-    cmd.arg(
-        Arg::new("write")
-            .long("write")
-            .short('w')
-            .required(required)
-            .help("Image to write")
-            .action(ArgAction::Set),
-    )
+    cmd.arg(image_write_arg(required))
 }
 
 //fp get_opt_image_write_filename

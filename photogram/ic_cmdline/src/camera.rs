@@ -4,7 +4,7 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use ic_base::{json, Point3D, Quat, Result};
-use ic_camera::{CameraDatabase, CameraPolynomial, CameraPolynomialCalibrate};
+use ic_camera::{CameraDatabase, CameraPolynomial};
 use ic_project::Project;
 
 //a CameraProjection
@@ -55,16 +55,19 @@ pub fn get_camera_projection(
 }
 
 //a CameraDatabase
+//fp camera_database_arg
+pub fn camera_database_arg(required: bool) -> Arg {
+    Arg::new("camera_db")
+        .long("db")
+        .alias("database")
+        .required(required)
+        .help("Camera database JSON")
+        .action(ArgAction::Set)
+}
+
 //fp add_camera_database_arg
 pub fn add_camera_database_arg(cmd: Command, required: bool) -> Command {
-    cmd.arg(
-        Arg::new("camera_db")
-            .long("db")
-            .alias("database")
-            .required(required)
-            .help("Camera database JSON")
-            .action(ArgAction::Set),
-    )
+    cmd.arg(camera_database_arg(required))
 }
 
 //fp get_camera_database
@@ -75,6 +78,7 @@ pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase> {
     camera_db.derive();
     Ok(camera_db)
 }
+
 //a Camera
 //fp add_camera_arg
 pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
@@ -96,24 +100,24 @@ pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolyn
 }
 
 //a CameraCalibrate
+//fp camera_calibrate_arg
+pub fn camera_calibrate_arg(required: bool) -> Arg {
+    Arg::new("camera_calibrate")
+        .long("camera")
+        .short('c')
+        .required(required)
+        .help("Camera calibration placement and orientation JSON")
+        .action(ArgAction::Set)
+}
+
 //fp add_camera_calibrate_arg
 pub fn add_camera_calibrate_arg(cmd: Command, required: bool) -> Command {
-    cmd.arg(
-        Arg::new("camera")
-            .long("camera")
-            .short('c')
-            .required(required)
-            .help("Camera calibration placement and orientation JSON")
-            .action(ArgAction::Set),
-    )
+    cmd.arg(camera_calibrate_arg(required))
 }
 
 //fp get_camera_calibrate
-pub fn get_camera_calibrate(
-    matches: &ArgMatches,
-    cdb: &CameraDatabase,
-) -> Result<CameraPolynomialCalibrate> {
-    let camera_filename = matches.get_one::<String>("camera").unwrap();
+pub fn get_camera_calibrate(matches: &ArgMatches) -> Result<String> {
+    let camera_filename = matches.get_one::<String>("camera_calibrate").unwrap();
     let camera_json = json::read_file(camera_filename)?;
-    CameraPolynomialCalibrate::from_json(cdb, &camera_json)
+    Ok(camera_json)
 }

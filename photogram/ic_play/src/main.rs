@@ -123,8 +123,6 @@ fn arg_match_brightness(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> 
     Ok(())
 }
 
-//a Useful functions
-
 //a Main
 pub fn main() -> Result<()> {
     let command = Command::new("ic_play")
@@ -133,12 +131,7 @@ pub fn main() -> Result<()> {
 
     let mut build = CommandBuilder::new(command, None);
     build.add_arg(
-        Arg::new("camera_db")
-            .long("db")
-            .alias("database")
-            .required(true)
-            .help("Camera database JSON")
-            .action(ArgAction::Set),
+        ic_cmdline::camera::camera_database_arg(true),
         Box::new(arg_camera_db),
     );
     build.add_arg(
@@ -177,21 +170,11 @@ pub fn main() -> Result<()> {
         Box::new(arg_match_brightness),
     );
     build.add_arg(
-        Arg::new("read_image")
-            .long("read")
-            .short('r')
-            .required(false)
-            .help("Image to read")
-            .action(ArgAction::Append),
+        ic_cmdline::image::image_read_arg(true, Some(1)),
         Box::new(arg_read_image),
     );
     build.add_arg(
-        Arg::new("write_image")
-            .long("write")
-            .short('w')
-            .required(false)
-            .help("Image to write")
-            .action(ArgAction::Set),
+        ic_cmdline::image::image_write_arg(true),
         Box::new(arg_write_image),
     );
 
