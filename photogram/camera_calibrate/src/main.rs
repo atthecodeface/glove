@@ -120,13 +120,13 @@
 //!
 //! With this description use:
 //!
-//!   camera_calibrate (--db ...) grid_locate -c <desc.json> > <located_desc.json>
+//!   camera_calibrate (--db ...) locate -c <desc.json> > <located_desc.json>
 //!
 //! This will use some points (argh!) to locate the camera as best as possible
 //!
 //! With a *located* camera, the orientation can be determined.
 //!
-//!   camera_calibrate (--db ...) grid_orient -c <located_desc.json> > <oriented_desc.json>
+//!   camera_calibrate (--db ...) orient -c <located_desc.json> > <oriented_desc.json>
 //!
 //! This will use some points (argh!) to orient the camera as best as possible, given its location
 //!
@@ -175,6 +175,123 @@ use ic_camera::{CameraDatabase, CameraInstance, CameraPolynomialCalibrate, Camer
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
+
+//a Help messages
+//hi CAMERA_CALIBRATE_LONG_HELP
+const CAMERA_CALIBRATE_LONG_HELP: &str = "\
+This provides various tools to help calibrate a lens mapping.
+
+Some of the tools are based on a description of a photograph of a
+regular grid (such as graph paper); alternatively, a photograph of
+stars may be used as a starting point (replacing *some* of the tools
+provided here).
+
+The description of a photograph of a regular grid can be obtained
+somewhat automatically using the 'image_analyze' tool.
+
+Using a grid, the approach is first to *locate* the camera.
+
+With a located camera and a grid, or with a camera ar the origin and a
+star description, the orientation of the camera can be determined.
+
+With an orientation, the lens calibration can be determined, and
+verified with images.";
+
+//hi LOCATE_LONG_HELP
+const LOCATE_LONG_HELP: &str = "\
+Determine the 'best' location for a camera/lens from a mapping
+description file, ignoring the given camera position and orientation.
+
+The mapping is a list of (x,y,z, px,py); this indicates that the point
+in the 'world' at (x,y,z) was seen on the camera sensor at absolute
+camera sensor position (px,py).
+
+The algorithm uses is to determine for every pair of selected mappings
+the angle subtended as seen by the camera/lens - based on the (px,py)
+values - including using any lens mapping the camera has. Each such
+pair corresponds to a line in space (between the two (x,y,z) for the
+pair); so there is then a set of (line, angle subtended) for each pair
+of mappings. Any one such mapping describes a surface in the world
+space from where the line would subtend such an angle. Two such
+mappings thus describe a line in world space (at best), and three a
+point in world space. Hence three or more pairs can be used to
+determine a position in space. The 'best' position in space is deemed
+to be that point where the sum of the absolute errors in the angles
+for each line subtended is minimized.";
+
+//hi ORIENT_LONG_HELP
+const ORIENT_LONG_HELP: &str = "\
+Determine the 'best' orientation for a camera/lens from a mapping
+description file, ignoring the orientation specified in the
+description.
+
+The mapping is a list of (x,y,z, px,py); this indicates that the point
+in the 'world' at (x,y,z) was seen on the camera sensor at absolute
+camera sensor position (px,py).
+
+For every mapping in the file, given the camera position, a direction
+vector (dx,dy,dz) can be generated for that mapping - and this
+presumably corresponds to (px,py) for that mapping, which in turn
+describes some camera-relative direction (dpx,dpy,dpz).
+
+Hence (given the camera position) we have two lists of directions,
+which *ought* to map through an orientation mapping (an arbitrary
+rotation matrix in 3D, or a unit quaternion). For any one mapping
+there is a quaternion (q0) that maps (dx,dy,dz) to the Z axis, and
+another quaternion that maps the Z axis to (dpx,dpy,dpz) (q1); if we
+take a second mapping and apply q0 to its (dx,dy,dz), we can apply
+*some* rotation around the Z axis (qz), and the apply q1', and we
+should end up at its (dpx, dpy, dpz); this combination q0.qz.q1c is a
+good best effort for this pair of mappings.
+
+The tool generates all N(N-1) such mapping quaternions for every pair
+of mappings, and then determines the average quaternion; this is the 'best' orientation.";
+
+//hi LENS_CALIBRATE_LONG_HELP
+const LENS_CALIBRATE_LONG_HELP: &str = "\
+Using a mappings description determine the polynomial of best fit to
+map the image Yaw to the world Yaw
+
+The mapping is a list of (x,y,z, px,py); this indicates that the point
+in the 'world' at (x,y,z) was seen on the camera sensor at absolute
+camera sensor position (px,py).
+
+Given a camera position and orientation every mapping has a direction
+in both 'world' space (relative to the camera axis) and in 'sensor'
+space (relative to the center of the sensor); such directions can be
+encoded as a roll and yaw - that is, the angle that the direction is
+'away' from the axis of view; and the angle that the direction is
+'around' the clock. For example, a direction vector could be described
+as 30 degrees off straight-ahead, in the direction of '2' on a clock
+(which would be 60 degrees clockwise from the vertical). The first of
+these is the Yaw, the second the Roll.
+
+A *spherical* camera lens mapping is a function of Yaw in world space
+to Yaw in sensor space - Roll is not important. This tool therefore
+generates the two Yaw values (world and sensor) for all of the mapping
+points, given the camera position and orientation, and it generates a
+graph and a polynomial of best fit (with the extra assertion that the
+point (0,0) is on the Yaw/Yaw graph).
+
+Actually two polynomials are generated - one forward (wts) and one
+backward (stw); these should be used in a camera_db JSON file.
+
+The plot that is generated is an SVG file showing Yaw/Yaw-1 - bear in
+mind that any lens mapping specified for the camera in the database is
+used, so that a perfectly calibrated camera/lens with a perfect
+mapping file will have straight lines on the X axis. Furthermore,
+there are *four* graphs overlaid, using different colors - one for
+each quadrant of the camera sensor; also the polynomial of best fit is
+plotted too.";
+
+//hi GRID_IMAGE_LONG_HELP
+const GRID_IMAGE_LONG_HELP: &str = "\
+This tool uses the provided camera description and mappings, and
+overlays an image with *red* crosses showing the specified coordinates of
+each mapping and the derived (i.e. post-camera/lens mapping) positions
+of those mappings with *green* crosses.
+
+It also draws black crosses for a range of (x,y,0) values.";
 
 //a Types
 //a CmdArgs
@@ -318,27 +435,8 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Grid locate
-fn grid_locate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("grid_locate")
-        .about("Locate a camera given a grid calibration")
-        .long_about(
-            "
-Given a subset of the calibration points, find the best location for the camera.
-",
-        );
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(grid_locate_fn)));
-    build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
-        }),
-    );
-    build
-}
-
-//fi grid_locate_fn
+//a Setup
+//fi setup
 fn setup(
     calibrate: &CameraPolynomialCalibrate,
     pt_indices: &[(f64, f64, f64)],
@@ -369,13 +467,33 @@ fn setup(
     (closest_n, nps, pms)
 }
 
-fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Locate
+fn locate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate")
+        .about("Determine an optimal location from a calibration description")
+        .long_about(LOCATE_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
+    build.add_arg(
+        ic_cmdline::camera::camera_calibrate_arg(true),
+        Box::new(|args, matches| {
+            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+        }),
+    );
+    build
+}
+
+//fi locate_fn
+fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
     let mut calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera
+    //
+    // The position and orientation are not used, and they are cleared
+    // here defensively
     let mut cam = calibrate.camera().clone();
     cam.set_position([0., 0., 0.].into());
     cam.set_orientation(Quat::default());
@@ -431,13 +549,13 @@ fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Grid orient
-fn grid_orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("grid_orient")
-        .about("From calibrate_from_grid")
-        .long_about("");
+//a Orient
+fn orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("orient")
+        .about("Determine an optimal orientation from a calibration description")
+        .long_about(ORIENT_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(grid_orient_fn)));
+    let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
     build.add_arg(
         ic_cmdline::camera::camera_calibrate_arg(true),
         Box::new(|args, matches| {
@@ -447,8 +565,8 @@ fn grid_orient_cmd() -> CommandBuilder<CmdArgs> {
     build
 }
 
-//fi grid_orient_fn
-fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+//fi orient_fn
+fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
@@ -545,7 +663,7 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("lens_calibrate")
         .about("From calibrate_from_grid")
-        .long_about("");
+        .long_about(LENS_CALIBRATE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
     build.add_arg(
@@ -670,7 +788,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("grid_image")
         .about("From calibrate_from_grid")
-        .long_about("");
+        .long_about(GRID_IMAGE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(grid_image_fn)));
     build.add_arg(
@@ -747,61 +865,13 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Images
-/*a  Deprecated until we allow a project?
-//fi image_grid_cmd
-fn image_grid_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("image_grid").about("Read image and draw crosses on grid coordinates");
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
-    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
-    (cmd, image_grid_fn)
-}
-
-//fi image_grid_fn
-fn image_grid_fn(cdb: CameraDatabase, matches: &clap::ArgMatches) -> Result<(), String> {
-    let mut camera = cmdline_args::camera::get_camera(matches, &cdb)?;
-    let camera_pt_z: Point3D = [-0.2, -1.2, -460.].into();
-    let q = quat::new();
-    camera = camera.placed_at(camera_pt_z);
-    camera = camera.with_orientation(q.into());
-
-    eprintln!("{camera}");
-    let mut pts = vec![];
-    let n = 40;
-    let n_f = n as f64;
-    let c_f = n_f / 2.0;
-    for y in 0..=n {
-        let y_f = (y as f64 - c_f) * 10.;
-        for x in 0..=n {
-            let x_f = (x as f64 - c_f) * 10.;
-            let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba = [255, 255, 255, 255].into();
-            pts.push((pt, rgba));
-        }
-    }
-    if let Some(read_filename) = matches.get_one::<String>("read") {
-        let mut img = image::read_image(read_filename)?;
-        if let Some(write_filename) = matches.get_one::<String>("write") {
-            for (p, c) in &pts {
-                let mapped = camera.map_model(*p);
-                // eprintln!("{mapped} {p} {c:?}");
-                img.draw_cross(mapped, 5.0, c);
-            }
-            img.write(write_filename)?;
-        }
-    }
-    Ok(())
-}
- */
-
 //a Main
 //fi main
 fn main() -> Result<()> {
     let command = Command::new("camera_calibrate")
         .about("Camera calibration tool")
-        .version("0.1.0")
-        .subcommand_required(true);
+        .long_about(CAMERA_CALIBRATE_LONG_HELP)
+        .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
     build.add_arg(
@@ -812,8 +882,8 @@ fn main() -> Result<()> {
     );
 
     build.add_subcommand(calibrate_cmd());
-    build.add_subcommand(grid_locate_cmd());
-    build.add_subcommand(grid_orient_cmd());
+    build.add_subcommand(locate_cmd());
+    build.add_subcommand(orient_cmd());
     build.add_subcommand(lens_calibrate_cmd());
     build.add_subcommand(grid_image_cmd());
     //    build.add_subcommand(grid_calibrate_cmd());
