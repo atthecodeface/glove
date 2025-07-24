@@ -73,6 +73,11 @@ impl CameraPolynomialCalibrate {
         &self.camera
     }
 
+    //ap camera_mut
+    pub fn camera_mut(&mut self) -> &mut CameraPolynomial {
+        &mut self.camera
+    }
+
     //ap distance
     pub fn distance(&self) -> f64 {
         self.distance
