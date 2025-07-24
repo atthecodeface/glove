@@ -78,7 +78,9 @@ use star_catalog::{Catalog, CatalogIndex, Subcube};
 use ic_base::json;
 use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 use ic_camera::{serialize_body_name, serialize_lens_name};
-use ic_camera::{CameraBody, CameraLens, CameraPolynomial, CameraPolynomialDesc};
+use ic_camera::{
+    CameraBody, CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialDesc,
+};
 use ic_camera::{CameraDatabase, CameraProjection};
 use ic_image::ImagePt;
 
@@ -317,7 +319,29 @@ impl StarCalibrate {
         pts
     }
 
-    //mp Map stars in catalog, and plot them on an image
+    //mp create_polynomial_calibrate
+    pub fn create_polynomial_calibrate(&self, catalog: &Catalog) -> CameraPolynomialCalibrate {
+        let mut mappings = vec![];
+        for (i, s) in self.star_directions.iter().enumerate() {
+            let star_m = self.camera.camera_xyz_to_world_xyz(*s);
+            if let Some((err, id)) = closest_star(catalog, star_m) {
+                let star = &catalog[id];
+                let sv: &[f64; 3] = star.vector.as_ref();
+                mappings.push((
+                    sv[0],
+                    sv[1],
+                    sv[2],
+                    self.mappings[i].0 as usize,
+                    self.mappings[i].1 as usize,
+                ));
+            }
+        }
+        let camera = self.camera.clone();
+        CameraPolynomialCalibrate::new(camera, mappings)
+    }
+
+    //mp map_stars
+    /// Map stars in catalog, and plot them on an image
     pub fn map_stars(
         &mut self,
         catalog: &mut Catalog,

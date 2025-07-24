@@ -858,6 +858,12 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
     for (p, c) in &pts {
         let mapped = camera.map_model(*p);
+        if mapped[0] < -10000.0 || mapped[0] > 10000.0 {
+            continue;
+        }
+        if mapped[1] < -10000.0 || mapped[1] > 10000.0 {
+            continue;
+        }
         img.draw_cross(mapped, 5.0, c);
     }
     img.write(cmd_args.write_img.as_ref().unwrap())?;

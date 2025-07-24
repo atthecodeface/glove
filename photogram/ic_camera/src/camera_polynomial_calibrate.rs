@@ -41,6 +41,11 @@ impl CameraPolynomialCalibrate {
         &mut self.camera
     }
 
+    //cp new
+    pub fn new(camera: CameraPolynomial, mappings: Vec<(f64, f64, f64, usize, usize)>) -> Self {
+        Self { camera, mappings }
+    }
+
     //cp from_desc
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialCalibrateDesc) -> Result<Self> {
         let camera = CameraPolynomial::from_desc(cdb, desc.camera)?;

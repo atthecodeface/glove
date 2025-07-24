@@ -69,20 +69,6 @@ fn arg_camera_db(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-//fp arg_read_image
-fn arg_read_image(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-    for read_filename in matches.get_many::<String>("read_image").unwrap() {
-        args.read_img.push(read_filename.clone());
-    }
-    Ok(())
-}
-
-//fp arg_write_image
-fn arg_write_image(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-    args.write_img = matches.get_one::<String>("write_image").cloned();
-    Ok(())
-}
-
 //fp arg_star_calibrate
 fn arg_star_calibrate(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
     let calibrate_filename = matches.get_one::<String>("star_calibrate").unwrap();
@@ -171,11 +157,15 @@ pub fn main() -> Result<()> {
     );
     build.add_arg(
         ic_cmdline::image::image_read_arg(true, Some(1)),
-        Box::new(arg_read_image),
+        Box::new(|args, matches| {
+            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
+        }),
     );
     build.add_arg(
         ic_cmdline::image::image_write_arg(true),
-        Box::new(arg_write_image),
+        Box::new(|args, matches| {
+            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
+        }),
     );
 
     let ms_command =
@@ -187,9 +177,25 @@ pub fn main() -> Result<()> {
     let fs_build = CommandBuilder::new(fs_command, Some(Box::new(find_stars_from_image_cmd)));
     build.add_subcommand(fs_build);
 
+    let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
+    let cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
+    build.add_subcommand(cd_build);
+
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<CmdArgs> = build.into();
     command.execute_env(&mut cmd_args)?;
+    Ok(())
+}
+
+//fp calibrate_desc_cmd
+fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    let (calibrate, catalog) = cmd_args.borrow_mut();
+    let cat_index = calibrate.map_stars(catalog, brightness)?;
+
+    //cb Show the star mappings
+    let pc = calibrate.create_polynomial_calibrate(catalog);
+    println!("{}", pc.to_desc_json()?);
     Ok(())
 }
 
