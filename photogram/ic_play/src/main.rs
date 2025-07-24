@@ -11,8 +11,8 @@ use star_catalog::Catalog;
 use ic_base::json;
 use ic_base::Result;
 use ic_camera::CameraDatabase;
-use ic_image::{Image, ImageRgb8};
-use ic_stars::{ImgPt, StarCalibrate};
+use ic_image::{Image, ImagePt, ImageRgb8};
+use ic_stars::StarCalibrate;
 
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 
@@ -37,7 +37,7 @@ impl CommandArgs for CmdArgs {
 
 //ip CmdArgs
 impl CmdArgs {
-    pub fn draw_image(&self, pts: &[ImgPt]) -> Result<()> {
+    pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
             return Ok(());
         }

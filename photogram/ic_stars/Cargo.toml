@@ -14,12 +14,8 @@ repository.workspace = true
 ic_base.workspace = true
 ic_image.workspace = true
 ic_camera.workspace = true
-ic_mapping.workspace = true
-ic_cmdline.workspace = true
 geo-nd.workspace = true
-poloto.workspace = true
 serde.workspace = true
 postcard.workspace = true
 star-catalog.workspace = true
-serde_json.workspace = true
 

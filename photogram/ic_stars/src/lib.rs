@@ -1,111 +1,74 @@
 //a Documentation
-//! Test of camera calibration from stars (IMG_4924.JPG)
+//! Allow for calibrating using stars (and a Star Catalog)
 //!
-//! The stars were captured on a Canon Rebel T2i, with a 50mm lens focused on 'infinity'
+//! This is expected to use camera images taken at night on (e.g.) a
+//! 30 second exposure at f/2 at ISO 400, or thereabouts. Shorter
+//! exposures may be used with higher ISO, or to record just brighter
+//! stars
 //!
-//! The camera is face-on to the grid (which is graph paper); the
-//! approximate interscetions of 550 grid lines was capture as sensor pixel
-//! coordinates XY and mm XY pairings. The grid is assumed to be at Z=0.
+//! The notion is that the *position* of the camera is fixed (as 'on
+//! the earth') and the stars are sufficiently distant that where one
+//! is on the earth is irrelevant. Hence the camera orientation is all
+//! that needs to be determined, in order to then calibrate the camera
+//! and lens.
 //!
-//! Some of the pairings (given by pt_indices) are used to create a
-//! ModelLineSet, which is a set of ModelLines (between grid points,
-//! hence all in the plane Z=0) and the angles subtended by the
-//! camera, given by the sensor pixel coordinates through the
-//! camera/lens model from the database (i.e. this includes the lens
-//! mapping)
+//! # Finding an initial orientation
 //!
-//! Note that this does not assume the orientation of position of the
-//! camera; it purely uses the absolute pixel XY to relative pixel XY
-//! to TanXTanY to RollYaw through the lens mapping to a new RollYaw
-//! to a TanXTanY in model space to a unit direction vector.
+//! The orientation of the camera can be determined from a perfect
+//! lens calibration from a triangle of stars, using the angle betwen
+//! them (i.e stars A, B and C, and the angle as seen by the camera
+//! between A and B, between B and C, and between C and A).
 //!
-//! From this ModelLineSet a position in space is determined, using
-//! the 'million possible points on a ModelLinetSubtended surface)
-//! approach.
+//! Given a non-perfect lens calibration (as one starts off with...!)
+//! the will be error in the angles measured between the stars; hence
+//! using a star catalog of reasonably bright stars one may find
+//! multiple sets of triangles of stars that match, to some error, the
+//! angles as measured from the camera.
 //!
-//! This camera position is then optimized further by delta
-//! adjustments in the ModelLineSet.
+//! Given a *second* (independent) set of three stars, we can get a
+//! second independent guess on the orietnation of the camera.
 //!
-//! From this 'known good position' the best orientation can be
-//! determined, by creating quaternion orientations for every pair of
-//! pairings in the pt_indices by:
+//! We can compare all the pairs of orientations derived from the
+//! triangle candidates to see if they match - i.e. if q1 = q2, or q1
+//! . q2' = (1,0,0,0). Hence multiplying the quaternion for the one
+//! candidate orientation by the conjugate of the quaternion for the
+//! other candidate s and using the value of the real term (cos of
+//! angle of rotation about some axis) as a measure of how well
+//! matched the quaternions are (the difference between this value and
+//! one).
 //!
-//!   1. Find the unit direction from the camera to both of the model points (A, B)
+//! The best pair of candidate triangles can be used to evaluate a
+//! camera orientations (by averaging the two candidate orientations);
+//! using this orientation, we can find the direction to the other
+//! stars in the calibration description; from these we can find the
+//! closest stars in the catalog for these directions, and update the
+//! calibration description with such mappings.
 //!
-//!   2. Find the the unit direction for the camera on it sensor (from the pairing)
+//! # Mapping stars on an image
 //!
-//!   3. Generate a quaternion qm that rotates model point direction A to the vector (0,0,1)
+//! From a full calibration description - where each visible star on
+//! the image is recorded (px,py) in the calibration file *with* a
+//! corresponding star catalog id, an updated camera orientation can
+//! be calculated.
 //!
-//!   4. Generate a quaternion qc that rotates camera point direction A to the vector (0,0,1)
+//! For each position in the calibration file we know its catalog
+//! direction vector, and we can calculate a camera relative direction
+//! vector (i.e. ignoreing the camera orientation).
 //!
-//!   5. Apply qm to model point direction B to yield dj_m
+//! For each pair of star positions A and B we can thus generate a
+//! quaternion that maps camera relative direction A to star catalog
+//! direction A *and* that maps camera relative direction B to
+//! (approximately) star catalog direction B. The approximation comes
+//! from the errors in the sensor image positions and the camera
+//! calibration, which lead to an error in the camera-relative angle
+//! between A and B.
 //!
-//!   6. Apply qc' to camera point direction B to yield dj_c
+//! We can calculate quaternions for every pair (A,B) - including the
+//! reverse (B,A), but not (A,A) - and gnerate an average (so for N
+//! positions in the calibration file there are N*(N-1) quaternions).
 //!
-//!   7. Note that dj_m and dj_c should have the same *yaw* but a different *roll*
-//!
-//!   8. Determine the roll required to map dj_m to dj_c
-//!
-//!   9. Generate quaternion qz which is the rotation around Z for the roll
-//!
-//!   10. Generate quaternion q = qm.qz.qc
-//!
-//!   11. Note that q transforms model point direction A to camera point direction A
-//!
-//!   12. Note that q transforms model point direction B to camera point direction B (if the yaws were identical)
-//!
-//!   13. Note hence that q is the orientation of a camera that matches the view of model points A and B
-//!
-//! The value 'q' is inaccurate if the *yaw* values are different -
-//! i.e. if the angle subtended by the line between the two points on
-//! the camera does not match the angle subtended by the line between
-//! the two points in model space as seen by the camera at its given location.
-//!
-//! The value of 'q' for *every* pair of pairings (A to B, and also B
-//! to A) is generated, and an average of these quaternions is used as
-//! the orientation of the camera
-//!
-//! Given the position and orientation of the camera the unit
-//! direction vector to every model point from the camera can be
-//! determined, and converted to a *roll* and *yaw*. The corresponding
-//! camera sensor direction (potentially without going through the lens mapping)
-//! can be determined, and presented also as a *roll* and *yaw*.
-//!
-//! A graph of camera yaw versus model yaw can be produced; if no lens
-//! mapping had been used the this should be approximately a single
-//! curve that is the polynomial for the lens (mapping yaw in camera
-//! to yaw in model space).
-//!
-//! However, if the *centre* of the camera (upon which the absolute
-//! camera sensor XY to camera unit direction vectors depend) has an
-//! incorrect value (is the lens centred on the mid-point of the
-//! sensor?) then the curve for the yaw-yaw for the camera points in
-//! the upper right quadrant of the sensor will have approximately the
-//! same shape, but will have a differentoffset, to that from the
-//! lower right quadrant.
-//!
-//! So here we plot *four* graphs, one for each quadrant.
-//!
-//! For *all* of the points together a pair of polynomials (one
-//! camera-to-model, the other the inverse) are generated
-//!
-//! The process to calibrate the camera is thus to:
-//!
-//!  1. Reset its lens mapping polynomial
-//!
-//!  2. Reset the centre of the lens (to the middle of the sensor)
-//!
-//!  3. Run the program and inspect the graphs
-//!
-//!  4. Adjust the centre of the sensor if the four graphs are
-//!     noticeable offset from each other; repeat from step 3
-//!
-//!  5. Once the graphs are all deemed reasonable, copy the
-//!     polynomials calculated in to the lens mapping.
-//!
-//!  6. Rerun, and the graphs should be near identity, and the
-//!     calibration is complete.
-//!  
+//! This quaternion provides the best guess for the orientation for
+//! the camera.
 
 //a Imports
 use geo_nd::{quat, Quaternion, Vector};
@@ -117,53 +80,7 @@ use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 use ic_camera::{serialize_body_name, serialize_lens_name};
 use ic_camera::{CameraBody, CameraLens, CameraPolynomial, CameraPolynomialDesc};
 use ic_camera::{CameraDatabase, CameraProjection};
-use ic_image::{Image, ImageRgb8};
-
-//a ImgPt
-//tp ImgPt
-pub struct ImgPt {
-    px: f32,
-    py: f32,
-    style: u8,
-}
-impl std::convert::From<(usize, usize, u8)> for ImgPt {
-    fn from((px, py, style): (usize, usize, u8)) -> ImgPt {
-        ImgPt {
-            px: px as f32,
-            py: py as f32,
-            style,
-        }
-    }
-}
-impl std::convert::From<(isize, isize, u8)> for ImgPt {
-    fn from((px, py, style): (isize, isize, u8)) -> ImgPt {
-        ImgPt {
-            px: px as f32,
-            py: py as f32,
-            style,
-        }
-    }
-}
-impl std::convert::From<(Point2D, u8)> for ImgPt {
-    fn from((pt, style): (Point2D, u8)) -> ImgPt {
-        ImgPt {
-            px: pt[0] as f32,
-            py: pt[1] as f32,
-            style,
-        }
-    }
-}
-
-impl ImgPt {
-    pub fn draw(&self, img: &mut ImageRgb8) {
-        let (width, color) = match self.style {
-            0 => (10.0, &[255, 0, 255, 255].into()),
-            1 => (20.0, &[0, 255, 255, 255].into()),
-            _ => (30.0, &[125, 125, 125, 255].into()),
-        };
-        img.draw_cross([self.px as f64, self.py as f64].into(), width, color);
-    }
-}
+use ic_image::ImagePt;
 
 //a Useful functions
 //fi orientation_mapping_triangle
@@ -501,10 +418,7 @@ impl StarCalibrate {
             mag1_directions_c[2].dot(&mag1_directions_c[0]).acos(),
         ];
         let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
-        eprintln!(
-        "Angles (just using focal length of lens) between first three magnitude '1' stars: {angle_degrees:?}"
-        
-        );
+        eprintln!("Angles (just using focal length of lens) between first three magnitude '1' stars: {angle_degrees:?}" );
 
         //cb Create angles between first three mag2 stars
         let mag2_angles = [
@@ -513,9 +427,7 @@ impl StarCalibrate {
             mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
         ];
         let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
-        eprintln!(
-        "Angles (just using focal length of lens) between first three magnitude '2' stars: {angle_degrees:?}"
-        );
+        eprintln!( "Angles (just using focal length of lens) between first three magnitude '2' stars: {angle_degrees:?}");
 
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
@@ -632,7 +544,11 @@ impl StarCalibrate {
     }
 
     //mp add_catalog_stars
-    pub fn add_catalog_stars(&self, catalog: &Catalog, mapped_pts: &mut Vec<ImgPt>) -> Result<()> {
+    pub fn add_catalog_stars(
+        &self,
+        catalog: &Catalog,
+        mapped_pts: &mut Vec<ImagePt>,
+    ) -> Result<()> {
         //cb Create Vec<Model> of all the catalog stars (that are in-front of the camera)
         for s in Subcube::iter_all() {
             for index in catalog[s].iter() {
@@ -650,7 +566,7 @@ impl StarCalibrate {
         &self,
         catalog: &Catalog,
         cat_index: &[Option<CatalogIndex>],
-        mapped_pts: &mut Vec<ImgPt>,
+        mapped_pts: &mut Vec<ImagePt>,
     ) -> Result<()> {
         //cb Add (in pink) the Calibration stars that map to a Catalog star
         for c in cat_index {
@@ -666,7 +582,7 @@ impl StarCalibrate {
 
     //mp add_mapping_pts
     /// Add point for each 'mapping' in this calibration, to mapped_pts vector
-    pub fn add_mapping_pts(&self, mapped_pts: &mut Vec<ImgPt>) -> Result<()> {
+    pub fn add_mapping_pts(&self, mapped_pts: &mut Vec<ImagePt>) -> Result<()> {
         //cb Create mapped points
         for (px, py, _mag, _hipp) in self.mappings() {
             mapped_pts.push((*px, *py, 0).into());
