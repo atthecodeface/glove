@@ -119,6 +119,27 @@ impl CameraPolynomial {
         Self::from_desc(cdb, desc)
     }
 
+    //dp to_desc
+    pub fn to_desc(self) -> CameraPolynomialDesc {
+        let body = self.body.name().to_owned();
+        let lens = self.lens.name().to_owned();
+        let mm_focus_distance = self.mm_focus_distance;
+        let position = self.position;
+        let orientation = self.orientation;
+        CameraPolynomialDesc {
+            body,
+            lens,
+            mm_focus_distance,
+            position,
+            orientation,
+        }
+    }
+
+    //dp to_desc_json
+    pub fn to_desc_json(self) -> Result<String> {
+        Ok(serde_json::to_string(&self.to_desc())?)
+    }
+
     //fp to_json
     pub fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(self)?)

@@ -110,11 +110,6 @@ pub fn camera_calibrate_arg(required: bool) -> Arg {
         .action(ArgAction::Set)
 }
 
-//fp add_camera_calibrate_arg
-pub fn add_camera_calibrate_arg(cmd: Command, required: bool) -> Command {
-    cmd.arg(camera_calibrate_arg(required))
-}
-
 //fp get_camera_calibrate
 pub fn get_camera_calibrate(matches: &ArgMatches) -> Result<String> {
     let camera_filename = matches.get_one::<String>("camera_calibrate").unwrap();

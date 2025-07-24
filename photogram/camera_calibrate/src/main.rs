@@ -176,7 +176,7 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
-    let calibrate = CameraPolynomialCalibrate::from_json(&cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     let v = calibrate.get_pairings();
     let mut world_yaws = vec![];
@@ -227,9 +227,9 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         calibrate.camera().position(),
         calibrate.camera().orientation(),
     );
-    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
-    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
-    eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
+    //    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
+    //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
+    //    eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
 
     let xy_pairs = calibrate.get_xy_pairings();
     let mut pts = vec![];
@@ -291,7 +291,7 @@ fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let mut calibrate = CameraPolynomialCalibrate::from_json(&cdb, cmd_args.cal.as_ref().unwrap())?;
+    let mut calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera
     let mut cam = calibrate.camera().clone();
@@ -369,7 +369,6 @@ fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     eprintln!("{best_cam_pos} {e}",);
 
     calibrate.camera_mut().set_position(best_cam_pos);
-
     Ok(())
 }
 
@@ -406,7 +405,7 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let mut calibrate = CameraPolynomialCalibrate::from_json(&cdb, cmd_args.cal.as_ref().unwrap())?;
+    let mut calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
     let mut cam = calibrate.camera().clone();
@@ -480,7 +479,7 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Find best orientation given position
     // We can get N model direction vectors given the camera position,
     // and for each we have a camera direction vector
-    let best_cam_pos = cam.position().clone();
+    let best_cam_pos = cam.position();
     let mut qs = vec![];
     for p0 in pt_indices {
         let (n, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
@@ -574,7 +573,7 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let calibrate = CameraPolynomialCalibrate::from_json(&cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
     let cam = calibrate.camera();
 
     //cb Set up HashMaps and collections
@@ -621,7 +620,7 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let pairings = calibrate.get_xy_pairings();
 
     //cb Clone to new camera with correct position/orientation
-    let mut camera = cam.clone();
+    let camera = cam.clone();
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
@@ -672,17 +671,6 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
     let avg_sq_err = sq_err / (world_yaws.len() as f64);
 
-    if false {
-        for i in 0..world_yaws.len() {
-            let wy = world_yaws[i];
-            let cy = camera_yaws[i];
-            eprintln!(
-                "{i} {wy} : {} : {cy} : {} : {wy}",
-                wts.calc(wy),
-                stw.calc(cy)
-            );
-        }
-    }
     eprintln!(" \"wts_poly\": {wts:?},");
     eprintln!(" \"stw_poly\": {stw:?},");
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
@@ -722,7 +710,6 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     println!("{plot_initial}");
 
     //cb Create points for crosses for output image
-    let xy_pairs = calibrate.get_xy_pairings();
     let mut pts = vec![];
     let n = 30;
     let n_f = n as f64;
@@ -782,7 +769,7 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let calibrate = CameraPolynomialCalibrate::from_json(&cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera
     let mut cam = calibrate.camera().clone();
