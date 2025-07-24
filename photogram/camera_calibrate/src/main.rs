@@ -107,12 +107,64 @@
 //!
 //!  6. Rerun, and the graphs should be near identity, and the
 //!     calibration is complete.
-//!  
+//!
+//! # Using the tool with a grid
+//!
+//! If you start with a photo of a grid, then a 'mappings' for each of
+//! the grid positions should be gnerated - this is (x,y,0, px, py).
+//!
+//! Then a CameraPolynomialCalibrateDesc can be generated, which is a
+//! basic camera description plus the mappings. This provides the
+//! camera body, lens, and focus distance for the image; plus position
+//! and orientation, which will be ignored here.
+//!
+//! With this description use:
+//!
+//!   camera_calibrate (--db ...) grid_locate -c <desc.json> > <located_desc.json>
+//!
+//! This will use some points (argh!) to locate the camera as best as possible
+//!
+//! With a *located* camera, the orientation can be determined.
+//!
+//!   camera_calibrate (--db ...) grid_orient -c <located_desc.json> > <oriented_desc.json>
+//!
+//! This will use some points (argh!) to orient the camera as best as possible, given its location
+//!
+//! Now the lens can be calibrated
+//!
+//! # Calibrating a lens
+//!
+//! A lens is calibrated using a set of points in 3D and the positions those map to on a camera, given the camera has been optimally located and oriented.
+//!
+//! This will also generate an SVG file with the plot of camera Yaw
+//! versus world Yaw, plus the polynomials describing this
+//! (sensor-to-world, and world-to-sensor):
+//!
+//!   camera_calibrate (--db ...) lens_calibrate -c <desc.json> > <plot.svg>
+//!
+//! The lens calibration can be copied to the camera_db.json file if
+//! required. Bear in mind that this polynomial is relative to the
+//! *current* polynomial provided for the lens; the normal process is
+//! to run the location, orientation, and calibration with a *linear*
+//! lens mapping, then to copy that lens mapping to the database, and
+//! rerun to ensure the SVG shows basically straight lines parallel to
+//! the X axis.
+//!
+//! # Generating a test image
+//!
+//! Once the calibration is complete, a verification image can be generated
+//!
+//!   camera_calibrate (--db ...) grid_image -c <desc.json> -r <src image> -w <output image>
+//!
+//! This draws black crosses on the image for grid intersections
+//! (x,y,0) for a range of X and Y; green crosses for each (x,y,z) in
+//! the description JSON mappings, and *red* crosses for the pxy of
+//! each of those points in the description JSON mappings.
+//!
+//! If the calibration is very good then the green and red crosses will overlap
+//!
 
 //a Imports
-use std::collections::HashMap;
-use std::rc::Rc;
-
 use clap::Command;
 use geo_nd::{quat, Quaternion, Vector};
 
@@ -122,7 +174,7 @@ use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CameraDatabase, CameraInstance, CameraPolynomialCalibrate, CameraProjection};
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImageRgb8};
-use ic_mapping::{ModelLineSet, NamedPoint, NamedPointSet, PointMappingSet};
+use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
 
 //a Types
 //a CmdArgs
@@ -231,7 +283,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
     //    eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
 
-    let xy_pairs = calibrate.get_xy_pairings();
+    let pxys = calibrate.get_pxys();
     let mut pts = vec![];
     let n = 30;
     let n_f = n as f64;
@@ -249,8 +301,8 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
         let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
         let c = &[255, 0, 0, 0].into();
-        for (_g, p) in &xy_pairs {
-            img.draw_cross(*p, 5.0, c);
+        for p in pxys.into_iter() {
+            img.draw_cross(p, 5.0, c);
         }
         for (p, c) in &pts {
             let mapped = camera.map_model(*p);
@@ -287,6 +339,36 @@ Given a subset of the calibration points, find the best location for the camera.
 }
 
 //fi grid_locate_fn
+fn setup(
+    calibrate: &CameraPolynomialCalibrate,
+    pt_indices: &[(f64, f64, f64)],
+) -> (Vec<usize>, NamedPointSet, PointMappingSet) {
+    let mut nps = NamedPointSet::default();
+    let mut pms = PointMappingSet::default();
+
+    //cb Add calibrations to NamedPointSet and PointMappingSet
+    let v = calibrate.get_xyz_pairings();
+    let mut closest_n = vec![0; pt_indices.len()];
+    for pt in pt_indices {
+        let mut closest = (0, 1.0E20);
+        let pt = [pt.0, pt.1, pt.2].into();
+        for (n, (model_xyz, _)) in v.iter().enumerate() {
+            let d = model_xyz.distance(&pt);
+            if d < closest.1 {
+                closest = (n, d);
+            }
+        }
+        closest_n.push(closest.0);
+    }
+    for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+        let name = n.to_string();
+        let color = [255, 255, 255, 255].into();
+        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
+        pms.add_mapping(&nps, &name, &pxy_abs, 0.);
+    }
+    (closest_n, nps, pms)
+}
+
 fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
@@ -299,67 +381,42 @@ fn grid_locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     cam.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let mut grid_dir_of_xy = HashMap::new();
+    let pt_indices: &[(f64, f64, f64)] = &[
+        (40.0, -40.0, 0.),
+        (-40.0, -40.0, 0.),
+        (40.0, 40.0, 0.),
+        (-40.0, 40.0, 0.),
+    ];
 
-    let pt_indices = &[(40, -40), (-40, -40), (40, 40), (-40, 40)];
-
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-    let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
-
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xy_pairings();
-    for (grid_xy, pxy_abs) in v.iter() {
-        let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let color = [255, 255, 255, 255].into();
-        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, pxy_abs, 0.);
-    }
-
-    //cb Add all pairings to grid_dir_of_xy
-    for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
-        let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-        let grid_dir = txty.to_unit_vector();
-        grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
-    }
+    let (closest_n, _nps, pms) = setup(&calibrate, pt_indices);
 
     //cb For required pairings, display data
-    for p in pt_indices {
-        let name = format!("{},{}", p.0, p.1);
-        if let Some(np) = nps.get_pt(&name) {
-            nps_of_pts.insert(*p, np);
-            let (n, _grid_dir) = grid_dir_of_xy.get(p).unwrap();
-            let (grid_xy, pxy_abs) = &v[*n];
-            // Px Abs -> Px Rel -> TxTy -> lens mapping
-            let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-            let grid_dir = txty.to_unit_vector();
-            eprintln!("{n} {grid_xy} : {pxy_abs} : {grid_dir}",);
-        }
+    for pm_n in &closest_n {
+        let pm = &pms.mappings()[*pm_n];
+        let n = pm.name();
+        let grid_xyz = pm.model();
+        // Px Abs -> Px Rel -> TxTy -> lens mapping
+        let pxy_abs = pm.screen();
+        let txty = cam.px_abs_xy_to_camera_txty(pxy_abs);
+        let grid_dir = txty.to_unit_vector();
+        eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
     }
 
     //cb Create ModelLineSet
-    let pairings = calibrate.get_xy_pairings();
-
     let mut mls = ModelLineSet::new(&cam);
 
-    for p0 in pt_indices {
-        let (n0, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
-        let dir0 = *grid_dir;
-        let _pm0 = pms.mapping_of_np(nps_of_pts.get(p0).unwrap()).unwrap();
-        for p1 in pt_indices {
-            if *p1 == *p0 {
+    for n0 in &closest_n {
+        let pm0 = &pms.mappings()[*n0];
+        let dir0 = cam.px_abs_xy_to_camera_txty(pm0.screen()).to_unit_vector();
+        for n1 in &closest_n {
+            if n0 == n1 {
                 continue;
             }
-            let (n1, grid_dir) = grid_dir_of_xy.get(p1).unwrap();
-            let dir1 = *grid_dir;
+            let pm1 = &pms.mappings()[*n1];
+            let dir1 = cam.px_abs_xy_to_camera_txty(pm1.screen()).to_unit_vector();
             let cos_theta = dir0.dot(&dir1);
             let angle = cos_theta.acos();
-            let model0_xy = pairings[*n0].0;
-            let model1_xy = pairings[*n1].0;
-            let model0_xyz = [model0_xy[0], model0_xy[1], 0.].into();
-            let model1_xyz = [model1_xy[0], model1_xy[1], 0.].into();
-            let _ = mls.add_line_of_models(model0_xyz, model1_xyz, angle);
+            let _ = mls.add_line_of_models(pm0.model(), pm1.model(), angle);
         }
     }
 
@@ -387,18 +444,6 @@ fn grid_orient_cmd() -> CommandBuilder<CmdArgs> {
             ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
         }),
     );
-    build.add_arg(
-        ic_cmdline::image::image_read_arg(false, Some(1)),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_write_arg(false),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
-        }),
-    );
     build
 }
 
@@ -414,68 +459,24 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     cam.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let mut grid_dir_of_xy = HashMap::new();
+    let pt_indices: &[(f64, f64, f64)] = &[
+        (40.0, -40.0, 0.),
+        (-40.0, -40.0, 0.),
+        (40.0, 40.0, 0.),
+        (-40.0, 40.0, 0.),
+    ];
 
-    let pt_indices = &[(40, -40), (-40, -40), (40, 40), (-40, 40)];
-
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-    let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
-
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xy_pairings();
-    for (grid_xy, pxy_abs) in v.iter() {
-        let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let color = [255, 255, 255, 255].into();
-        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, pxy_abs, 0.);
-    }
-
-    //cb Add all pairings to grid_dir_of_xy
-    for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
-        let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-        let grid_dir = txty.to_unit_vector();
-        grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
-    }
+    let (closest_n, _nps, pms) = setup(&calibrate, pt_indices);
 
     //cb For required pairings, display data
-    for p in pt_indices {
-        let name = format!("{},{}", p.0, p.1);
-        if let Some(np) = nps.get_pt(&name) {
-            nps_of_pts.insert(*p, np);
-            let (n, _grid_dir) = grid_dir_of_xy.get(p).unwrap();
-            let (grid_xy, pxy_abs) = &v[*n];
-            // Px Abs -> Px Rel -> TxTy -> lens mapping
-            let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-            let grid_dir = txty.to_unit_vector();
-            eprintln!("{n} {grid_xy} : {pxy_abs} : {grid_dir}",);
-        }
-    }
-
-    //cb Create ModelLineSet
-    let pairings = calibrate.get_xy_pairings();
-
-    let mut mls = ModelLineSet::new(&cam);
-
-    for p0 in pt_indices {
-        let (n0, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
-        let dir0 = *grid_dir;
-        let _pm0 = pms.mapping_of_np(nps_of_pts.get(p0).unwrap()).unwrap();
-        for p1 in pt_indices {
-            if *p1 == *p0 {
-                continue;
-            }
-            let (n1, grid_dir) = grid_dir_of_xy.get(p1).unwrap();
-            let dir1 = *grid_dir;
-            let cos_theta = dir0.dot(&dir1);
-            let angle = cos_theta.acos();
-            let model0_xy = pairings[*n0].0;
-            let model1_xy = pairings[*n1].0;
-            let model0_xyz = [model0_xy[0], model0_xy[1], 0.].into();
-            let model1_xyz = [model1_xy[0], model1_xy[1], 0.].into();
-            let _ = mls.add_line_of_models(model0_xyz, model1_xyz, angle);
-        }
+    for pm in pms.mappings() {
+        let n = pm.name();
+        let grid_xyz = pm.model();
+        // Px Abs -> Px Rel -> TxTy -> lens mapping
+        let pxy_abs = pm.screen();
+        let txty = cam.px_abs_xy_to_camera_txty(pxy_abs);
+        let grid_dir = txty.to_unit_vector();
+        eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
     }
 
     //cb Find best orientation given position
@@ -483,24 +484,21 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     // and for each we have a camera direction vector
     let best_cam_pos = cam.position();
     let mut qs = vec![];
-    for p0 in pt_indices {
-        let (n, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
-        let di_c = -*grid_dir;
-        let model_xy = pairings[*n].0;
-        let model_xyz: Point3D = [model_xy[0], model_xy[1], 0.].into();
-        let di_m = (best_cam_pos - model_xyz).normalize();
+
+    for n0 in &closest_n {
+        let pm0 = &pms.mappings()[*n0];
+        let di_c = -cam.px_abs_xy_to_camera_txty(pm0.screen()).to_unit_vector();
+        let di_m = (best_cam_pos - pm0.model()).normalize();
         let z_axis: Point3D = [0., 0., 1.].into();
         let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
         let qi_m: Quat = quat::rotation_of_vec_to_vec(&di_m.into(), &z_axis.into()).into();
-        for p1 in pt_indices {
-            if *p1 == *p0 {
+        for n1 in &closest_n {
+            if n0 == n1 {
                 continue;
             }
-            let (n, grid_dir) = grid_dir_of_xy.get(p1).unwrap();
-            let dj_c = -*grid_dir;
-            let model_xy = pairings[*n].0;
-            let model_xyz: Point3D = [model_xy[0], model_xy[1], 0.].into();
-            let dj_m = (best_cam_pos - model_xyz).normalize();
+            let pm1 = &pms.mappings()[*n1];
+            let dj_c = -cam.px_abs_xy_to_camera_txty(pm1.screen()).to_unit_vector();
+            let dj_m = (best_cam_pos - pm1.model()).normalize();
 
             let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
             let dj_m_rotated: Point3D = quat::apply3(qi_m.as_ref(), dj_m.as_ref()).into();
@@ -522,14 +520,14 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
             // dc_i === quat::apply3(q.as_ref(), di_m.as_ref()).into();
             // dc_j === quat::apply3(q.as_ref(), dj_m.as_ref()).into();
-            eprintln!(
-                "di_c==q*di_m? {di_c} ==? {:?}",
-                quat::apply3(q.as_ref(), di_m.as_ref())
-            );
-            eprintln!(
-                "dj_c==q*dj_m? {dj_c} ==? {:?}",
-                quat::apply3(q.as_ref(), dj_m.as_ref())
-            );
+            //            eprintln!(
+            //                "di_c==q*di_m? {di_c} ==? {:?}",
+            //                quat::apply3(q.as_ref(), di_m.as_ref())
+            //            );
+            //            eprintln!(
+            //                "dj_c==q*dj_m? {dj_c} ==? {:?}",
+            //                quat::apply3(q.as_ref(), dj_m.as_ref())
+            //            );
             eprintln!("{q}");
 
             qs.push((1., q.into()));
@@ -543,9 +541,9 @@ fn grid_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Grid lens calibrate
-fn grid_lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("grid_lens_calibrate")
+//a Lens calibrate
+fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("lens_calibrate")
         .about("From calibrate_from_grid")
         .long_about("");
 
@@ -556,23 +554,11 @@ fn grid_lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
             ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
         }),
     );
-    build.add_arg(
-        ic_cmdline::image::image_read_arg(false, Some(1)),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_write_arg(false),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
-        }),
-    );
     build
 }
 
-//fi grid_lens_calibrate_fn
-fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+//fi lens_calibrate_fn
+fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
@@ -580,47 +566,14 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cam = calibrate.camera();
 
     //cb Set up HashMaps and collections
-    let mut grid_dir_of_xy = HashMap::new();
+    let pt_indices: &[(f64, f64, f64)] = &[
+        (40.0, -40.0, 0.),
+        (-40.0, -40.0, 0.),
+        (40.0, 40.0, 0.),
+        (-40.0, 40.0, 0.),
+    ];
 
-    let pt_indices = &[(40, -40), (-40, -40), (40, 40), (-40, 40)];
-
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-    let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
-
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xy_pairings();
-    for (grid_xy, pxy_abs) in v.iter() {
-        let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let color = [255, 255, 255, 255].into();
-        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, pxy_abs, 0.);
-    }
-
-    //cb Add all pairings to grid_dir_of_xy
-    for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
-        let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-        let grid_dir = txty.to_unit_vector();
-        grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
-    }
-
-    //cb For required pairings, display data
-    for p in pt_indices {
-        let name = format!("{},{}", p.0, p.1);
-        if let Some(np) = nps.get_pt(&name) {
-            nps_of_pts.insert(*p, np);
-            let (n, _grid_dir) = grid_dir_of_xy.get(p).unwrap();
-            let (grid_xy, pxy_abs) = &v[*n];
-            // Px Abs -> Px Rel -> TxTy -> lens mapping
-            let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-            let grid_dir = txty.to_unit_vector();
-            eprintln!("{n} {grid_xy} : {pxy_abs} : {grid_dir}",);
-        }
-    }
-
-    //cb Create ModelLineSet
-    let pairings = calibrate.get_xy_pairings();
+    let (_closest_n, _nps, pms) = setup(&calibrate, pt_indices);
 
     //cb Clone to new camera with correct position/orientation
     let camera = cam.clone();
@@ -629,15 +582,13 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let mut pts = [vec![], vec![], vec![], vec![]];
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
-    for (grid_xy, pxy_abs) in pairings {
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let model_txty = camera.world_xyz_to_camera_txty(model_xyz);
-        let cam_txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
-        // let pxy_rel = [pxy_abs[0] - 3590.0, 2235.0 - pxy_abs[1]].into();
-        // let cam_txty2 = camera.px_rel_xy_to_txty(pxy_rel); // Uses projection
-        // eprintln!("{cam_txty}, {cam_txty2} {model_txty}");
+    for pm in pms.mappings() {
+        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
+        let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+
         let model_ry: RollYaw = model_txty.into();
         let cam_ry: RollYaw = cam_txty.into();
+
         if cam_ry.yaw() > 0.01 {
             world_yaws.push(model_ry.yaw());
             camera_yaws.push(cam_ry.yaw());
@@ -711,30 +662,6 @@ fn grid_lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
     println!("{plot_initial}");
-
-    //cb Create points for crosses for output image
-    let mut pts = vec![];
-    let n = 30;
-    let n_f = n as f64;
-    let c_f = n_f / 2.0;
-    for y in 0..=n {
-        let y_f = (y as f64 - c_f) * 10.;
-        let y_i = y_f as isize;
-        for x in 0..=n {
-            let x_f = (x as f64 - c_f) * 10.;
-            let x_i = x_f as isize;
-            let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba: Color = {
-                if pt_indices.contains(&(x_i, y_i)) {
-                    [100, 255, 100, 255]
-                } else {
-                    [0, 0, 0, 255]
-                }
-            }
-            .into();
-            pts.push((pt, rgba));
-        }
-    }
 
     Ok(())
 }
@@ -753,13 +680,13 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
         }),
     );
     build.add_arg(
-        ic_cmdline::image::image_read_arg(false, Some(1)),
+        ic_cmdline::image::image_read_arg(true, Some(1)),
         Box::new(|args, matches| {
             ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
         }),
     );
     build.add_arg(
-        ic_cmdline::image::image_write_arg(false),
+        ic_cmdline::image::image_write_arg(true),
         Box::new(|args, matches| {
             ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
         }),
@@ -774,220 +701,53 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Load Calibration JSON
     let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
-    let cam = calibrate.camera().clone();
-
     //cb Set up HashMaps and collections
-    let mut grid_dir_of_xy = HashMap::new();
+    let pt_indices: &[(f64, f64, f64)] = &[
+        (40.0, -40.0, 0.),
+        (-40.0, -40.0, 0.),
+        (40.0, 40.0, 0.),
+        (-40.0, 40.0, 0.),
+    ];
 
-    let pt_indices = &[(40, -40), (-40, -40), (40, 40), (-40, 40)];
-
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-    let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
-
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xy_pairings();
-    for (grid_xy, pxy_abs) in v.iter() {
-        let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let color = [255, 255, 255, 255].into();
-        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, pxy_abs, 0.);
-    }
-
-    //cb Add all pairings to grid_dir_of_xy
-    for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
-        let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-        let grid_dir = txty.to_unit_vector();
-        grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
-    }
-
-    //cb For required pairings, display data
-    for p in pt_indices {
-        let name = format!("{},{}", p.0, p.1);
-        if let Some(np) = nps.get_pt(&name) {
-            nps_of_pts.insert(*p, np);
-            let (n, _grid_dir) = grid_dir_of_xy.get(p).unwrap();
-            let (grid_xy, pxy_abs) = &v[*n];
-            // Px Abs -> Px Rel -> TxTy -> lens mapping
-            let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
-            let grid_dir = txty.to_unit_vector();
-            eprintln!("{n} {grid_xy} : {pxy_abs} : {grid_dir}",);
-        }
-    }
-
-    //cb Create ModelLineSet
-    let pairings = calibrate.get_xy_pairings();
-
-    let mut mls = ModelLineSet::new(&cam);
-
-    for p0 in pt_indices {
-        let (n0, grid_dir) = grid_dir_of_xy.get(p0).unwrap();
-        let dir0 = *grid_dir;
-        let _pm0 = pms.mapping_of_np(nps_of_pts.get(p0).unwrap()).unwrap();
-        for p1 in pt_indices {
-            if *p1 == *p0 {
-                continue;
-            }
-            let (n1, grid_dir) = grid_dir_of_xy.get(p1).unwrap();
-            let dir1 = *grid_dir;
-            let cos_theta = dir0.dot(&dir1);
-            let angle = cos_theta.acos();
-            let model0_xy = pairings[*n0].0;
-            let model1_xy = pairings[*n1].0;
-            let model0_xyz = [model0_xy[0], model0_xy[1], 0.].into();
-            let model1_xyz = [model1_xy[0], model1_xy[1], 0.].into();
-            let _ = mls.add_line_of_models(model0_xyz, model1_xyz, angle);
-        }
-    }
-
-    //cb Calculate Roll/Yaw for each point given camera
-    let camera = calibrate.camera();
-    // dbg!(&camera);
-    let mut pts = [vec![], vec![], vec![], vec![]];
-    let mut world_yaws = vec![];
-    let mut camera_yaws = vec![];
-    for (grid_xy, pxy_abs) in pairings {
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
-        let model_txty = camera.world_xyz_to_camera_txty(model_xyz);
-        let cam_txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
-        // let pxy_rel = [pxy_abs[0] - 3590.0, 2235.0 - pxy_abs[1]].into();
-        // let cam_txty2 = camera.px_rel_xy_to_txty(pxy_rel); // Uses projection
-        // eprintln!("{cam_txty}, {cam_txty2} {model_txty}");
-        let model_ry: RollYaw = model_txty.into();
-        let cam_ry: RollYaw = cam_txty.into();
-        if cam_ry.yaw() > 0.01 {
-            world_yaws.push(model_ry.yaw());
-            camera_yaws.push(cam_ry.yaw());
-        }
-        if (model_ry.yaw() / cam_ry.yaw()) > 1.2 {
-            continue;
-        }
-        let mut quad = 0;
-        if cam_ry.cos_roll() < 0.0 {
-            // X < 0
-            quad += 1;
-        }
-        if cam_ry.sin_roll() < 0.0 {
-            // Y < 0
-            quad += 2;
-        }
-        if cam_ry.yaw() > 0.01 {
-            pts[quad].push((cam_ry.yaw(), model_ry.yaw() / cam_ry.yaw() - 1.0));
-        }
-    }
-
-    //cb Calculate Polynomials for camera-to-world and vice-versa
-    // encourage it to go through the origin
-    let poly_degree = 5;
-    for _ in 0..10 {
-        world_yaws.push(0.);
-        camera_yaws.push(0.);
-    }
-    let mut wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
-    let mut stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
-    wts[0] = 0.0;
-    stw[0] = 0.0;
-    let (max_sq_err, max_n, sq_err) =
-        polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
-    let avg_sq_err = sq_err / (world_yaws.len() as f64);
-
-    if false {
-        for i in 0..world_yaws.len() {
-            let wy = world_yaws[i];
-            let cy = camera_yaws[i];
-            eprintln!(
-                "{i} {wy} : {} : {cy} : {} : {wy}",
-                wts.calc(wy),
-                stw.calc(cy)
-            );
-        }
-    }
-    eprintln!(" \"wts_poly\": {wts:?},");
-    eprintln!(" \"stw_poly\": {stw:?},");
-    eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
-
-    //cb Plot 4 graphs for quadrants and one for the polynomial
-    use poloto::build::PlotIterator;
-    let plots = poloto::build::origin();
-    let plot = poloto::build::plot("Quad x>0 y>0");
-    let plot = plot.scatter(pts[0].iter());
-    let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x<0 y>0");
-    let plot = plot.scatter(pts[1].iter());
-    let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x>0 y<0");
-    let plot = plot.scatter(pts[2].iter());
-    let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x<0 y<0");
-    let plot = plot.scatter(pts[3].iter());
-    let plots = plots.chain(plot);
-
-    let mut wts_poly_pts = vec![];
-    for i in 2..=100 {
-        let world = (i as f64) * 0.40 / 100.0;
-        let sensor = stw.calc(world);
-        wts_poly_pts.push((world, sensor / world - 1.0));
-    }
-    let plot = poloto::build::plot("Wts Poly");
-    let plot = plot.scatter(wts_poly_pts.iter());
-    let plots = plots.chain(plot);
-
-    let plot_initial = poloto::frame_build()
-        .data(plots)
-        .build_and_label(("Yaw v Yaw", "x", "y"))
-        .append_to(poloto::header().light_theme())
-        .render_string()
-        .map_err(|e| format!("{e:?}"))?;
-    println!("{plot_initial}");
+    let (_closest_n, _nps, pms) = setup(&calibrate, pt_indices);
 
     //cb Create points for crosses for output image
-    let xy_pairs = calibrate.get_xy_pairings();
     let mut pts = vec![];
     let n = 30;
     let n_f = n as f64;
     let c_f = n_f / 2.0;
+    let rgba: Color = { [0, 0, 0, 255] }.into();
     for y in 0..=n {
         let y_f = (y as f64 - c_f) * 10.;
-        let y_i = y_f as isize;
         for x in 0..=n {
             let x_f = (x as f64 - c_f) * 10.;
-            let x_i = x_f as isize;
             let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba: Color = {
-                if pt_indices.contains(&(x_i, y_i)) {
-                    [100, 255, 100, 255]
-                } else {
-                    [0, 0, 0, 255]
-                }
-            }
-            .into();
             pts.push((pt, rgba));
         }
     }
+    let rgba: Color = { [100, 255, 100, 255] }.into();
+    for pm in pms.mappings() {
+        pts.push((pm.model(), rgba));
+    }
 
     //cb Read source image and draw on it, write output image
-    if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
-        let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
-        let c = &[255, 0, 0, 0].into();
-        for (_g, p) in &xy_pairs {
-            img.draw_cross(*p, 5.0, c);
-        }
-        for (p, c) in &pts {
-            let mapped = camera.map_model(*p);
-            if c.0[0] == 100 {
-                let xyz = camera.world_xyz_to_camera_xyz(*p);
-                let txy = camera.world_xyz_to_camera_txty(*p);
-                eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
-            }
-            img.draw_cross(mapped, 5.0, c);
-        }
-        img.write(cmd_args.write_img.as_ref().unwrap())?;
+    let camera = calibrate.camera().clone();
+    let pxys = calibrate.get_pxys();
+    let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
+    let c = &[255, 0, 0, 0].into();
+    for p in pxys {
+        img.draw_cross(p, 5.0, c);
     }
+    for (p, c) in &pts {
+        let mapped = camera.map_model(*p);
+        img.draw_cross(mapped, 5.0, c);
+    }
+    img.write(cmd_args.write_img.as_ref().unwrap())?;
 
     Ok(())
 }
 
+/*
 //a Grid calibrate
 fn grid_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("grid_calibrate")
@@ -1038,18 +798,15 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let mut nps_of_pts: HashMap<(isize, isize), Rc<NamedPoint>> = HashMap::default();
 
     //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xy_pairings();
-    for (grid_xy, pxy_abs) in v.iter() {
-        let name = format!("{},{}", grid_xy[0] as isize, grid_xy[1] as isize);
-        let model_xyz: Point3D = [grid_xy[0], grid_xy[1], 0.].into();
+    /// And add all pairings to grid_dir_of_xy
+    let v = calibrate.get_xyz_pairings();
+    for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+        let name = format!("{},{}", model_xyz[0] as isize, model_xyz[1] as isize);
         let color = [255, 255, 255, 255].into();
         nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, pxy_abs, 0.);
-    }
+        pms.add_mapping(&nps, &name, &pxy_abs, 0.);
 
-    //cb Add all pairings to grid_dir_of_xy
-    for (n, (grid_xy, pxy_abs)) in v.iter().enumerate() {
-        let txty = cam.px_abs_xy_to_camera_txty(*pxy_abs);
+        let txty = cam.px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
         grid_dir_of_xy.insert((grid_xy[0] as isize, grid_xy[1] as isize), (n, grid_dir));
     }
@@ -1069,7 +826,7 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
 
     //cb Create ModelLineSet
-    let pairings = calibrate.get_xy_pairings();
+    let pairings = calibrate.get_xyz_pairings();
 
     let mut mls = ModelLineSet::new(&cam);
 
@@ -1085,10 +842,8 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             let dir1 = *grid_dir;
             let cos_theta = dir0.dot(&dir1);
             let angle = cos_theta.acos();
-            let model0_xy = pairings[*n0].0;
-            let model1_xy = pairings[*n1].0;
-            let model0_xyz = [model0_xy[0], model0_xy[1], 0.].into();
-            let model1_xyz = [model1_xy[0], model1_xy[1], 0.].into();
+            let model0_xyz = pairings[*n0].0;
+            let model1_xyz = pairings[*n1].0;
             let _ = mls.add_line_of_models(model0_xyz, model1_xyz, angle);
         }
     }
@@ -1265,7 +1020,7 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     println!("{plot_initial}");
 
     //cb Create points for crosses for output image
-    let xy_pairs = calibrate.get_xy_pairings();
+    let pxys = calibrate.get_pxys();
     let mut pts = vec![];
     let n = 30;
     let n_f = n as f64;
@@ -1293,8 +1048,8 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
         let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
         let c = &[255, 0, 0, 0].into();
-        for (_g, p) in &xy_pairs {
-            img.draw_cross(*p, 5.0, c);
+        for p in pxys.into_iter() {
+            img.draw_cross(p, 5.0, c);
         }
         for (p, c) in &pts {
             let mapped = camera.map_model(*p);
@@ -1310,6 +1065,7 @@ fn grid_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     Ok(())
 }
+ */
 
 //a Images
 /*a  Deprecated until we allow a project?
@@ -1378,9 +1134,9 @@ fn main() -> Result<()> {
     build.add_subcommand(calibrate_cmd());
     build.add_subcommand(grid_locate_cmd());
     build.add_subcommand(grid_orient_cmd());
-    build.add_subcommand(grid_lens_calibrate_cmd());
+    build.add_subcommand(lens_calibrate_cmd());
     build.add_subcommand(grid_image_cmd());
-    build.add_subcommand(grid_calibrate_cmd());
+    //    build.add_subcommand(grid_calibrate_cmd());
 
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<_> = build.into();

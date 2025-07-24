@@ -103,7 +103,7 @@ pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolyn
 //fp camera_calibrate_arg
 pub fn camera_calibrate_arg(required: bool) -> Arg {
     Arg::new("camera_calibrate")
-        .long("camera")
+        .long("calibrate")
         .short('c')
         .required(required)
         .help("Camera calibration placement and orientation JSON")
