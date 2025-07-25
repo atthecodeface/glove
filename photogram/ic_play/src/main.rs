@@ -196,7 +196,7 @@ fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     let fov = 60.0;
     let close_enough = fov / 500.0; // degrees;
     let pc = calibrate.create_polynomial_calibrate(catalog, close_enough);
-    println!("{}", pc.to_desc_json()?);
+    println!("{}", pc.to_json()?);
     Ok(())
 }
 

@@ -171,7 +171,7 @@ use geo_nd::{quat, Quaternion, Vector};
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_camera::{CameraCalibrate, CameraDatabase, CameraInstance, CameraProjection};
+use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection};
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
@@ -295,11 +295,12 @@ It also draws black crosses for a range of (x,y,0) values.";
 
 //a Types
 //a CmdArgs
-//tp  CmdArgs
+//tp CmdArgs
 #[derive(Default)]
 pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
-    cal: Option<String>,
+    camera: CameraInstance,
+    mapping: Option<CalibrationMapping>,
     read_img: Vec<String>,
     write_img: Option<String>,
 }
@@ -321,9 +322,15 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
     build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
+        ic_cmdline::camera::camera_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
+        }),
+    );
+    build.add_arg(
+        ic_cmdline::camera::calibration_mapping_arg(true),
+        Box::new(|args, matches| {
+            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
         }),
     );
     build.add_arg(
@@ -343,11 +350,9 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi calibrate_fn
 fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let cdb = &cmd_args.cdb.as_ref().unwrap();
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
 
-    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
-
-    let v = calibrate.get_pairings();
+    let v = calibrate.get_pairings(&cmd_args.camera);
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
     for (n, (grid, camera_rel_xyz, pxy_ry)) in v.iter().enumerate() {
@@ -386,16 +391,12 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     eprintln!(" stw: {stw:?}");
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
-    eprintln!("cal camera {}", calibrate.camera());
-    let mut camera_lens = calibrate.camera().lens().clone();
+    eprintln!("cal camera {}", cmd_args.camera);
+    let mut camera = cmd_args.camera.clone();
+    let mut camera_lens = camera.lens().clone();
     camera_lens.set_polys(stw, wts);
-    let camera = CameraInstance::new(
-        calibrate.camera().body().clone(),
-        camera_lens,
-        calibrate.camera().focus_distance(),
-        calibrate.camera().position(),
-        calibrate.camera().orientation(),
-    );
+    camera.set_lens(camera_lens);
+
     //    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
     //    eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
@@ -437,7 +438,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //a Setup
 //fi find_closest_n
-fn find_closest_n(calibrate: &CameraCalibrate, pts: &[(f64, f64, f64)]) -> Vec<usize> {
+fn find_closest_n(calibrate: &CalibrationMapping, pts: &[(f64, f64, f64)]) -> Vec<usize> {
     //cb Add calibrations to NamedPointSet and PointMappingSet
     let v = calibrate.get_xyz_pairings();
     let mut closest_n = vec![0; pts.len()];
@@ -456,7 +457,7 @@ fn find_closest_n(calibrate: &CameraCalibrate, pts: &[(f64, f64, f64)]) -> Vec<u
 }
 
 //fi setup
-fn setup(calibrate: &CameraCalibrate) -> (NamedPointSet, PointMappingSet) {
+fn setup(calibrate: &CalibrationMapping) -> (NamedPointSet, PointMappingSet) {
     let v = calibrate.get_xyz_pairings();
     let mut nps = NamedPointSet::default();
     let mut pms = PointMappingSet::default();
@@ -479,9 +480,9 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
     build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
+        ic_cmdline::camera::calibration_mapping_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
         }),
     );
     build
@@ -489,18 +490,15 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let cdb = &cmd_args.cdb.as_ref().unwrap();
-
-    //cb Load Calibration JSON
-    let mut calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
 
     //cb Set up 'cam' as the camera
     //
     // The position and orientation are not used, and they are cleared
     // here defensively
-    let mut cam = calibrate.camera().clone();
-    cam.set_position([0., 0., 0.].into());
-    cam.set_orientation(Quat::default());
+    let mut camera = cmd_args.camera.clone();
+    camera.set_position([0., 0., 0.].into());
+    camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
     let pt_indices: &[(f64, f64, f64)] = &[
@@ -510,8 +508,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         (-40.0, 40.0, 0.),
     ];
 
-    let closest_n = find_closest_n(&calibrate, pt_indices);
-    let (_nps, pms) = setup(&calibrate);
+    let closest_n = find_closest_n(calibrate, pt_indices);
+    let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
     for pm_n in &closest_n {
@@ -520,23 +518,27 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let grid_xyz = pm.model();
         // Px Abs -> Px Rel -> TxTy -> lens mapping
         let pxy_abs = pm.screen();
-        let txty = cam.px_abs_xy_to_camera_txty(pxy_abs);
+        let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
         eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
     }
 
     //cb Create ModelLineSet
-    let mut mls = ModelLineSet::new(&cam);
+    let mut mls = ModelLineSet::new(&camera);
 
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
-        let dir0 = cam.px_abs_xy_to_camera_txty(pm0.screen()).to_unit_vector();
+        let dir0 = camera
+            .px_abs_xy_to_camera_txty(pm0.screen())
+            .to_unit_vector();
         for n1 in &closest_n {
             if n0 == n1 {
                 continue;
             }
             let pm1 = &pms.mappings()[*n1];
-            let dir1 = cam.px_abs_xy_to_camera_txty(pm1.screen()).to_unit_vector();
+            let dir1 = camera
+                .px_abs_xy_to_camera_txty(pm1.screen())
+                .to_unit_vector();
             let cos_theta = dir0.dot(&dir1);
             let angle = cos_theta.acos();
             let _ = mls.add_line_of_models(pm0.model(), pm1.model(), angle);
@@ -548,9 +550,9 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let (best_cam_pos, e) = mls.find_best_min_err_location(&|p| p[2] > 0., 1000, 1000);
     eprintln!("{best_cam_pos} {e}",);
 
-    calibrate.camera_mut().set_position(best_cam_pos);
+    camera.set_position(best_cam_pos);
 
-    println!("{}", calibrate.clone().to_desc_json()?);
+    println!("{}", camera.to_json()?);
     Ok(())
 }
 
@@ -561,25 +563,24 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(ORIENT_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
+
     build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
+        ic_cmdline::camera::calibration_mapping_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
         }),
     );
+
     build
 }
 
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let cdb = &cmd_args.cdb.as_ref().unwrap();
-
-    //cb Load Calibration JSON
-    let mut calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
-    let mut cam = calibrate.camera().clone();
-    cam.set_orientation(Quat::default());
+    let mut camera = cmd_args.camera.clone();
+    camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
     let pt_indices: &[(f64, f64, f64)] = &[
@@ -589,8 +590,8 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         (-40.0, 40.0, 0.),
     ];
 
-    let closest_n = find_closest_n(&calibrate, pt_indices);
-    let (_nps, pms) = setup(&calibrate);
+    let closest_n = find_closest_n(calibrate, pt_indices);
+    let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
     for pm in pms.mappings() {
@@ -598,7 +599,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let grid_xyz = pm.model();
         // Px Abs -> Px Rel -> TxTy -> lens mapping
         let pxy_abs = pm.screen();
-        let txty = cam.px_abs_xy_to_camera_txty(pxy_abs);
+        let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
         eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
     }
@@ -606,12 +607,14 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Find best orientation given position
     // We can get N model direction vectors given the camera position,
     // and for each we have a camera direction vector
-    let best_cam_pos = cam.position();
+    let best_cam_pos = camera.position();
     let mut qs = vec![];
 
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
-        let di_c = -cam.px_abs_xy_to_camera_txty(pm0.screen()).to_unit_vector();
+        let di_c = -camera
+            .px_abs_xy_to_camera_txty(pm0.screen())
+            .to_unit_vector();
         let di_m = (best_cam_pos - pm0.model()).normalize();
         let z_axis: Point3D = [0., 0., 1.].into();
         let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
@@ -621,7 +624,9 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
                 continue;
             }
             let pm1 = &pms.mappings()[*n1];
-            let dj_c = -cam.px_abs_xy_to_camera_txty(pm1.screen()).to_unit_vector();
+            let dj_c = -camera
+                .px_abs_xy_to_camera_txty(pm1.screen())
+                .to_unit_vector();
             let dj_m = (best_cam_pos - pm1.model()).normalize();
 
             let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
@@ -659,9 +664,9 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
 
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
-    calibrate.camera_mut().set_orientation(qr);
+    camera.set_orientation(qr);
 
-    println!("{}", calibrate.clone().to_desc_json()?);
+    println!("{}", camera.to_json()?);
     Ok(())
 }
 
@@ -672,31 +677,28 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(LENS_CALIBRATE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
+
     build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
+        ic_cmdline::camera::calibration_mapping_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
         }),
     );
+
     build
 }
 
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let cdb = &cmd_args.cdb.as_ref().unwrap();
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let camera = &cmd_args.camera;
+
     let yaw_range_min = 0.05;
     let yaw_range_max = 0.35;
     let num_pts = 4;
 
-    //cb Load Calibration JSON
-    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
-    let cam = calibrate.camera();
-
     //cb Set up HashMaps and collections
-    let (_nps, pms) = setup(&calibrate);
-
-    //cb Clone to new camera with correct position/orientation
-    let camera = cam.clone();
+    let (_nps, pms) = setup(calibrate);
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
@@ -797,12 +799,14 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(GRID_IMAGE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(grid_image_fn)));
+
     build.add_arg(
-        ic_cmdline::camera::camera_calibrate_arg(true),
+        ic_cmdline::camera::calibration_mapping_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_calibrate(matches).map(|v| args.cal = Some(v))
+            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
         }),
     );
+
     build.add_arg(
         ic_cmdline::image::image_read_arg(true, Some(1)),
         Box::new(|args, matches| {
@@ -820,13 +824,11 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi grid_image_fn
 fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let cdb = &cmd_args.cdb.as_ref().unwrap();
-
-    //cb Load Calibration JSON
-    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let camera = &cmd_args.camera;
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = setup(&calibrate);
+    let (_nps, pms) = setup(calibrate);
 
     //cb Create points for crosses for output image
     let mut pts = vec![];
@@ -848,7 +850,6 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
 
     //cb Read source image and draw on it, write output image
-    let camera = calibrate.camera().clone();
     let pxys = calibrate.get_pxys();
     let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
     let c = &[255, 0, 0, 0].into();

@@ -1,5 +1,5 @@
 //a Imports
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use geo_nd::quat;
 
@@ -49,7 +49,7 @@ pub struct CameraInstance {
     y_px_from_tan_sc: f64,
 }
 
-//ip CameraInstance
+//ip CameraInstance - Accessors
 impl CameraInstance {
     //ap lens
     pub fn lens(&self) -> &CameraLens {
@@ -60,7 +60,10 @@ impl CameraInstance {
     pub fn body(&self) -> &CameraBody {
         &self.body
     }
+}
 
+//ip CameraInstance - Constructors and Destructors
+impl CameraInstance {
     //cp new
     pub fn new(
         body: CameraBody,
@@ -122,7 +125,10 @@ impl CameraInstance {
     pub fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string_pretty(self)?)
     }
+}
 
+//ip CameraInstance - Modifiers and other
+impl CameraInstance {
     //mp set_lens
     pub fn set_lens(&mut self, lens: CameraLens) {
         self.lens = lens;

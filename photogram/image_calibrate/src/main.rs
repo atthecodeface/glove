@@ -51,7 +51,7 @@ fn image_cmd() -> (Command, SubCmdFn) {
         .about("Read image and draw crosses on named and mapped points")
         .long_about(IMAGE_LONG_HELP);
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     let cmd = cmdline_args::image::add_image_read_arg(cmd, false);
     let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
     let cmd = cmdline_args::image::add_color_arg(
@@ -163,7 +163,7 @@ fn show_mappings_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("show_mappings")
         .about("Show the total and worst error for a point mapping set");
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, show_mappings_fn)
 }
 
@@ -248,7 +248,7 @@ fn locate_cmd() -> (Command, SubCmdFn) {
         .about("Find location and orientation for a camera to map points to model");
     let cmd = cmdline_args::project::add_cip_arg(cmd, false);
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, false);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, false);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, locate_fn)
 }
 
@@ -296,7 +296,7 @@ fn orient_cmd() -> (Command, SubCmdFn) {
         .about("Set the orientation for a camera using weighted average of pairs of point mappings")
         .long_about(ORIENT_LONG_HELP);
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, orient_fn)
 }
 
@@ -338,7 +338,7 @@ fn reorient_cmd() -> (Command, SubCmdFn) {
         .about("Improve orientation for a camera to map points to model")
         .long_about(REORIENT_LONG_HELP);
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, reorient_fn)
 }
 
@@ -373,7 +373,7 @@ fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("combine_rays_from_model")
         .about("Combine rays from a model")
         .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     let cmd = cmd.arg(
         Arg::new("rays")
             .required(true)
@@ -499,7 +499,7 @@ fn create_rays_from_model_cmd() -> (Command, SubCmdFn) {
         .about("Create rays for a given located camera and its mappings")
         .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, create_rays_from_model_fn)
 }
 
@@ -527,7 +527,7 @@ fn create_rays_from_camera_cmd() -> (Command, SubCmdFn) {
     let cmd = Command::new("create_rays_from_camera")
         .about("Create rays for a given located camera and its mappings");
     let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmdline_args::camera::add_camera_arg(cmd, true);
+    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
     (cmd, create_rays_from_camera_fn)
 }
 
@@ -635,7 +635,7 @@ fn main() -> Result<()> {
         .version("0.1.0")
         .subcommand_required(true);
     let cmd = cmdline_args::project::add_project_arg(cmd, false);
-    let cmd = cmdline_args::camera::add_camera_database_arg(cmd, false);
+    let cmd = cmd.arg(cmdline_args::camera::camera_database_arg(false));
     let cmd = cmdline_args::mapping::add_nps_arg(cmd, false);
     let cmd = cmdline_args::add_verbose_arg(cmd);
 

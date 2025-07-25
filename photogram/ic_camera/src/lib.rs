@@ -13,7 +13,7 @@ pub use camera_database::CameraDatabase;
 mod camera_calibrate;
 mod camera_instance;
 mod camera_instance_desc;
-pub use camera_calibrate::CameraCalibrate;
+pub use camera_calibrate::CalibrationMapping;
 pub use camera_instance::CameraInstance;
 pub use camera_instance_desc::CameraInstanceDesc;
 

@@ -78,7 +78,7 @@ use star_catalog::{Catalog, CatalogIndex, Subcube};
 use ic_base::json;
 use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 use ic_camera::{serialize_body_name, serialize_lens_name};
-use ic_camera::{CameraBody, CameraCalibrate, CameraInstance, CameraInstanceDesc, CameraLens};
+use ic_camera::{CalibrationMapping, CameraBody, CameraInstance, CameraInstanceDesc, CameraLens};
 use ic_camera::{CameraDatabase, CameraProjection};
 use ic_image::ImagePt;
 
@@ -323,7 +323,7 @@ impl StarCalibrate {
         &mut self,
         catalog: &mut Catalog,
         close_enough: f64,
-    ) -> CameraCalibrate {
+    ) -> CalibrationMapping {
         // catalog.retain(move |s, _n| s.brighter_than(search_brightness));
         catalog.sort();
         catalog.derive_data();
@@ -334,7 +334,8 @@ impl StarCalibrate {
 
         // let cat_index = self.find_stars_in_catalog(catalog);
 
-        let mut mappings = vec![];
+        let mut world = vec![];
+        let mut sensor = vec![];
         for (i, s) in self.star_directions.iter().enumerate() {
             let star_m = self.camera.camera_xyz_to_world_xyz(*s);
             if let Some((err, id)) = closest_star(catalog, star_m) {
@@ -343,17 +344,12 @@ impl StarCalibrate {
                 }
                 let star = &catalog[id];
                 let sv: &[f64; 3] = star.vector.as_ref();
-                mappings.push((
-                    sv[0],
-                    sv[1],
-                    sv[2],
-                    self.mappings[i].0 as usize,
-                    self.mappings[i].1 as usize,
-                ));
+                let map = [self.mappings[i].0 as f64, self.mappings[i].1 as f64].into();
+                world.push((*sv).into());
+                sensor.push(map);
             }
         }
-        let camera = self.camera.clone();
-        CameraCalibrate::new(camera, mappings)
+        CalibrationMapping::new(world, sensor)
     }
 
     //mp map_stars
