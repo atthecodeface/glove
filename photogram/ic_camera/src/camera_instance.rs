@@ -8,29 +8,12 @@ use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
 use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens};
-use crate::{CameraProjection, CameraSensor};
+use crate::{CameraInstanceDesc, CameraProjection, CameraSensor};
 
-//a CameraPolynomialDesc
-//tp CameraPolynomialDesc
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CameraPolynomialDesc {
-    /// Name of the camera body
-    pub body: String,
-    /// The spherical lens mapping polynomial
-    pub lens: String,
-    /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
-    pub mm_focus_distance: f64,
-    /// Position in world coordinates of the camera
-    pub position: Point3D,
-    /// Orientation to be applied to camera-relative world coordinates
-    /// to convert to camera-space coordinates
-    pub orientation: Quat,
-}
-
-//a CameraPolynomial
-//tp CameraPolynomial
+//a CameraInstance
+//tp CameraInstance
 #[derive(Debug, Clone, Default, Serialize)]
-pub struct CameraPolynomial {
+pub struct CameraInstance {
     /// Description of the camera body
     #[serde(serialize_with = "serialize_body_name")]
     body: CameraBody,
@@ -66,8 +49,8 @@ pub struct CameraPolynomial {
     y_px_from_tan_sc: f64,
 }
 
-//ip CameraPolynomial
-impl CameraPolynomial {
+//ip CameraInstance
+impl CameraInstance {
     //ap lens
     pub fn lens(&self) -> &CameraLens {
         &self.lens
@@ -101,48 +84,43 @@ impl CameraPolynomial {
     }
 
     //cp from_desc
-    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialDesc) -> Result<Self> {
-        let body = cdb.get_body_err(&desc.body)?.clone();
-        let lens = cdb.get_lens_err(&desc.lens)?.clone();
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self> {
+        let body = cdb.get_body_err(desc.body())?.clone();
+        let lens = cdb.get_lens_err(desc.lens())?.clone();
         Ok(Self::new(
             body,
             lens,
-            desc.mm_focus_distance,
-            desc.position,
-            desc.orientation,
+            desc.mm_focus_distance(),
+            *desc.position(),
+            *desc.orientation(),
         ))
     }
 
     //cp from_json`
     pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
-        let desc: CameraPolynomialDesc = json::from_json("camera instance descriptor", json)?;
+        let desc: CameraInstanceDesc = json::from_json("camera instance descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
 
     //dp to_desc
-    pub fn to_desc(self) -> CameraPolynomialDesc {
-        let body = self.body.name().to_owned();
-        let lens = self.lens.name().to_owned();
-        let mm_focus_distance = self.mm_focus_distance;
-        let position = self.position;
-        let orientation = self.orientation;
-        CameraPolynomialDesc {
-            body,
-            lens,
-            mm_focus_distance,
-            position,
-            orientation,
-        }
+    pub fn to_desc(self) -> CameraInstanceDesc {
+        CameraInstanceDesc::new(
+            self.body.name().to_owned(),
+            self.lens.name().to_owned(),
+            self.mm_focus_distance,
+            self.position,
+            self.orientation,
+        )
     }
 
     //dp to_desc_json
     pub fn to_desc_json(self) -> Result<String> {
-        Ok(serde_json::to_string(&self.to_desc())?)
+        self.to_desc().to_json()
     }
 
     //fp to_json
     pub fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(self)?)
+        Ok(serde_json::to_string_pretty(self)?)
     }
 
     //mp set_lens
@@ -175,8 +153,8 @@ impl CameraPolynomial {
     //zz All done
 }
 
-//ip Display for CameraPolynomial
-impl std::fmt::Display for CameraPolynomial {
+//ip Display for CameraInstance
+impl std::fmt::Display for CameraInstance {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             fmt,
@@ -196,8 +174,8 @@ impl std::fmt::Display for CameraPolynomial {
     }
 }
 
-//ip CameraProjection for CameraPolynomial
-impl CameraProjection for CameraPolynomial {
+//ip CameraProjection for CameraInstance
+impl CameraProjection for CameraInstance {
     /// Get name of camera
     fn camera_name(&self) -> String {
         self.body.name().into()

@@ -78,9 +78,7 @@ use star_catalog::{Catalog, CatalogIndex, Subcube};
 use ic_base::json;
 use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 use ic_camera::{serialize_body_name, serialize_lens_name};
-use ic_camera::{
-    CameraBody, CameraLens, CameraPolynomial, CameraPolynomialCalibrate, CameraPolynomialDesc,
-};
+use ic_camera::{CameraBody, CameraCalibrate, CameraInstance, CameraInstanceDesc, CameraLens};
 use ic_camera::{CameraDatabase, CameraProjection};
 use ic_image::ImagePt;
 
@@ -155,7 +153,7 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StarCalibrateDesc {
     /// Camera description (body, lens, min focus distance)
-    camera: CameraPolynomialDesc,
+    camera: CameraInstanceDesc,
     /// Sensor coordinate, star 'brightness', Hipparcos catalog id
     mappings: Vec<(isize, isize, usize, usize)>,
 }
@@ -179,7 +177,7 @@ pub struct StarCalibrate {
     mappings: Vec<(isize, isize, usize, usize)>,
     /// Derived camera instance
     #[serde(skip)]
-    camera: CameraPolynomial,
+    camera: CameraInstance,
     /// Directions to all the stars
     star_directions: Vec<Point3D>,
 }
@@ -187,12 +185,12 @@ pub struct StarCalibrate {
 //ip StarCalibrate
 impl StarCalibrate {
     //ap camera
-    pub fn camera(&self) -> &CameraPolynomial {
+    pub fn camera(&self) -> &CameraInstance {
         &self.camera
     }
 
     //ap camera_mut
-    pub fn camera_mut(&mut self) -> &mut CameraPolynomial {
+    pub fn camera_mut(&mut self) -> &mut CameraInstance {
         &mut self.camera
     }
 
@@ -211,12 +209,12 @@ impl StarCalibrate {
         let position = Point3D::default();
         let direction = Quat::default();
 
-        let body = cdb.get_body_err(&desc.camera.body)?.clone();
-        let lens = cdb.get_lens_err(&desc.camera.lens)?.clone();
-        let camera = CameraPolynomial::new(
+        let body = cdb.get_body_err(desc.camera.body())?.clone();
+        let lens = cdb.get_lens_err(desc.camera.lens())?.clone();
+        let camera = CameraInstance::new(
             body.clone(),
             lens.clone(),
-            desc.camera.mm_focus_distance,
+            desc.camera.mm_focus_distance(),
             position,
             direction,
         );
@@ -224,7 +222,7 @@ impl StarCalibrate {
             body,
             lens,
             camera,
-            mm_focus_distance: desc.camera.mm_focus_distance,
+            mm_focus_distance: desc.camera.mm_focus_distance(),
             mappings: desc.mappings,
             star_directions: vec![],
         };
@@ -325,7 +323,7 @@ impl StarCalibrate {
         &mut self,
         catalog: &mut Catalog,
         close_enough: f64,
-    ) -> CameraPolynomialCalibrate {
+    ) -> CameraCalibrate {
         // catalog.retain(move |s, _n| s.brighter_than(search_brightness));
         catalog.sort();
         catalog.derive_data();
@@ -355,7 +353,7 @@ impl StarCalibrate {
             }
         }
         let camera = self.camera.clone();
-        CameraPolynomialCalibrate::new(camera, mappings)
+        CameraCalibrate::new(camera, mappings)
     }
 
     //mp map_stars

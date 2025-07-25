@@ -4,7 +4,7 @@ use std::rc::Rc;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use ic_base::{json, Result};
-use ic_camera::{CameraDatabase, CameraPolynomial};
+use ic_camera::{CameraDatabase, CameraInstance};
 use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
 //a NamedPointSet / NamedPoint
@@ -92,13 +92,13 @@ pub fn get_camera_pms(
     matches: &ArgMatches,
     cdb: &CameraDatabase,
     nps: &NamedPointSet,
-) -> Result<Vec<(CameraPolynomial, PointMappingSet)>> {
+) -> Result<Vec<(CameraInstance, PointMappingSet)>> {
     let mut result = vec![];
     let mut cam = None;
     for filename in matches.get_many::<String>("camera_pms").unwrap() {
         if cam.is_none() {
             let camera_json = json::read_file(filename)?;
-            cam = Some(CameraPolynomial::from_json(cdb, &camera_json)?);
+            cam = Some(CameraInstance::from_json(cdb, &camera_json)?);
         } else {
             let mut pms = PointMappingSet::new();
             let pms_json = json::read_file(filename)?;

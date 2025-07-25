@@ -1,7 +1,7 @@
 //a Modules
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use ic_camera::CameraPolynomial;
+use ic_camera::CameraInstance;
 use ic_mapping::{CameraPtMapping, PointMapping};
 
 pub mod camera;
@@ -34,13 +34,13 @@ pub fn add_errors_arg(cmd: Command) -> Command {
 //fp get_error_fn
 pub fn get_error_fn(
     matches: &ArgMatches,
-) -> for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 {
+) -> for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 {
     if matches.get_flag("worst_error") {
-        let error_method: for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 =
+        let error_method: for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 =
             |c, m, _n| c.worst_error(m);
         error_method
     } else {
-        let error_method: for<'a, 'b> fn(&'a CameraPolynomial, &'b [PointMapping], usize) -> f64 =
+        let error_method: for<'a, 'b> fn(&'a CameraInstance, &'b [PointMapping], usize) -> f64 =
             |c, m, _n| c.total_error(m);
         error_method
     }

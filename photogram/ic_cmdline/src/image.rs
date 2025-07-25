@@ -2,7 +2,7 @@
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use ic_base::Result;
-use ic_camera::CameraPolynomial;
+use ic_camera::CameraInstance;
 use ic_image::{Color, ImageRgb8};
 
 //a Image options
@@ -55,7 +55,7 @@ pub fn get_image_read_all(matches: &ArgMatches) -> Result<Vec<ImageRgb8>> {
 //fp get_image_read_or_create
 pub fn get_image_read_or_create(
     matches: &ArgMatches,
-    camera: &CameraPolynomial,
+    camera: &CameraInstance,
 ) -> Result<ImageRgb8> {
     let read_filename = matches.get_one::<String>("read");
     let img = ImageRgb8::read_or_create_image(

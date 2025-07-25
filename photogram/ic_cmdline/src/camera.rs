@@ -4,7 +4,7 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use ic_base::{json, Point3D, Quat, Result};
-use ic_camera::{CameraDatabase, CameraPolynomial};
+use ic_camera::{CameraDatabase, CameraInstance};
 use ic_project::Project;
 
 //a CameraProjection
@@ -42,7 +42,7 @@ pub fn add_camera_projection_args(cmd: Command, required: bool) -> Command {
 pub fn get_camera_projection(
     matches: &ArgMatches,
     db: &CameraDatabase,
-) -> Result<Rc<CameraPolynomial>> {
+) -> Result<Rc<CameraInstance>> {
     let mm_focus_distance = *matches.get_one::<f64>("focus").unwrap();
     let body_name = matches.get_one::<String>("body").unwrap();
     let lens_name = matches.get_one::<String>("lens").unwrap();
@@ -50,7 +50,7 @@ pub fn get_camera_projection(
     let lens = db.get_lens_err(lens_name)?.clone();
     let position = Point3D::default();
     let orientation = Quat::default();
-    let camera = CameraPolynomial::new(body, lens, mm_focus_distance, position, orientation);
+    let camera = CameraInstance::new(body, lens, mm_focus_distance, position, orientation);
     Ok(Rc::new(camera))
 }
 
@@ -93,10 +93,10 @@ pub fn add_camera_arg(cmd: Command, required: bool) -> Command {
 }
 
 //fp get_camera
-pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraPolynomial> {
+pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInstance> {
     let camera_filename = matches.get_one::<String>("camera").unwrap();
     let camera_json = json::read_file(camera_filename)?;
-    CameraPolynomial::from_json(&project.cdb_ref(), &camera_json)
+    CameraInstance::from_json(&project.cdb_ref(), &camera_json)
 }
 
 //a CameraCalibrate

@@ -2,7 +2,7 @@
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 
 use ic_base::{Point2D, Point3D, Quat, Ray};
-use ic_camera::{CameraPolynomial, CameraProjection};
+use ic_camera::{CameraInstance, CameraProjection};
 
 use crate::{BestMapping, ModelLineSet, NamedPointSet, PointMapping, PointMappingSet};
 
@@ -28,8 +28,8 @@ pub trait CameraPtMapping {
     fn get_quats_for_mappings_given_one(&self, mappings: &[PointMapping], n: usize) -> Vec<Quat>;
 }
 
-//ip CameraPtMapping for CameraPolynomial
-impl CameraPtMapping for CameraPolynomial {
+//ip CameraPtMapping for CameraInstance
+impl CameraPtMapping for CameraInstance {
     //fp get_pm_dxdy
     #[inline]
     fn get_pm_dxdy(&self, pm: &PointMapping) -> Option<Point2D> {
@@ -198,8 +198,8 @@ pub trait CameraShowMapping {
     fn show_mappings(&self, mappings: &[PointMapping]);
 }
 
-//ip CameraShowMapping for CameraPolynomial
-impl CameraShowMapping for CameraPolynomial {
+//ip CameraShowMapping for CameraInstance
+impl CameraShowMapping for CameraInstance {
     //fp show_point_set
     fn show_point_set(&self, nps: &NamedPointSet) {
         for (name, model) in nps.iter() {
@@ -252,8 +252,8 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     fn reorient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64;
 }
 
-//ip CameraAdjustMapping for CameraPolynomial
-impl CameraAdjustMapping for CameraPolynomial {
+//ip CameraAdjustMapping for CameraInstance
+impl CameraAdjustMapping for CameraInstance {
     //mp locate_using_model_lines
     fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64 {
         let f = |p: &PointMapping| p.model_error() <= max_np_error;

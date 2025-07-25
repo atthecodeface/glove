@@ -4,51 +4,50 @@ use serde::{Deserialize, Serialize};
 use ic_base::json;
 use ic_base::{Point2D, Point3D, Result, RollYaw};
 
-use crate::{CameraDatabase, CameraPolynomial};
-use crate::{CameraPolynomialDesc, CameraProjection};
+use crate::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection};
 
-//a CameraPolynomialCalibrateDesc
-//tp CameraPolynomialCalibrateDesc
+//a CameraCalibrateDesc
+//tp CameraCalibrateDesc
 /// A description of a calibration for a camera and a lens, for an
 /// image of a grid (e.g. graph paper)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CameraPolynomialCalibrateDesc {
+pub struct CameraCalibrateDesc {
     /// Camera description (body, lens, min focus distance)
-    camera: CameraPolynomialDesc,
+    camera: CameraInstanceDesc,
     /// Mappings from world coordinates to absolute camera pixel values
     mappings: Vec<(f64, f64, f64, usize, usize)>,
 }
 
-//a CameraPolynomialCalibrate
-//tp CameraPolynomialCalibrate
+//a CameraCalibrate
+//tp CameraCalibrate
 #[derive(Debug, Clone, Default)]
-pub struct CameraPolynomialCalibrate {
+pub struct CameraCalibrate {
     /// Mappings from world coordinates to absolute camera pixel values
     mappings: Vec<(f64, f64, f64, usize, usize)>,
     /// Derived camera instance
-    camera: CameraPolynomial,
+    camera: CameraInstance,
 }
 
-//ip CameraPolynomialCalibrate
-impl CameraPolynomialCalibrate {
+//ip CameraCalibrate
+impl CameraCalibrate {
     //ap camera
-    pub fn camera(&self) -> &CameraPolynomial {
+    pub fn camera(&self) -> &CameraInstance {
         &self.camera
     }
 
     //ap camera_mut
-    pub fn camera_mut(&mut self) -> &mut CameraPolynomial {
+    pub fn camera_mut(&mut self) -> &mut CameraInstance {
         &mut self.camera
     }
 
     //cp new
-    pub fn new(camera: CameraPolynomial, mappings: Vec<(f64, f64, f64, usize, usize)>) -> Self {
+    pub fn new(camera: CameraInstance, mappings: Vec<(f64, f64, f64, usize, usize)>) -> Self {
         Self { camera, mappings }
     }
 
     //cp from_desc
-    pub fn from_desc(cdb: &CameraDatabase, desc: CameraPolynomialCalibrateDesc) -> Result<Self> {
-        let camera = CameraPolynomial::from_desc(cdb, desc.camera)?;
+    pub fn from_desc(cdb: &CameraDatabase, desc: CameraCalibrateDesc) -> Result<Self> {
+        let camera = CameraInstance::from_desc(cdb, desc.camera)?;
         let s = Self {
             camera,
             mappings: desc.mappings,
@@ -58,16 +57,15 @@ impl CameraPolynomialCalibrate {
 
     //cp from_json
     pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
-        let desc: CameraPolynomialCalibrateDesc =
-            json::from_json("camera calibration descriptor", json)?;
+        let desc: CameraCalibrateDesc = json::from_json("camera calibration descriptor", json)?;
         Self::from_desc(cdb, desc)
     }
 
     //dp to_desc
-    pub fn to_desc(self) -> CameraPolynomialCalibrateDesc {
+    pub fn to_desc(self) -> CameraCalibrateDesc {
         let camera = self.camera.to_desc();
         let mappings = self.mappings;
-        CameraPolynomialCalibrateDesc { camera, mappings }
+        CameraCalibrateDesc { camera, mappings }
     }
 
     //dp to_desc_json

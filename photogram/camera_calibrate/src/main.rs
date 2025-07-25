@@ -171,7 +171,7 @@ use geo_nd::{quat, Quaternion, Vector};
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_camera::{CameraDatabase, CameraInstance, CameraPolynomialCalibrate, CameraProjection};
+use ic_camera::{CameraCalibrate, CameraDatabase, CameraInstance, CameraProjection};
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
@@ -345,7 +345,7 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
-    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     let v = calibrate.get_pairings();
     let mut world_yaws = vec![];
@@ -437,7 +437,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //a Setup
 //fi find_closest_n
-fn find_closest_n(calibrate: &CameraPolynomialCalibrate, pts: &[(f64, f64, f64)]) -> Vec<usize> {
+fn find_closest_n(calibrate: &CameraCalibrate, pts: &[(f64, f64, f64)]) -> Vec<usize> {
     //cb Add calibrations to NamedPointSet and PointMappingSet
     let v = calibrate.get_xyz_pairings();
     let mut closest_n = vec![0; pts.len()];
@@ -456,7 +456,7 @@ fn find_closest_n(calibrate: &CameraPolynomialCalibrate, pts: &[(f64, f64, f64)]
 }
 
 //fi setup
-fn setup(calibrate: &CameraPolynomialCalibrate) -> (NamedPointSet, PointMappingSet) {
+fn setup(calibrate: &CameraCalibrate) -> (NamedPointSet, PointMappingSet) {
     let v = calibrate.get_xyz_pairings();
     let mut nps = NamedPointSet::default();
     let mut pms = PointMappingSet::default();
@@ -492,7 +492,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let mut calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let mut calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera
     //
@@ -575,7 +575,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let mut calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let mut calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
     let mut cam = calibrate.camera().clone();
@@ -689,7 +689,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let num_pts = 4;
 
     //cb Load Calibration JSON
-    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
     let cam = calibrate.camera();
 
     //cb Set up HashMaps and collections
@@ -823,7 +823,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
 
     //cb Load Calibration JSON
-    let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
+    let calibrate = CameraCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up HashMaps and collections
     let (_nps, pms) = setup(&calibrate);
