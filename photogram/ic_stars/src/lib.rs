@@ -287,7 +287,7 @@ impl StarCalibrate {
     pub fn show_star_mappings(&self, catalog: &Catalog) -> Vec<Point2D> {
         let mut pts = vec![];
 
-        eprintln!(" [px, py, mag, catalog_id] - suitable for use in calibrate.json file",);
+        println!(" [px, py, mag, catalog_id] - suitable for use in calibrate.json file",);
 
         let mut total_error = 0.;
         for (i, s) in self.star_directions.iter().enumerate() {
@@ -298,7 +298,7 @@ impl StarCalibrate {
                 let star_pxy = self.camera.world_xyz_to_px_abs_xy((*sv).into());
                 pts.push(star_pxy);
                 total_error += (1.0 - err).powi(2);
-                eprintln!(
+                println!(
                     "[{}, {}, {}, {}], // {i} : {err:0.4e} : mag {} : [{}, {}]",
                     self.mappings[i].0,
                     self.mappings[i].1,
@@ -309,7 +309,7 @@ impl StarCalibrate {
                     star_pxy[1] as isize,
                 );
             } else {
-                eprintln!(
+                println!(
                     "[{}, {}, {}, 0], // {i} : No mapping",
                     self.mappings[i].0, self.mappings[i].1, self.mappings[i].2,
                 );
@@ -320,11 +320,29 @@ impl StarCalibrate {
     }
 
     //mp create_polynomial_calibrate
-    pub fn create_polynomial_calibrate(&self, catalog: &Catalog) -> CameraPolynomialCalibrate {
+    /// 0.999 for close_enough ?
+    pub fn create_polynomial_calibrate(
+        &mut self,
+        catalog: &mut Catalog,
+        close_enough: f64,
+    ) -> CameraPolynomialCalibrate {
+        // catalog.retain(move |s, _n| s.brighter_than(search_brightness));
+        catalog.sort();
+        catalog.derive_data();
+
+        let cos_close_enough = close_enough.to_radians().cos();
+        self.recalculate_star_directions();
+        self.camera.set_position([0., 0., 0.].into());
+
+        // let cat_index = self.find_stars_in_catalog(catalog);
+
         let mut mappings = vec![];
         for (i, s) in self.star_directions.iter().enumerate() {
             let star_m = self.camera.camera_xyz_to_world_xyz(*s);
             if let Some((err, id)) = closest_star(catalog, star_m) {
+                if err < cos_close_enough {
+                    continue;
+                }
                 let star = &catalog[id];
                 let sv: &[f64; 3] = star.vector.as_ref();
                 mappings.push((
@@ -385,11 +403,12 @@ impl StarCalibrate {
     }
 
     //mp find_stars_from_image
-    // 16:41:51:2331:~/Git/star-catalog-rs:$ ./target/release/star-catalog hipp_bright image --fov 25 -W 5184 -H 3456 -o a.png -a 300 -r 196.1 -d 53.9
+    /// A value of 0.003 is normal for closeness
     pub fn find_stars_from_image(
         &mut self,
         catalog: &mut Catalog,
         search_brightness: f32,
+        closeness: f32,
     ) -> Result<()> {
         catalog.retain(move |s, _n| s.brighter_than(search_brightness));
         catalog.sort();
@@ -455,7 +474,8 @@ impl StarCalibrate {
 
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
-        let candidate_tris = catalog.find_star_triangles(subcube_iter, &mag1_angles, 0.003);
+        let candidate_tris =
+            catalog.find_star_triangles(subcube_iter, &mag1_angles, closeness as f64);
         // let candidate_tris = catalog.find_star_triangles(subcube_iter, &mag1_angles, 0.03);
         let mut printed = 0;
         let mut candidate_q_m_to_c = vec![];
@@ -494,7 +514,8 @@ impl StarCalibrate {
 
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
-        let mag2_candidate_tris = catalog.find_star_triangles(subcube_iter, &mag2_angles, 0.003);
+        let mag2_candidate_tris =
+            catalog.find_star_triangles(subcube_iter, &mag2_angles, closeness as f64);
         for (n, tri) in mag2_candidate_tris.iter().enumerate() {
             let q_m_to_c = orientation_mapping_triangle(
                 catalog[tri.0].vector.as_ref(),

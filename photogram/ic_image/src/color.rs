@@ -76,6 +76,12 @@ impl Gray16 {
         self.0[0] == other.0[0]
     }
 
+    //cp brightness
+    #[inline]
+    pub fn brightness(&self) -> f32 {
+        (self.0[0] as f32) / 65536.0
+    }
+
     //cp as_string
     pub fn as_string(&self) -> String {
         format!("#{:04x}", self.0[0])
@@ -213,6 +219,12 @@ impl Color {
     #[inline]
     pub fn color_eq(&self, other: &Self) -> bool {
         self.0[0] == other.0[0] && self.0[1] == other.0[1] && self.0[2] == other.0[2]
+    }
+
+    //cp brightness
+    #[inline]
+    pub fn brightness(&self) -> f32 {
+        ((self.0[0] as f32) + (self.0[1] as f32) + (self.0[2] as f32)) / 768.0
     }
 
     //cp as_string

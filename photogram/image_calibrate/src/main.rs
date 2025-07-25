@@ -211,7 +211,9 @@ fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Res
     let img = cmdline_args::image::get_image_read(matches)?;
     let bg_color = cmdline_args::image::get_opt_bg_color(matches)?;
     let bg_color = bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color));
+    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color), &|c0, c1| {
+        (c0.brightness() - c1.brightness()).abs() < 0.1
+    });
     let mut pms = PointMappingSet::default();
     for r in regions {
         let c = r.color();

@@ -71,13 +71,20 @@
             "wts_poly":[0.0, 1.0]
         },
         {
-            "name":"EF15mm f/2.8 Fisheye",
+            "name":"EF15mm f/2.8 Fisheye linear",
             "aliases": ["15mm"],
             "mm_focal_length":14.7,
             "stw_poly":[0.0, 1.0],
             "wts_poly":[0.0, 1.0]
         },
         {
+            "name":"EF15mm f/2.8 Fisheye",
+            "aliases": ["15mm"],
+ "wts_poly": [0.0, 1.0974784038780854, -0.8361159274791135, 2.7356605361856055, -3.2295089548570104],
+ "stw_poly": [0.0, 0.9303760344500915, 0.44578501151409, -0.9791000317782164, 0.7088877250207588],
+            "mm_focal_length":14.7
+       },
+  {
             "name": "Logitech C270",
             "aliases": ["C270"],
             "mm_focal_length":2.1515,

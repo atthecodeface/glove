@@ -436,18 +436,12 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Setup
-//fi setup
-fn setup(
-    calibrate: &CameraPolynomialCalibrate,
-    pt_indices: &[(f64, f64, f64)],
-) -> (Vec<usize>, NamedPointSet, PointMappingSet) {
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-
+//fi find_closest_n
+fn find_closest_n(calibrate: &CameraPolynomialCalibrate, pts: &[(f64, f64, f64)]) -> Vec<usize> {
     //cb Add calibrations to NamedPointSet and PointMappingSet
     let v = calibrate.get_xyz_pairings();
-    let mut closest_n = vec![0; pt_indices.len()];
-    for pt in pt_indices {
+    let mut closest_n = vec![0; pts.len()];
+    for pt in pts {
         let mut closest = (0, 1.0E20);
         let pt = [pt.0, pt.1, pt.2].into();
         for (n, (model_xyz, _)) in v.iter().enumerate() {
@@ -458,13 +452,23 @@ fn setup(
         }
         closest_n.push(closest.0);
     }
+    closest_n
+}
+
+//fi setup
+fn setup(calibrate: &CameraPolynomialCalibrate) -> (NamedPointSet, PointMappingSet) {
+    let v = calibrate.get_xyz_pairings();
+    let mut nps = NamedPointSet::default();
+    let mut pms = PointMappingSet::default();
+
+    //cb Add calibrations to NamedPointSet and PointMappingSet
     for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
         let name = n.to_string();
         let color = [255, 255, 255, 255].into();
         nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
         pms.add_mapping(&nps, &name, &pxy_abs, 0.);
     }
-    (closest_n, nps, pms)
+    (nps, pms)
 }
 
 //a Locate
@@ -506,7 +510,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         (-40.0, 40.0, 0.),
     ];
 
-    let (closest_n, _nps, pms) = setup(&calibrate, pt_indices);
+    let closest_n = find_closest_n(&calibrate, pt_indices);
+    let (_nps, pms) = setup(&calibrate);
 
     //cb For required pairings, display data
     for pm_n in &closest_n {
@@ -584,7 +589,8 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         (-40.0, 40.0, 0.),
     ];
 
-    let (closest_n, _nps, pms) = setup(&calibrate, pt_indices);
+    let closest_n = find_closest_n(&calibrate, pt_indices);
+    let (_nps, pms) = setup(&calibrate);
 
     //cb For required pairings, display data
     for pm in pms.mappings() {
@@ -678,20 +684,16 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let cdb = &cmd_args.cdb.as_ref().unwrap();
+    let yaw_range_min = 0.05;
+    let yaw_range_max = 0.35;
+    let num_pts = 4;
 
     //cb Load Calibration JSON
     let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
     let cam = calibrate.camera();
 
     //cb Set up HashMaps and collections
-    let pt_indices: &[(f64, f64, f64)] = &[
-        (40.0, -40.0, 0.),
-        (-40.0, -40.0, 0.),
-        (40.0, 40.0, 0.),
-        (-40.0, 40.0, 0.),
-    ];
-
-    let (_closest_n, _nps, pms) = setup(&calibrate, pt_indices);
+    let (_nps, pms) = setup(&calibrate);
 
     //cb Clone to new camera with correct position/orientation
     let camera = cam.clone();
@@ -707,7 +709,11 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let model_ry: RollYaw = model_txty.into();
         let cam_ry: RollYaw = cam_txty.into();
 
-        if cam_ry.yaw() > 0.01 {
+        if cam_ry.yaw() > yaw_range_max {
+            continue;
+        }
+
+        if cam_ry.yaw() > yaw_range_min {
             world_yaws.push(model_ry.yaw());
             camera_yaws.push(cam_ry.yaw());
         }
@@ -723,7 +729,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             // Y < 0
             quad += 2;
         }
-        if cam_ry.yaw() > 0.01 {
+        if cam_ry.yaw() > yaw_range_min {
             pts[quad].push((cam_ry.yaw(), model_ry.yaw() / cam_ry.yaw() - 1.0));
         }
     }
@@ -820,14 +826,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = CameraPolynomialCalibrate::from_json(cdb, cmd_args.cal.as_ref().unwrap())?;
 
     //cb Set up HashMaps and collections
-    let pt_indices: &[(f64, f64, f64)] = &[
-        (40.0, -40.0, 0.),
-        (-40.0, -40.0, 0.),
-        (40.0, 40.0, 0.),
-        (-40.0, 40.0, 0.),
-    ];
-
-    let (_closest_n, _nps, pms) = setup(&calibrate, pt_indices);
+    let (_nps, pms) = setup(&calibrate);
 
     //cb Create points for crosses for output image
     let mut pts = vec![];

@@ -261,13 +261,47 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 }
 
 //fi find_regions_fn
-fn find_regions_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
-    let img = &base_args.images[0];
-    let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
+fn find_regions_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
+    let img = &mut base_args.images[0];
+    let _bg = base_args.bg_color.unwrap_or(Color::black());
+    let min_brightness = 0.6;
+    // let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
+    let regions =
+        Region::regions_of_image(&img, &|c| c.brightness() > min_brightness, &|c0, c1| {
+            (c0.brightness() - c1.brightness()).abs() < 0.1
+        });
     let cogs: Vec<(Color, (f64, f64))> =
         regions.into_iter().map(|x| (x.color(), x.cog())).collect();
+
+    if let Some(write_filename) = &base_args.write_filename {
+        let b = [0_u8, 0, 0, 255].into();
+        let (w, h) = img.size();
+        for y in 0..h {
+            for x in 0..w {
+                img.put(x, y, &b);
+            }
+        }
+
+        for (c, (px, py)) in &cogs {
+            img.draw_cross([*px as f64, *py as f64].into(), 5.0, c);
+        }
+        img.write(write_filename)?;
+    }
+    let mut cogs: Vec<_> = cogs.into_iter().map(|(_, (x, y))| (x, y)).collect();
+    let minx = cogs.iter().fold(0.0_f64, |a, x| a.min(x.0));
+    let maxx = cogs.iter().fold(0.0_f64, |a, x| a.max(x.0));
+    let miny = cogs.iter().fold(0.0_f64, |a, x| a.min(x.1));
+    let maxy = cogs.iter().fold(0.0_f64, |a, x| a.max(x.1));
+    let ax = (minx + maxx) / 2.0;
+    let ay = (miny + maxy) / 2.0;
+    eprintln!("{ax}, {ay}");
+    cogs.sort_by_key(|xy| ((xy.0 - ax).powi(2) + (xy.1 - ay).powi(2)) as usize);
+    let mut cogs: Vec<_> = cogs
+        .into_iter()
+        .map(|(x, y)| (x as isize, y as isize, 5_usize, 0_usize))
+        .collect();
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
+
     Ok(())
 }
 
@@ -303,7 +337,9 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &mut base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
+    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg), &|c0, c1| {
+        (c0.brightness() - c1.brightness()).abs() < 0.1
+    });
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();
     let (xsz, ysz) = img.size();
     let xsz = xsz as f64;

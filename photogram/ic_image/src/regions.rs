@@ -120,12 +120,14 @@ impl Region {
     }
 
     //cp scan_image_to_regions
-    fn scan_image_to_regions<F>(
+    fn scan_image_to_regions<F, G>(
         img: &ImageRgb8,
         is_region: &F,
+        colors_close_enough: &G,
     ) -> (Vec<Region>, Vec<(usize, usize)>)
     where
         F: Fn(Color) -> bool,
+        G: Fn(&Color, &Color) -> bool,
     {
         let (xsz, ysz) = img.size();
         let xsz = xsz as usize;
@@ -145,13 +147,13 @@ impl Region {
                 let mut region = None;
                 if x > 0
                     && regions_x[x - 1].is_some()
-                    && regions[regions_x[x - 1].unwrap()].is_of_color(&c)
+                    && colors_close_enough(&c, &regions[regions_x[x - 1].unwrap()].color)
                 {
                     region = regions_x[x - 1];
                 }
                 region = {
                     if let Some(py_region) = regions_py[x] {
-                        if regions[py_region].is_of_color(&c) {
+                        if colors_close_enough(&c, &regions[py_region].color) {
                             if let Some(region) = region {
                                 if py_region != region {
                                     regions_to_merge.push((py_region, region));
@@ -183,6 +185,7 @@ impl Region {
         (regions, regions_to_merge)
     }
 
+    //mi determine_regions_that_adjoin
     fn determine_regions_that_adjoin(
         regions: &[Region],
         regions_to_merge: &[(usize, usize)],
@@ -225,15 +228,24 @@ impl Region {
     }
 
     //fp regions_of_image
-    pub fn regions_of_image<F>(img: &ImageRgb8, is_region: &F) -> Vec<Region>
+    pub fn regions_of_image<F, G>(
+        img: &ImageRgb8,
+        is_region: &F,
+        colors_close_enough: &G,
+    ) -> Vec<Region>
     where
         F: Fn(Color) -> bool,
+        G: Fn(&Color, &Color) -> bool,
     {
-        let (regions, regions_to_merge) = Region::scan_image_to_regions(img, is_region);
+        let (regions, regions_to_merge) =
+            Region::scan_image_to_regions(img, is_region, colors_close_enough);
         let regions_that_adjoin =
             Region::determine_regions_that_adjoin(&regions, &regions_to_merge);
         let mut merged_regions = vec![];
         for regions_to_merge in regions_that_adjoin {
+            if regions_to_merge.is_empty() {
+                continue;
+            }
             let mut mr = Region::default();
             for (i, r) in regions_to_merge.into_iter().enumerate() {
                 if i == 0 {

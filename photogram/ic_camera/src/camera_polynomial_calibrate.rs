@@ -72,7 +72,7 @@ impl CameraPolynomialCalibrate {
 
     //dp to_desc_json
     pub fn to_desc_json(self) -> Result<String> {
-        Ok(serde_json::to_string(&self.to_desc())?)
+        Ok(serde_json::to_string_pretty(&self.to_desc())?)
     }
 
     //mp grid_as_model
