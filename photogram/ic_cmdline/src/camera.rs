@@ -85,6 +85,17 @@ pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase> {
     Ok(camera_db)
 }
 
+//fp set_opt_camera_database
+pub fn set_opt_camera_database(
+    matches: &ArgMatches,
+    cdb: &mut Option<CameraDatabase>,
+) -> Result<()> {
+    let filename = matches.get_one::<String>("camera_db").unwrap();
+    let json = json::read_file(filename)?;
+    *cdb = Some(CameraDatabase::from_json(&json)?);
+    Ok(())
+}
+
 //fp set_camera
 pub fn set_camera(
     matches: &ArgMatches,
@@ -108,8 +119,8 @@ pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInsta
 //fp calibration_mapping_arg
 pub fn calibration_mapping_arg(required: bool) -> Arg {
     Arg::new("calibration_mapping")
-        .long("calibrate")
-        .short('c')
+        .long("mappings")
+        .short('m')
         .required(required)
         .help("Camera calibration mapping JSON")
         .action(ArgAction::Set)

@@ -10,9 +10,9 @@ use star_catalog::Catalog;
 
 use ic_base::json;
 use ic_base::Result;
-use ic_camera::CameraDatabase;
+use ic_camera::{CameraDatabase, CameraInstance, CameraProjection};
 use ic_image::{Image, ImagePt, ImageRgb8};
-use ic_stars::StarCalibrate;
+use ic_stars::StarMapping;
 
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 
@@ -21,7 +21,8 @@ use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 #[derive(Default)]
 pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
-    cal: Option<StarCalibrate>,
+    camera: CameraInstance,
+    mapping: StarMapping,
     closeness: f32,
     search_brightness: f32,
     match_brightness: f32,
@@ -49,25 +50,14 @@ impl CmdArgs {
         img.write(self.write_img.as_ref().unwrap())?;
         Ok(())
     }
-    pub fn borrow_mut(&mut self) -> (&mut StarCalibrate, &mut Box<Catalog>) {
-        match (&mut self.cal, &mut self.catalog) {
-            (Some(cal), Some(catalog)) => (cal, catalog),
-            _ => {
-                panic!("Cannot borrow; bad argument setup in the program");
-            }
-        }
-    }
 }
 
 //a arg commands
-//fp arg_star_calibrate
-fn arg_star_calibrate(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-    let calibrate_filename = matches.get_one::<String>("star_calibrate").unwrap();
-    let calibrate_json = json::read_file(calibrate_filename)?;
-    args.cal = Some(StarCalibrate::from_json(
-        args.cdb.as_ref().unwrap(),
-        &calibrate_json,
-    )?);
+//fp arg_star_mapping
+fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+    let filename = matches.get_one::<String>("star_mapping").unwrap();
+    let json = json::read_file(filename)?;
+    args.mapping = StarMapping::from_json(&json)?;
     Ok(())
 }
 
@@ -95,21 +85,29 @@ pub fn main() -> Result<()> {
         .version("0.1.0");
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
+
     build.add_arg(
         ic_cmdline::camera::camera_database_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_database(matches).map(|v| args.cdb = Some(v))
+            ic_cmdline::camera::set_opt_camera_database(matches, &mut args.cdb)
         }),
     );
+
     build.add_arg(
-        Arg::new("star_calibrate")
-            // .long("star")
-            // .alias("database")
-            .required(true)
-            .help("Star calibration JSON")
-            .action(ArgAction::Set),
-        Box::new(arg_star_calibrate),
+        ic_cmdline::camera::camera_arg(true),
+        Box::new(|args, matches| {
+            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
+        }),
     );
+
+    build.add_arg(
+        Arg::new("star_mapping")
+            .required(true)
+            .help("Star calibration mapping JSON")
+            .action(ArgAction::Set),
+        Box::new(arg_star_mapping),
+    );
+
     build.add_arg(
         Arg::new("star_catalog")
             .long("catalog")
@@ -143,13 +141,13 @@ pub fn main() -> Result<()> {
         }),
     );
     build.add_arg(
-        ic_cmdline::image::image_read_arg(true, Some(1)),
+        ic_cmdline::image::image_read_arg(false, Some(1)),
         Box::new(|args, matches| {
             ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
         }),
     );
     build.add_arg(
-        ic_cmdline::image::image_write_arg(true),
+        ic_cmdline::image::image_write_arg(false),
         Box::new(|args, matches| {
             ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
         }),
@@ -180,6 +178,11 @@ pub fn main() -> Result<()> {
     let cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
     build.add_subcommand(cd_build);
 
+    let ms_command =
+        Command::new("star_mapping").about("Try to map pxy to stars in catalog using orientation");
+    let ms_build = CommandBuilder::new(ms_command, Some(Box::new(star_mapping_cmd)));
+    build.add_subcommand(ms_build);
+
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<CmdArgs> = build.into();
     command.execute_env(&mut cmd_args)?;
@@ -188,31 +191,72 @@ pub fn main() -> Result<()> {
 
 //fp calibrate_desc_cmd
 fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    let brightness = cmd_args.search_brightness;
-    let (calibrate, catalog) = cmd_args.borrow_mut();
-    let _ = calibrate.map_stars(catalog, brightness)?;
-
     //cb Show the star mappings
     let fov = 60.0;
     let close_enough = fov / 500.0; // degrees;
-    let pc = calibrate.create_polynomial_calibrate(catalog, close_enough);
+    let pc = cmd_args.mapping.create_calibration_mapping(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
     println!("{}", pc.to_json()?);
+    Ok(())
+}
+
+//fp star_mapping_cmd
+fn star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    //cb Show the star mappings
+    let fov = 60.0;
+    let close_enough = fov / 500.0; // degrees;
+    let (num_unmapped, total_error) = cmd_args.mapping.update_star_mappings(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
+    eprintln!(
+        "{num_unmapped} stars were not mapped, total error of mapped stars {total_error:.4e}"
+    );
+    println!("{}", cmd_args.mapping.clone().to_json()?);
     Ok(())
 }
 
 //fp map_stars_cmd
 fn map_stars_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     let brightness = cmd_args.search_brightness;
-    let (calibrate, catalog) = cmd_args.borrow_mut();
-    let cat_index = calibrate.map_stars(catalog, brightness)?;
+    let orientation = cmd_args.mapping.find_orientation_from_all_mapped_stars(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        brightness,
+    )?;
+    cmd_args.camera.set_orientation(orientation);
 
     //cb Show the star mappings
-    let _ = calibrate.show_star_mappings(catalog);
+    let fov = 60.0;
+    let close_enough = fov / 500.0; // degrees;
+    let _ = cmd_args.mapping.show_star_mappings(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
     let mut mapped_pts = vec![];
-    calibrate.add_catalog_stars(catalog, &mut mapped_pts)?;
-    calibrate.add_cat_index(catalog, &cat_index, &mut mapped_pts)?;
-    calibrate.add_mapping_pts(&mut mapped_pts)?;
+    cmd_args.mapping.img_pts_add_catalog_stars(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        2,
+    )?;
+    cmd_args.mapping.img_pts_add_cat_index(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        1,
+        cmd_args.search_brightness,
+    )?;
+    cmd_args
+        .mapping
+        .img_pts_add_mapping_pxy(&mut mapped_pts, 0)?;
     cmd_args.draw_image(&mapped_pts)?;
+    println!("{}", cmd_args.camera.to_json()?);
     Ok(())
 }
 
@@ -226,16 +270,49 @@ fn find_stars_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
             cmd_args.closeness
         }
     };
-    let (calibrate, catalog) = cmd_args.borrow_mut();
-    calibrate.find_stars_from_image(catalog, brightness, closeness)?;
+
+    cmd_args
+        .catalog
+        .as_mut()
+        .unwrap()
+        .retain(move |s, _n| s.brighter_than(brightness));
+    cmd_args.catalog.as_mut().unwrap().sort();
+    cmd_args.catalog.as_mut().unwrap().derive_data();
+
+    let orientation = cmd_args.mapping.find_orientation_from_triangles(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        brightness,
+        closeness,
+    )?;
+    cmd_args.camera.set_orientation(orientation);
 
     //cb Show the star mappings
+    let fov = 60.0;
+    let close_enough = fov / 500.0; // degrees;
+    let _ = cmd_args.mapping.show_star_mappings(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
     let mut mapped_pts = vec![];
-    calibrate.add_catalog_stars(catalog, &mut mapped_pts)?;
-    for p in calibrate.show_star_mappings(catalog) {
-        mapped_pts.push((p, 1).into());
-    }
-    calibrate.add_mapping_pts(&mut mapped_pts)?;
+    cmd_args.mapping.img_pts_add_catalog_stars(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        2,
+    )?;
+    cmd_args.mapping.img_pts_add_cat_index(
+        cmd_args.catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        1,
+        brightness,
+    )?;
+    cmd_args
+        .mapping
+        .img_pts_add_mapping_pxy(&mut mapped_pts, 0)?;
     cmd_args.draw_image(&mapped_pts)?;
+    println!("{}", cmd_args.camera.to_json()?);
     Ok(())
 }

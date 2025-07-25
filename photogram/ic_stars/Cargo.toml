@@ -16,6 +16,7 @@ ic_image.workspace = true
 ic_camera.workspace = true
 geo-nd.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 postcard.workspace = true
 star-catalog.workspace = true
 

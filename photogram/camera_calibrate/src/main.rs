@@ -322,12 +322,6 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
     build.add_arg(
-        ic_cmdline::camera::camera_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
-        }),
-    );
-    build.add_arg(
         ic_cmdline::camera::calibration_mapping_arg(true),
         Box::new(|args, matches| {
             ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
@@ -441,7 +435,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 fn find_closest_n(calibrate: &CalibrationMapping, pts: &[(f64, f64, f64)]) -> Vec<usize> {
     //cb Add calibrations to NamedPointSet and PointMappingSet
     let v = calibrate.get_xyz_pairings();
-    let mut closest_n = vec![0; pts.len()];
+    let mut closest_n = vec![];
     for pt in pts {
         let mut closest = (0, 1.0E20);
         let pt = [pt.0, pt.1, pt.2].into();
@@ -491,14 +485,8 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
-
-    //cb Set up 'cam' as the camera
-    //
-    // The position and orientation are not used, and they are cleared
-    // here defensively
-    let mut camera = cmd_args.camera.clone();
-    camera.set_position([0., 0., 0.].into());
-    camera.set_orientation(Quat::default());
+    cmd_args.camera.set_position([0., 0., 0.].into());
+    cmd_args.camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
     let pt_indices: &[(f64, f64, f64)] = &[
@@ -518,17 +506,18 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let grid_xyz = pm.model();
         // Px Abs -> Px Rel -> TxTy -> lens mapping
         let pxy_abs = pm.screen();
-        let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
+        let txty = cmd_args.camera.px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
-        eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
+        eprintln!(">> {n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
     }
 
     //cb Create ModelLineSet
-    let mut mls = ModelLineSet::new(&camera);
+    let mut mls = ModelLineSet::new(&cmd_args.camera);
 
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
-        let dir0 = camera
+        let dir0 = cmd_args
+            .camera
             .px_abs_xy_to_camera_txty(pm0.screen())
             .to_unit_vector();
         for n1 in &closest_n {
@@ -536,7 +525,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
                 continue;
             }
             let pm1 = &pms.mappings()[*n1];
-            let dir1 = camera
+            let dir1 = cmd_args
+                .camera
                 .px_abs_xy_to_camera_txty(pm1.screen())
                 .to_unit_vector();
             let cos_theta = dir0.dot(&dir1);
@@ -550,9 +540,9 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let (best_cam_pos, e) = mls.find_best_min_err_location(&|p| p[2] > 0., 1000, 1000);
     eprintln!("{best_cam_pos} {e}",);
 
-    camera.set_position(best_cam_pos);
+    cmd_args.camera.set_position(best_cam_pos);
 
-    println!("{}", camera.to_json()?);
+    println!("{}", cmd_args.camera.to_json()?);
     Ok(())
 }
 
@@ -594,6 +584,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
+    eprintln!("All mappings (world, pixel, direction");
     for pm in pms.mappings() {
         let n = pm.name();
         let grid_xyz = pm.model();
@@ -607,6 +598,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Find best orientation given position
     // We can get N model direction vectors given the camera position,
     // and for each we have a camera direction vector
+    eprintln!("\nDerive orientations from *specified* mappings");
     let best_cam_pos = camera.position();
     let mut qs = vec![];
 
@@ -663,8 +655,10 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         }
     }
 
+    eprintln!("\nCalculate averate orientation");
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
     camera.set_orientation(qr);
+    eprintln!("{camera}");
 
     println!("{}", camera.to_json()?);
     Ok(())
@@ -883,7 +877,14 @@ fn main() -> Result<()> {
     build.add_arg(
         ic_cmdline::camera::camera_database_arg(true),
         Box::new(|args, matches| {
-            ic_cmdline::camera::get_camera_database(matches).map(|v| args.cdb = Some(v))
+            ic_cmdline::camera::set_opt_camera_database(matches, &mut args.cdb)
+        }),
+    );
+
+    build.add_arg(
+        ic_cmdline::camera::camera_arg(true),
+        Box::new(|args, matches| {
+            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
         }),
     );
 

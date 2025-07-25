@@ -9,11 +9,36 @@ use crate::{CameraInstance, CameraProjection};
 //a CalibrationMapping
 //tp CalibrationMapping
 /// Should probably store this as a vec of Point3D and a vec of same length of Point2D
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct CalibrationMapping {
     /// Mappings from world coordinates to absolute camera pixel values
-    #[serde(flatten)]
     mappings: Vec<(f64, f64, f64, usize, usize)>,
+}
+
+//ip Serialize for CalibrationMapping
+impl Serialize for CalibrationMapping {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.mappings.len()))?;
+        for m in &self.mappings {
+            seq.serialize_element(m)?;
+        }
+        seq.end()
+    }
+}
+
+//ip Deserialize for CalibrationMapping
+impl<'de> Deserialize<'de> for CalibrationMapping {
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        let mappings = Vec::<_>::deserialize(deserializer)?;
+        Ok(Self { mappings })
+    }
 }
 
 //ip CalibrationMapping

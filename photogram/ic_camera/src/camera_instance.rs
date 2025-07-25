@@ -168,7 +168,7 @@ impl std::fmt::Display for CameraInstance {
             self.body.px_width(),
             self.body.px_height(),
             self.lens.name(),
-            self.lens.mm_focal_length(),
+            self.mm_focus_distance,
         )?;
 
         let dxyz = quat::apply3(&quat::conjugate(self.orientation.as_ref()), &[0., 0., 1.]);

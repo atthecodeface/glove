@@ -129,6 +129,17 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
         camera_relative_xyz + self.position()
     }
 
+    //fp camera_xyz_to_world_dir (derived)
+    /// Convert a Point3D in camera space (XYZ) to world space
+    /// coordinates (XYZ)
+    fn camera_xyz_to_world_dir(&self, camera_xyz: Point3D) -> Point3D {
+        quat::apply3(
+            &quat::conjugate(self.orientation().as_ref()),
+            camera_xyz.as_ref(),
+        )
+        .into()
+    }
+
     //fp world_xyz_to_camera_txty (derived)
     /// Convert a Point3D in world space (XYZ) to camera-space
     /// TanX/TanY coordinates (XY)
