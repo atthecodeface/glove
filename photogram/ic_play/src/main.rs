@@ -5,7 +5,7 @@
 //!
 
 //a Imports
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use star_catalog::Catalog;
 
 use ic_base::json;
@@ -23,7 +23,7 @@ pub struct CmdArgs {
     cdb: Option<CameraDatabase>,
     camera: CameraInstance,
     mapping: StarMapping,
-    closeness: f32,
+    closeness: f64,
     search_brightness: f32,
     match_brightness: f32,
     catalog: Option<Box<Catalog>>,
@@ -39,6 +39,42 @@ impl CommandArgs for CmdArgs {
 
 //ip CmdArgs
 impl CmdArgs {
+    fn get_cdb(&self) -> &CameraDatabase {
+        self.cdb.as_ref().unwrap()
+    }
+    fn set_cdb(&mut self, cdb: CameraDatabase) -> Result<()> {
+        self.cdb = Some(cdb);
+        Ok(())
+    }
+    fn set_camera(&mut self, camera: CameraInstance) -> Result<()> {
+        self.camera = camera;
+        Ok(())
+    }
+    fn set_mapping(&mut self, mapping: StarMapping) -> Result<()> {
+        self.mapping = mapping;
+        Ok(())
+    }
+    fn set_read_img(&mut self, v: Vec<String>) -> Result<()> {
+        self.read_img = v;
+        Ok(())
+    }
+    fn set_write_img(&mut self, s: &str) -> Result<()> {
+        self.write_img = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.closeness = closeness;
+        Ok(())
+    }
+    fn set_match_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.match_brightness = brightness;
+        Ok(())
+    }
+    fn set_search_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.search_brightness = brightness;
+        Ok(())
+    }
+
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
             return Ok(());
@@ -71,7 +107,7 @@ fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
         );
     } else {
         let s = std::fs::read_to_string(catalog_filename)?;
-        args.catalog = Some(serde_json::from_str(&s)?);
+        args.catalog = Some(json::from_json("star catalog", &s)?);
     }
     args.catalog.as_mut().unwrap().sort();
     args.catalog.as_mut().unwrap().derive_data();
@@ -86,19 +122,14 @@ pub fn main() -> Result<()> {
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
 
-    build.add_arg(
-        ic_cmdline::camera::camera_database_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_camera_database(matches, &mut args.cdb)
-        }),
-    );
-
-    build.add_arg(
-        ic_cmdline::camera::camera_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
-        }),
-    );
+    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, true);
+    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, true);
+    ic_cmdline::add_arg_f64(&mut build,
+                                    "closeness", None,
+                                    "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+                                    Some("0.2"),
+                                    CmdArgs::set_closeness,
+                                    false);
 
     build.add_arg(
         Arg::new("star_mapping")
@@ -116,42 +147,29 @@ pub fn main() -> Result<()> {
             .action(ArgAction::Set),
         Box::new(arg_star_catalog),
     );
-    build.add_arg(
-        Arg::new("search_brightness")
-            .long("search_brightness")
-            .value_parser(value_parser!(f32))
-            .default_value("5.0")
-            .help("Maximum brightness of stars to use for searching with triangles")
-            .action(ArgAction::Set),
-        Box::new(|args, matches| {
-            args.search_brightness = *matches.get_one::<f32>("search_brightness").unwrap();
-            Ok(())
-        }),
+
+    ic_cmdline::add_arg_f32(
+        &mut build,
+        "search_brightness",
+        None,
+        "Maximum brightness of stars to use for searching with triangles",
+        Some("5.0"),
+        CmdArgs::set_search_brightness,
+        false,
     );
-    build.add_arg(
-        Arg::new("match_brightness")
-            .long("match_brightness")
-            .value_parser(value_parser!(f32))
-            .default_value("5.0")
-            .help("Maximum brightness of stars to use for matching all the points")
-            .action(ArgAction::Set),
-        Box::new(|args, matches| {
-            args.match_brightness = *matches.get_one::<f32>("match_brightness").unwrap();
-            Ok(())
-        }),
+
+    ic_cmdline::add_arg_f32(
+        &mut build,
+        "match_brightness",
+        None,
+        "Maximum brightness of stars to use for matching all the points",
+        Some("5.0"),
+        CmdArgs::set_match_brightness,
+        false,
     );
-    build.add_arg(
-        ic_cmdline::image::image_read_arg(false, Some(1)),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_write_arg(false),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
-        }),
-    );
+
+    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
+    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
 
     let ms_command =
         Command::new("map_stars").about("Map all stars in the catalog onto an output image");
@@ -160,18 +178,6 @@ pub fn main() -> Result<()> {
 
     let fs_command = Command::new("find_stars").about("Find stars from an image");
     let mut fs_build = CommandBuilder::new(fs_command, Some(Box::new(find_stars_from_image_cmd)));
-    fs_build.add_arg(
-        Arg::new("closeness")
-            .long("closeness")
-            .value_parser(value_parser!(f32))
-            .default_value("0.0")
-            .help("Closeness to find triangles of stars")
-            .action(ArgAction::Set),
-        Box::new(|args, matches| {
-            args.closeness = *matches.get_one::<f32>("closeness").unwrap();
-            Ok(())
-        }),
-    );
     build.add_subcommand(fs_build);
 
     let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
@@ -192,8 +198,7 @@ pub fn main() -> Result<()> {
 //fp calibrate_desc_cmd
 fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Show the star mappings
-    let fov = 60.0;
-    let close_enough = fov / 500.0; // degrees;
+    let close_enough = cmd_args.closeness;
     let pc = cmd_args.mapping.create_calibration_mapping(
         cmd_args.catalog.as_ref().unwrap(),
         &cmd_args.camera,
@@ -206,8 +211,7 @@ fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 //fp star_mapping_cmd
 fn star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Show the star mappings
-    let fov = 60.0;
-    let close_enough = fov / 500.0; // degrees;
+    let close_enough = cmd_args.closeness;
     let (num_unmapped, total_error) = cmd_args.mapping.update_star_mappings(
         cmd_args.catalog.as_ref().unwrap(),
         &cmd_args.camera,
@@ -231,8 +235,7 @@ fn map_stars_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     cmd_args.camera.set_orientation(orientation);
 
     //cb Show the star mappings
-    let fov = 60.0;
-    let close_enough = fov / 500.0; // degrees;
+    let close_enough = cmd_args.closeness;
     let _ = cmd_args.mapping.show_star_mappings(
         cmd_args.catalog.as_ref().unwrap(),
         &cmd_args.camera,
@@ -263,13 +266,7 @@ fn map_stars_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 //fp find_stars_from_image_cmd
 fn find_stars_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     let brightness = cmd_args.search_brightness;
-    let closeness = {
-        if cmd_args.closeness == 0. {
-            0.003
-        } else {
-            cmd_args.closeness
-        }
-    };
+    let closeness = cmd_args.closeness;
 
     cmd_args
         .catalog
@@ -283,13 +280,12 @@ fn find_stars_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
         cmd_args.catalog.as_ref().unwrap(),
         &cmd_args.camera,
         brightness,
-        closeness,
+        closeness.to_radians() as f32,
     )?;
     cmd_args.camera.set_orientation(orientation);
 
     //cb Show the star mappings
-    let fov = 60.0;
-    let close_enough = fov / 500.0; // degrees;
+    let close_enough = cmd_args.closeness;
     let _ = cmd_args.mapping.show_star_mappings(
         cmd_args.catalog.as_ref().unwrap(),
         &cmd_args.camera,

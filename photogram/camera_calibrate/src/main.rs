@@ -284,6 +284,12 @@ there are *four* graphs overlaid, using different colors - one for
 each quadrant of the camera sensor; also the polynomial of best fit is
 plotted too.";
 
+//hi ROLL_PLOT_LONG_HELP
+const ROLL_PLOT_LONG_HELP: &str = "\
+
+Generate a plot for all the mappings of model roll versus world roll
+";
+
 //hi GRID_IMAGE_LONG_HELP
 const GRID_IMAGE_LONG_HELP: &str = "\
 This tool uses the provided camera description and mappings, and
@@ -298,11 +304,64 @@ It also draws black crosses for a range of (x,y,0) values.";
 //tp CmdArgs
 #[derive(Default)]
 pub struct CmdArgs {
+    verbose: bool,
     cdb: Option<CameraDatabase>,
     camera: CameraInstance,
     mapping: Option<CalibrationMapping>,
     read_img: Vec<String>,
     write_img: Option<String>,
+    use_pts: usize,
+}
+
+//ip CmdArgs
+impl CmdArgs {
+    fn get_cdb(&self) -> &CameraDatabase {
+        self.cdb.as_ref().unwrap()
+    }
+    fn set_verbose(&mut self, verbose: bool) -> Result<()> {
+        self.verbose = verbose;
+        Ok(())
+    }
+    fn set_cdb(&mut self, cdb: CameraDatabase) -> Result<()> {
+        self.cdb = Some(cdb);
+        Ok(())
+    }
+    fn set_camera(&mut self, camera: CameraInstance) -> Result<()> {
+        self.camera = camera;
+        Ok(())
+    }
+    fn set_mapping(&mut self, mapping: CalibrationMapping) -> Result<()> {
+        self.mapping = Some(mapping);
+        Ok(())
+    }
+    fn set_read_img(&mut self, v: Vec<String>) -> Result<()> {
+        self.read_img = v;
+        Ok(())
+    }
+    fn set_write_img(&mut self, s: &str) -> Result<()> {
+        self.write_img = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_use_pts(&mut self, v: usize) -> Result<()> {
+        self.use_pts = v;
+        Ok(())
+    }
+    fn show_step<S>(&self, s: S)
+    where
+        S: std::fmt::Display,
+    {
+        if self.verbose {
+            eprintln!("\n{s}");
+        }
+    }
+    fn if_verbose<F>(&self, f: F)
+    where
+        F: FnOnce(),
+    {
+        if self.verbose {
+            f()
+        }
+    }
 }
 
 //ip CommandArgs for CmdArgs
@@ -321,24 +380,10 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
-    build.add_arg(
-        ic_cmdline::camera::calibration_mapping_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_read_arg(false, Some(1)),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_write_arg(false),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
-        }),
-    );
+
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
+    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
     build
 }
 
@@ -354,13 +399,13 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let camera_rel_ry: RollYaw = camera_rel_txty.into();
         world_yaws.push(camera_rel_ry.yaw());
         camera_yaws.push(pxy_ry.yaw());
-        if false {
+        cmd_args.if_verbose(|| {
             eprintln!(
                 "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {pxy_ry} : camera_rel_ty {} : pxy_ty {}",
                 camera_rel_ry.tan_yaw(),
                 pxy_ry.tan_yaw()
             );
-        }
+        });
     }
 
     let poly_degree = 5;
@@ -473,11 +518,15 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(LOCATE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-    build.add_arg(
-        ic_cmdline::camera::calibration_mapping_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
-        }),
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    ic_cmdline::add_arg_usize(
+        &mut build,
+        "num_pts",
+        Some('n'),
+        "Number of points to use (from start of mapping); if not specified, use all",
+        None,
+        CmdArgs::set_use_pts,
+        false,
     );
     build
 }
@@ -489,17 +538,19 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     cmd_args.camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let pt_indices: &[(f64, f64, f64)] = &[
-        (40.0, -40.0, 0.),
-        (-40.0, -40.0, 0.),
-        (40.0, 40.0, 0.),
-        (-40.0, 40.0, 0.),
-    ];
-
-    let closest_n = find_closest_n(calibrate, pt_indices);
+    let n = {
+        if cmd_args.use_pts == 0 {
+            calibrate.len()
+        } else {
+            cmd_args.use_pts
+        }
+    };
+    let n = n.min(calibrate.len());
+    let closest_n: Vec<usize> = (0..n).into_iter().collect();
     let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
+    cmd_args.show_step("Using the following mappings ([n] [world] : [pxy] : [world_dir]");
     for pm_n in &closest_n {
         let pm = &pms.mappings()[*pm_n];
         let n = pm.name();
@@ -508,7 +559,9 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         let pxy_abs = pm.screen();
         let txty = cmd_args.camera.px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
-        eprintln!(">> {n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
+        cmd_args.if_verbose(|| {
+            eprintln!(">> {n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
+        });
     }
 
     //cb Create ModelLineSet
@@ -538,7 +591,9 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Find best position given ModelLineSet
     // Find best location 'p' for camera
     let (best_cam_pos, e) = mls.find_best_min_err_location(&|p| p[2] > 0., 1000, 1000);
-    eprintln!("{best_cam_pos} {e}",);
+    cmd_args.if_verbose(|| {
+        eprintln!("{best_cam_pos} {e}",);
+    });
 
     cmd_args.camera.set_position(best_cam_pos);
 
@@ -553,12 +608,16 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(ORIENT_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
 
-    build.add_arg(
-        ic_cmdline::camera::calibration_mapping_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
-        }),
+    ic_cmdline::add_arg_usize(
+        &mut build,
+        "num_pts",
+        Some('n'),
+        "Number of points to use (from start of mapping); if not specified, use all",
+        None,
+        CmdArgs::set_use_pts,
+        false,
     );
 
     build
@@ -573,32 +632,35 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let pt_indices: &[(f64, f64, f64)] = &[
-        (40.0, -40.0, 0.),
-        (-40.0, -40.0, 0.),
-        (40.0, 40.0, 0.),
-        (-40.0, 40.0, 0.),
-    ];
-
-    let closest_n = find_closest_n(calibrate, pt_indices);
+    let n = {
+        if cmd_args.use_pts == 0 {
+            calibrate.len()
+        } else {
+            cmd_args.use_pts
+        }
+    };
+    let n = n.min(calibrate.len());
+    let closest_n: Vec<usize> = (0..n).into_iter().collect();
     let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
-    eprintln!("All mappings (world, pixel, direction");
-    for pm in pms.mappings() {
-        let n = pm.name();
-        let grid_xyz = pm.model();
-        // Px Abs -> Px Rel -> TxTy -> lens mapping
-        let pxy_abs = pm.screen();
-        let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
-        let grid_dir = txty.to_unit_vector();
-        eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
-    }
+    cmd_args.show_step("All the following mappings ([n] [world] : [pxy] : [world_dir]");
+    cmd_args.if_verbose(|| {
+        for pm in pms.mappings() {
+            let n = pm.name();
+            let grid_xyz = pm.model();
+            // Px Abs -> Px Rel -> TxTy -> lens mapping
+            let pxy_abs = pm.screen();
+            let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
+            let grid_dir = txty.to_unit_vector();
+            eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
+        }
+    });
 
     //cb Find best orientation given position
     // We can get N model direction vectors given the camera position,
     // and for each we have a camera direction vector
-    eprintln!("\nDerive orientations from *specified* mappings");
+    cmd_args.show_step("Derive orientations from *specified* mappings");
     let best_cam_pos = camera.position();
     let mut qs = vec![];
 
@@ -649,16 +711,20 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             //                "dj_c==q*dj_m? {dj_c} ==? {:?}",
             //                quat::apply3(q.as_ref(), dj_m.as_ref())
             //            );
-            eprintln!("{q}");
+            cmd_args.if_verbose(|| {
+                eprintln!("{q}");
+            });
 
             qs.push((1., q.into()));
         }
     }
 
-    eprintln!("\nCalculate averate orientation");
+    cmd_args.show_step("Calculate average orientation");
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
     camera.set_orientation(qr);
-    eprintln!("{camera}");
+    cmd_args.if_verbose(|| {
+        eprintln!("{camera}");
+    });
 
     println!("{}", camera.to_json()?);
     Ok(())
@@ -672,12 +738,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
 
-    build.add_arg(
-        ic_cmdline::camera::calibration_mapping_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
-        }),
-    );
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
 
     build
 }
@@ -786,6 +847,64 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
+//a Roll plot
+fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("roll_plot")
+        .about("Plot roll of model versus roll of camera")
+        .long_about(ROLL_PLOT_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(roll_plot_fn)));
+
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+
+    build
+}
+
+//fi roll_plot_fn
+fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let camera = &cmd_args.camera;
+
+    let yaw_range_min = 0.05;
+    let yaw_range_max = 0.35;
+    let num_pts = 4;
+
+    //cb Set up HashMaps and collections
+    let (_nps, pms) = setup(calibrate);
+
+    //cb Calculate Roll/Yaw for each point given camera
+    let mut pts = vec![];
+    for pm in pms.mappings() {
+        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
+        let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+
+        let model_ry: RollYaw = model_txty.into();
+        let cam_ry: RollYaw = cam_txty.into();
+
+        pts.push((
+            (cam_ry.yaw() - model_ry.yaw()).to_degrees(),
+            (cam_ry.roll() - model_ry.roll()).to_degrees(),
+        ));
+    }
+
+    //cb Plot 4 graphs for quadrants and one for the polynomial
+    use poloto::build::PlotIterator;
+    let plots = poloto::build::origin();
+    let plot = poloto::build::plot("Roll ");
+    let plot = plot.scatter(pts.iter());
+    let plots = plots.chain(plot);
+
+    let plot_initial = poloto::frame_build()
+        .data(plots)
+        .build_and_label(("Roll diff v Yaw", "Yaw (deg)", "Roll C-W  (deg)"))
+        .append_to(poloto::header().light_theme())
+        .render_string()
+        .map_err(|e| format!("{e:?}"))?;
+    println!("{plot_initial}");
+
+    Ok(())
+}
+
 //a Grid image
 fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("grid_image")
@@ -794,25 +913,9 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(grid_image_fn)));
 
-    build.add_arg(
-        ic_cmdline::camera::calibration_mapping_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_calibration_mapping(matches, &mut args.mapping)
-        }),
-    );
-
-    build.add_arg(
-        ic_cmdline::image::image_read_arg(true, Some(1)),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_image_read_filenames(matches).map(|v| args.read_img = v)
-        }),
-    );
-    build.add_arg(
-        ic_cmdline::image::image_write_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::image::get_opt_image_write_filename(matches).map(|v| args.write_img = v)
-        }),
-    );
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, true, Some(1));
+    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, true);
     build
 }
 
@@ -874,24 +977,15 @@ fn main() -> Result<()> {
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
-    build.add_arg(
-        ic_cmdline::camera::camera_database_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_opt_camera_database(matches, &mut args.cdb)
-        }),
-    );
-
-    build.add_arg(
-        ic_cmdline::camera::camera_arg(true),
-        Box::new(|args, matches| {
-            ic_cmdline::camera::set_camera(matches, args.cdb.as_ref().unwrap(), &mut args.camera)
-        }),
-    );
+    ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
+    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, true);
+    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, true);
 
     build.add_subcommand(calibrate_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(lens_calibrate_cmd());
+    build.add_subcommand(roll_plot_cmd());
     build.add_subcommand(grid_image_cmd());
     //    build.add_subcommand(grid_calibrate_cmd());
 

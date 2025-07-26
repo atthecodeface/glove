@@ -1,11 +1,13 @@
-//a Modules
+//a Imports
 use std::rc::Rc;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::{json, Point3D, Quat, Result};
+use ic_base::{json, Error, Point3D, Quat, Result};
 use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance};
 use ic_project::Project;
+
+use crate::builder::{CommandArgs, CommandBuilder};
 
 //a CameraProjection
 // should move to using the camera database - need a new section - and body and lens names from within the database plus the focus distance
@@ -75,6 +77,33 @@ pub fn camera_arg(required: bool) -> Arg {
         .action(ArgAction::Set)
 }
 
+//mp add_arg_camera
+pub fn add_arg_camera<C, F, G>(build: &mut CommandBuilder<C>, get_db: G, set: F, required: bool)
+where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, CameraInstance) -> Result<()> + 'static,
+    G: Fn(&C) -> &CameraDatabase + 'static,
+{
+    build.add_arg(
+        camera_arg(required),
+        Box::new(move |args, matches| {
+            get_camera_of_db(matches, get_db(args)).and_then(|v| set(args, v))
+        }),
+    );
+}
+
+//mp add_arg_camera_database
+pub fn add_arg_camera_database<C, F>(build: &mut CommandBuilder<C>, set: F, required: bool)
+where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, CameraDatabase) -> Result<()> + 'static,
+{
+    build.add_arg(
+        camera_database_arg(required),
+        Box::new(move |args, matches| get_camera_database(matches).and_then(|v| set(args, v))),
+    );
+}
+
 //a Retrieve data functions
 //fp get_camera_database
 pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase> {
@@ -96,16 +125,11 @@ pub fn set_opt_camera_database(
     Ok(())
 }
 
-//fp set_camera
-pub fn set_camera(
-    matches: &ArgMatches,
-    cdb: &CameraDatabase,
-    camera: &mut CameraInstance,
-) -> Result<()> {
+//fi get_camera_of_db
+fn get_camera_of_db(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraInstance> {
     let camera_filename = matches.get_one::<String>("camera").unwrap();
     let camera_json = json::read_file(camera_filename)?;
-    *camera = CameraInstance::from_json(cdb, &camera_json)?;
-    Ok(())
+    Ok(CameraInstance::from_json(cdb, &camera_json)?)
 }
 
 //fp get_camera
@@ -116,23 +140,28 @@ pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInsta
 }
 
 //a CameraCalibrate
-//fp calibration_mapping_arg
-pub fn calibration_mapping_arg(required: bool) -> Arg {
-    Arg::new("calibration_mapping")
-        .long("mappings")
-        .short('m')
-        .required(required)
-        .help("Camera calibration mapping JSON")
-        .action(ArgAction::Set)
-}
-
-//fp set_opt_calibration_mapping
-pub fn set_opt_calibration_mapping(
-    matches: &ArgMatches,
-    mapping: &mut Option<CalibrationMapping>,
-) -> Result<()> {
+//fi get_calibration_mapping
+fn get_calibration_mapping(matches: &ArgMatches) -> Result<CalibrationMapping> {
     let filename = matches.get_one::<String>("calibration_mapping").unwrap();
     let json = json::read_file(filename)?;
-    *mapping = Some(CalibrationMapping::from_json(&json)?);
-    Ok(())
+    Ok(CalibrationMapping::from_json(&json)?)
+}
+
+//mp add_arg_calibration_mapping
+pub fn add_arg_calibration_mapping<C, F>(build: &mut CommandBuilder<C>, set: F, required: bool)
+where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, CalibrationMapping) -> Result<()> + 'static,
+{
+    build.add_arg(
+        Arg::new("calibration_mapping")
+            .long("mappings")
+            .short('m')
+            .required(required)
+            .help("Camera calibration mapping JSON")
+            .action(ArgAction::Set),
+        Box::new(move |mut args, matches| {
+            get_calibration_mapping(matches).and_then(|v| set(&mut args, v))
+        }),
+    );
 }

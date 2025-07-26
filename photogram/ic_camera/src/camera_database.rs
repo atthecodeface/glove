@@ -1,7 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Error, Result};
+use ic_base::{json, Error, Result};
 
 use crate::{CameraBody, CameraLens, CameraSensor};
 
@@ -33,7 +33,7 @@ impl std::fmt::Display for CameraDatabase {
 impl CameraDatabase {
     //cp from_json
     pub fn from_json(json: &str) -> Result<Self> {
-        let mut cdb: Self = serde_json::from_str(json)?;
+        let mut cdb: Self = json::from_json("camera database", json)?;
         cdb.derive();
         Ok(cdb)
     }

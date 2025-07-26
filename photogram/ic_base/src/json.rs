@@ -31,8 +31,7 @@ pub fn read_file<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<String> 
 fn json_error(reason: &str, json: &str, err: serde_json::Error) -> Error {
     let line = err.line();
     let column = err.column();
-    let mut result =
-        format!("Error in parsing {reason} json at line {line} column {column}: {err}",);
+    let mut result = format!("Error in parsing {reason} json at line {line} column {column}",);
     let start_line = line.saturating_sub(5);
     let end_line = line + 5;
     for (i, l) in json.lines().enumerate() {
@@ -43,7 +42,7 @@ fn json_error(reason: &str, json: &str, err: serde_json::Error) -> Error {
             break;
         }
     }
-    Error::JsonCtxt(result)
+    Error::JsonCtxt(result, err)
 }
 
 //fp from_json

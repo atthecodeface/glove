@@ -64,6 +64,11 @@ impl CalibrationMapping {
         Ok(serde_json::to_string_pretty(&self)?)
     }
 
+    //ap len
+    pub fn len(&self) -> usize {
+        self.mappings.len()
+    }
+
     //ap get_pairings
     /// Get pairings between grid points, their camera-relative Point3Ds, and the roll-yaw described by
     /// the camera focus distance and lens type (not using its

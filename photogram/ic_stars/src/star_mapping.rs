@@ -223,11 +223,12 @@ impl StarMapping {
                     let star_pxy = camera.world_xyz_to_px_abs_xy((*sv).into());
                     total_error += (1.0 - err).powi(2);
                     eprintln!(
-                        "{i:4} pxy [{}, {}] maps to star {} with magnitude {} - err {err:0.4e} expected at [{}, {}]",
+                        "{i:4} pxy [{}, {}] maps to star {} with magnitude {} - err {:0.2} expected at [{}, {}]",
                         mapping.0,
                         mapping.1,
                         star.id,
                         star.mag,
+                        err.acos().to_degrees(),
                         star_pxy[0] as isize,
                         star_pxy[1] as isize,
                     );
@@ -288,8 +289,9 @@ impl StarMapping {
                 }
                 let star = &catalog[id];
                 let sv: &[f64; 3] = star.vector.as_ref();
+                let sv = [-sv[0], -sv[1], -sv[2]];
                 let map = [mapping.0 as f64, mapping.1 as f64].into();
-                world.push((*sv).into());
+                world.push(sv.into());
                 sensor.push(map);
             }
         }

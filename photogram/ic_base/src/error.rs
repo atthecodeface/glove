@@ -2,10 +2,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("failed to read json")]
+    #[error("failed to read json: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("{0}")]
-    JsonCtxt(String),
+    #[error("Failed to read {0}: {1}")]
+    JsonCtxt(String, serde_json::Error),
     #[error("{0} {1}")]
     File(String, std::io::Error),
     #[error("{0}")]

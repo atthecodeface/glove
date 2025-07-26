@@ -1,9 +1,11 @@
 //a Modules
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::Result;
+use ic_base::{Error, Result};
 use ic_camera::CameraInstance;
 use ic_image::{Color, ImageRgb8};
+
+use crate::builder::{CommandArgs, CommandBuilder};
 
 //a Image options
 //fp image_read_arg
@@ -19,6 +21,44 @@ pub fn image_read_arg(required: bool, num_args: Option<usize>) -> Arg {
     } else {
         arg
     }
+}
+
+//fp image_write_arg
+pub fn image_write_arg(required: bool) -> Arg {
+    Arg::new("write")
+        .long("write")
+        .short('w')
+        .required(required)
+        .help("Image to write")
+        .action(ArgAction::Set)
+}
+
+//mp add_arg_read_img
+pub fn add_arg_read_img<C, F>(
+    build: &mut CommandBuilder<C>,
+    set: F,
+    required: bool,
+    num_args: Option<usize>,
+) where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, Vec<String>) -> Result<()> + 'static,
+{
+    build.add_arg(
+        image_read_arg(required, num_args),
+        Box::new(move |args, matches| get_image_read_filenames(matches).and_then(|v| set(args, v))),
+    );
+}
+
+//mp add_arg_write_img
+pub fn add_arg_write_img<C, F>(build: &mut CommandBuilder<C>, set: F, required: bool)
+where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, &str) -> Result<()> + 'static,
+{
+    build.add_arg(
+        image_write_arg(required),
+        Box::new(move |args, matches| set(args, matches.get_one::<String>("write").unwrap())),
+    );
 }
 
 //fp add_image_read_arg
@@ -64,16 +104,6 @@ pub fn get_image_read_or_create(
         read_filename.map(|x| x.as_str()),
     )?;
     Ok(img)
-}
-
-//fp image_write_arg
-pub fn image_write_arg(required: bool) -> Arg {
-    Arg::new("write")
-        .long("write")
-        .short('w')
-        .required(required)
-        .help("Image to write")
-        .action(ArgAction::Set)
 }
 
 //fp add_image_write_arg

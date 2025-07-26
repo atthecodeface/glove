@@ -1,0 +1,71 @@
+# Notes on what should work
+
+
+## Grid lens calibration
+
+Using a grid, we can locate, orient and then show the mapping - note that at the edges the crosses are not well aligned
+
+./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera_6028_start_linear.json locate --num_pts 4 --mappings nac/camera_6028_mappings.json > located.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c located.json orient --num_pts 4 --mappings nac/camera_6028_mappings.json > oriented.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
+
+Generate the lens calibration:
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json lens_calibrate --mappings nac/camera_6028_mappings.json  > a.svg
+
+Look at the 'a.svg' file and the yaw/yaw curve is clear
+
+The polynomials can be added to the database (or compare with the values already there!)
+
+## Grid post calibration
+
+Using a grid, we can locate, orient and then show the mapping (the first takes 30+ seconds for 20 mappings)
+
+./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera_6028_start.json locate  --num_pts 20 --mappings nac/camera_6028_mappings.json > located.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c located.json orient --mappings nac/camera_6028_mappings.json > oriented.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
+
+Recalibrate, currently by copying oriented.json to oriented_linear.json and changing the lens back to linear (but keeping the location and orientation)
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented_linear.json lens_calibrate --mappings nac/camera_6028_mappings.json  > a.svg
+
+# Stars
+
+./target/release/ic_play --db nac/camera_db.json -c nac/camera_4924_start.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 5.0 --closeness 0.2 find_stars > orient_on_six_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 star_mapping >  star_mappings_4924_on_six_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json star_mappings_4924_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 map_stars > orient_on_mapped_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped_stars.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 star_mapping > star_mappings_4924_on_mapped_stars.json
+
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json star_mappings_4924_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.014 -r ../../Images/IMG_4924.JPG -w a.png map_stars
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped_stars.json star_mappings_4924_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.014 calibrate_desc > mapping_4924.json
+./target/release/camera_calibrate --db nac/camera_db.json -c orient_on_mapped_stars.json roll_plot --mappings mapping_4924.json  > a.svg
+
+./target/release/camera_calibrate --db nac/camera_db.json -c orient_on_mapped_stars.json  grid_image --mappings mapping_4924.json -r ../../Images/IMG_4924.JPG -w a.png 
+./target/release/camera_calibrate --db nac/camera_db.json -c orient_on_mapped_stars.json orient --mappings mapping_4924.json > reoriented.json
+./target/release/ic_play --db nac/camera_db.json -c reoriented.json  nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.025 star_mapping > ro_star_mapping_4924.json
+./target/release/ic_play --db nac/camera_db.json -c reoriented.json ro_star_mapping_4924.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.014 calibrate_desc > mapping_4924.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c reoriented.json grid_image --mappings mapping_4924.json -r ../../Images/IMG_4924.JPG -w a.png 
+./target/release/ic_play --db nac/camera_db.json -c reoriented.json ro_star_mapping_4924.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.014 -r ../../Images/IMG_4924.JPG -w a.png map_stars
+
+./target/release/ic_play --db nac/camera_db.json -c reoriented.json star_mappings_4924_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.014 -r ../../Images/IMG_4924.JPG -w a.png map_stars
+
+
+./target/release/ic_play --db nac/camera_db.json -c nac/camera_5006_start.json nac/camera_5006_star_mappings.json --catalog hipp_bright --search_brightness 5.0 find_stars > orient_on_six_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json nac/camera_5006_star_mappings.json --catalog hipp_bright --search_brightness 6.0 star_mapping > star_mappings_5006_on_six_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json star_mappings_5006_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 map_stars > orient_on_mapped_stars.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped_stars.json nac/camera_5006_star_mappings.json --catalog hipp_bright --search_brightness 6.0 star_mapping > star_mappings_5006_on_mapped_stars.json
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json star_mappings_5006_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 -r ../../Images/IMG_5006.JPG -w a.png map_stars
+
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped_stars.json star_mappings_5006_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 calibrate_desc > mapping_5006.json
+./target/release/camera_calibrate --db nac/camera_db.json -c orient_on_mapped_stars.json lens_calibrate --mappings mapping_5006.json  > a.svg
+
+./target/release/camera_calibrate --db nac/camera_db.json -c orient_on_mapped_stars.json roll_plot --mappings mapping_5006.json  > a.svg
+

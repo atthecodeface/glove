@@ -25,9 +25,11 @@ pub struct ShaderFileDesc {
     shader_descs: Vec<ShaderDesc>,
 }
 
+//ip ShaderFileDesc
 impl ShaderFileDesc {
     //cp from_json
     pub fn from_json(path: PathBuf, json: &str) -> Result<Self, serde_json::Error> {
+        // Change to ic_base::json::from_json
         let shader_descs = serde_json::from_str::<Vec<ShaderDesc>>(json)?;
         Ok(Self { path, shader_descs })
     }
