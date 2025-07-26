@@ -1,0 +1,8 @@
+{
+    "body": "Canon EOS 5D mark IV",
+//    "lens": "EF50mm f1.8 linear",
+    "lens": "EF50mm f1.8",
+    "mm_focus_distance": 2300000.0,
+    "position": [0.0, 0.0, 0.0],
+    "orientation": [ 1.0, 0.0, 0.0, 0.0]
+}
