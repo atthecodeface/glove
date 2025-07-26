@@ -3,13 +3,20 @@
 //!
 //! This is trying to calibrate to a grid
 //!
-//! The grid was captured on a Canon 5D mark IV, with a 50mm lens focuses on 'infinity'
+//! The example grid was captured on a Canon 5D mark IV, with a 50mm lens focuses on 'infinity'
 //!
 //! The camera is face-on to the grid (which is graph paper); the
-//! approximate interscetions of 550 grid lines was capture as sensor pixel
+//! approximate intersections of 550 grid lines was capture as sensor pixel
 //! coordinates XY and mm XY pairings. The grid is assumed to be at Z=0.
 //!
-//! Some of the pairings (given by pt_indices) are used to create a
+//! # Calibration first step - locate the camera
+//!
+//! The first step is to locate the camera, given the camera body, an
+//! uncalibrated lens (i.e. something with an identity sensor to world
+//! mapping), and with a given focusing distance (known ideally!) for
+//! the image and hence pairings.
+//!
+//! The first 'N' pairings are used to create a
 //! ModelLineSet, which is a set of ModelLines (between grid points,
 //! hence all in the plane Z=0) and the angles subtended by the
 //! camera, given by the sensor pixel coordinates through the
@@ -28,9 +35,11 @@
 //! This camera position is then optimized further by delta
 //! adjustments in the ModelLineSet.
 //!
+//! # Orientation of camera given a location
+//!
 //! From this 'known good position' the best orientation can be
 //! determined, by creating quaternion orientations for every pair of
-//! pairings in the pt_indices by:
+//! pairings (or for the first N pairings) by:
 //!
 //!   1. Find the unit direction from the camera to both of the model points (A, B)
 //!
@@ -65,48 +74,86 @@
 //!
 //! The value of 'q' for *every* pair of pairings (A to B, and also B
 //! to A) is generated, and an average of these quaternions is used as
-//! the orientation of the camera
+//! the orientation of the camera.
 //!
-//! Given the position and orientation of the camera the unit
+//! When initially generating a lens calibration it is normal to use
+//! the same first 'N' points as the locating of the camera.
+//!
+//! # Generating a test image
+//!
+//! An image can be generated that overlays on the source image the
+//! pairings as provided, and mapped through the lens.
+//!
+//! This draws *green* crosses for each (x,y,z) in
+//! the description JSON mappings, and *red* crosses for the pxy of
+//! each of those points in the description JSON mappings.
+//!
+//! If the calibration is very good then the green and red crosses
+//! will overlap; at this stage, pre-lens calibration, the crosses
+//! should correlate better at the center of the image than towards
+//! the edge.
+//!
+//! # Plotting Yaw and Roll
+//!
+//! Given the location and orientation of the camera the unit
 //! direction vector to every model point from the camera can be
 //! determined, and converted to a *roll* and *yaw*. The corresponding
-//! camera sensor direction (potentially without going through the lens mapping)
-//! can be determined, and presented also as a *roll* and *yaw*.
+//! camera sensor direction can be determined, and presented also as a
+//! *roll* and *yaw*.
 //!
-//! A graph of camera yaw versus model yaw can be produced; if no lens
+//! Graphs of camera yaw versus model yaw can be produced; if no lens
 //! mapping had been used the this should be approximately a single
 //! curve that is the polynomial for the lens (mapping yaw in camera
-//! to yaw in model space).
+//! to yaw in model space). The actual graph drawn by 'yaw_plot' is
+//! the *relative* error in yaw versus the camera yaw, so that when a
+//! lens is calibrated it should be a line along the X axis.
 //!
-//! However, if the *centre* of the camera (upon which the absolute
-//! camera sensor XY to camera unit direction vectors depend) has an
-//! incorrect value (is the lens centred on the mid-point of the
-//! sensor?) then the curve for the yaw-yaw for the camera points in
-//! the upper right quadrant of the sensor will have approximately the
-//! same shape, but will have a differentoffset, to that from the
-//! lower right quadrant.
+//! For the yaw, we plot *four* graphs, one for each quadrant.
 //!
-//! So here we plot *four* graphs, one for each quadrant.
+//! The roll plot plots the error in the roll agains the error in the
+//! yaw, for each point.
 //!
-//! For *all* of the points together a pair of polynomials (one
+//! # Calibrating the lens
+//!
+//! For each pairing the sensor roll (given by the pixel XY position
+//! of the pairing) and the roll for the world position given the
+//! camera location and orientation can be generated; these *ought* to
+//! be equal for a spherical lends, and should only really be impacted
+//! by the camera location/orientation (and possibly the centring of
+//! the lens in the sensor).
+//!
+//! For each pairing the sensor yaw (given by the pixel XY position of
+//! the pairing) and the yaw for the world position given the camera
+//! location and orientation can be generated; this should be a
+//! (potentially nonlinear) mapping (that is independent of the roll,
+//! for example). The calibration is this mapping (and its inverse),
+//! and a polynomial can be fitted to the data generated from the
+//! pairings.
+//!
+//! Hence given the first 'N' pairings, a pair of polynomials (one
 //! camera-to-model, the other the inverse) are generated
 //!
 //! The process to calibrate the camera is thus to:
 //!
-//!  1. Reset its lens mapping polynomial
+//!  1. Start with a linear lens mapping polynomial
 //!
 //!  2. Reset the centre of the lens (to the middle of the sensor)
 //!
-//!  3. Run the program and inspect the graphs
+//!  3. Locate the camera using a few pairings
 //!
-//!  4. Adjust the centre of the sensor if the four graphs are
-//!     noticeable offset from each other; repeat from step 3
+//!  3. Orient the camera using some or all of the pairings
 //!
-//!  5. Once the graphs are all deemed reasonable, copy the
-//!     polynomials calculated in to the lens mapping.
+//!  4. Generate a first lens calibration using all of the pairings.
 //!
-//!  6. Rerun, and the graphs should be near identity, and the
-//!     calibration is complete.
+//!  5. Relocate the camera with the newly calibrated lens
+//!
+//!  6. Reorient the camera with the newly calibrated lens and its new location
+//!
+//!  7. Generate an improved lens calibration using all of the pairings.
+//!
+//!  8. Generate a yaw plot to check the error. Potentially the
+//!     locate/orient/calibrate can be rerun, to improve the quality of
+//!     the calibration.
 //!
 //! # Using the tool with a grid
 //!
@@ -149,19 +196,6 @@
 //! lens mapping, then to copy that lens mapping to the database, and
 //! rerun to ensure the SVG shows basically straight lines parallel to
 //! the X axis.
-//!
-//! # Generating a test image
-//!
-//! Once the calibration is complete, a verification image can be generated
-//!
-//!   camera_calibrate (--db ...) grid_image -c <desc.json> -r <src image> -w <output image>
-//!
-//! This draws black crosses on the image for grid intersections
-//! (x,y,0) for a range of X and Y; green crosses for each (x,y,z) in
-//! the description JSON mappings, and *red* crosses for the pxy of
-//! each of those points in the description JSON mappings.
-//!
-//! If the calibration is very good then the green and red crosses will overlap
 //!
 
 //a Imports
@@ -276,13 +310,18 @@ point (0,0) is on the Yaw/Yaw graph).
 Actually two polynomials are generated - one forward (wts) and one
 backward (stw); these should be used in a camera_db JSON file.
 
+";
+
+//hi YAW_PLOT_LONG_HELP
+const YAW_PLOT_LONG_HELP: &str = "\
 The plot that is generated is an SVG file showing Yaw/Yaw-1 - bear in
 mind that any lens mapping specified for the camera in the database is
 used, so that a perfectly calibrated camera/lens with a perfect
 mapping file will have straight lines on the X axis. Furthermore,
 there are *four* graphs overlaid, using different colors - one for
 each quadrant of the camera sensor; also the polynomial of best fit is
-plotted too.";
+plotted too.
+";
 
 //hi ROLL_PLOT_LONG_HELP
 const ROLL_PLOT_LONG_HELP: &str = "\
@@ -311,6 +350,8 @@ pub struct CmdArgs {
     read_img: Vec<String>,
     write_img: Option<String>,
     use_pts: usize,
+    yaw_min: f64,
+    yaw_max: f64,
 }
 
 //ip CmdArgs
@@ -346,6 +387,57 @@ impl CmdArgs {
         self.use_pts = v;
         Ok(())
     }
+    fn set_yaw_min(&mut self, v: f64) -> Result<()> {
+        self.yaw_min = v;
+        Ok(())
+    }
+    fn set_yaw_max(&mut self, v: f64) -> Result<()> {
+        self.yaw_max = v;
+        Ok(())
+    }
+    fn use_pts(&self, mut n: usize) -> usize {
+        if self.use_pts != 0 {
+            n.min(self.use_pts)
+        } else {
+            n
+        }
+    }
+    fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
+        ic_cmdline::add_arg_usize(
+            build,
+            "num_pts",
+            Some('n'),
+            "Number of points to use (from start of mapping); if not specified, use all",
+            None,
+            CmdArgs::set_use_pts,
+            false,
+        );
+    }
+    fn add_args_yaw_min_max(
+        build: &mut CommandBuilder<Self>,
+        min: Option<&'static str>,
+        max: Option<&'static str>,
+    ) {
+        ic_cmdline::add_arg_f64(
+            build,
+            "min_yaw",
+            None,
+            "Minimim yaw to use for calibration in degrees",
+            min,
+            CmdArgs::set_yaw_min,
+            false,
+        );
+        ic_cmdline::add_arg_f64(
+            build,
+            "max_yaw",
+            None,
+            "Maximim yaw to use for calibration",
+            max,
+            CmdArgs::set_yaw_max,
+            false,
+        );
+    }
+
     fn show_step<S>(&self, s: S)
     where
         S: std::fmt::Display,
@@ -519,15 +611,8 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    ic_cmdline::add_arg_usize(
-        &mut build,
-        "num_pts",
-        Some('n'),
-        "Number of points to use (from start of mapping); if not specified, use all",
-        None,
-        CmdArgs::set_use_pts,
-        false,
-    );
+    CmdArgs::add_args_num_pts(&mut build);
+
     build
 }
 
@@ -538,14 +623,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     cmd_args.camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let n = {
-        if cmd_args.use_pts == 0 {
-            calibrate.len()
-        } else {
-            cmd_args.use_pts
-        }
-    };
-    let n = n.min(calibrate.len());
+    let n = cmd_args.use_pts(calibrate.len());
     let closest_n: Vec<usize> = (0..n).into_iter().collect();
     let (_nps, pms) = setup(calibrate);
 
@@ -609,16 +687,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-
-    ic_cmdline::add_arg_usize(
-        &mut build,
-        "num_pts",
-        Some('n'),
-        "Number of points to use (from start of mapping); if not specified, use all",
-        None,
-        CmdArgs::set_use_pts,
-        false,
-    );
+    CmdArgs::add_args_num_pts(&mut build);
 
     build
 }
@@ -632,14 +701,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let n = {
-        if cmd_args.use_pts == 0 {
-            calibrate.len()
-        } else {
-            cmd_args.use_pts
-        }
-    };
-    let n = n.min(calibrate.len());
+    let n = cmd_args.use_pts(calibrate.len());
     let closest_n: Vec<usize> = (0..n).into_iter().collect();
     let (_nps, pms) = setup(calibrate);
 
@@ -739,6 +801,8 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
 
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_args_num_pts(&mut build);
 
     build
 }
@@ -748,18 +812,17 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
-    let yaw_range_min = 0.05;
-    let yaw_range_max = 0.35;
-    let num_pts = 4;
+    let yaw_range_min = cmd_args.yaw_min.to_radians();
+    let yaw_range_max = cmd_args.yaw_max.to_radians();
+    let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
     let (_nps, pms) = setup(calibrate);
 
     //cb Calculate Roll/Yaw for each point given camera
-    let mut pts = [vec![], vec![], vec![], vec![]];
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
-    for pm in pms.mappings() {
+    for pm in pms.mappings().iter().take(num_pts) {
         let model_txty = camera.world_xyz_to_camera_txty(pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -773,21 +836,6 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         if cam_ry.yaw() > yaw_range_min {
             world_yaws.push(model_ry.yaw());
             camera_yaws.push(cam_ry.yaw());
-        }
-        if (model_ry.yaw() / cam_ry.yaw()) > 1.2 {
-            continue;
-        }
-        let mut quad = 0;
-        if cam_ry.cos_roll() < 0.0 {
-            // X < 0
-            quad += 1;
-        }
-        if cam_ry.sin_roll() < 0.0 {
-            // Y < 0
-            quad += 2;
-        }
-        if cam_ry.yaw() > yaw_range_min {
-            pts[quad].push((cam_ry.yaw(), model_ry.yaw() / cam_ry.yaw() - 1.0));
         }
     }
 
@@ -810,6 +858,69 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     eprintln!(" \"stw_poly\": {stw:?},");
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
+    Ok(())
+}
+
+//a Yaw plot
+fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("yaw_plot")
+        .about("Plot yaw")
+        .long_about(YAW_PLOT_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(yaw_plot_fn)));
+
+    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_args_num_pts(&mut build);
+
+    build
+}
+
+//fi yaw_plot_fn
+fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let camera = &cmd_args.camera;
+
+    let yaw_range_min = cmd_args.yaw_min.to_radians();
+    let yaw_range_max = cmd_args.yaw_max.to_radians();
+    let num_pts = cmd_args.use_pts(calibrate.len());
+
+    //cb Set up HashMaps and collections
+    let (_nps, pms) = setup(calibrate);
+
+    //cb Calculate Error in yaw/Yaw for each point given camera
+    let mut pts = [vec![], vec![], vec![], vec![]];
+    for pm in pms.mappings().iter().take(num_pts) {
+        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
+        let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+
+        let model_ry: RollYaw = model_txty.into();
+        let cam_ry: RollYaw = cam_txty.into();
+
+        if cam_ry.yaw() > yaw_range_max {
+            continue;
+        }
+
+        if (model_ry.yaw() / cam_ry.yaw()) > 1.2 {
+            continue;
+        }
+        let mut quad = 0;
+        if cam_ry.cos_roll() < 0.0 {
+            // X < 0
+            quad += 1;
+        }
+        if cam_ry.sin_roll() < 0.0 {
+            // Y < 0
+            quad += 2;
+        }
+        if cam_ry.yaw() > yaw_range_min {
+            pts[quad].push((
+                cam_ry.yaw().to_degrees(),
+                model_ry.yaw() / cam_ry.yaw() - 1.0,
+            ));
+        }
+    }
+
     //cb Plot 4 graphs for quadrants and one for the polynomial
     use poloto::build::PlotIterator;
     let plots = poloto::build::origin();
@@ -827,18 +938,19 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let plots = plots.chain(plot);
 
     let mut wts_poly_pts = vec![];
-    for i in 2..=100 {
-        let world = (i as f64) * 0.40 / 100.0;
-        let sensor = stw.calc(world);
-        wts_poly_pts.push((world, sensor / world - 1.0));
+    for i in 0..=100 {
+        let frame_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
+        let frame_ry = RollYaw::of_yaw(frame_yaw);
+        let model_ry = camera.ry_frame_to_ry_camera(frame_ry);
+        wts_poly_pts.push((frame_yaw.to_degrees(), model_ry.yaw() / frame_yaw - 1.0));
     }
-    let plot = poloto::build::plot("Wts Poly");
+    let plot = poloto::build::plot("Camera mapping");
     let plot = plot.scatter(wts_poly_pts.iter());
     let plots = plots.chain(plot);
 
     let plot_initial = poloto::frame_build()
         .data(plots)
-        .build_and_label(("Yaw v Yaw", "x", "y"))
+        .build_and_label(("Relative Yaw Error v Yaw", "Yaw / °", "(w-c)/w"))
         .append_to(poloto::header().light_theme())
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
@@ -856,6 +968,8 @@ fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(roll_plot_fn)));
 
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_args_num_pts(&mut build);
 
     build
 }
@@ -865,16 +979,16 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
-    let yaw_range_min = 0.05;
-    let yaw_range_max = 0.35;
-    let num_pts = 4;
+    let yaw_range_min = cmd_args.yaw_min.to_radians();
+    let yaw_range_max = cmd_args.yaw_max.to_radians();
+    let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
     let (_nps, pms) = setup(calibrate);
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = vec![];
-    for pm in pms.mappings() {
+    for pm in pms.mappings().iter().take(num_pts) {
         let model_txty = camera.world_xyz_to_camera_txty(pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -896,7 +1010,7 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     let plot_initial = poloto::frame_build()
         .data(plots)
-        .build_and_label(("Roll diff v Yaw", "Yaw (deg)", "Roll C-W  (deg)"))
+        .build_and_label(("Roll diff v Yaw diff", "Yaw C-W / °", "Roll C-W / °"))
         .append_to(poloto::header().light_theme())
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
@@ -916,6 +1030,7 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, true, Some(1));
     ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, true);
+    CmdArgs::add_args_num_pts(&mut build);
     build
 }
 
@@ -925,6 +1040,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let camera = &cmd_args.camera;
 
     //cb Set up HashMaps and collections
+    let num_pts = cmd_args.use_pts(calibrate.len());
     let (_nps, pms) = setup(calibrate);
 
     //cb Create points for crosses for output image
@@ -942,7 +1058,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         }
     }
     let rgba: Color = { [100, 255, 100, 255] }.into();
-    for pm in pms.mappings() {
+    for pm in pms.mappings().iter().take(num_pts) {
         pts.push((pm.model(), rgba));
     }
 
@@ -985,6 +1101,7 @@ fn main() -> Result<()> {
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(lens_calibrate_cmd());
+    build.add_subcommand(yaw_plot_cmd());
     build.add_subcommand(roll_plot_cmd());
     build.add_subcommand(grid_image_cmd());
     //    build.add_subcommand(grid_calibrate_cmd());

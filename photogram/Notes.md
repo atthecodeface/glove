@@ -1,11 +1,11 @@
 # Notes on what should work
 
 
-## Grid lens calibration
+## Grid lens calibration (use lens '50mm linear')
 
 Using a grid, we can locate, orient and then show the mapping - note that at the edges the crosses are not well aligned
 
-./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera_6028_start_linear.json locate --num_pts 4 --mappings nac/camera_6028_mappings.json > located.json
+./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera.json --use_body 5D --use_lens '50mm linear' --use_focus 2000 locate --num_pts 4 --mappings nac/camera_6028_mappings.json > located.json
 
 ./target/release/camera_calibrate --db nac/camera_db.json -c located.json orient --num_pts 4 --mappings nac/camera_6028_mappings.json > oriented.json
 
@@ -13,25 +13,35 @@ Using a grid, we can locate, orient and then show the mapping - note that at the
 
 Generate the lens calibration:
 
-./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json lens_calibrate --mappings nac/camera_6028_mappings.json  > a.svg
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json lens_calibrate --mappings nac/camera_6028_mappings.json
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json yaw_plot --mappings nac/camera_6028_mappings.json  > a.svg
 
 Look at the 'a.svg' file and the yaw/yaw curve is clear
 
 The polynomials can be added to the database (or compare with the values already there!)
 
-## Grid post calibration
+## Grid post calibration (use lens '50mm')
 
 Using a grid, we can locate, orient and then show the mapping (the first takes 30+ seconds for 20 mappings)
 
-./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera_6028_start.json locate  --num_pts 20 --mappings nac/camera_6028_mappings.json > located.json
+./target/release/camera_calibrate --db nac/camera_db.json -c nac/camera.json --use_body 5D --use_lens 50mm --use_focus 2000 locate --num_pts 20 --mappings nac/camera_6028_mappings.json > located.json
 
 ./target/release/camera_calibrate --db nac/camera_db.json -c located.json orient --mappings nac/camera_6028_mappings.json > oriented.json
 
 ./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
 
-Recalibrate, currently by copying oriented.json to oriented_linear.json and changing the lens back to linear (but keeping the location and orientation)
 
-./target/release/camera_calibrate --db nac/camera_db.json -c oriented_linear.json lens_calibrate --mappings nac/camera_6028_mappings.json  > a.svg
+Check the calibration
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json lens_calibrate --mappings nac/camera_6028_mappings.json
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json yaw_plot --mappings nac/camera_6028_mappings.json  > a.svg
+
+Recalibrate, by starting with the linear lens mapping
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json --use_lens '50mm linear' lens_calibrate --mappings nac/camera_6028_mappings.json
+
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json --use_lens '50mm linear' yaw_plot --mappings nac/camera_6028_mappings.json  > a.svg
+./target/release/camera_calibrate --db nac/camera_db.json -c oriented.json --use_lens '50mm linear' roll_plot --mappings nac/camera_6028_mappings.json  > a.svg
 
 # Stars
 

@@ -129,9 +129,21 @@ impl CameraInstance {
 
 //ip CameraInstance - Modifiers and other
 impl CameraInstance {
+    //mp set_body
+    pub fn set_body(&mut self, body: CameraBody) {
+        self.body = body;
+        self.derive();
+    }
+
     //mp set_lens
     pub fn set_lens(&mut self, lens: CameraLens) {
         self.lens = lens;
+        self.derive();
+    }
+
+    //mp set_mm_focus_distance
+    pub fn set_mm_focus_distance(&mut self, mm_focus_distance: f64) {
+        self.mm_focus_distance = mm_focus_distance;
         self.derive();
     }
 
@@ -262,6 +274,16 @@ impl CameraProjection for CameraInstance {
             self.lens.sensor_to_world(ry_frame.tan_yaw()),
         );
         ry_camera.into()
+    }
+
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw {
+        RollYaw::from_roll_tan_yaw(
+            ry_frame.sin_roll(),
+            ry_frame.cos_roll(),
+            self.lens.sensor_to_world(ry_frame.tan_yaw()),
+        )
     }
 
     /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY

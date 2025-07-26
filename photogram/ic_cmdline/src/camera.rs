@@ -73,7 +73,32 @@ pub fn camera_arg(required: bool) -> Arg {
         .long("camera")
         .short('c')
         .required(required)
-        .help("Camera placement and orientation JSON")
+        .help("Camera lens, placement and orientation JSON")
+        .action(ArgAction::Set)
+}
+
+//fp use_body_arg
+pub fn use_body_arg() -> Arg {
+    Arg::new("use_body")
+        .long("use_body")
+        .help("Specify which body to use in the camera")
+        .action(ArgAction::Set)
+}
+
+//fp use_lens_arg
+pub fn use_lens_arg() -> Arg {
+    Arg::new("use_lens")
+        .long("use_lens")
+        .help("Specify which lens to use in the camera")
+        .action(ArgAction::Set)
+}
+
+//fp use_focus_arg
+pub fn use_focus_arg() -> Arg {
+    Arg::new("use_focus")
+        .long("use_focus")
+        .help("Specify the focus distance in mm used for the image, in the camera")
+        .value_parser(value_parser!(f64))
         .action(ArgAction::Set)
 }
 
@@ -87,9 +112,22 @@ where
     build.add_arg(
         camera_arg(required),
         Box::new(move |args, matches| {
-            get_camera_of_db(matches, get_db(args)).and_then(|v| set(args, v))
+            let mut camera = get_camera_of_db(matches, get_db(args))?;
+            if let Some(body) = matches.get_one::<String>("use_body") {
+                camera.set_body(get_db(args).get_body_err(body)?.clone());
+            }
+            if let Some(lens) = matches.get_one::<String>("use_lens") {
+                camera.set_lens(get_db(args).get_lens_err(lens)?.clone());
+            }
+            if let Some(focus) = matches.get_one::<f64>("use_focus") {
+                camera.set_mm_focus_distance(*focus);
+            }
+            set(args, camera)
         }),
     );
+    build.add_arg(use_body_arg(), Box::new(move |_, _| Ok(())));
+    build.add_arg(use_lens_arg(), Box::new(move |_, _| Ok(())));
+    build.add_arg(use_focus_arg(), Box::new(move |_, _| Ok(())));
 }
 
 //mp add_arg_camera_database

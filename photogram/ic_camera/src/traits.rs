@@ -33,12 +33,15 @@ pub trait CameraSensor: std::fmt::Debug {
 /// camera, which will depend on the lens in the camera and the
 /// focusing distance
 pub trait CameraProjection: std::fmt::Debug + Clone {
+    //ap camera_name
     /// Name of the camera, for recording in files
     fn camera_name(&self) -> String;
 
+    //ap lens_name
     /// Name of the lens, for recording in files
     fn lens_name(&self) -> String;
 
+    //ap focus_distance
     /// Get the distance from the sensor that the projection is focused on
     fn focus_distance(&self) -> f64;
 
@@ -58,34 +61,45 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Set a quaternion indicating the orientation of the camera
     fn set_orientation(&mut self, orientation: Quat);
 
+    //mp set_focus_distance
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
 
+    //mp px_abs_xy_to_px_rel_xy
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates
     fn px_abs_xy_to_px_rel_xy(&self, px_xy: Point2D) -> Point2D;
 
+    //mp px_rel_xy_to_px_abs_xy
     /// Map from centre-relative to absolute pixel
     ///
     /// The units are pixels in both coordinates
     fn px_rel_xy_to_px_abs_xy(&self, px_xy: Point2D) -> Point2D;
 
+    //mp px_rel_xy_to_txty - applies lens projection
     /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a world-space tan(x), tan(y)
     ///
     /// This must apply the lens projection
     fn px_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY;
 
+    //mp txty_to_px_rel_xy - applies lens projection
     /// Map a world-space tan(x), tan(y) (i.e. x/z, y/z) to a
     /// centre-relative XY pixel in the frame of the camera
     ///
     /// This must apply the lens projection
     fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D;
 
+    //mp px_rel_xy_to_ry
     /// Map an actual centre-relative XY pixel in the frame of the
     /// camera to a Roll/Yaw
     fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw;
+
+    //mp ry_frame_to_ry_camera
+    /// Apply the lens projection to a frame RY to generate a RY
+    /// relative to the camera in world space
+    fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw;
 
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)

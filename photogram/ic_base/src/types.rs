@@ -218,6 +218,13 @@ impl RollYaw {
         }
     }
 
+    //cp of_yaw
+    pub fn of_yaw(yaw: f64) -> Self {
+        let tan_yaw = yaw.tan();
+        let roll = (0.0, 1.0);
+        Self { roll, tan_yaw }
+    }
+
     //cp from_roll_yaw
     // Deprecated
     pub fn from_roll_yaw(sin_roll: f64, cos_roll: f64, yaw: f64) -> Self {
