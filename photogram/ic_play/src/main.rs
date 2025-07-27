@@ -6,7 +6,7 @@
 
 //a Imports
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use star_catalog::Catalog;
+use star_catalog::{Catalog, StarFilter};
 
 use ic_base::json;
 use ic_base::Result;
@@ -236,6 +236,13 @@ fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //fp update_star_mapping_cmd
 fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    cmd_args
+        .catalog
+        .as_mut()
+        .unwrap()
+        .set_filter(StarFilter::brighter_than(brightness));
+
     //cb Show the star mappings
     let close_enough = cmd_args.closeness;
     let within = cmd_args.within;
@@ -256,13 +263,12 @@ fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     let brightness = cmd_args.search_brightness;
     let within = cmd_args.within;
+
     cmd_args
         .catalog
         .as_mut()
         .unwrap()
-        .retain(move |s, _n| s.brighter_than(brightness));
-    cmd_args.catalog.as_mut().unwrap().sort();
-    cmd_args.catalog.as_mut().unwrap().derive_data();
+        .set_filter(StarFilter::brighter_than(brightness));
 
     //cb Show the star mappings
     let close_enough = cmd_args.closeness;
@@ -324,9 +330,7 @@ fn find_stars_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
         .catalog
         .as_mut()
         .unwrap()
-        .retain(move |s, _n| s.brighter_than(brightness));
-    cmd_args.catalog.as_mut().unwrap().sort();
-    cmd_args.catalog.as_mut().unwrap().derive_data();
+        .set_filter(StarFilter::brighter_than(brightness));
 
     let orientation = cmd_args.mapping.find_orientation_from_triangles(
         cmd_args.catalog.as_ref().unwrap(),
