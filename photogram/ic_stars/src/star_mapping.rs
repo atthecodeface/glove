@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use star_catalog::{Catalog, CatalogIndex, Subcube};
 
 use ic_base::json;
-use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
+use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::CameraProjection;
 use ic_camera::{CalibrationMapping, CameraInstance};
 use ic_image::ImagePt;
@@ -59,7 +59,7 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
     let mut closest = None;
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {
-            let cv: &[f64; 3] = catalog[*index].vector.as_ref();
+            let cv: &[f64; 3] = catalog[*index].vector();
             let c = v.dot(&(*cv).into());
             if let Some((cc, _)) = closest {
                 if c > cc {
@@ -173,29 +173,44 @@ impl StarMapping {
     }
 
     //mp update_star_mappings
-    /// Return a Vec of the *expected* positions of the stars in the
-    /// calibration on the camera sensor
+    /// Update the stars that the mappings map to, within the catalog
+    ///
+    /// The catalog star has to be within the 'closeness' of its
+    /// mapping, and only mappings within 'within' angles of the
+    /// orientation are allowed to be mapped.
+    ///
+    /// All stars that are *not* mapped here are updated to be unmapped
     pub fn update_star_mappings(
         &mut self,
         catalog: &Catalog,
         camera: &CameraInstance,
         close_enough: f64,
+        within: f64,
     ) -> (usize, f64) {
         let cos_close_enough = close_enough.to_radians().cos();
+        let within = within.to_radians();
         let mut num_unmapped = 0;
         let mut total_error = 0.;
         for i in 0..self.mappings.len() {
+            let (px, py, _, _) = self.mappings[i];
+            let txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+            let ry: RollYaw = txty.into();
             let star_m = self.star_direction(camera, i);
             let mut okay = false;
-            if let Some((err, id)) = closest_star(catalog, star_m) {
-                if err > cos_close_enough {
-                    let star = &catalog[id];
-                    self.mappings[i].3 = star.id;
-                    total_error += (1.0 - err).powi(2);
-                    okay = true;
+            if ry.yaw() > within {
+            } else {
+                let subcube_iter = Subcube::iter_all();
+                if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
+                    if err > cos_close_enough {
+                        let star = &catalog[id];
+                        self.mappings[i].3 = star.id();
+                        total_error += (1.0 - err).powi(2);
+                        okay = true;
+                    }
                 }
             }
             if !okay {
+                self.mappings[i].3 = 0;
                 num_unmapped += 1;
             }
         }
@@ -215,19 +230,21 @@ impl StarMapping {
         for (i, mapping) in self.mappings.iter().enumerate() {
             let star_m = self.star_direction(camera, i);
             let mut okay = false;
-            if let Some((err, id)) = closest_star(catalog, star_m) {
+
+            let subcube_iter = Subcube::of_vector(star_m.as_ref()).iter_range(1);
+            if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
                 if err > cos_close_enough {
                     okay = true;
                     let star = &catalog[id];
-                    let sv: &[f64; 3] = star.vector.as_ref();
+                    let sv: &[f64; 3] = star.vector();
                     let star_pxy = camera.world_xyz_to_px_abs_xy((*sv).into());
                     total_error += (1.0 - err).powi(2);
                     eprintln!(
                         "{i:4} pxy [{}, {}] maps to star {} with magnitude {} - err {:0.2} expected at [{}, {}]",
                         mapping.0,
                         mapping.1,
-                        star.id,
-                        star.mag,
+                        star.id(),
+                        star.magnitude(),
                         err.acos().to_degrees(),
                         star_pxy[0] as isize,
                         star_pxy[1] as isize,
@@ -262,7 +279,7 @@ impl StarMapping {
                     continue;
                 }
                 let star = &catalog[id];
-                let sv: &[f64; 3] = star.vector.as_ref();
+                let sv: &[f64; 3] = star.vector();
                 let star_pxy = camera.world_xyz_to_px_abs_xy((*sv).into());
                 pts.push(star_pxy);
             }
@@ -288,7 +305,8 @@ impl StarMapping {
                     continue;
                 }
                 let star = &catalog[id];
-                let sv: &[f64; 3] = star.vector.as_ref();
+                eprintln!("{star:?}");
+                let sv: &[f64; 3] = star.vector();
                 let sv = [-sv[0], -sv[1], -sv[2]];
                 let map = [mapping.0 as f64, mapping.1 as f64].into();
                 world.push(sv.into());
@@ -315,7 +333,7 @@ impl StarMapping {
         let mut cat_index = vec![];
         for (i, mapping) in self.mappings.iter().enumerate() {
             if let Some(c) = catalog.find_sorted(mapping.3) {
-                if catalog[c].mag < search_brightness {
+                if catalog[c].magnitude() < search_brightness {
                     cat_index.push((i, c));
                 }
             }
@@ -324,13 +342,13 @@ impl StarMapping {
             return Err("Could not find 2 stars that map".into());
         }
         for (i, ci) in &cat_index {
-            let di_m = catalog[*ci].vector.as_ref();
+            let di_m = catalog[*ci].vector();
             let di_c = self.mapped_camera_direction(camera, *i);
             for (j, cj) in &cat_index {
                 if *i == *j {
                     continue;
                 }
-                let dj_m = catalog[*cj].vector.as_ref();
+                let dj_m = catalog[*cj].vector();
                 let dj_c = self.mapped_camera_direction(camera, *j);
                 qs.push((1.0, orientation_mapping(di_m, dj_m, di_c, dj_c).into()));
             }
@@ -410,11 +428,11 @@ impl StarMapping {
         );
         for (n, tri) in candidate_tris.iter().enumerate() {
             let q_m_to_c = orientation_mapping_triangle(
-                catalog[tri.0].vector.as_ref(),
-                catalog[tri.1].vector.as_ref(),
-                catalog[tri.2].vector.as_ref(),
-                mag1_directions_c[1],
+                catalog[tri.0].vector(),
+                catalog[tri.1].vector(),
+                catalog[tri.2].vector(),
                 mag1_directions_c[0],
+                mag1_directions_c[1],
                 mag1_directions_c[2],
             );
 
@@ -427,7 +445,9 @@ impl StarMapping {
                 std::cmp::Ordering::Less => {
                     eprintln!(
                         "{n}: {}, {}, {}",
-                        catalog[tri.1].id, catalog[tri.0].id, catalog[tri.2].id,
+                        catalog[tri.0].id(),
+                        catalog[tri.1].id(),
+                        catalog[tri.2].id(),
                     );
                 }
                 _ => {}
@@ -444,11 +464,11 @@ impl StarMapping {
             catalog.find_star_triangles(subcube_iter, &mag2_angles, closeness as f64);
         for (n, tri) in mag2_candidate_tris.iter().enumerate() {
             let q_m_to_c = orientation_mapping_triangle(
-                catalog[tri.0].vector.as_ref(),
-                catalog[tri.1].vector.as_ref(),
-                catalog[tri.2].vector.as_ref(),
-                mag2_directions_c[1],
+                catalog[tri.0].vector(),
+                catalog[tri.1].vector(),
+                catalog[tri.2].vector(),
                 mag2_directions_c[0],
+                mag2_directions_c[1],
                 mag2_directions_c[2],
             );
 
@@ -480,13 +500,13 @@ impl StarMapping {
                         std::cmp::Ordering::Less => {
                             eprintln!(
                                 "{},{},{} {},{},{} {r} : {}",
-                                catalog[mag1_tri.1].id,
-                                catalog[mag1_tri.0].id,
-                                catalog[mag1_tri.2].id,
-                                catalog[mag2_tri.1].id,
-                                catalog[mag2_tri.0].id,
-                                catalog[mag2_tri.2].id,
-                                catalog[mag2_tri.2].de.to_degrees(),
+                                catalog[mag1_tri.0].id(),
+                                catalog[mag1_tri.1].id(),
+                                catalog[mag1_tri.2].id(),
+                                catalog[mag2_tri.0].id(),
+                                catalog[mag2_tri.1].id(),
+                                catalog[mag2_tri.2].id(),
+                                catalog[mag2_tri.2].de().to_degrees(),
                             );
                         }
                         _ => {}
@@ -506,12 +526,12 @@ impl StarMapping {
         eprintln!("\nThe best match of the candidate triangles:");
         eprintln!(
             "    {}, {}, {}, {}, {}, {},",
-            catalog[tri_mag1.1].id,
-            catalog[tri_mag1.0].id,
-            catalog[tri_mag1.2].id,
-            catalog[tri_mag2.1].id,
-            catalog[tri_mag2.0].id,
-            catalog[tri_mag2.2].id,
+            catalog[tri_mag1.1].id(),
+            catalog[tri_mag1.0].id(),
+            catalog[tri_mag1.2].id(),
+            catalog[tri_mag2.1].id(),
+            catalog[tri_mag2.0].id(),
+            catalog[tri_mag2.2].id(),
         );
         Ok(q_r)
     }
@@ -522,15 +542,21 @@ impl StarMapping {
         catalog: &Catalog,
         camera: &CameraInstance,
         mapped_pts: &mut Vec<ImagePt>,
+        within: f64,
         style: u8,
     ) -> Result<()> {
+        let within = within.to_radians();
         for s in Subcube::iter_all() {
             for index in catalog[s].iter() {
-                let pt: &[f64; 3] = catalog[*index].vector.as_ref();
+                let pt: &[f64; 3] = catalog[*index].vector();
                 let mapped = camera.world_xyz_to_camera_xyz((*pt).into());
-                if mapped[2] < -0.05 {
+                if mapped[2] < -0.01 {
                     let camera_txty: TanXTanY = mapped.into();
-                    mapped_pts.push((camera.camera_txty_to_px_abs_xy(&camera_txty), style).into());
+                    let ry: RollYaw = camera_txty.into();
+                    if ry.yaw() < within {
+                        mapped_pts
+                            .push((camera.camera_txty_to_px_abs_xy(&camera_txty), style).into());
+                    }
                 }
             }
         }
@@ -546,11 +572,11 @@ impl StarMapping {
         style: u8,
         search_brightness: f32,
     ) -> Result<()> {
-        //cb Add (in pink) the Calibration stars that map to a Catalog star
+        //cb Add (in blue) the Calibration stars that map to a Catalog star
         for mapping in &self.mappings {
             if let Some(c) = catalog.find_sorted(mapping.3) {
-                if catalog[c].mag < search_brightness {
-                    let pt: &[f64; 3] = catalog[c].vector.as_ref();
+                if catalog[c].magnitude() < search_brightness {
+                    let pt: &[f64; 3] = catalog[c].vector();
                     let mapped = camera.world_xyz_to_px_abs_xy((*pt).into());
                     mapped_pts.push((mapped, style).into());
                 }
@@ -560,7 +586,7 @@ impl StarMapping {
     }
 
     //mp img_pts_add_mapping_pxy
-    /// Add point for each 'mapping' in this calibration, to mapped_pts vector
+    /// Add (in pink) point for each 'mapping' in this calibration, to mapped_pts vector
     pub fn img_pts_add_mapping_pxy(&self, mapped_pts: &mut Vec<ImagePt>, style: u8) -> Result<()> {
         for (px, py, _mag, _hipp) in self.mappings() {
             mapped_pts.push((*px, *py, style).into());

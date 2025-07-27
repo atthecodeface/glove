@@ -296,7 +296,7 @@ fn find_regions_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
     let ay = (miny + maxy) / 2.0;
     eprintln!("{ax}, {ay}");
     cogs.sort_by_key(|xy| ((xy.0 - ax).powi(2) + (xy.1 - ay).powi(2)) as usize);
-    let mut cogs: Vec<_> = cogs
+    let cogs: Vec<_> = cogs
         .into_iter()
         .map(|(x, y)| (x as isize, y as isize, 5_usize, 0_usize))
         .collect();

@@ -18,6 +18,7 @@ pub use regions::Region;
 
 //a ImagePt
 //tp ImagePt
+#[derive(Debug, Default, Clone, Copy)]
 pub struct ImagePt {
     px: f32,
     py: f32,
@@ -53,11 +54,19 @@ impl std::convert::From<(Point2D, u8)> for ImagePt {
 
 impl ImagePt {
     pub fn draw(&self, img: &mut ImageRgb8) {
-        let (width, color) = match self.style {
-            0 => (10.0, &[255, 0, 255, 255].into()),
-            1 => (20.0, &[0, 255, 255, 255].into()),
-            _ => (30.0, &[125, 125, 125, 255].into()),
+        match self.style {
+            0 => {
+                let color = [255, 0, 255, 255].into();
+                img.draw_cross([self.px as f64, self.py as f64].into(), 10.0, &color);
+            }
+            1 => {
+                let color = [0, 255, 255, 255].into();
+                img.draw_cross([self.px as f64, self.py as f64].into(), 20.0, &color);
+            }
+            _ => {
+                let color = [255, 255, 125, 255].into();
+                img.draw_x([self.px as f64, self.py as f64].into(), 20.0, &color);
+            }
         };
-        img.draw_cross([self.px as f64, self.py as f64].into(), width, color);
     }
 }

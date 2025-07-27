@@ -25,4 +25,17 @@ pub trait Image {
             self.put(cx, cy - s + i, color);
         }
     }
+    fn draw_x(&mut self, p: Point2D, size: f64, color: &Self::Pixel) {
+        let s = size.ceil() as u32;
+        let cx = p[0] as u32;
+        let cy = p[1] as u32;
+        let (w, h) = self.size();
+        if cx + s >= w || cx < s || cy + s >= h || cy < s {
+            return;
+        }
+        for i in 0..(2 * s + 1) {
+            self.put(cx - s + i, cy - s + i, color);
+            self.put(cx + s - i, cy - s + i, color);
+        }
+    }
 }

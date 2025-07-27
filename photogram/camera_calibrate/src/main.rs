@@ -325,7 +325,6 @@ plotted too.
 
 //hi ROLL_PLOT_LONG_HELP
 const ROLL_PLOT_LONG_HELP: &str = "\
-
 Generate a plot for all the mappings of model roll versus world roll
 ";
 
@@ -352,6 +351,7 @@ pub struct CmdArgs {
     use_pts: usize,
     yaw_min: f64,
     yaw_max: f64,
+    poly_degree: usize,
 }
 
 //ip CmdArgs
@@ -395,12 +395,27 @@ impl CmdArgs {
         self.yaw_max = v;
         Ok(())
     }
+    fn set_poly_degree(&mut self, v: usize) -> Result<()> {
+        self.poly_degree = v;
+        Ok(())
+    }
     fn use_pts(&self, mut n: usize) -> usize {
         if self.use_pts != 0 {
             n.min(self.use_pts)
         } else {
             n
         }
+    }
+    fn add_args_poly_degree(build: &mut CommandBuilder<Self>) {
+        ic_cmdline::add_arg_usize(
+            build,
+            "poly_degree",
+            None,
+            "Degree of polynomial to use for the lens calibration (5 for 50mm)",
+            Some("5"),
+            CmdArgs::set_poly_degree,
+            false,
+        );
     }
     fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
         ic_cmdline::add_arg_usize(
@@ -803,6 +818,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
     CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_args_poly_degree(&mut build);
 
     build
 }
@@ -841,13 +857,12 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     //cb Calculate Polynomials for camera-to-world and vice-versa
     // encourage it to go through the origin
-    let poly_degree = 5;
     for _ in 0..10 {
         world_yaws.push(0.);
         camera_yaws.push(0.);
     }
-    let mut wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
-    let mut stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
+    let mut wts = polynomial::min_squares_dyn(cmd_args.poly_degree, &world_yaws, &camera_yaws);
+    let mut stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
     wts[0] = 0.0;
     stw[0] = 0.0;
     let (max_sq_err, max_n, sq_err) =

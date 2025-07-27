@@ -45,6 +45,37 @@ Recalibrate, by starting with the linear lens mapping
 
 # Stars
 
+Find an initial orientation based on six stars
+
+./target/release/ic_play --db nac/camera_db.json -c nac/camera.json --use_body T2i --use_lens '50mm' --use_focus 2000 nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 5.0 --closeness 0.5 find_stars > orient_on_six_stars.json
+
+Find which points map to which stars with a fair degree of inaccuracy
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 star_mapping > stars_on_six_stars.json
+
+Now reorient based on those mappings
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json stars_on_six_stars.json --catalog hipp_bright orient > orient_on_mapped.json
+
+Show the mapped stars with that orientation
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped.json stars_on_six_stars.json --catalog hipp_bright show_star_mapping -r ../../Images/IMG_4924.JPG -w a.png
+
+Remap the stars the show again
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.3 star_mapping > a.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped.json a.json --catalog hipp_bright --search_brightness 6.0 show_star_mapping -r ../../Images/IMG_4924.JPG -w a.png
+
+Now reorient again based on those mappings
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_mapped.json a.json --catalog hipp_bright orient > orient_on_all.json
+
+Remap the stars the show again
+
+./target/release/ic_play --db nac/camera_db.json -c orient_on_all.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.3 star_mapping > a.json
+./target/release/ic_play --db nac/camera_db.json -c orient_on_all.json a.json --catalog hipp_bright --search_brightness 6.0 show_star_mapping -r ../../Images/IMG_4924.JPG -w a.png
+
+
 ./target/release/ic_play --db nac/camera_db.json -c nac/camera_4924_start.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 5.0 --closeness 0.2 find_stars > orient_on_six_stars.json
 ./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json nac/camera_4924_star_mappings.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 star_mapping >  star_mappings_4924_on_six_stars.json
 ./target/release/ic_play --db nac/camera_db.json -c orient_on_six_stars.json star_mappings_4924_on_six_stars.json --catalog hipp_bright --search_brightness 6.0 --closeness 0.2 map_stars > orient_on_mapped_stars.json
