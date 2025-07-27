@@ -340,13 +340,6 @@ fn find_stars_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     )?;
     cmd_args.camera.set_orientation(orientation);
 
-    //cb Show the star mappings
-    let close_enough = cmd_args.closeness;
-    let _ = cmd_args.mapping.show_star_mappings(
-        cmd_args.catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        close_enough,
-    );
     println!("{}", cmd_args.camera.to_json()?);
     Ok(())
 }

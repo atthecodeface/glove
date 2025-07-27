@@ -228,37 +228,37 @@ impl StarMapping {
         let cos_close_enough = close_enough.to_radians().cos();
         let mut total_error = 0.;
         for (i, mapping) in self.mappings.iter().enumerate() {
-            let star_m = self.star_direction(camera, i);
-            let mut okay = false;
-
-            let subcube_iter = Subcube::of_vector(star_m.as_ref()).iter_range(1);
-            if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
-                if err > cos_close_enough {
-                    okay = true;
-                    let star = &catalog[id];
-                    let sv: &[f64; 3] = star.vector();
-                    let star_pxy = camera.world_xyz_to_px_abs_xy((*sv).into());
+            if mapping.3 != 0 {
+                let star_m = self.star_direction(camera, i);
+                if let Some(c) = catalog.find_sorted(mapping.3) {
+                    let star = &catalog[c];
+                    let sv: Point3D = (*star.vector()).into();
+                    let err = sv.dot(&star_m).acos().to_degrees();
+                    let star_pxy = camera.world_xyz_to_px_abs_xy(sv);
                     total_error += (1.0 - err).powi(2);
                     eprintln!(
-                        "{i:4} pxy [{}, {}] maps to star {} with magnitude {} - err {:0.2} expected at [{}, {}]",
+                        "{i:4} pxy [{}, {}] currently maps to {} mag {} with angle err {err:0.2} expected at [{}, {}]",
                         mapping.0,
                         mapping.1,
                         star.id(),
                         star.magnitude(),
-                        err.acos().to_degrees(),
                         star_pxy[0] as isize,
                         star_pxy[1] as isize,
                     );
+                } else {
+                    eprintln!(
+                        "{i:4} pxy [{}, {}] currently maps to id {} which is not in the caalog",
+                        mapping.0, mapping.1, mapping.3
+                    );
                 }
-            }
-            if !okay {
+            } else {
                 eprintln!(
-                    "{i:4} pxy [{}, {}] could not find a close enough star",
+                    "{i:4} pxy [{}, {}] is not currently mapped",
                     mapping.0, mapping.1
                 );
             }
         }
-        eprintln!("\nTotal error {:0.4e}", total_error.sqrt(),);
+        eprintln!("\nTotal error of mapped stars {:0.4e}", total_error.sqrt(),);
     }
 
     //mp get_mapped_stars
@@ -400,18 +400,18 @@ impl StarMapping {
 
         //cb Create angles between first three mag1 stars
         let mag1_angles = [
-            mag1_directions_c[0].dot(&mag1_directions_c[1]).acos(),
             mag1_directions_c[1].dot(&mag1_directions_c[2]).acos(),
             mag1_directions_c[2].dot(&mag1_directions_c[0]).acos(),
+            mag1_directions_c[0].dot(&mag1_directions_c[1]).acos(),
         ];
         let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
         eprintln!("Angles (just using focal length of lens) between first three magnitude '1' stars: {angle_degrees:?}" );
 
         //cb Create angles between first three mag2 stars
         let mag2_angles = [
-            mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
             mag2_directions_c[1].dot(&mag2_directions_c[2]).acos(),
             mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
+            mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
         ];
         let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
         eprintln!( "Angles (just using focal length of lens) between first three magnitude '2' stars: {angle_degrees:?}");
@@ -473,6 +473,22 @@ impl StarMapping {
             );
 
             mag2_candidate_q_m_to_c.push((n, q_m_to_c));
+
+            printed += 1;
+            match printed.cmp(&10) {
+                std::cmp::Ordering::Equal => {
+                    eprintln!("...");
+                }
+                std::cmp::Ordering::Less => {
+                    eprintln!(
+                        "{n}: {}, {}, {}",
+                        catalog[tri.0].id(),
+                        catalog[tri.1].id(),
+                        catalog[tri.2].id(),
+                    );
+                }
+                _ => {}
+            }
         }
 
         //cb Find mag1 that match mag2
@@ -482,7 +498,7 @@ impl StarMapping {
         for (n1, mag1_q_m_to_c) in candidate_q_m_to_c.iter() {
             for (n2, mag2_q_m_to_c) in mag2_candidate_q_m_to_c.iter() {
                 let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
-                let r = q.as_rijk().0;
+                let r = q.as_rijk().0.abs();
                 if r > 0.9995 {
                     let qs = [
                         (1.0, mag1_q_m_to_c.into_array()),
@@ -521,11 +537,11 @@ impl StarMapping {
         mag1_mag2_pairs.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
 
         //cb Generate results
-        let (_r, q_r, tri_mag1, tri_mag2) = mag1_mag2_pairs[0];
+        let (r, q_r, tri_mag1, tri_mag2) = mag1_mag2_pairs[0];
 
         eprintln!("\nThe best match of the candidate triangles:");
         eprintln!(
-            "    {}, {}, {}, {}, {}, {},",
+            "    {}, {}, {}, {}, {}, {}  : {r} {q_r},",
             catalog[tri_mag1.1].id(),
             catalog[tri_mag1.0].id(),
             catalog[tri_mag1.2].id(),
@@ -548,6 +564,9 @@ impl StarMapping {
         let within = within.to_radians();
         for s in Subcube::iter_all() {
             for index in catalog[s].iter() {
+                if !catalog.is_filtered(&catalog[*index], 0) {
+                    continue;
+                }
                 let pt: &[f64; 3] = catalog[*index].vector();
                 let mapped = camera.world_xyz_to_camera_xyz((*pt).into());
                 if mapped[2] < -0.01 {
