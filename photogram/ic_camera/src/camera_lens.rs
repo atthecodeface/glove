@@ -138,6 +138,48 @@ pub fn serialize_lens_name<S: serde::Serializer>(
     serializer.serialize_str(lens.name())
 }
 
+//a LensPolys
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LensPolys {
+    /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
+    ///
+    /// fractional Y-offset is px_rel_y / (px_height/2) / pixel_aspect_ratio
+    stw_poly: Vec<f64>,
+
+    /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
+    wts_poly: Vec<f64>,
+}
+
+//ip Default for LensPolys
+impl std::default::Default for LensPolys {
+    fn default() -> Self {
+        Self {
+            stw_poly: vec![0., 1.],
+            wts_poly: vec![0., 1.],
+        }
+    }
+}
+
+//ip LensPolys
+impl LensPolys {
+    //mp set_polys
+    pub fn set_polys(&mut self, stw_poly: Vec<f64>, wts_poly: Vec<f64>) {
+        self.stw_poly = stw_poly;
+        self.wts_poly = wts_poly;
+    }
+    //cp set_stw_poly
+    pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
+        self.stw_poly = poly.to_vec();
+        self
+    }
+
+    //cp set_wts_poly
+    pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
+        self.wts_poly = poly.to_vec();
+        self
+    }
+}
+
 //a CameraLens
 //tp CameraLens
 /// A lens projection implemented with a polynomial mapping of
@@ -179,24 +221,19 @@ pub struct CameraLens {
     /// Focal length of the lens
     mm_focal_length: f64,
 
-    /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
-    ///
-    /// fractional Y-offset is px_rel_y / (px_height/2) / pixel_aspect_ratio
-    stw_poly: Vec<f64>,
-
-    /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
-    wts_poly: Vec<f64>,
+    /// Polynomials defining the lens
+    #[serde(flatten)]
+    polys: LensPolys,
 }
 
 //ip Default for CameraLens
 impl std::default::Default for CameraLens {
     fn default() -> Self {
         Self {
-            name: String::new(),
-            aliases: Vec::new(),
+            name: "".into(),
+            aliases: vec![],
             mm_focal_length: 20.,
-            stw_poly: vec![0., 1.],
-            wts_poly: vec![0., 1.],
+            polys: LensPolys::default(),
         }
     }
 }
@@ -219,8 +256,7 @@ impl CameraLens {
 
     //mp set_polys
     pub fn set_polys(&mut self, stw_poly: Vec<f64>, wts_poly: Vec<f64>) {
-        self.stw_poly = stw_poly;
-        self.wts_poly = wts_poly;
+        self.polys.set_polys(stw_poly, wts_poly);
     }
 
     //cp set_name
@@ -237,13 +273,13 @@ impl CameraLens {
 
     //cp set_stw_poly
     pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
-        self.stw_poly = poly.to_vec();
+        self.polys = self.polys.set_stw_poly(poly);
         self
     }
 
     //cp set_wts_poly
     pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
-        self.wts_poly = poly.to_vec();
+        self.polys = self.polys.set_wts_poly(poly);
         self
     }
 
@@ -275,13 +311,13 @@ impl CameraLens {
     //ap sensor_to_world
     #[inline]
     pub fn sensor_to_world(&self, tan: f64) -> f64 {
-        self.stw_poly.calc(tan)
+        self.polys.stw_poly.calc(tan)
     }
 
     //ap world_to_sensor
     #[inline]
     pub fn world_to_sensor(&self, tan: f64) -> f64 {
-        self.wts_poly.calc(tan)
+        self.polys.wts_poly.calc(tan)
     }
     //zz All done
 }

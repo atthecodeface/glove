@@ -356,6 +356,7 @@ pub struct CmdArgs {
     camera: CameraInstance,
     write_camera: Option<String>,
     write_mapping: Option<String>,
+    write_polys: Option<String>,
 
     mapping: Option<CalibrationMapping>,
     star_catalog: Option<Box<Catalog>>,
@@ -408,6 +409,10 @@ impl CmdArgs {
     }
     fn set_write_mapping(&mut self, s: &str) -> Result<()> {
         self.write_mapping = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_write_polys(&mut self, s: &str) -> Result<()> {
+        self.write_polys = Some(s.to_owned());
         Ok(())
     }
     fn set_use_pts(&mut self, v: usize) -> Result<()> {
@@ -473,6 +478,19 @@ impl CmdArgs {
             "File to write a derived mapping JSON to",
             None,
             CmdArgs::set_write_mapping,
+            false,
+        );
+    }
+
+    //fp add_args_write_polys
+    fn add_args_write_polys(build: &mut CommandBuilder<Self>) {
+        ic_cmdline::add_arg_string(
+            build,
+            "write_polys",
+            None,
+            "File to write a derived polynomials JSON to",
+            None,
+            CmdArgs::set_write_polys,
             false,
         );
     }
@@ -610,6 +628,18 @@ impl CmdArgs {
     fn output_star_mapping(&self) -> Result<()> {
         let s = self.star_mapping.clone().to_json()?;
         if let Some(filename) = &self.write_mapping {
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        } else {
+            println!("{s}");
+        }
+        Ok(())
+    }
+
+    //mp output_polynomials
+    fn output_polynomials(&self) -> Result<()> {
+        let s = "";
+        if let Some(filename) = &self.write_polys {
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
         } else {
@@ -968,6 +998,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
     CmdArgs::add_args_num_pts(&mut build);
     CmdArgs::add_args_poly_degree(&mut build);
+    CmdArgs::add_args_write_polys(&mut build);
 
     build
 }
@@ -1346,7 +1377,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
 
     let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
     let mut cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
-    CmdArgs::add_args_write_camera(&mut cd_build);
+    CmdArgs::add_args_write_mapping(&mut cd_build);
     build.add_subcommand(cd_build);
 
     let ms_command = Command::new("update_star_mapping").about(
@@ -1362,6 +1393,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         CmdArgs::set_within,
         false,
     );
+    CmdArgs::add_args_write_mapping(&mut ms_build);
     build.add_subcommand(ms_build);
     build
 }
