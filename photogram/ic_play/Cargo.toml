@@ -27,13 +27,5 @@ anyhow.workspace = true
 serde_json.workspace = true
 
 [[bin]]
-name="ic_play"
-path = "src/main.rs"
-
-# [[bin]]
-# name="calibrate_from_grid"
-# path = "src/calibrate_from_grid.rs"
-
-[[bin]]
 name="mls_loci"
 path = "src/model_line_set_loci.rs"
