@@ -199,16 +199,19 @@
 //!
 
 //a Imports
-use clap::Command;
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
+use star_catalog::{Catalog, StarFilter};
 
+use ic_base::json;
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection};
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
-use ic_image::{Color, Image, ImageRgb8};
+use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
+use ic_stars::StarMapping;
 
 //a Help messages
 //hi CAMERA_CALIBRATE_LONG_HELP
@@ -337,6 +340,10 @@ of those mappings with *green* crosses.
 
 It also draws black crosses for a range of (x,y,0) values.";
 
+//hi STAR_LONG_HELP
+const STAR_LONG_HELP: &str = "\
+This set of commands allows for calibrating a lens using a photograph taken of stars.";
+
 //a Types
 //a CmdArgs
 //tp CmdArgs
@@ -345,16 +352,25 @@ pub struct CmdArgs {
     verbose: bool,
     cdb: Option<CameraDatabase>,
     camera: CameraInstance,
+
     mapping: Option<CalibrationMapping>,
+    star_catalog: Option<Box<Catalog>>,
+    star_mapping: StarMapping,
+
     read_img: Vec<String>,
     write_img: Option<String>,
+
     use_pts: usize,
     yaw_min: f64,
     yaw_max: f64,
     poly_degree: usize,
+    closeness: f64,
+    within: f64,
+    search_brightness: f32,
+    match_brightness: f32,
 }
 
-//ip CmdArgs
+//ip CmdArgs - setters and getters
 impl CmdArgs {
     fn get_cdb(&self) -> &CameraDatabase {
         self.cdb.as_ref().unwrap()
@@ -451,6 +467,56 @@ impl CmdArgs {
             CmdArgs::set_yaw_max,
             false,
         );
+    }
+
+    //fp arg_star_mapping
+    fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+        let filename = matches.get_one::<String>("star_mapping").unwrap();
+        let json = json::read_file(filename)?;
+        args.star_mapping = StarMapping::from_json(&json)?;
+        Ok(())
+    }
+
+    //fp arg_star_catalog
+    fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+        let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
+        let mut catalog = Catalog::load_catalog(&catalog_filename, 99.)?;
+        catalog.derive_data();
+        args.star_catalog = Some(Box::new(catalog));
+        Ok(())
+    }
+
+    fn set_star_mapping(&mut self, star_mapping: StarMapping) -> Result<()> {
+        self.star_mapping = star_mapping;
+        Ok(())
+    }
+    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.closeness = closeness;
+        Ok(())
+    }
+    fn set_within(&mut self, within: f64) -> Result<()> {
+        self.within = within;
+        Ok(())
+    }
+    fn set_match_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.match_brightness = brightness;
+        Ok(())
+    }
+    fn set_search_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.search_brightness = brightness;
+        Ok(())
+    }
+
+    pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
+        if self.read_img.is_empty() || self.write_img.is_none() {
+            return Ok(());
+        }
+        let mut img = ImageRgb8::read_image(&self.read_img[0])?;
+        for p in pts {
+            p.draw(&mut img);
+        }
+        img.write(self.write_img.as_ref().unwrap())?;
+        Ok(())
     }
 
     fn show_step<S>(&self, s: S)
@@ -1119,10 +1185,233 @@ fn main() -> Result<()> {
     build.add_subcommand(yaw_plot_cmd());
     build.add_subcommand(roll_plot_cmd());
     build.add_subcommand(grid_image_cmd());
+    build.add_subcommand(star_cmd());
     //    build.add_subcommand(grid_calibrate_cmd());
 
     let mut cmd_args = CmdArgs::default();
     let mut command: CommandSet<_> = build.into();
     command.execute_env(&mut cmd_args)?;
+    Ok(())
+}
+
+//a Star subcommand with its commands
+fn star_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("star")
+        .about("Calibrate a lens using stars")
+        .long_about(STAR_LONG_HELP);
+
+    let mut build = CommandBuilder::<CmdArgs>::new(command, None);
+
+    ic_cmdline::add_arg_f64(&mut build,
+                                    "closeness", None,
+                                    "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+                                    Some("0.2"),
+                                    CmdArgs::set_closeness,
+                                    false);
+    build.add_arg(
+        Arg::new("star_mapping")
+            .required(true)
+            .help("File mapping sensor coordinates to catalog identifiers")
+            .action(ArgAction::Set),
+        Box::new(CmdArgs::arg_star_mapping),
+    );
+
+    build.add_arg(
+        Arg::new("star_catalog")
+            .long("catalog")
+            .required(true)
+            .help("Star catalog to use")
+            .action(ArgAction::Set),
+        Box::new(CmdArgs::arg_star_catalog),
+    );
+
+    ic_cmdline::add_arg_f32(
+        &mut build,
+        "search_brightness",
+        None,
+        "Maximum brightness of stars to use for searching with triangles",
+        Some("5.0"),
+        CmdArgs::set_search_brightness,
+        false,
+    );
+
+    ic_cmdline::add_arg_f32(
+        &mut build,
+        "match_brightness",
+        None,
+        "Maximum brightness of stars to use for matching all the points",
+        Some("5.0"),
+        CmdArgs::set_match_brightness,
+        false,
+    );
+
+    let sm_command =
+        Command::new("show_star_mapping").about("Show the mapped stars onto an output image");
+    let mut sm_build = CommandBuilder::new(sm_command, Some(Box::new(show_star_mapping_cmd)));
+    ic_cmdline::image::add_arg_read_img(&mut sm_build, CmdArgs::set_read_img, false, Some(1));
+    ic_cmdline::image::add_arg_write_img(&mut sm_build, CmdArgs::set_write_img, false);
+    ic_cmdline::add_arg_f64(
+        &mut sm_build,
+        "within",
+        None,
+        "Only use catalog stars Within this angle (degrees) for mapping",
+        Some("15"),
+        CmdArgs::set_within,
+        false,
+    );
+    build.add_subcommand(sm_build);
+
+    let fs_command = Command::new("find_stars").about("Find stars from an image");
+    let mut fs_build =
+        CommandBuilder::new(fs_command, Some(Box::new(star_find_initial_from_image_cmd)));
+    build.add_subcommand(fs_build);
+
+    let ms_command = Command::new("orient").about("Orient on all of the mapped stars");
+    let ms_build = CommandBuilder::new(ms_command, Some(Box::new(star_orient_on_mapped_cmd)));
+    build.add_subcommand(ms_build);
+
+    let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
+    let cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
+    build.add_subcommand(cd_build);
+
+    let ms_command = Command::new("update_star_mapping").about(
+        "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
+    );
+    let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
+    ic_cmdline::add_arg_f64(
+        &mut ms_build,
+        "within",
+        None,
+        "Only use catalog stars Within this angle (degrees) for mapping",
+        Some("15"),
+        CmdArgs::set_within,
+        false,
+    );
+    build.add_subcommand(ms_build);
+    build
+}
+
+//fp star_find_initial_from_image_cmd
+fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    let closeness = cmd_args.closeness;
+
+    cmd_args
+        .star_catalog
+        .as_mut()
+        .unwrap()
+        .set_filter(StarFilter::brighter_than(brightness));
+
+    let orientation = cmd_args.star_mapping.find_orientation_from_triangles(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        brightness,
+        closeness.to_radians() as f32,
+    )?;
+    cmd_args.camera.set_orientation(orientation);
+
+    println!("{}", cmd_args.camera.to_json()?);
+    Ok(())
+}
+
+//fp star_orient_on_mapped_cmd
+fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    let orientation = cmd_args
+        .star_mapping
+        .find_orientation_from_all_mapped_stars(
+            cmd_args.star_catalog.as_ref().unwrap(),
+            &cmd_args.camera,
+            brightness,
+        )?;
+    cmd_args.camera.set_orientation(orientation);
+    println!("{}", cmd_args.camera.to_json()?);
+    Ok(())
+}
+
+//fp update_star_mapping_cmd
+fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    cmd_args
+        .star_catalog
+        .as_mut()
+        .unwrap()
+        .set_filter(StarFilter::brighter_than(brightness));
+
+    //cb Show the star mappings
+    let close_enough = cmd_args.closeness;
+    let within = cmd_args.within;
+    let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+        within,
+    );
+    eprintln!(
+        "{num_unmapped} stars were not mapped, total error of mapped stars {total_error:.4e}"
+    );
+    println!("{}", cmd_args.star_mapping.clone().to_json()?);
+    Ok(())
+}
+
+//fp show_star_mapping_cmd
+fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    let brightness = cmd_args.search_brightness;
+    let within = cmd_args.within;
+
+    cmd_args
+        .star_catalog
+        .as_mut()
+        .unwrap()
+        .set_filter(StarFilter::brighter_than(brightness));
+
+    //cb Show the star mappings
+    let close_enough = cmd_args.closeness;
+    let _ = cmd_args.star_mapping.show_star_mappings(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
+
+    let mut mapped_pts = vec![];
+
+    // Mark the points with blue-grey crosses
+    cmd_args.star_mapping.img_pts_add_cat_index(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        1,
+        cmd_args.search_brightness,
+    )?;
+
+    // Mark the mapping points with small purple crosses
+    cmd_args
+        .star_mapping
+        .img_pts_add_mapping_pxy(&mut mapped_pts, 0)?;
+
+    // Mark the catalog stars with yellow Xs
+    cmd_args.star_mapping.img_pts_add_catalog_stars(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        &mut mapped_pts,
+        within,
+        2,
+    )?;
+
+    cmd_args.draw_image(&mapped_pts)?;
+
+    Ok(())
+}
+
+//fp calibrate_desc_cmd
+fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+    //cb Show the star mappings
+    let close_enough = cmd_args.closeness;
+    let pc = cmd_args.star_mapping.create_calibration_mapping(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        close_enough,
+    );
+    println!("{}", pc.to_json()?);
     Ok(())
 }

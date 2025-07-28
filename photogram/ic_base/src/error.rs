@@ -16,6 +16,8 @@ pub enum Error {
     Image(#[from] image::ImageError),
     #[error("{0}")]
     IOError(#[from] std::io::Error),
+    #[error("{0}")]
+    StarError(#[from] star_catalog::Error),
 }
 
 impl<P: std::fmt::Display> std::convert::From<(P, std::io::Error)> for Error {
