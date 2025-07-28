@@ -127,6 +127,9 @@ pub trait SphericalLensProjection: std::fmt::Debug {
 //a Imports
 use serde::{Deserialize, Serialize};
 
+use ic_base::json;
+use ic_base::Result;
+
 use crate::polynomial::CalcPoly;
 
 //a Serialization
@@ -134,7 +137,7 @@ use crate::polynomial::CalcPoly;
 pub fn serialize_lens_name<S: serde::Serializer>(
     lens: &CameraLens,
     serializer: S,
-) -> Result<S::Ok, S::Error> {
+) -> std::result::Result<S::Ok, S::Error> {
     serializer.serialize_str(lens.name())
 }
 
@@ -160,13 +163,34 @@ impl std::default::Default for LensPolys {
     }
 }
 
+//ip Display for LensPolys
+impl std::fmt::Display for LensPolys {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "wts:{:0.4?}; stw:{:0.4?}",
+            self.wts_poly, self.stw_poly
+        )
+    }
+}
+
 //ip LensPolys
 impl LensPolys {
-    //mp set_polys
-    pub fn set_polys(&mut self, stw_poly: Vec<f64>, wts_poly: Vec<f64>) {
-        self.stw_poly = stw_poly;
-        self.wts_poly = wts_poly;
+    //cp new
+    pub fn new(stw_poly: Vec<f64>, wts_poly: Vec<f64>) -> Self {
+        Self { stw_poly, wts_poly }
     }
+
+    //cp from_json`
+    pub fn from_json(json: &str) -> Result<Self> {
+        json::from_json("lens polynomials", json)
+    }
+
+    //mp to_json
+    pub fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string_pretty(self)?)
+    }
+
     //cp set_stw_poly
     pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
         self.stw_poly = poly.to_vec();
@@ -240,7 +264,7 @@ impl std::default::Default for CameraLens {
 
 //ip Display for CameraLens
 impl std::fmt::Display for CameraLens {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "{}: {}mm", self.name, self.mm_focal_length)
     }
 }
@@ -255,8 +279,13 @@ impl CameraLens {
     }
 
     //mp set_polys
-    pub fn set_polys(&mut self, stw_poly: Vec<f64>, wts_poly: Vec<f64>) {
-        self.polys.set_polys(stw_poly, wts_poly);
+    pub fn set_polys(&mut self, polys: LensPolys) {
+        self.polys = polys;
+    }
+
+    //ap polys
+    pub fn polys(&self) -> &LensPolys {
+        &self.polys
     }
 
     //cp set_name

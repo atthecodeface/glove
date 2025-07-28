@@ -5,7 +5,7 @@ pub mod utils;
 mod camera_body;
 mod camera_lens;
 pub use camera_body::{serialize_body_name, CameraBody};
-pub use camera_lens::{serialize_lens_name, CameraLens};
+pub use camera_lens::{serialize_lens_name, CameraLens, LensPolys};
 
 mod camera_database;
 pub use camera_database::CameraDatabase;

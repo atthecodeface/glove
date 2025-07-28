@@ -4,7 +4,7 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
 use ic_base::{json, Error, Point3D, Quat, Result};
-use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance};
+use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, LensPolys};
 use ic_project::Project;
 
 use crate::builder::{CommandArgs, CommandBuilder};
@@ -102,6 +102,14 @@ pub fn use_focus_arg() -> Arg {
         .action(ArgAction::Set)
 }
 
+//fp use_polys_arg
+pub fn use_polys_arg() -> Arg {
+    Arg::new("use_polys")
+        .long("use_polys")
+        .help("Specify an override for the lens polynomials in the camera")
+        .action(ArgAction::Set)
+}
+
 //mp add_arg_camera
 pub fn add_arg_camera<C, F, G>(build: &mut CommandBuilder<C>, get_db: G, set: F, required: bool)
 where
@@ -122,12 +130,20 @@ where
             if let Some(focus) = matches.get_one::<f64>("use_focus") {
                 camera.set_mm_focus_distance(*focus);
             }
+            if let Some(polys) = matches.get_one::<String>("use_polys") {
+                let json = json::read_file(polys)?;
+                let lens_polys: LensPolys = json::from_json("lens polynomials", &json)?;
+                let mut lens = camera.lens().clone();
+                lens.set_polys(lens_polys);
+                camera.set_lens(lens);
+            }
             set(args, camera)
         }),
     );
     build.add_arg(use_body_arg(), Box::new(move |_, _| Ok(())));
     build.add_arg(use_lens_arg(), Box::new(move |_, _| Ok(())));
     build.add_arg(use_focus_arg(), Box::new(move |_, _| Ok(())));
+    build.add_arg(use_polys_arg(), Box::new(move |_, _| Ok(())));
 }
 
 //mp add_arg_camera_database

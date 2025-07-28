@@ -209,7 +209,7 @@ use ic_base::json;
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection};
+use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection, LensPolys};
 use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
@@ -638,7 +638,7 @@ impl CmdArgs {
 
     //mp output_polynomials
     fn output_polynomials(&self) -> Result<()> {
-        let s = "";
+        let s = self.camera.lens().polys().to_json()?;
         if let Some(filename) = &self.write_polys {
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
@@ -718,8 +718,10 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     eprintln!("cal camera {}", cmd_args.camera);
     let mut camera = cmd_args.camera.clone();
     let mut camera_lens = camera.lens().clone();
-    camera_lens.set_polys(stw, wts);
+    camera_lens.set_polys(LensPolys::new(stw, wts));
     camera.set_lens(camera_lens);
+    cmd_args.camera = camera;
+    let camera = &cmd_args.camera;
 
     //    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
@@ -1049,8 +1051,11 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
     let avg_sq_err = sq_err / (world_yaws.len() as f64);
 
-    eprintln!(" \"wts_poly\": {wts:?},");
-    eprintln!(" \"stw_poly\": {stw:?},");
+    let mut camera_lens = cmd_args.camera.lens().clone();
+    camera_lens.set_polys(LensPolys::new(stw, wts));
+    cmd_args.camera.set_lens(camera_lens);
+
+    cmd_args.output_polynomials()?;
     eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
     Ok(())
