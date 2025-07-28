@@ -366,8 +366,7 @@ pub struct CmdArgs {
     poly_degree: usize,
     closeness: f64,
     within: f64,
-    search_brightness: f32,
-    match_brightness: f32,
+    brightness: f32,
 }
 
 //ip CmdArgs - setters and getters
@@ -415,7 +414,7 @@ impl CmdArgs {
         self.poly_degree = v;
         Ok(())
     }
-    fn use_pts(&self, mut n: usize) -> usize {
+    fn use_pts(&self, n: usize) -> usize {
         if self.use_pts != 0 {
             n.min(self.use_pts)
         } else {
@@ -486,10 +485,6 @@ impl CmdArgs {
         Ok(())
     }
 
-    fn set_star_mapping(&mut self, star_mapping: StarMapping) -> Result<()> {
-        self.star_mapping = star_mapping;
-        Ok(())
-    }
     fn set_closeness(&mut self, closeness: f64) -> Result<()> {
         self.closeness = closeness;
         Ok(())
@@ -498,12 +493,8 @@ impl CmdArgs {
         self.within = within;
         Ok(())
     }
-    fn set_match_brightness(&mut self, brightness: f32) -> Result<()> {
-        self.match_brightness = brightness;
-        Ok(())
-    }
-    fn set_search_brightness(&mut self, brightness: f32) -> Result<()> {
-        self.search_brightness = brightness;
+    fn set_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.brightness = brightness;
         Ok(())
     }
 
@@ -1060,8 +1051,6 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
-    let yaw_range_min = cmd_args.yaw_min.to_radians();
-    let yaw_range_max = cmd_args.yaw_max.to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
@@ -1227,21 +1216,11 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
 
     ic_cmdline::add_arg_f32(
         &mut build,
-        "search_brightness",
+        "brightness",
         None,
-        "Maximum brightness of stars to use for searching with triangles",
+        "Maximum brightness of stars to use in the catalog",
         Some("5.0"),
-        CmdArgs::set_search_brightness,
-        false,
-    );
-
-    ic_cmdline::add_arg_f32(
-        &mut build,
-        "match_brightness",
-        None,
-        "Maximum brightness of stars to use for matching all the points",
-        Some("5.0"),
-        CmdArgs::set_match_brightness,
+        CmdArgs::set_brightness,
         false,
     );
 
@@ -1262,7 +1241,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(sm_build);
 
     let fs_command = Command::new("find_stars").about("Find stars from an image");
-    let mut fs_build =
+    let fs_build =
         CommandBuilder::new(fs_command, Some(Box::new(star_find_initial_from_image_cmd)));
     build.add_subcommand(fs_build);
 
@@ -1293,19 +1272,17 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
 
 //fp star_find_initial_from_image_cmd
 fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    let brightness = cmd_args.search_brightness;
     let closeness = cmd_args.closeness;
 
     cmd_args
         .star_catalog
         .as_mut()
         .unwrap()
-        .set_filter(StarFilter::brighter_than(brightness));
+        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
     let orientation = cmd_args.star_mapping.find_orientation_from_triangles(
         cmd_args.star_catalog.as_ref().unwrap(),
         &cmd_args.camera,
-        brightness,
         closeness.to_radians() as f32,
     )?;
     cmd_args.camera.set_orientation(orientation);
@@ -1316,7 +1293,7 @@ fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //fp star_orient_on_mapped_cmd
 fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    let brightness = cmd_args.search_brightness;
+    let brightness = cmd_args.brightness;
     let orientation = cmd_args
         .star_mapping
         .find_orientation_from_all_mapped_stars(
@@ -1331,12 +1308,11 @@ fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //fp update_star_mapping_cmd
 fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    let brightness = cmd_args.search_brightness;
     cmd_args
         .star_catalog
         .as_mut()
         .unwrap()
-        .set_filter(StarFilter::brighter_than(brightness));
+        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
     //cb Show the star mappings
     let close_enough = cmd_args.closeness;
@@ -1356,22 +1332,18 @@ fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //fp show_star_mapping_cmd
 fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    let brightness = cmd_args.search_brightness;
     let within = cmd_args.within;
 
     cmd_args
         .star_catalog
         .as_mut()
         .unwrap()
-        .set_filter(StarFilter::brighter_than(brightness));
+        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
     //cb Show the star mappings
-    let close_enough = cmd_args.closeness;
-    let _ = cmd_args.star_mapping.show_star_mappings(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        close_enough,
-    );
+    let _ = cmd_args
+        .star_mapping
+        .show_star_mappings(cmd_args.star_catalog.as_ref().unwrap(), &cmd_args.camera);
 
     let mut mapped_pts = vec![];
 
@@ -1381,7 +1353,7 @@ fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
         &cmd_args.camera,
         &mut mapped_pts,
         1,
-        cmd_args.search_brightness,
+        cmd_args.brightness,
     )?;
 
     // Mark the mapping points with small purple crosses

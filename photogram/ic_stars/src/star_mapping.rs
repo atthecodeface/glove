@@ -219,13 +219,7 @@ impl StarMapping {
 
     //mp show_star_mappings
     /// Shoe them *given* an orientation
-    pub fn show_star_mappings(
-        &self,
-        catalog: &Catalog,
-        camera: &CameraInstance,
-        close_enough: f64,
-    ) {
-        let cos_close_enough = close_enough.to_radians().cos();
+    pub fn show_star_mappings(&self, catalog: &Catalog, camera: &CameraInstance) {
         let mut total_error = 0.;
         for (i, mapping) in self.mappings.iter().enumerate() {
             if mapping.3 != 0 {
@@ -365,7 +359,6 @@ impl StarMapping {
         &mut self,
         catalog: &Catalog,
         camera: &CameraInstance,
-        search_brightness: f32,
         closeness: f32,
     ) -> Result<Quat> {
         //cb Create list of mag1_stars and directions to them, and mag2 if possible
