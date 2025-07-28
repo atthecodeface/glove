@@ -206,3 +206,32 @@ pub fn add_arg_f64<C, F>(
         Box::new(move |args, matches| set(args, *matches.get_one::<f64>(tag).unwrap())),
     );
 }
+//mp add_arg_string
+pub fn add_arg_string<C, F>(
+    build: &mut CommandBuilder<C>,
+    tag: &'static str,
+    short: Option<char>,
+    help: &'static str,
+    default_value: Option<&'static str>,
+    set: F,
+    required: bool,
+) where
+    C: CommandArgs<Error = Error>,
+    F: Fn(&mut C, &str) -> Result<()> + 'static,
+{
+    let mut arg = Arg::new(tag)
+        .long(tag)
+        .help(help)
+        .required(required)
+        .action(ArgAction::Set);
+    if let Some(short) = short {
+        arg = arg.short(short);
+    }
+    if let Some(default_value) = default_value {
+        arg = arg.default_value(default_value);
+    }
+    build.add_arg(
+        arg,
+        Box::new(move |args, matches| set(args, matches.get_one::<String>(tag).unwrap().as_ref())),
+    );
+}

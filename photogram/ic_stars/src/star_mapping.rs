@@ -286,25 +286,21 @@ impl StarMapping {
         &self,
         catalog: &Catalog,
         camera: &CameraInstance,
-        close_enough: f64,
     ) -> CalibrationMapping {
-        let cos_close_enough = close_enough.to_radians().cos();
-
         let mut world = vec![];
         let mut sensor = vec![];
         for (i, mapping) in self.mappings.iter().enumerate() {
-            let star_m = self.star_direction(camera, i);
-            if let Some((err, id)) = closest_star(catalog, star_m) {
-                if err < cos_close_enough {
-                    continue;
+            if mapping.3 != 0 {
+                let star_m = self.star_direction(camera, i);
+                if let Some(c) = catalog.find_sorted(mapping.3) {
+                    let star = &catalog[c];
+                    eprintln!("{star:?}");
+                    let sv: &[f64; 3] = star.vector();
+                    let sv = [-sv[0], -sv[1], -sv[2]];
+                    let map = [mapping.0 as f64, mapping.1 as f64].into();
+                    world.push(sv.into());
+                    sensor.push(map);
                 }
-                let star = &catalog[id];
-                eprintln!("{star:?}");
-                let sv: &[f64; 3] = star.vector();
-                let sv = [-sv[0], -sv[1], -sv[2]];
-                let map = [mapping.0 as f64, mapping.1 as f64].into();
-                world.push(sv.into());
-                sensor.push(map);
             }
         }
         CalibrationMapping::new(world, sensor)

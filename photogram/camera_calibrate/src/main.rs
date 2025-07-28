@@ -199,6 +199,8 @@
 //!
 
 //a Imports
+use std::io::Write;
+
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
 use star_catalog::{Catalog, StarFilter};
@@ -352,6 +354,8 @@ pub struct CmdArgs {
     verbose: bool,
     cdb: Option<CameraDatabase>,
     camera: CameraInstance,
+    write_camera: Option<String>,
+    write_mapping: Option<String>,
 
     mapping: Option<CalibrationMapping>,
     star_catalog: Option<Box<Catalog>>,
@@ -398,6 +402,14 @@ impl CmdArgs {
         self.write_img = Some(s.to_owned());
         Ok(())
     }
+    fn set_write_camera(&mut self, s: &str) -> Result<()> {
+        self.write_camera = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_write_mapping(&mut self, s: &str) -> Result<()> {
+        self.write_mapping = Some(s.to_owned());
+        Ok(())
+    }
     fn set_use_pts(&mut self, v: usize) -> Result<()> {
         self.use_pts = v;
         Ok(())
@@ -414,6 +426,20 @@ impl CmdArgs {
         self.poly_degree = v;
         Ok(())
     }
+
+    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.closeness = closeness;
+        Ok(())
+    }
+    fn set_within(&mut self, within: f64) -> Result<()> {
+        self.within = within;
+        Ok(())
+    }
+    fn set_brightness(&mut self, brightness: f32) -> Result<()> {
+        self.brightness = brightness;
+        Ok(())
+    }
+
     fn use_pts(&self, n: usize) -> usize {
         if self.use_pts != 0 {
             n.min(self.use_pts)
@@ -421,6 +447,37 @@ impl CmdArgs {
             n
         }
     }
+}
+
+//ip CmdArgs - Argument handling
+impl CmdArgs {
+    //fp add_args_write_camera
+    fn add_args_write_camera(build: &mut CommandBuilder<Self>) {
+        ic_cmdline::add_arg_string(
+            build,
+            "write_camera",
+            None,
+            "File to write the final camera JSON to",
+            None,
+            CmdArgs::set_write_camera,
+            false,
+        );
+    }
+
+    //fp add_args_write_mapping
+    fn add_args_write_mapping(build: &mut CommandBuilder<Self>) {
+        ic_cmdline::add_arg_string(
+            build,
+            "write_mapping",
+            None,
+            "File to write a derived mapping JSON to",
+            None,
+            CmdArgs::set_write_mapping,
+            false,
+        );
+    }
+
+    //fp add_args_poly_degree
     fn add_args_poly_degree(build: &mut CommandBuilder<Self>) {
         ic_cmdline::add_arg_usize(
             build,
@@ -432,6 +489,8 @@ impl CmdArgs {
             false,
         );
     }
+
+    //fp add_args_num_pts
     fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
         ic_cmdline::add_arg_usize(
             build,
@@ -443,6 +502,8 @@ impl CmdArgs {
             false,
         );
     }
+
+    //fp add_args_yaw_min_max
     fn add_args_yaw_min_max(
         build: &mut CommandBuilder<Self>,
         min: Option<&'static str>,
@@ -484,20 +545,11 @@ impl CmdArgs {
         args.star_catalog = Some(Box::new(catalog));
         Ok(())
     }
+}
 
-    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
-        self.closeness = closeness;
-        Ok(())
-    }
-    fn set_within(&mut self, within: f64) -> Result<()> {
-        self.within = within;
-        Ok(())
-    }
-    fn set_brightness(&mut self, brightness: f32) -> Result<()> {
-        self.brightness = brightness;
-        Ok(())
-    }
-
+//ip CmdArgs - Operations
+impl CmdArgs {
+    //mp draw_image
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
             return Ok(());
@@ -510,6 +562,7 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mp show_step
     fn show_step<S>(&self, s: S)
     where
         S: std::fmt::Display,
@@ -518,6 +571,8 @@ impl CmdArgs {
             eprintln!("\n{s}");
         }
     }
+
+    //mp if_verbose
     fn if_verbose<F>(&self, f: F)
     where
         F: FnOnce(),
@@ -525,6 +580,42 @@ impl CmdArgs {
         if self.verbose {
             f()
         }
+    }
+
+    //mp output_camera
+    fn output_camera(&self) -> Result<()> {
+        let s = self.camera.to_json()?;
+        if let Some(filename) = &self.write_camera {
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        } else {
+            println!("{s}");
+        }
+        Ok(())
+    }
+
+    //mp output_mapping
+    fn output_mapping(&self) -> Result<()> {
+        let s = self.mapping.as_ref().unwrap().clone().to_json()?;
+        if let Some(filename) = &self.write_mapping {
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        } else {
+            println!("{s}");
+        }
+        Ok(())
+    }
+
+    //mp output_star_mapping
+    fn output_star_mapping(&self) -> Result<()> {
+        let s = self.star_mapping.clone().to_json()?;
+        if let Some(filename) = &self.write_mapping {
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        } else {
+            println!("{s}");
+        }
+        Ok(())
     }
 }
 
@@ -684,6 +775,7 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_args_write_camera(&mut build);
 
     build
 }
@@ -746,8 +838,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     });
 
     cmd_args.camera.set_position(best_cam_pos);
-
-    println!("{}", cmd_args.camera.to_json()?);
+    cmd_args.output_camera()?;
     Ok(())
 }
 
@@ -760,6 +851,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_args_write_camera(&mut build);
 
     build
 }
@@ -860,7 +952,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         eprintln!("{camera}");
     });
 
-    println!("{}", camera.to_json()?);
+    cmd_args.output_camera()?;
     Ok(())
 }
 
@@ -1240,17 +1332,21 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     );
     build.add_subcommand(sm_build);
 
-    let fs_command = Command::new("find_stars").about("Find stars from an image");
-    let fs_build =
+    let fs_command = Command::new("find_stars")
+        .about("Find initial camera orientation using six stars from an image");
+    let mut fs_build =
         CommandBuilder::new(fs_command, Some(Box::new(star_find_initial_from_image_cmd)));
+    CmdArgs::add_args_write_camera(&mut fs_build);
     build.add_subcommand(fs_build);
 
     let ms_command = Command::new("orient").about("Orient on all of the mapped stars");
-    let ms_build = CommandBuilder::new(ms_command, Some(Box::new(star_orient_on_mapped_cmd)));
+    let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(star_orient_on_mapped_cmd)));
+    CmdArgs::add_args_write_camera(&mut ms_build);
     build.add_subcommand(ms_build);
 
     let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
-    let cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
+    let mut cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
+    CmdArgs::add_args_write_camera(&mut cd_build);
     build.add_subcommand(cd_build);
 
     let ms_command = Command::new("update_star_mapping").about(
@@ -1287,7 +1383,7 @@ fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     )?;
     cmd_args.camera.set_orientation(orientation);
 
-    println!("{}", cmd_args.camera.to_json()?);
+    cmd_args.output_camera()?;
     Ok(())
 }
 
@@ -1302,7 +1398,7 @@ fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
             brightness,
         )?;
     cmd_args.camera.set_orientation(orientation);
-    println!("{}", cmd_args.camera.to_json()?);
+    cmd_args.output_camera()?;
     Ok(())
 }
 
@@ -1326,7 +1422,7 @@ fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     eprintln!(
         "{num_unmapped} stars were not mapped, total error of mapped stars {total_error:.4e}"
     );
-    println!("{}", cmd_args.star_mapping.clone().to_json()?);
+    cmd_args.output_star_mapping()?;
     Ok(())
 }
 
@@ -1377,13 +1473,10 @@ fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 
 //fp calibrate_desc_cmd
 fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
-    //cb Show the star mappings
-    let close_enough = cmd_args.closeness;
-    let pc = cmd_args.star_mapping.create_calibration_mapping(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        close_enough,
-    );
-    println!("{}", pc.to_json()?);
+    let pc = cmd_args
+        .star_mapping
+        .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap(), &cmd_args.camera);
+    cmd_args.set_mapping(pc)?;
+    cmd_args.output_mapping()?;
     Ok(())
 }
