@@ -203,12 +203,23 @@ impl StarMapping {
                 if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
                     let star = &catalog[id];
                     let sv: Point3D = (*star.vector()).into();
+                    let model_pxy = camera.world_xyz_to_px_abs_xy(sv);
                     let model_txty = camera.world_xyz_to_camera_txty(sv);
                     let model_ry: RollYaw = model_txty.into();
+                    let mut close_enough = false;
                     let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
                     if relative_yaw_error.abs() < yaw_max_rel_error
                         && (model_ry.roll() - cam_ry.roll()).abs() < close_enough_roll.to_radians()
                     {
+                        close_enough = true;
+                    }
+                    let dpx = model_pxy[0] - (px as f64);
+                    let dpy = model_pxy[1] - (py as f64);
+                    let dx2 = dpx * dpx + dpy * dpy;
+                    if dx2 < 20.0 {
+                        close_enough = true;
+                    }
+                    if close_enough {
                         self.mappings[i].3 = star.id();
                         total_error += (1.0 - err).powi(2);
                         okay = true;
@@ -234,33 +245,45 @@ impl StarMapping {
                 if let Some(c) = catalog.find_sorted(mapping.3) {
                     let star = &catalog[c];
                     let sv: Point3D = (*star.vector()).into();
+                    let (px, py, _, _) = self.mappings[i];
+                    let cam_txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+                    let cam_ry: RollYaw = cam_txty.into();
+                    let model_txty = camera.world_xyz_to_camera_txty(sv);
+                    let model_ry: RollYaw = model_txty.into();
+                    let yaw_error = model_ry.yaw() - cam_ry.yaw();
+                    let roll_error = model_ry.roll() - cam_ry.roll();
+                    let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
+
                     let err = sv.dot(&star_m).acos().to_degrees();
                     let star_pxy = camera.world_xyz_to_px_abs_xy(sv);
                     total_error += (1.0 - err).powi(2);
                     num_mapped += 1;
-                    eprintln!(
-                        "{i:4} pxy [{}, {}] currently maps to {} mag {} with angle err {err:0.2} expected at [{}, {}]",
+                    println!(
+                        "{i:4} pxy [{}, {}] currently maps to {} mag {} with yaw err {:0.2} rel {:0.4e} roll err {:0.2} expected at [{}, {}]",
                         mapping.0,
                         mapping.1,
                         star.id(),
                         star.magnitude(),
+                        yaw_error.to_degrees(),
+                        relative_yaw_error,
+                        roll_error.to_degrees(),
                         star_pxy[0] as isize,
                         star_pxy[1] as isize,
                     );
                 } else {
-                    eprintln!(
+                    println!(
                         "{i:4} pxy [{}, {}] currently maps to id {} which is not in the caalog",
                         mapping.0, mapping.1, mapping.3
                     );
                 }
             } else {
-                eprintln!(
+                println!(
                     "{i:4} pxy [{}, {}] is not currently mapped",
                     mapping.0, mapping.1
                 );
             }
         }
-        eprintln!(
+        println!(
             "\nTotal error of {num_mapped} mapped stars {:0.4e}, mean error {:0.4e} ",
             total_error.sqrt(),
             total_error.sqrt() / (num_mapped as f64),
@@ -294,19 +317,14 @@ impl StarMapping {
     }
 
     //mp create_calibration_mapping
-    pub fn create_calibration_mapping(
-        &self,
-        catalog: &Catalog,
-        camera: &CameraInstance,
-    ) -> CalibrationMapping {
+    pub fn create_calibration_mapping(&self, catalog: &Catalog) -> CalibrationMapping {
         let mut world = vec![];
         let mut sensor = vec![];
         for (i, mapping) in self.mappings.iter().enumerate() {
             if mapping.3 != 0 {
-                let star_m = self.star_direction(camera, i);
                 if let Some(c) = catalog.find_sorted(mapping.3) {
                     let star = &catalog[c];
-                    eprintln!("{star:?}");
+                    // eprintln!("{star:?}");
                     let sv: &[f64; 3] = star.vector();
                     let sv = [-sv[0], -sv[1], -sv[2]];
                     let map = [mapping.0 as f64, mapping.1 as f64].into();
@@ -570,12 +588,12 @@ impl StarMapping {
                 }
                 let pt: &[f64; 3] = catalog[*index].vector();
                 let mapped = camera.world_xyz_to_camera_xyz((*pt).into());
-                if mapped[2] < -0.01 {
+                if mapped[2] < -0.02 {
                     let camera_txty: TanXTanY = mapped.into();
                     let ry: RollYaw = camera_txty.into();
                     if ry.yaw() < within {
-                        mapped_pts
-                            .push((camera.camera_txty_to_px_abs_xy(&camera_txty), style).into());
+                        let pxy = camera.world_xyz_to_px_abs_xy((*pt).into());
+                        mapped_pts.push((pxy, style).into());
                     }
                 }
             }

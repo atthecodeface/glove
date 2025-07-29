@@ -276,13 +276,21 @@ impl CameraProjection for CameraInstance {
         ry_camera.into()
     }
 
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
+    /// Map an actual frame RY to a world RY
     fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw {
         RollYaw::from_roll_tan_yaw(
             ry_frame.sin_roll(),
             ry_frame.cos_roll(),
             self.lens.sensor_to_world(ry_frame.tan_yaw()),
+        )
+    }
+
+    /// Map an actual world RY to a camera frame RY
+    fn ry_camera_to_ry_frame(&self, ry_world: RollYaw) -> RollYaw {
+        RollYaw::from_roll_tan_yaw(
+            ry_world.sin_roll(),
+            ry_world.cos_roll(),
+            self.lens.world_to_sensor(ry_world.tan_yaw()),
         )
     }
 

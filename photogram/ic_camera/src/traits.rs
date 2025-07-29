@@ -101,6 +101,11 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// relative to the camera in world space
     fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw;
 
+    //mp ry_world_to_ry_frame
+    /// Apply the lens projection to a world RY to generate a RY
+    /// relative to the frame
+    fn ry_camera_to_ry_frame(&self, ry_world: RollYaw) -> RollYaw;
+
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
     fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY;

@@ -1056,9 +1056,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     loop {
         let n = world_yaws.len();
         wts = polynomial::min_squares_dyn(cmd_args.poly_degree, &world_yaws, &camera_yaws);
-        stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
         wts[0] = 0.0;
-        stw[0] = 0.0;
         let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
             polynomial::error_in_y_stats(&wts, &world_yaws, &camera_yaws);
         let sd_err = variance_err.sqrt();
@@ -1076,6 +1074,16 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             camera_yaws.remove(*n);
         }
     }
+
+    let mut sensor_yaw = vec![];
+    let mut world_yaw = vec![];
+    for i in 0..400 {
+        let w = (i as f64) / 400.0 * 1.1 * yaw_range_max;
+        world_yaw.push(w);
+        sensor_yaw.push(wts.calc(w));
+    }
+    stw = polynomial::min_squares_dyn(7, &sensor_yaw, &world_yaw);
+    stw[0] = 0.0;
 
     let mut camera_lens = cmd_args.camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));
@@ -1114,6 +1122,16 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let yaw_range_max = cmd_args.yaw_max.to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
+    let f_world = |w: f64, s: f64| (w.to_degrees(), s.to_degrees());
+    let f_rel_error = |w: f64, s: f64| (w.to_degrees(), s / w - 1.0);
+    let plot_f = {
+        if true {
+            f_world
+        } else {
+            f_rel_error
+        }
+    };
+
     //cb Set up HashMaps and collections
     let (_nps, pms) = setup(calibrate);
 
@@ -1143,10 +1161,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             quad += 2;
         }
         if cam_ry.yaw() > yaw_range_min {
-            pts[quad].push((
-                cam_ry.yaw().to_degrees(),
-                model_ry.yaw() / cam_ry.yaw() - 1.0,
-            ));
+            pts[quad].push(plot_f(model_ry.yaw(), cam_ry.yaw()));
         }
     }
 
@@ -1155,8 +1170,75 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     use tagu::prelude::*;
     let theme = poloto::render::Theme::light();
     let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:3px;}"));
+    let theme = theme.append(tagu::build::raw(
+        ".poloto_text.poloto_legend{font-size:10px;}",
+    ));
+    let theme = theme.append(tagu::build::raw(
+        ".poloto_line{stroke-dasharray:2;stroke-width:2;}",
+    ));
 
     let plots = poloto::build::origin();
+
+    let mut wts_poly_pts = vec![];
+    for i in 0..=100 {
+        let model_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
+        let model_ry = RollYaw::of_yaw(model_yaw);
+        let frame_ry = camera.ry_camera_to_ry_frame(model_ry);
+        wts_poly_pts.push(plot_f(model_yaw, frame_ry.yaw()));
+    }
+
+    let mut stw_poly_pts = vec![];
+    for i in 0..=400 {
+        let frame_yaw = (i as f64) / 400.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
+        let frame_ry = RollYaw::of_yaw(frame_yaw);
+        let model_ry = camera.ry_frame_to_ry_camera(frame_ry);
+        if model_ry.yaw() > yaw_range_min && model_ry.yaw() < yaw_range_max {
+            stw_poly_pts.push(plot_f(model_ry.yaw(), frame_yaw));
+        }
+    }
+
+    let mut linear_pts = vec![];
+    let mut stereographic_pts = vec![];
+    let mut equiangular_pts = vec![];
+    let mut equisolid_pts = vec![];
+    let mut orthographic_pts = vec![];
+    for i in 0..=100 {
+        let world_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
+        linear_pts.push(plot_f(world_yaw, world_yaw));
+        stereographic_pts.push(plot_f(world_yaw, ((world_yaw / 2.0).tan() * 2.0).atan()));
+        equiangular_pts.push(plot_f(world_yaw, world_yaw.atan()));
+        equisolid_pts.push(plot_f(world_yaw, (world_yaw / 2.0).sin().atan()));
+        orthographic_pts.push(plot_f(world_yaw, world_yaw.sin().atan()));
+    }
+
+    let plot = poloto::build::plot("Linear");
+    let plot = plot.line(linear_pts.iter());
+    let plots = plots.chain(plot);
+
+    let plot = poloto::build::plot("Stereographic");
+    let plot = plot.line(stereographic_pts.iter());
+    let plots = plots.chain(plot);
+
+    let plot = poloto::build::plot("Equiangular");
+    let plot = plot.line(equiangular_pts.iter());
+    let plots = plots.chain(plot);
+
+    //    let plot = poloto::build::plot("Equisolid");
+    //    let plot = plot.line(equisolid_pts.iter());
+    //    let plots = plots.chain(plot);
+
+    let plot = poloto::build::plot("Orthographic");
+    let plot = plot.line(orthographic_pts.iter());
+    let plots = plots.chain(plot);
+
+    let plot = poloto::build::plot("Camera wts mapping");
+    let plot = plot.line(wts_poly_pts.iter());
+    let plots = plots.chain(plot);
+
+    let plot = poloto::build::plot("Camera stw mapping");
+    let plot = plot.line(stw_poly_pts.iter());
+    let plots = plots.chain(plot);
+
     let plot = poloto::build::plot("Quad x>0 y>0");
     let plot = plot.scatter(pts[0].iter());
     let plots = plots.chain(plot);
@@ -1170,20 +1252,10 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let plot = plot.scatter(pts[3].iter());
     let plots = plots.chain(plot);
 
-    let mut wts_poly_pts = vec![];
-    for i in 0..=100 {
-        let frame_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
-        let frame_ry = RollYaw::of_yaw(frame_yaw);
-        let model_ry = camera.ry_frame_to_ry_camera(frame_ry);
-        wts_poly_pts.push((frame_yaw.to_degrees(), model_ry.yaw() / frame_yaw - 1.0));
-    }
-    let plot = poloto::build::plot("Camera mapping");
-    let plot = plot.scatter(wts_poly_pts.iter());
-    let plots = plots.chain(plot);
-
     let plot_initial = poloto::frame_build()
         .data(plots)
-        .build_and_label(("Relative Yaw Error v Yaw", "Yaw / °", "(w-c)/w"))
+        // .build_and_label(("Relative Yaw Error v Yaw", "World yaw / °", "(w-c)/w"))
+        .build_and_label(("Sensor yaw", "World yaw / °", "(w-c)/w"))
         .append_to(poloto::header().append(theme))
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
@@ -1423,7 +1495,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     );
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
     ic_cmdline::add_arg_f64(
-        &mut build,
+        &mut ms_build,
         "yaw_error",
         None,
         "Maximum relative error in yaw to permit a closest match for",
@@ -1544,6 +1616,20 @@ fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
         2,
     )?;
 
+    // Draw a circle of radius yaw_max
+    for yaw in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] {
+        let yaw = (yaw as f64).to_radians();
+        for i in 0..3600 {
+            let angle = ((i as f64) / 10.0).to_radians();
+            let s = angle.sin();
+            let c = angle.cos();
+            let world_ry = RollYaw::from_roll_yaw(s, c, yaw);
+            let world_txty = world_ry.into();
+            let pxy = cmd_args.camera.camera_txty_to_px_abs_xy(&world_txty);
+            mapped_pts.push((pxy, 3).into());
+        }
+    }
+
     cmd_args.draw_image(&mapped_pts)?;
 
     Ok(())
@@ -1553,7 +1639,7 @@ fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
 fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     let pc = cmd_args
         .star_mapping
-        .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap(), &cmd_args.camera);
+        .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());
     cmd_args.set_mapping(pc)?;
     cmd_args.output_mapping()?;
     Ok(())
