@@ -327,7 +327,7 @@ impl Ray {
 //a Tests
 //ft test_ray
 #[test]
-fn test_ray() -> Result<(), String> {
+fn test_ray() -> crate::Result<()> {
     let r0 = Ray::default()
         .set_start([1., 0., 0.].into())
         .set_direction([-1., 0., 0.].into())
@@ -343,7 +343,7 @@ fn test_ray() -> Result<(), String> {
 
 //ft test_ray2
 #[test]
-fn test_ray2() -> Result<(), String> {
+fn test_ray2() -> crate::Result<()> {
     use crate::json;
     let ray_4060: Ray = json::from_json(
         "Ray 1",
@@ -387,7 +387,7 @@ fn test_ray2() -> Result<(), String> {
 
 //ft test_ray3
 #[test]
-fn test_ray3() -> Result<(), String> {
+fn test_ray3() -> crate::Result<()> {
     use crate::json;
     let ray_4060: Ray = json::from_json(
         "Ray 1",

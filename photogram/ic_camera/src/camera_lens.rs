@@ -141,6 +141,74 @@ pub fn serialize_lens_name<S: serde::Serializer>(
     serializer.serialize_str(lens.name())
 }
 
+//a Constants for standard lens types
+pub const LP_EQUISOLID: ([f64; 7], [f64; 7]) = (
+    [
+        0.0,
+        0.4997494436465786,
+        0.0020654588006436825,
+        -0.06921000644797459,
+        0.009734337567351758,
+        0.0066660778247751296,
+        -0.00195744882512372,
+    ],
+    [
+        0.0,
+        1.987718482123455,
+        0.24317235918715596,
+        -0.9263885319232941,
+        7.228096961975098,
+        -12.305673584342003,
+        9.575857356190681,
+    ],
+);
+
+pub const LP_STEREOGRAPHIC: ([f64; 7], [f64; 7]) = (
+    [
+        0.0,
+        0.9963953544211108,
+        0.03322175214998424,
+        -0.3751326131168753,
+        0.22490806435234845,
+        -0.05375197483226657,
+        0.0039019385731080547,
+    ],
+    [
+        0.0,
+        1.001861843658844,
+        -0.01971894665621221,
+        0.33221330866217613,
+        -0.15700633265078068,
+        0.19460456538945436,
+        -0.028680953895673156,
+    ],
+);
+
+pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
+    [
+        0.0,
+        0.9998419532785192,
+        0.0013162735849618912,
+        -0.33344507962465286,
+        -0.03441770374774933,
+        0.3506765365600586,
+        -0.28652286529541016,
+        0.1022481769323349,
+        -0.014303863048553467,
+    ],
+    [
+        0.0,
+        0.9982260325923562,
+        0.03605024516582489,
+        0.02770853042602539,
+        1.3280048370361328,
+        -3.0907912254333496,
+        4.449044227600098,
+        -3.244915008544922,
+        1.0540469884872437,
+    ],
+);
+
 //a LensPolys
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LensPolys {
@@ -176,6 +244,27 @@ impl std::fmt::Display for LensPolys {
 
 //ip LensPolys
 impl LensPolys {
+    //cp stereographic
+    pub fn stereographic() -> Self {
+        let wts_poly = LP_STEREOGRAPHIC.0.to_vec();
+        let stw_poly = LP_STEREOGRAPHIC.1.to_vec();
+        Self::new(stw_poly, wts_poly)
+    }
+
+    //cp equisolid
+    pub fn equisolid() -> Self {
+        let wts_poly = LP_EQUISOLID.0.to_vec();
+        let stw_poly = LP_EQUISOLID.1.to_vec();
+        Self::new(stw_poly, wts_poly)
+    }
+
+    //cp equiangular
+    pub fn equiangular() -> Self {
+        let wts_poly = LP_EQUIANGULAR.0.to_vec();
+        let stw_poly = LP_EQUIANGULAR.1.to_vec();
+        Self::new(stw_poly, wts_poly)
+    }
+
     //cp new
     pub fn new(stw_poly: Vec<f64>, wts_poly: Vec<f64>) -> Self {
         Self { stw_poly, wts_poly }
@@ -201,6 +290,16 @@ impl LensPolys {
     pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
         self.wts_poly = poly.to_vec();
         self
+    }
+
+    //ap stw_poly
+    pub fn stw_poly(&self) -> &[f64] {
+        &self.stw_poly
+    }
+
+    //ap wts_poly
+    pub fn wts_poly(&self) -> &[f64] {
+        &self.wts_poly
     }
 }
 
