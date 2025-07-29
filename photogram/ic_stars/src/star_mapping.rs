@@ -184,25 +184,31 @@ impl StarMapping {
         &mut self,
         catalog: &Catalog,
         camera: &CameraInstance,
-        close_enough: f64,
+        close_enough_roll: f64,
+        yaw_max_rel_error: f64,
         within: f64,
     ) -> (usize, f64) {
-        let cos_close_enough = close_enough.to_radians().cos();
         let within = within.to_radians();
         let mut num_unmapped = 0;
         let mut total_error = 0.;
         for i in 0..self.mappings.len() {
             let (px, py, _, _) = self.mappings[i];
-            let txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
-            let ry: RollYaw = txty.into();
+            let cam_txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+            let cam_ry: RollYaw = cam_txty.into();
             let star_m = self.star_direction(camera, i);
             let mut okay = false;
-            if ry.yaw() > within {
+            if cam_ry.yaw() > within {
             } else {
                 let subcube_iter = Subcube::iter_all();
                 if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
-                    if err > cos_close_enough {
-                        let star = &catalog[id];
+                    let star = &catalog[id];
+                    let sv: Point3D = (*star.vector()).into();
+                    let model_txty = camera.world_xyz_to_camera_txty(sv);
+                    let model_ry: RollYaw = model_txty.into();
+                    let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
+                    if relative_yaw_error.abs() < yaw_max_rel_error
+                        && (model_ry.roll() - cam_ry.roll()).abs() < close_enough_roll.to_radians()
+                    {
                         self.mappings[i].3 = star.id();
                         total_error += (1.0 - err).powi(2);
                         okay = true;
@@ -221,6 +227,7 @@ impl StarMapping {
     /// Shoe them *given* an orientation
     pub fn show_star_mappings(&self, catalog: &Catalog, camera: &CameraInstance) {
         let mut total_error = 0.;
+        let mut num_mapped = 0;
         for (i, mapping) in self.mappings.iter().enumerate() {
             if mapping.3 != 0 {
                 let star_m = self.star_direction(camera, i);
@@ -230,6 +237,7 @@ impl StarMapping {
                     let err = sv.dot(&star_m).acos().to_degrees();
                     let star_pxy = camera.world_xyz_to_px_abs_xy(sv);
                     total_error += (1.0 - err).powi(2);
+                    num_mapped += 1;
                     eprintln!(
                         "{i:4} pxy [{}, {}] currently maps to {} mag {} with angle err {err:0.2} expected at [{}, {}]",
                         mapping.0,
@@ -252,7 +260,11 @@ impl StarMapping {
                 );
             }
         }
-        eprintln!("\nTotal error of mapped stars {:0.4e}", total_error.sqrt(),);
+        eprintln!(
+            "\nTotal error of {num_mapped} mapped stars {:0.4e}, mean error {:0.4e} ",
+            total_error.sqrt(),
+            total_error.sqrt() / (num_mapped as f64),
+        );
     }
 
     //mp get_mapped_stars

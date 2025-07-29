@@ -27,8 +27,8 @@
         {
             "name": "Canon EOS REBEL T2i",
             "aliases": ["T2i"],
-            "px_centre":[2592.0,1728.0],
-//            "px_centre":[2670.0,1726.0],
+           "px_centre":[2592.0,1728.0],
+//            "px_centre":[2580.0,1728.0],
             "px_width":5184.0,
             "px_height":3456.0,
             "flip_y":true,
@@ -63,7 +63,7 @@
         {
             "name":"EF15mm f/2.8 Fisheye linear",
             "aliases": ["15mm linear"],
-            "mm_focal_length":14.7,
+            "mm_focal_length":15.0,
             "stw_poly":[0.0, 1.0],
             "wts_poly":[0.0, 1.0]
         },

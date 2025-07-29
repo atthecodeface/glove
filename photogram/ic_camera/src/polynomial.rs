@@ -137,10 +137,16 @@ pub fn min_squares_dyn(p: usize, xs: &[f64], ys: &[f64]) -> Vec<f64> {
     res
 }
 
-//fp square_error_in_y
-pub fn square_error_in_y(poly: &[f64], xs: &[f64], ys: &[f64]) -> (f64, usize, f64) {
+//fp error_in_y_stats
+/// Run through a set of XY data, and compare it with the polynomial
+///
+/// Calculate the maximum sq_error in the y; the point which has that
+/// maximum error, the total square error, the  error, and the
+/// variance
+pub fn error_in_y_stats(poly: &[f64], xs: &[f64], ys: &[f64]) -> (f64, usize, f64, f64, f64) {
     assert_eq!(ys.len(), xs.len());
-    let mut sq_err = 0.0;
+    let mut total_sq_err = 0.0;
+    let mut total_err = 0.0;
     let mut max_sq_err: f64 = 0.0;
     let mut max_n = 0;
     for (n, (x, y)) in xs.iter().zip(ys.iter()).enumerate() {
@@ -149,8 +155,27 @@ pub fn square_error_in_y(poly: &[f64], xs: &[f64], ys: &[f64]) -> (f64, usize, f
         if dy2 > max_sq_err {
             max_n = n;
         }
+        total_err += dy;
         max_sq_err = max_sq_err.max(dy * dy);
-        sq_err += dy * dy;
+        total_sq_err += dy * dy;
     }
-    (max_sq_err, max_n, sq_err)
+    let n = xs.len() as f64;
+    let mean_err = total_err / n;
+    let mean_sq_err = total_sq_err / n;
+    let variance_err = mean_sq_err - mean_sq_err.powi(2);
+    (max_sq_err, max_n, mean_err, mean_sq_err, variance_err)
+}
+
+//fp find_outliers
+/// Find points that are outside a range
+pub fn find_outliers(poly: &[f64], xs: &[f64], ys: &[f64], dmin: f64, dmax: f64) -> Vec<usize> {
+    assert_eq!(ys.len(), xs.len());
+    let mut outliers = vec![];
+    for (n, (x, y)) in xs.iter().zip(ys.iter()).enumerate() {
+        let py = poly.calc(*x);
+        if *y < py - dmin || *y > py + dmax {
+            outliers.push(n)
+        };
+    }
+    outliers
 }

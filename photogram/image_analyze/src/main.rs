@@ -264,12 +264,13 @@ fn find_regions_cmd() -> (Command, SubCmdFn) {
 fn find_regions_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &mut base_args.images[0];
     let _bg = base_args.bg_color.unwrap_or(Color::black());
-    let min_brightness = 0.6;
+    let min_brightness = 0.05;
     // let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
     let regions =
         Region::regions_of_image(&img, &|c| c.brightness() > min_brightness, &|c0, c1| {
-            (c0.brightness() - c1.brightness()).abs() < 0.1
+            (c0.brightness() - c1.brightness()).abs() < 0.6
         });
+    let regions: Vec<_> = regions.into_iter().filter(|r| r.count() > 15).collect();
     let cogs: Vec<(Color, (f64, f64))> =
         regions.into_iter().map(|x| (x.color(), x.cog())).collect();
 

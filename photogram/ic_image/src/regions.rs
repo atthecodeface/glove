@@ -54,6 +54,12 @@ impl Region {
         self.color.color_eq(color)
     }
 
+    //ap count
+    /// Return the number of pixels in the region
+    pub fn count(&self) -> usize {
+        self.n
+    }
+
     //ap cog
     /// Return the centre of gravity of the region
     ///

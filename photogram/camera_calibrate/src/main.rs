@@ -370,6 +370,7 @@ pub struct CmdArgs {
     yaw_max: f64,
     poly_degree: usize,
     closeness: f64,
+    yaw_error: f64,
     within: f64,
     brightness: f32,
 }
@@ -434,6 +435,10 @@ impl CmdArgs {
 
     fn set_closeness(&mut self, closeness: f64) -> Result<()> {
         self.closeness = closeness;
+        Ok(())
+    }
+    fn set_yaw_error(&mut self, yaw_error: f64) -> Result<()> {
+        self.yaw_error = yaw_error;
         Ok(())
     }
     fn set_within(&mut self, within: f64) -> Result<()> {
@@ -696,9 +701,12 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let poly_degree = 5;
     let wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
     let stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
-    let (max_sq_err, max_n, sq_err) =
-        polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
-    let avg_sq_err = sq_err / (world_yaws.len() as f64);
+
+    let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
+        polynomial::error_in_y_stats(&wts, &world_yaws, &camera_yaws);
+    let sd_err = variance_err.sqrt();
+    let max_err = max_sq_err.sqrt();
+    eprintln!(" err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
 
     if false {
         for i in 0..world_yaws.len() {
@@ -713,7 +721,6 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
     eprintln!(" wts: {wts:?}");
     eprintln!(" stw: {stw:?}");
-    eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
     eprintln!("cal camera {}", cmd_args.camera);
     let mut camera = cmd_args.camera.clone();
@@ -1043,20 +1050,38 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         world_yaws.push(0.);
         camera_yaws.push(0.);
     }
-    let mut wts = polynomial::min_squares_dyn(cmd_args.poly_degree, &world_yaws, &camera_yaws);
-    let mut stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
-    wts[0] = 0.0;
-    stw[0] = 0.0;
-    let (max_sq_err, max_n, sq_err) =
-        polynomial::square_error_in_y(&wts, &world_yaws, &camera_yaws);
-    let avg_sq_err = sq_err / (world_yaws.len() as f64);
+
+    let mut wts;
+    let mut stw;
+    loop {
+        let n = world_yaws.len();
+        wts = polynomial::min_squares_dyn(cmd_args.poly_degree, &world_yaws, &camera_yaws);
+        stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
+        wts[0] = 0.0;
+        stw[0] = 0.0;
+        let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
+            polynomial::error_in_y_stats(&wts, &world_yaws, &camera_yaws);
+        let sd_err = variance_err.sqrt();
+        let max_err = max_sq_err.sqrt();
+        eprintln!(" {n} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
+
+        let dmin = sd_err * 3.0;
+        let dmax = sd_err * 3.0;
+        let outliers = polynomial::find_outliers(&wts, &world_yaws, &camera_yaws, dmin, dmax);
+        if outliers.is_empty() {
+            break;
+        }
+        for n in outliers.iter().rev() {
+            world_yaws.remove(*n);
+            camera_yaws.remove(*n);
+        }
+    }
 
     let mut camera_lens = cmd_args.camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));
     cmd_args.camera.set_lens(camera_lens);
 
     cmd_args.output_polynomials()?;
-    eprintln!(" avg sq_err: {avg_sq_err:.4e} max_sq_err {max_sq_err:.4e} max_n {max_n}");
 
     Ok(())
 }
@@ -1080,6 +1105,10 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
 fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
+    let mut camera_linear = camera.clone();
+    let mut lens_linear = camera.lens().clone();
+    lens_linear.set_polys(LensPolys::default());
+    camera_linear.set_lens(lens_linear);
 
     let yaw_range_min = cmd_args.yaw_min.to_radians();
     let yaw_range_max = cmd_args.yaw_max.to_radians();
@@ -1091,8 +1120,8 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Calculate Error in yaw/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
     for pm in pms.mappings().iter().take(num_pts) {
-        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
-        let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+        let model_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
+        let cam_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
         let model_ry: RollYaw = model_txty.into();
         let cam_ry: RollYaw = cam_txty.into();
@@ -1122,7 +1151,11 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
 
     //cb Plot 4 graphs for quadrants and one for the polynomial
-    use poloto::build::PlotIterator;
+    use poloto::prelude::*;
+    use tagu::prelude::*;
+    let theme = poloto::render::Theme::light();
+    let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:3px;}"));
+
     let plots = poloto::build::origin();
     let plot = poloto::build::plot("Quad x>0 y>0");
     let plot = plot.scatter(pts[0].iter());
@@ -1151,7 +1184,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let plot_initial = poloto::frame_build()
         .data(plots)
         .build_and_label(("Relative Yaw Error v Yaw", "Yaw / °", "(w-c)/w"))
-        .append_to(poloto::header().light_theme())
+        .append_to(poloto::header().append(theme))
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
     println!("{plot_initial}");
@@ -1390,6 +1423,15 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     );
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
     ic_cmdline::add_arg_f64(
+        &mut build,
+        "yaw_error",
+        None,
+        "Maximum relative error in yaw to permit a closest match for",
+        Some("0.03"),
+        CmdArgs::set_yaw_error,
+        false,
+    );
+    ic_cmdline::add_arg_f64(
         &mut ms_build,
         "within",
         None,
@@ -1448,13 +1490,12 @@ fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
         .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
     //cb Show the star mappings
-    let close_enough = cmd_args.closeness;
-    let within = cmd_args.within;
     let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
         cmd_args.star_catalog.as_ref().unwrap(),
         &cmd_args.camera,
-        close_enough,
-        within,
+        cmd_args.closeness,
+        cmd_args.yaw_error,
+        cmd_args.within,
     );
     eprintln!(
         "{num_unmapped} stars were not mapped, total error of mapped stars {total_error:.4e}"
