@@ -100,9 +100,3 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 }
-
-impl<C: CommandArgs> std::convert::From<CommandBuilder<C>> for CommandSet<C> {
-    fn from(cb: CommandBuilder<C>) -> CommandSet<C> {
-        CommandSet::new(cb)
-    }
-}

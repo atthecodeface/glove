@@ -82,8 +82,9 @@ impl<C: CommandArgs> CommandBuilder<C> {
     }
 }
 
+//ap add_arg
 macro_rules! add_arg {
-    ($m:ident, $t: ty, $ft:ty ) => {
+    ($m:ident, $t: ty, ref $ft:ty ) => {
         impl<C: CommandArgs> CommandBuilder<C> {
             pub fn $m<F>(
                 &mut self,
@@ -118,12 +119,47 @@ macro_rules! add_arg {
             }
         }
     };
+    ($m:ident, $t: ty, $ft:ty ) => {
+        impl<C: CommandArgs> CommandBuilder<C> {
+            pub fn $m<F>(
+                &mut self,
+                tag: &'static str,
+                short: Option<char>,
+                help: &'static str,
+                default_value: Option<&'static str>,
+                set: F,
+                required: bool,
+            ) where
+                F: Fn(&mut C, $ft) -> Result<(), C::Error> + 'static,
+            {
+                let mut arg = Arg::new(tag)
+                    .long(tag)
+                    .help(help)
+                    .value_parser(value_parser!($t))
+                    .required(required)
+                    .action(ArgAction::Set);
+                if let Some(short) = short {
+                    arg = arg.short(short);
+                }
+                if let Some(default_value) = default_value {
+                    arg = arg.default_value(default_value);
+                }
+                self.add_arg(
+                    arg,
+                    Box::new(move |args, matches| {
+                        let v = *matches.get_one::<$t>(tag).unwrap();
+                        set(args, v)
+                    }),
+                );
+            }
+        }
+    };
     ($m:ident, $t: ty) => {
         add_arg!($m, $t, $t);
     };
 }
 
-add_arg!(add_arg_string, String, str);
+add_arg!(add_arg_string, String, ref str);
 
 add_arg!(add_arg_isize, isize);
 add_arg!(add_arg_i128, i128);

@@ -416,37 +416,54 @@ impl CmdArgs {
         self.write_polys = Some(s.to_owned());
         Ok(())
     }
-    fn set_use_pts(&mut self, v: &usize) -> Result<()> {
-        self.use_pts = *v;
+    fn set_use_pts(&mut self, v: usize) -> Result<()> {
+        self.use_pts = thunderclap::bound(v, Some(6), None, |v, _| {
+            format!("Number of points ({v}) must be at least six")
+        })?;
         Ok(())
     }
-    fn set_yaw_min(&mut self, v: &f64) -> Result<()> {
-        self.yaw_min = *v;
+    fn set_yaw_min(&mut self, v: f64) -> Result<()> {
+        self.yaw_min = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
+            format!("Minimum yaw {v} must be in the range 0 to 90")
+        })?;
         Ok(())
     }
-    fn set_yaw_max(&mut self, v: &f64) -> Result<()> {
-        self.yaw_max = *v;
+    fn set_yaw_max(&mut self, v: f64) -> Result<()> {
+        self.yaw_max = thunderclap::bound(v, Some(self.yaw_min), Some(90.0), |v, _| {
+            format!(
+                "Maximum yaw {v} must be between yaw_min ({}) and 90",
+                self.yaw_min
+            )
+        })?;
         Ok(())
     }
-    fn set_poly_degree(&mut self, v: &usize) -> Result<()> {
-        self.poly_degree = *v;
+    fn set_poly_degree(&mut self, v: usize) -> Result<()> {
+        self.poly_degree = thunderclap::bound(v, Some(2), Some(12), |v, _| {
+            format!("The polynomial degree {v} should be between 2 and 12 for reliability",)
+        })?;
         Ok(())
     }
 
-    fn set_closeness(&mut self, closeness: &f64) -> Result<()> {
-        self.closeness = *closeness;
+    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.closeness = closeness;
         Ok(())
     }
-    fn set_yaw_error(&mut self, yaw_error: &f64) -> Result<()> {
-        self.yaw_error = *yaw_error;
+    fn set_yaw_error(&mut self, v: f64) -> Result<()> {
+        self.yaw_error = thunderclap::bound(v, Some(0.0), Some(1.0), |v, _| {
+            format!("The maximum yaw error {v} must be between 0 and 1 degree",)
+        })?;
         Ok(())
     }
-    fn set_within(&mut self, within: &f64) -> Result<()> {
-        self.within = *within;
+    fn set_within(&mut self, v: f64) -> Result<()> {
+        self.within = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
+            format!("The 'within' yaw {v} must be between 0 and 90 degree",)
+        })?;
         Ok(())
     }
-    fn set_brightness(&mut self, brightness: &f32) -> Result<()> {
-        self.brightness = *brightness;
+    fn set_brightness(&mut self, v: f32) -> Result<()> {
+        self.brightness = thunderclap::bound(v, Some(0.0), Some(16.0), |v, _| {
+            format!("Brightness (magnitude of stars) {v} must be between 0 and 16",)
+        })?;
         Ok(())
     }
 
@@ -632,6 +649,21 @@ impl CmdArgs {
 
 //ip CmdArgs - Operations
 impl CmdArgs {
+    fn setup(&self) -> (NamedPointSet, PointMappingSet) {
+        let v = self.mapping.as_ref().unwrap().get_xyz_pairings();
+        let mut nps = NamedPointSet::default();
+        let mut pms = PointMappingSet::default();
+
+        //cb Add calibrations to NamedPointSet and PointMappingSet
+        for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+            let name = n.to_string();
+            let color = [255, 255, 255, 255].into();
+            nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
+            pms.add_mapping(&nps, &name, &pxy_abs, 0.);
+        }
+        (nps, pms)
+    }
+
     //mp draw_image
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
@@ -829,42 +861,6 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Setup
-//fi find_closest_n
-fn find_closest_n(calibrate: &CalibrationMapping, pts: &[(f64, f64, f64)]) -> Vec<usize> {
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    let v = calibrate.get_xyz_pairings();
-    let mut closest_n = vec![];
-    for pt in pts {
-        let mut closest = (0, 1.0E20);
-        let pt = [pt.0, pt.1, pt.2].into();
-        for (n, (model_xyz, _)) in v.iter().enumerate() {
-            let d = model_xyz.distance(&pt);
-            if d < closest.1 {
-                closest = (n, d);
-            }
-        }
-        closest_n.push(closest.0);
-    }
-    closest_n
-}
-
-//fi setup
-fn setup(calibrate: &CalibrationMapping) -> (NamedPointSet, PointMappingSet) {
-    let v = calibrate.get_xyz_pairings();
-    let mut nps = NamedPointSet::default();
-    let mut pms = PointMappingSet::default();
-
-    //cb Add calibrations to NamedPointSet and PointMappingSet
-    for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
-        let name = n.to_string();
-        let color = [255, 255, 255, 255].into();
-        nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-        pms.add_mapping(&nps, &name, &pxy_abs, 0.);
-    }
-    (nps, pms)
-}
-
 //a Locate
 fn locate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("locate")
@@ -881,14 +877,14 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    //cb Reset the camera position and orientation, defensively
     cmd_args.camera.set_position([0., 0., 0.].into());
     cmd_args.camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let n = cmd_args.use_pts(calibrate.len());
+    let (_nps, pms) = cmd_args.setup();
+    let n = cmd_args.use_pts(pms.mappings().len());
     let closest_n: Vec<usize> = (0..n).into_iter().collect();
-    let (_nps, pms) = setup(calibrate);
 
     //cb For required pairings, display data
     cmd_args.show_step("Using the following mappings ([n] [world] : [pxy] : [world_dir]");
@@ -966,7 +962,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //cb Set up HashMaps and collections
     let n = cmd_args.use_pts(calibrate.len());
     let closest_n: Vec<usize> = (0..n).into_iter().collect();
-    let (_nps, pms) = setup(calibrate);
+    let (_nps, pms) = cmd_args.setup();
 
     //cb For required pairings, display data
     cmd_args.show_step("All the following mappings ([n] [world] : [pxy] : [world_dir]");
@@ -1082,7 +1078,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = setup(calibrate);
+    let (_nps, pms) = cmd_args.setup();
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut world_yaws = vec![];
@@ -1193,7 +1189,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     };
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = setup(calibrate);
+    let (_nps, pms) = cmd_args.setup();
 
     //cb Calculate Error in yaw/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
@@ -1347,7 +1343,7 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = setup(calibrate);
+    let (_nps, pms) = cmd_args.setup();
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = vec![];
@@ -1404,7 +1400,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     //cb Set up HashMaps and collections
     let num_pts = cmd_args.use_pts(calibrate.len());
-    let (_nps, pms) = setup(calibrate);
+    let (_nps, pms) = cmd_args.setup();
 
     //cb Create points for crosses for output image
     let mut pts = vec![];
