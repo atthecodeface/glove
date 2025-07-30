@@ -76,7 +76,13 @@ cal_img_5006:
 #
 # Calibrate the lens by linear wts/stw mappings, with 3d point mapping
 # to RY relative to the camera and pixel XY mapping to RY relative to
-# the sensor, and map the Y
+# the sensor
+#
+# The calibration polynomial of best fit mapping sensor Y to camara Y
+#
+# A reverse polynomial is generated that is a best fit for poly(sensor
+# Y) to sensor Y (rather than using camera Y, as the polynomials are
+# meant to be their inverses).
 #
 
 # Then update the star mapping for stars close to the orientation

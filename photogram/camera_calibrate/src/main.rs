@@ -1155,17 +1155,17 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let mut stw;
     loop {
         let n = world_yaws.len();
-        wts = polynomial::min_squares_dyn(cmd_args.poly_degree, &world_yaws, &camera_yaws);
-        wts[0] = 0.0;
+        stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
+        stw[0] = 0.0;
         let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-            polynomial::error_in_y_stats(&wts, &world_yaws, &camera_yaws);
+            polynomial::error_in_y_stats(&stw, &camera_yaws, &world_yaws);
         let sd_err = variance_err.sqrt();
         let max_err = max_sq_err.sqrt();
         eprintln!(" {n} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
 
         let dmin = sd_err * 3.0;
         let dmax = sd_err * 3.0;
-        let outliers = polynomial::find_outliers(&wts, &world_yaws, &camera_yaws, dmin, dmax);
+        let outliers = polynomial::find_outliers(&stw, &camera_yaws, &world_yaws, dmin, dmax);
         if outliers.is_empty() {
             break;
         }
@@ -1177,13 +1177,12 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     let mut sensor_yaw = vec![];
     let mut world_yaw = vec![];
-    for i in 0..400 {
-        let w = (i as f64) / 400.0 * 1.1 * yaw_range_max;
-        world_yaw.push(w);
-        sensor_yaw.push(wts.calc(w));
+    for s in &camera_yaws {
+        sensor_yaw.push(*s);
+        world_yaw.push(stw.calc(*s));
     }
-    stw = polynomial::min_squares_dyn(7, &sensor_yaw, &world_yaw);
-    stw[0] = 0.0;
+    wts = polynomial::min_squares_dyn(7, &world_yaw, &sensor_yaw);
+    wts[0] = 0.0;
 
     let mut camera_lens = cmd_args.camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));

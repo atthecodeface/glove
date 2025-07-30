@@ -209,6 +209,26 @@ pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
     ],
 );
 
+pub const LP_ORTHOGRAPHIC: ([f64; 7], [f64; 7]) = (
+    [
+        0.0,
+        0.9941659067408182,
+        0.06303225585725158,
+        -0.7806377926608548,
+        0.6024768308270723,
+        -0.20585763768758625,
+        0.026198503939667717,
+    ],
+    [
+        0.0,
+        0.3191991178318858,
+        9.813045187387615,
+        -55.521155001595616,
+        149.31334675848484,
+        -186.43467409163713,
+        89.10336443781853,
+    ],
+);
 //a LensPolys
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LensPolys {
@@ -262,6 +282,13 @@ impl LensPolys {
     pub fn equiangular() -> Self {
         let wts_poly = LP_EQUIANGULAR.0.to_vec();
         let stw_poly = LP_EQUIANGULAR.1.to_vec();
+        Self::new(stw_poly, wts_poly)
+    }
+
+    //cp orthographic
+    pub fn orthographic() -> Self {
+        let wts_poly = LP_ORTHOGRAPHIC.0.to_vec();
+        let stw_poly = LP_ORTHOGRAPHIC.1.to_vec();
         Self::new(stw_poly, wts_poly)
     }
 
