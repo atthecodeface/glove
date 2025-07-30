@@ -36,6 +36,8 @@ IMAGE = 4v3a6040
 IMAGE_GRID = 4v3a6028
 
 STARS_WITHIN = 60
+INITIAL_CAL = nac/lens_linear.json
+INITIAL_CAL_EQUIANGULAR = nac/lens_equiangular.json
 
 #a Generics
 all:
@@ -57,11 +59,28 @@ cal_img_4924:
 
 .PHONY: cal_img_5005
 cal_img_5005:
-	${MAKE} CAMERA_BODY=T2i CAMERA_LENS=15mm MM_FOCUS=1102 YAW_MIN=2.0 YAW_MAX=60.0 CAL_STAR_MAPPINGS=nac/camera_5005_star_mappings.json STAR_CATALOG='--catalog hipp_bright' STAR_BRIGHTNESS='--brightness 8.0' IMG_BG=IMG_5005.JPG camera_calibrate
+	${MAKE} CAMERA_BODY=T2i CAMERA_LENS=15mm MM_FOCUS=1102 INITIAL_CAL=${INITIAL_CAL} YAW_MIN=2.0 YAW_MAX=60.0 CAL_STAR_MAPPINGS=nac/camera_5005_star_mappings.json STAR_CATALOG='--catalog hipp_bright' STAR_BRIGHTNESS='--brightness 8.0' IMG_BG=IMG_5005.JPG camera_calibrate
 
 .PHONY: cal_img_5006
 cal_img_5006:
 	${MAKE} CAMERA_BODY=T2i CAMERA_LENS=50mm MM_FOCUS=1390 YAW_MIN=0.3 YAW_MAX=20.0 CAL_STAR_MAPPINGS=nac/camera_5006_star_mappings.json STAR_CATALOG='--catalog hipparcos.json' STAR_BRIGHTNESS='--brightness 9.0' IMG_BG=IMG_5006.JPG camera_calibrate
+
+#a Camera calibration
+# The process is stw map six points to generate angles to map 6 stars to get an orientation
+#
+# Use orientation and lens to stw map all mappings, and find closest stars, record the mapping
+#
+# Map all the stars using stw and update the orientation
+#
+# Convert pixel XY mapping to star, to pixel XY mapping to star direction in 3D
+#
+# Calibrate the lens by linear wts/stw mappings, with 3d point mapping
+# to RY relative to the camera and pixel XY mapping to RY relative to
+# the sensor, and map the Y
+#
+
+# Then update the star mapping for stars close to the orientation
+# Now orient using the new selected stars
 
 .PHONY: camera_calibrate
 camera_calibrate:
@@ -73,11 +92,11 @@ camera_calibrate:
 	${MAKE} cal_step_5
 	${MAKE} cal_step_6
 	${MAKE} cal_step_7
-	${MAKE} N=7 cal_show_mapping_n
 	${MAKE} cal_step_8
 	${MAKE} cal_step_9
 	${MAKE} cal_step_10
 	${MAKE} N=10 YAW_ERROR=0.2 cal_step_final
+	${MAKE} N=7 cal_show_mapping_n
 	${MAKE} N=final cal_show_mapping_n
 
 # First find the general orientation (note the stars required are of mag 4.49 and brighter)
@@ -86,13 +105,13 @@ camera_calibrate:
 .PHONY: cal_initial
 cal_initial:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2)"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys nac/lens_linear.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.6 find_stars --write_camera ${CAL_DIR}/base_camera.json
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${INITIAL_CAL} star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.6 find_stars --write_camera ${CAL_DIR}/base_camera.json
 	@echo "Now create an updated star mapping with ids from the star catalog for mappings that map on to stars"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys nac/lens_linear.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 update_star_mapping --within 20 --write_mapping ${CAL_DIR}/stars_mapped_using_initial_orientation.json
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${INITIAL_CAL} star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 update_star_mapping --within 20 --write_mapping ${CAL_DIR}/stars_mapped_using_initial_orientation.json
 	@echo "Orient based on updated star mapping"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys nac/lens_linear.json star ${CAL_DIR}/stars_mapped_using_initial_orientation.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 orient --write_camera ${CAL_DIR}/orient_0.json
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${INITIAL_CAL} star ${CAL_DIR}/stars_mapped_using_initial_orientation.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 orient --write_camera ${CAL_DIR}/orient_0.json
 	@echo "Update the star mapping again, based on the proper orientation - create '0' calibration stars_mapped"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys nac/lens_linear.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 update_star_mapping --within 20 --write_mapping ${CAL_DIR}/stars_mapped_using_0.json
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${INITIAL_CAL} star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 update_star_mapping --within 20 --write_mapping ${CAL_DIR}/stars_mapped_using_0.json
 
 
 .PHONY: cal_step_1
@@ -101,35 +120,35 @@ cal_step_1:
 
 .PHONY: cal_step_2
 cal_step_2:
-	${MAKE} N=1 NP1=2 POLY_DEGREE=3 YAW_MAX=25 YAW_ERROR=0.1 STAR_BRIGHTNESS='--brightness 7.5' cal_step_n
+	${MAKE} N=1 NP1=2 POLY_DEGREE=3 YAW_MAX=22 YAW_ERROR=0.1 STAR_BRIGHTNESS='--brightness 7.5' cal_step_n
 
 .PHONY: cal_step_3
 cal_step_3:
-	${MAKE} N=2 NP1=3 POLY_DEGREE=3 YAW_MAX=30 YAW_ERROR=0.05 STAR_BRIGHTNESS='--brightness 8.0' cal_step_n
+	${MAKE} N=2 NP1=3 POLY_DEGREE=3 YAW_MAX=25 YAW_ERROR=0.05 STAR_BRIGHTNESS='--brightness 8.0' cal_step_n
 
 .PHONY: cal_step_4
 cal_step_4:
-	${MAKE} N=3 NP1=4 POLY_DEGREE=5 YAW_MAX=35 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 8.5' cal_step_n
+	${MAKE} N=3 NP1=4 POLY_DEGREE=5 YAW_MAX=27 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 8.5' cal_step_n
 
 .PHONY: cal_step_5
 cal_step_5:
-	${MAKE} N=4 NP1=5 POLY_DEGREE=5 YAW_MAX=40 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
+	${MAKE} N=4 NP1=5 POLY_DEGREE=5 YAW_MAX=30 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
 
 .PHONY: cal_step_6
 cal_step_6:
-	${MAKE} N=5 NP1=6 POLY_DEGREE=5 YAW_MAX=40 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
+	${MAKE} N=5 NP1=6 POLY_DEGREE=5 YAW_MAX=33 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
 
 .PHONY: cal_step_7
 cal_step_7:
-	${MAKE} N=6 NP1=7 POLY_DEGREE=5 YAW_MAX=40 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
+	${MAKE} N=6 NP1=7 POLY_DEGREE=5 YAW_MAX=36 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
 
 .PHONY: cal_step_8
 cal_step_8:
-	${MAKE} N=7 NP1=8 POLY_DEGREE=5 YAW_MAX=42 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
+	${MAKE} N=7 NP1=8 POLY_DEGREE=5 YAW_MAX=39 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
 
 .PHONY: cal_step_9
 cal_step_9:
-	${MAKE} N=8 NP1=9 POLY_DEGREE=5 YAW_MAX=44 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
+	${MAKE} N=8 NP1=9 POLY_DEGREE=5 YAW_MAX=42 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n
 
 .PHONY: cal_step_10
 cal_step_10:

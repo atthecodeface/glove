@@ -1226,7 +1226,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let f_world = |w: f64, s: f64| (w.to_degrees(), s.to_degrees());
     let f_rel_error = |w: f64, s: f64| (w.to_degrees(), s / w - 1.0);
     let plot_f = {
-        if true {
+        if false {
             f_world
         } else {
             f_rel_error
@@ -1564,10 +1564,10 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
             40.0,
         );
         if num_unmapped < best_match.2 {
-            best_match = (*q, *x, num_unmapped);
+            best_match = (orientation, *x, num_unmapped);
         }
         eprintln!(
-            "Candidate {i} {} unmapped {num_unmapped} total_error {total_error}",
+            "Candidate {i} {} unmapped {num_unmapped} total_error {total_error} {q}",
             x.to_degrees()
         );
     }
@@ -1579,6 +1579,9 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     );
 
     cmd_args.camera.set_orientation(best_match.0);
+    //cmd_args.if_verbose(|| {
+    eprintln!("{}", &cmd_args.camera);
+    //});
 
     cmd_args.output_camera()?;
     Ok(())
@@ -1644,7 +1647,8 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         cmd_args.within,
     );
     eprintln!(
-        "{num_unmapped} stars were not mapped, total error of mapped stars {total_error:.4e}"
+        "{num_unmapped} stars were not mapped out of {}, total error of mapped stars {total_error:.4e}|",
+        cmd_args.star_mapping.mappings().len(),
     );
     cmd_args.output_star_mapping()?;
     Ok(())

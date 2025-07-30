@@ -179,3 +179,43 @@ pub fn find_outliers(poly: &[f64], xs: &[f64], ys: &[f64], dmin: f64, dmax: f64)
     }
     outliers
 }
+
+//a Tests
+#[test]
+fn test_poly() -> Result<(), String> {
+    let f = |x: f64| (x / 10.).sin().atan();
+    let err = |x0, x1| (x1 / x0 - 1.0);
+
+    // let m = |y: f64| (1.0 / 1.0 + y);
+    let m = |y: f64| y.tan();
+
+    let xs: Vec<f64> = (0..100).map(|x| (x as f64) / 70.0).collect();
+    let ys: Vec<f64> = xs.iter().map(|x| f(*x)).collect();
+    let poly = min_squares_dyn(7, &xs, &ys);
+
+    let rev_poly = min_squares_dyn(7, &ys, &xs);
+
+    let yms: Vec<f64> = ys.iter().map(|x| m(*x)).collect();
+    let rev_polym = min_squares_dyn(7, &yms, &xs);
+
+    eprintln!("{poly:?}");
+    for (x, y) in xs.iter().zip(ys.iter()) {
+        eprintln!(
+            "{x} {y} {} {} {}",
+            poly.calc(*x),
+            rev_poly.calc(*y),
+            rev_polym.calc(m(*y))
+        );
+    }
+
+    for (x, y) in xs.iter().zip(ys.iter()) {
+        eprintln!(
+            "{x} {y} {:.4e} {:.4e} {:.4e}",
+            err(*y, poly.calc(*x)),
+            err(*x, rev_poly.calc(*y)),
+            err(*x, rev_polym.calc(m(*y))),
+        );
+    }
+    //    Err("fail".into())
+    Ok(())
+}

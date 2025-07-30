@@ -15,20 +15,6 @@ fn test_mapping<F>(
 where
     F: Fn(f64) -> f64,
 {
-    //    let mut linear_pts = vec![];
-    //    let mut stereographic_pts = vec![];
-    //    let mut equiangular_pts = vec![];
-    //    let mut equisolid_pts = vec![];
-    //    let mut orthographic_pts = vec![];
-    //    for i in 0..=100 {
-    //        let world_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
-    //        linear_pts.push(plot_f(world_yaw, world_yaw));
-    //        stereographic_pts.push(plot_f(world_yaw, ((world_yaw / 2.0).tan() * 2.0).atan()));
-    //        equiangular_pts.push(plot_f(world_yaw, world_yaw.atan()));
-    //        equisolid_pts.push(plot_f(world_yaw, (world_yaw / 2.0).sin().atan()));
-    //        orthographic_pts.push(plot_f(world_yaw, world_yaw.sin().atan()));
-    //    }
-
     let mut num_out_of_range = 0;
 
     let wrange = wmax - wmin;
@@ -122,7 +108,16 @@ fn test_equisolid() -> Result<()> {
 }
 
 // Orthographic does not have a valid polynomial of any reasonable degree
-// #[test]
-// fn test_orthographic() -> Result<()> {
-//    let fwd_fn = |x: f64| x.sin().atan();
-// }
+#[test]
+fn test_orthographic() -> Result<()> {
+    let lens = LensPolys::equisolid();
+    let fwd_fn = |x: f64| x.sin().atan();
+    test_mapping(
+        "EQUIANGULAR",
+        fwd_fn,
+        7,
+        0.0,
+        1.4, // std::f64::consts::PI / 2.0,
+        &lens,
+    )
+}

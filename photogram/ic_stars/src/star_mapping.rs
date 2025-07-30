@@ -284,7 +284,8 @@ impl StarMapping {
             }
         }
         println!(
-            "\nTotal error of {num_mapped} mapped stars {:0.4e}, mean error {:0.4e} ",
+            "\nTotal error of {num_mapped} mapped stars out of {} {:0.4e}, mean error {:0.4e} ",
+            self.mappings().len(),
             total_error.sqrt(),
             total_error.sqrt() / (num_mapped as f64),
         );
