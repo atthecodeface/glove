@@ -545,6 +545,73 @@ impl CmdArgs {
         );
     }
 
+    //fp add_args_yaw_error
+    fn add_args_yaw_error(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "yaw_error",
+            None,
+            "Maximum relative error in yaw to permit a closest match for",
+            Some("0.03"),
+            CmdArgs::set_yaw_error,
+            false,
+        );
+    }
+
+    //fp add_args_within
+    fn add_args_within(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "within",
+            None,
+            "Only use catalog stars Within this angle (degrees) for mapping",
+            Some("15"),
+            CmdArgs::set_within,
+            false,
+        );
+    }
+
+    //fp add_args_closeness
+    fn add_args_closeness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(                                    "closeness", None,
+                                    "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+                                    Some("0.2"),
+                                    CmdArgs::set_closeness,
+                                                           false);
+    }
+    //fp add_args_star_mapping
+    fn add_args_star_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg(
+            Arg::new("star_mapping")
+                .required(true)
+                .help("File mapping sensor coordinates to catalog identifiers")
+                .action(ArgAction::Set),
+            Box::new(CmdArgs::arg_star_mapping),
+        );
+    }
+
+    //fp add_args_star_catalog
+    fn add_args_star_catalog(build: &mut CommandBuilder<Self>) {
+        build.add_arg(
+            Arg::new("star_catalog")
+                .long("catalog")
+                .required(true)
+                .help("Star catalog to use")
+                .action(ArgAction::Set),
+            Box::new(CmdArgs::arg_star_catalog),
+        );
+    }
+
+    //fp add_args_brightness
+    fn add_args_brightness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f32(
+            "brightness",
+            None,
+            "Maximum brightness of stars to use in the catalog",
+            Some("5.0"),
+            CmdArgs::set_brightness,
+            false,
+        );
+    }
+
     //fp arg_star_mapping
     fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
         let filename = matches.get_one::<String>("star_mapping").unwrap();
@@ -1416,51 +1483,17 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_LONG_HELP);
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
-
-    build.add_arg_f64(                                    "closeness", None,
-                                    "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
-                                    Some("0.2"),
-                                    CmdArgs::set_closeness,
-                                    false);
-    build.add_arg(
-        Arg::new("star_mapping")
-            .required(true)
-            .help("File mapping sensor coordinates to catalog identifiers")
-            .action(ArgAction::Set),
-        Box::new(CmdArgs::arg_star_mapping),
-    );
-
-    build.add_arg(
-        Arg::new("star_catalog")
-            .long("catalog")
-            .required(true)
-            .help("Star catalog to use")
-            .action(ArgAction::Set),
-        Box::new(CmdArgs::arg_star_catalog),
-    );
-
-    build.add_arg_f32(
-        "brightness",
-        None,
-        "Maximum brightness of stars to use in the catalog",
-        Some("5.0"),
-        CmdArgs::set_brightness,
-        false,
-    );
+    CmdArgs::add_args_closeness(&mut build);
+    CmdArgs::add_args_star_mapping(&mut build);
+    CmdArgs::add_args_star_catalog(&mut build);
+    CmdArgs::add_args_brightness(&mut build);
 
     let sm_command =
         Command::new("show_star_mapping").about("Show the mapped stars onto an output image");
     let mut sm_build = CommandBuilder::new(sm_command, Some(Box::new(show_star_mapping_cmd)));
     ic_cmdline::image::add_arg_read_img(&mut sm_build, CmdArgs::set_read_img, false, Some(1));
     ic_cmdline::image::add_arg_write_img(&mut sm_build, CmdArgs::set_write_img, false);
-    sm_build.add_arg_f64(
-        "within",
-        None,
-        "Only use catalog stars Within this angle (degrees) for mapping",
-        Some("15"),
-        CmdArgs::set_within,
-        false,
-    );
+    CmdArgs::add_args_within(&mut sm_build);
     build.add_subcommand(sm_build);
 
     let fs_command = Command::new("find_stars")
@@ -1484,22 +1517,8 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
     );
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
-    ms_build.add_arg_f64(
-        "yaw_error",
-        None,
-        "Maximum relative error in yaw to permit a closest match for",
-        Some("0.03"),
-        CmdArgs::set_yaw_error,
-        false,
-    );
-    ms_build.add_arg_f64(
-        "within",
-        None,
-        "Only use catalog stars Within this angle (degrees) for mapping",
-        Some("15"),
-        CmdArgs::set_within,
-        false,
-    );
+    CmdArgs::add_args_yaw_error(&mut ms_build);
+    CmdArgs::add_args_within(&mut ms_build);
     CmdArgs::add_args_write_mapping(&mut ms_build);
     build.add_subcommand(ms_build);
     build
