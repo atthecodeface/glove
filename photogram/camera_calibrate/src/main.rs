@@ -862,6 +862,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Locate
+//fi locate_cmd
 fn locate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("locate")
         .about("Determine an optimal location from a calibration description")
@@ -938,6 +939,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Orient
+//fi orient_cmd
 fn orient_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("orient")
         .about("Determine an optimal orientation from a calibration description")
@@ -1052,6 +1054,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Lens calibrate
+//fi lens_calibrate_cmd
 fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("lens_calibrate")
         .about("From calibrate_from_grid")
@@ -1151,6 +1154,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Yaw plot
+//fi yaw_plot_cmd
 fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("yaw_plot")
         .about("Plot yaw")
@@ -1321,6 +1325,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 }
 
 //a Roll plot
+//fi roll_plot_cmd
 fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("roll_plot")
         .about("Plot roll of model versus roll of camera")
@@ -1443,85 +1448,18 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//a Main
-//fi main
-fn main() -> Result<()> {
-    let command = Command::new("camera_calibrate")
-        .about("Camera calibration tool")
-        .long_about(CAMERA_CALIBRATE_LONG_HELP)
-        .version("0.1.0");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
-    ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
-    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, true);
-    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, true);
-
-    build.add_subcommand(calibrate_cmd());
-    build.add_subcommand(locate_cmd());
-    build.add_subcommand(orient_cmd());
-    build.add_subcommand(lens_calibrate_cmd());
-    build.add_subcommand(yaw_plot_cmd());
-    build.add_subcommand(roll_plot_cmd());
-    build.add_subcommand(grid_image_cmd());
-    build.add_subcommand(star_cmd());
-    //    build.add_subcommand(grid_calibrate_cmd());
-
-    let mut cmd_args = CmdArgs::default();
-    let mut command = build.build();
-    command.execute_env(&mut cmd_args)?;
-    Ok(())
-}
-
-//a Star subcommand with its commands
-fn star_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("star")
-        .about("Calibrate a lens using stars")
-        .long_about(STAR_LONG_HELP);
-
-    let mut build = CommandBuilder::<CmdArgs>::new(command, None);
-    CmdArgs::add_args_closeness(&mut build);
-    CmdArgs::add_args_star_mapping(&mut build);
-    CmdArgs::add_args_star_catalog(&mut build);
-    CmdArgs::add_args_brightness(&mut build);
-
-    let sm_command =
-        Command::new("show_star_mapping").about("Show the mapped stars onto an output image");
-    let mut sm_build = CommandBuilder::new(sm_command, Some(Box::new(show_star_mapping_cmd)));
-    ic_cmdline::image::add_arg_read_img(&mut sm_build, CmdArgs::set_read_img, false, Some(1));
-    ic_cmdline::image::add_arg_write_img(&mut sm_build, CmdArgs::set_write_img, false);
-    CmdArgs::add_args_within(&mut sm_build);
-    build.add_subcommand(sm_build);
-
-    let fs_command = Command::new("find_stars")
+//a Star find_initial_orientation
+//fp star_find_stars_cmd
+fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("find_stars")
         .about("Find initial camera orientation using six stars from an image");
-    let mut fs_build =
-        CommandBuilder::new(fs_command, Some(Box::new(star_find_initial_from_image_cmd)));
-    CmdArgs::add_args_write_camera(&mut fs_build);
-    build.add_subcommand(fs_build);
-
-    let ms_command = Command::new("orient").about("Orient on all of the mapped stars");
-    let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(star_orient_on_mapped_cmd)));
-    CmdArgs::add_args_write_camera(&mut ms_build);
-    build.add_subcommand(ms_build);
-
-    let cd_command = Command::new("calibrate_desc").about("Generate a calibration description");
-    let mut cd_build = CommandBuilder::new(cd_command, Some(Box::new(calibrate_desc_cmd)));
-    CmdArgs::add_args_write_mapping(&mut cd_build);
-    build.add_subcommand(cd_build);
-
-    let ms_command = Command::new("update_star_mapping").about(
-        "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
-    );
-    let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
-    CmdArgs::add_args_yaw_error(&mut ms_build);
-    CmdArgs::add_args_within(&mut ms_build);
-    CmdArgs::add_args_write_mapping(&mut ms_build);
-    build.add_subcommand(ms_build);
+    let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
+    CmdArgs::add_args_write_camera(&mut build);
     build
 }
 
-//fp star_find_initial_from_image_cmd
-fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+//fp star_find_stars_fn
+fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let closeness = cmd_args.closeness;
 
     cmd_args
@@ -1541,8 +1479,17 @@ fn star_find_initial_from_image_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//fp star_orient_on_mapped_cmd
-fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Star orient
+//fp star_orient_cmd
+fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("orient").about("Orient on all of the mapped stars");
+    let mut build = CommandBuilder::new(command, Some(Box::new(star_orient_fn)));
+    CmdArgs::add_args_write_camera(&mut build);
+    build
+}
+
+//fp star_orient_fn
+fn star_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let brightness = cmd_args.brightness;
     let orientation = cmd_args
         .star_mapping
@@ -1556,8 +1503,21 @@ fn star_orient_on_mapped_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//fp update_star_mapping_cmd
-fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Star update_star_mapping
+//fp star_update_mapping_cmd
+fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("update_star_mapping").about(
+        "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
+    );
+    let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
+    CmdArgs::add_args_yaw_error(&mut build);
+    CmdArgs::add_args_within(&mut build);
+    CmdArgs::add_args_write_mapping(&mut build);
+    build
+}
+
+//fp star_update_mapping_fn
+fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     cmd_args
         .star_catalog
         .as_mut()
@@ -1579,8 +1539,20 @@ fn update_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//fp show_star_mapping_cmd
-fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Star show_star_mapping
+//fp star_show_mapping_cmd
+fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
+    let command =
+        Command::new("show_star_mapping").about("Show the mapped stars onto an output image");
+    let mut build = CommandBuilder::new(command, Some(Box::new(star_show_mapping_fn)));
+    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
+    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
+    CmdArgs::add_args_within(&mut build);
+    build
+}
+
+//fp star_show_mapping_fn
+fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let within = cmd_args.within;
 
     cmd_args
@@ -1638,12 +1610,71 @@ fn show_star_mapping_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
-//fp calibrate_desc_cmd
-fn calibrate_desc_cmd(cmd_args: &mut CmdArgs) -> Result<()> {
+//a Star calibrate_desc
+//fp star_calibrate_desc_cmd
+fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("calibrate_desc").about("Generate a calibration description");
+    let mut build = CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)));
+    CmdArgs::add_args_write_mapping(&mut build);
+    build
+}
+
+//fp star_calibrate_desc_fn
+fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     let pc = cmd_args
         .star_mapping
         .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());
     cmd_args.set_mapping(pc)?;
     cmd_args.output_mapping()?;
     Ok(())
+}
+
+//a Main
+//fi main
+fn main() -> Result<()> {
+    let command = Command::new("camera_calibrate")
+        .about("Camera calibration tool")
+        .long_about(CAMERA_CALIBRATE_LONG_HELP)
+        .version("0.1.0");
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
+    ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
+    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, true);
+    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, true);
+
+    build.add_subcommand(calibrate_cmd());
+    build.add_subcommand(locate_cmd());
+    build.add_subcommand(orient_cmd());
+    build.add_subcommand(lens_calibrate_cmd());
+    build.add_subcommand(yaw_plot_cmd());
+    build.add_subcommand(roll_plot_cmd());
+    build.add_subcommand(grid_image_cmd());
+    build.add_subcommand(star_cmd());
+    //    build.add_subcommand(grid_calibrate_cmd());
+
+    let mut cmd_args = CmdArgs::default();
+    let mut command = build.build();
+    command.execute_env(&mut cmd_args)?;
+    Ok(())
+}
+
+//a Star subcommand with its commands
+fn star_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("star")
+        .about("Calibrate a lens using stars")
+        .long_about(STAR_LONG_HELP);
+
+    let mut build = CommandBuilder::<CmdArgs>::new(command, None);
+    CmdArgs::add_args_closeness(&mut build);
+    CmdArgs::add_args_star_mapping(&mut build);
+    CmdArgs::add_args_star_catalog(&mut build);
+    CmdArgs::add_args_brightness(&mut build);
+
+    build.add_subcommand(star_show_mapping_cmd());
+    build.add_subcommand(star_find_stars_cmd());
+    build.add_subcommand(star_orient_cmd());
+    build.add_subcommand(star_calibrate_desc_cmd());
+    build.add_subcommand(star_update_mapping_cmd());
+
+    build
 }
