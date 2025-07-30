@@ -204,7 +204,6 @@ use std::io::Write;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
 use star_catalog::{Catalog, StarFilter};
-use thunderclap::args;
 use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::json;
@@ -417,37 +416,37 @@ impl CmdArgs {
         self.write_polys = Some(s.to_owned());
         Ok(())
     }
-    fn set_use_pts(&mut self, v: usize) -> Result<()> {
-        self.use_pts = v;
+    fn set_use_pts(&mut self, v: &usize) -> Result<()> {
+        self.use_pts = *v;
         Ok(())
     }
-    fn set_yaw_min(&mut self, v: f64) -> Result<()> {
-        self.yaw_min = v;
+    fn set_yaw_min(&mut self, v: &f64) -> Result<()> {
+        self.yaw_min = *v;
         Ok(())
     }
-    fn set_yaw_max(&mut self, v: f64) -> Result<()> {
-        self.yaw_max = v;
+    fn set_yaw_max(&mut self, v: &f64) -> Result<()> {
+        self.yaw_max = *v;
         Ok(())
     }
-    fn set_poly_degree(&mut self, v: usize) -> Result<()> {
-        self.poly_degree = v;
+    fn set_poly_degree(&mut self, v: &usize) -> Result<()> {
+        self.poly_degree = *v;
         Ok(())
     }
 
-    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
-        self.closeness = closeness;
+    fn set_closeness(&mut self, closeness: &f64) -> Result<()> {
+        self.closeness = *closeness;
         Ok(())
     }
-    fn set_yaw_error(&mut self, yaw_error: f64) -> Result<()> {
-        self.yaw_error = yaw_error;
+    fn set_yaw_error(&mut self, yaw_error: &f64) -> Result<()> {
+        self.yaw_error = *yaw_error;
         Ok(())
     }
-    fn set_within(&mut self, within: f64) -> Result<()> {
-        self.within = within;
+    fn set_within(&mut self, within: &f64) -> Result<()> {
+        self.within = *within;
         Ok(())
     }
-    fn set_brightness(&mut self, brightness: f32) -> Result<()> {
-        self.brightness = brightness;
+    fn set_brightness(&mut self, brightness: &f32) -> Result<()> {
+        self.brightness = *brightness;
         Ok(())
     }
 
@@ -464,8 +463,7 @@ impl CmdArgs {
 impl CmdArgs {
     //fp add_args_write_camera
     fn add_args_write_camera(build: &mut CommandBuilder<Self>) {
-        args::add_string(
-            build,
+        build.add_arg_string(
             "write_camera",
             None,
             "File to write the final camera JSON to",
@@ -477,8 +475,7 @@ impl CmdArgs {
 
     //fp add_args_write_mapping
     fn add_args_write_mapping(build: &mut CommandBuilder<Self>) {
-        args::add_string(
-            build,
+        build.add_arg_string(
             "write_mapping",
             None,
             "File to write a derived mapping JSON to",
@@ -490,8 +487,7 @@ impl CmdArgs {
 
     //fp add_args_write_polys
     fn add_args_write_polys(build: &mut CommandBuilder<Self>) {
-        args::add_string(
-            build,
+        build.add_arg_string(
             "write_polys",
             None,
             "File to write a derived polynomials JSON to",
@@ -503,8 +499,7 @@ impl CmdArgs {
 
     //fp add_args_poly_degree
     fn add_args_poly_degree(build: &mut CommandBuilder<Self>) {
-        args::add_usize(
-            build,
+        build.add_arg_usize(
             "poly_degree",
             None,
             "Degree of polynomial to use for the lens calibration (5 for 50mm)",
@@ -516,8 +511,7 @@ impl CmdArgs {
 
     //fp add_args_num_pts
     fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
-        args::add_usize(
-            build,
+        build.add_arg_usize(
             "num_pts",
             Some('n'),
             "Number of points to use (from start of mapping); if not specified, use all",
@@ -533,8 +527,7 @@ impl CmdArgs {
         min: Option<&'static str>,
         max: Option<&'static str>,
     ) {
-        args::add_f64(
-            build,
+        build.add_arg_f64(
             "min_yaw",
             None,
             "Minimim yaw to use for calibration in degrees",
@@ -542,8 +535,7 @@ impl CmdArgs {
             CmdArgs::set_yaw_min,
             false,
         );
-        args::add_f64(
-            build,
+        build.add_arg_f64(
             "max_yaw",
             None,
             "Maximim yaw to use for calibration",
@@ -1425,8 +1417,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
 
-    args::add_f64(&mut build,
-                                    "closeness", None,
+    build.add_arg_f64(                                    "closeness", None,
                                     "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
                                     Some("0.2"),
                                     CmdArgs::set_closeness,
@@ -1448,8 +1439,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         Box::new(CmdArgs::arg_star_catalog),
     );
 
-    args::add_f32(
-        &mut build,
+    build.add_arg_f32(
         "brightness",
         None,
         "Maximum brightness of stars to use in the catalog",
@@ -1463,8 +1453,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     let mut sm_build = CommandBuilder::new(sm_command, Some(Box::new(show_star_mapping_cmd)));
     ic_cmdline::image::add_arg_read_img(&mut sm_build, CmdArgs::set_read_img, false, Some(1));
     ic_cmdline::image::add_arg_write_img(&mut sm_build, CmdArgs::set_write_img, false);
-    args::add_f64(
-        &mut sm_build,
+    sm_build.add_arg_f64(
         "within",
         None,
         "Only use catalog stars Within this angle (degrees) for mapping",
@@ -1495,8 +1484,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
     );
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
-    args::add_f64(
-        &mut ms_build,
+    ms_build.add_arg_f64(
         "yaw_error",
         None,
         "Maximum relative error in yaw to permit a closest match for",
@@ -1504,8 +1492,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         CmdArgs::set_yaw_error,
         false,
     );
-    args::add_f64(
-        &mut ms_build,
+    ms_build.add_arg_f64(
         "within",
         None,
         "Only use catalog stars Within this angle (degrees) for mapping",
