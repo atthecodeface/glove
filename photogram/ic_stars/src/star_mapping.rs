@@ -386,7 +386,7 @@ impl StarMapping {
         catalog: &Catalog,
         camera: &CameraInstance,
         closeness: f32,
-    ) -> Result<Quat> {
+    ) -> Result<Vec<(f64, Quat)>> {
         //cb Create list of mag1_stars and directions to them, and mag2 if possible
         let mut mag1_stars = vec![];
         let mut mag2_stars = vec![];
@@ -518,7 +518,11 @@ impl StarMapping {
             for (n2, mag2_q_m_to_c) in mag2_candidate_q_m_to_c.iter() {
                 let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
                 let r = q.as_rijk().0.abs();
-                if r > 0.9995 {
+                // r = cos(x = angle of rotation) = 1 - x^2/2 + x^4/24 - ...
+                // x^2 = 2(1-r)
+                let x2 = (1.0 - r) * 2.0;
+                if x2 < 3.1E-5 {
+                    // x = 0.2 degrees
                     let qs = [
                         (1.0, mag1_q_m_to_c.into_array()),
                         (1.0, mag2_q_m_to_c.into_array()),
@@ -526,7 +530,7 @@ impl StarMapping {
                     let q_r: Quat = quat::weighted_average_many(qs.into_iter()).into();
                     let mag1_tri = &candidate_tris[*n1];
                     let mag2_tri = &mag2_candidate_tris[*n2];
-                    mag1_mag2_pairs.push((r, q_r, *mag1_tri, *mag2_tri));
+                    mag1_mag2_pairs.push((x2.sqrt(), q_r, *mag1_tri, *mag2_tri));
                     printed += 1;
                     match printed.cmp(&10) {
                         std::cmp::Ordering::Equal => {
@@ -534,7 +538,8 @@ impl StarMapping {
                         }
                         std::cmp::Ordering::Less => {
                             eprintln!(
-                                "{},{},{} {},{},{} {r} : {}",
+                                "{} : {},{},{} {},{},{} {r} : {}",
+                                x2.sqrt().to_degrees(),
                                 catalog[mag1_tri.0].id(),
                                 catalog[mag1_tri.1].id(),
                                 catalog[mag1_tri.2].id(),
@@ -553,22 +558,26 @@ impl StarMapping {
         if mag1_mag2_pairs.is_empty() {
             return Err("Failed to find matching candidate triangles".into());
         }
-        mag1_mag2_pairs.sort_by(|a, b| (b.0).partial_cmp(&a.0).unwrap());
+        mag1_mag2_pairs.sort_by(|a, b| (a.0).partial_cmp(&b.0).unwrap());
 
         //cb Generate results
-        let (r, q_r, tri_mag1, tri_mag2) = mag1_mag2_pairs[0];
+        let (x, q_r, tri_mag1, tri_mag2) = &mag1_mag2_pairs[0];
 
         eprintln!("\nThe best match of the candidate triangles:");
         eprintln!(
-            "    {}, {}, {}, {}, {}, {}  : {r} {q_r},",
+            "    {}, {}, {}, {}, {}, {}  : {} {q_r},",
             catalog[tri_mag1.1].id(),
             catalog[tri_mag1.0].id(),
             catalog[tri_mag1.2].id(),
             catalog[tri_mag2.1].id(),
             catalog[tri_mag2.0].id(),
             catalog[tri_mag2.2].id(),
+            x.to_degrees(),
         );
-        Ok(q_r)
+        Ok(mag1_mag2_pairs
+            .into_iter()
+            .map(|(x, q_r, _, _)| (x, q_r))
+            .collect())
     }
 
     //mp img_pts_add_catalog_stars

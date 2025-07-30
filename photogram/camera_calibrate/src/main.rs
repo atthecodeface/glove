@@ -346,6 +346,47 @@ It also draws black crosses for a range of (x,y,0) values.";
 const STAR_LONG_HELP: &str = "\
 This set of commands allows for calibrating a lens using a photograph taken of stars.";
 
+//hi STAR_FIND_STARS_LONG_HELP
+const STAR_FIND_STARS_LONG_HELP: &str = "\
+
+Using the camera body, lens, focus distance, and current lens
+calibration, find an absolute orientation of an image given two
+triangles of star PXY locations in the mapping file.
+
+Two triangles on the image are determined from the mapping - the first
+three stars with '1' as the 'magnitude' (second) element, and the
+first three stars with '2' for that element.
+
+The PXY of these star locations are mapped to world directions based
+on the camera body and lens mapping; the orientation of the camera is
+ignored.
+
+For each star triangle, the three angles between these world
+directions are calculated; this yields a pair of star triangle angles.
+
+The star catalog is searched for triangles of stars that match these
+angles, yielding candidate *actual* star triangles.
+
+For each of these candidate triangles there is a camera orientation
+that would map those *actual* star triangles onto the sensor (or at
+least, an approximate orientation). For the actual triangles that the
+image was taken of, these two orientations should be identical (with
+some margin of error, obviously). One way to compare orientations is
+to apply the reverse of one to the other, and check to see if it is an
+identity orientation.
+
+So the orientation for every pair of candidate triangles are combined
+to determine how far off they are from the 'identity'; as orientations
+are handled as quaternions, this implies multiplying one by the
+conjugate of the other, and comparing the absolute value of the real
+value of the resultant quaternion to 1.0; the closer it is, the
+smaller the difference between the candidate triangles. This real
+value is effectively the cos of the angle of rotation required to
+describe the combined mapping - and an identity mapping as no angle of
+rotation, and so is 1.0. For close matches (angle x close to 0) the cosine is approximately 1-x^2/2.
+
+  ";
+
 //a Types
 //a CmdArgs
 //tp CmdArgs
@@ -1448,11 +1489,32 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     Ok(())
 }
 
+//a Star subcommand with its commands
+fn star_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("star")
+        .about("Calibrate a lens using stars")
+        .long_about(STAR_LONG_HELP);
+
+    let mut build = CommandBuilder::<CmdArgs>::new(command, None);
+    CmdArgs::add_args_closeness(&mut build);
+    CmdArgs::add_args_star_mapping(&mut build);
+    CmdArgs::add_args_star_catalog(&mut build);
+    CmdArgs::add_args_brightness(&mut build);
+
+    build.add_subcommand(star_show_mapping_cmd());
+    build.add_subcommand(star_find_stars_cmd());
+    build.add_subcommand(star_orient_cmd());
+    build.add_subcommand(star_calibrate_desc_cmd());
+    build.add_subcommand(star_update_mapping_cmd());
+
+    build
+}
 //a Star find_initial_orientation
 //fp star_find_stars_cmd
 fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("find_stars")
-        .about("Find initial camera orientation using six stars from an image");
+        .about("Find a camera orientation using two star triangles from an image")
+        .long_about(STAR_FIND_STARS_LONG_HELP);
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
     CmdArgs::add_args_write_camera(&mut build);
     build
@@ -1468,12 +1530,55 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         .unwrap()
         .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
-    let orientation = cmd_args.star_mapping.find_orientation_from_triangles(
+    let angle_orientations = cmd_args.star_mapping.find_orientation_from_triangles(
         cmd_args.star_catalog.as_ref().unwrap(),
         &cmd_args.camera,
         closeness.to_radians() as f32,
     )?;
-    cmd_args.camera.set_orientation(orientation);
+    let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
+    for (i, (x, q)) in angle_orientations.iter().enumerate() {
+        cmd_args.camera.set_orientation(*q);
+        let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
+            cmd_args.star_catalog.as_ref().unwrap(),
+            &cmd_args.camera,
+            cmd_args.closeness,
+            0.03,
+            40.0,
+        );
+        let Ok(orientation) = cmd_args
+            .star_mapping
+            .find_orientation_from_all_mapped_stars(
+                cmd_args.star_catalog.as_ref().unwrap(),
+                &cmd_args.camera,
+                10.0, // brightness,
+            )
+        else {
+            continue;
+        };
+        cmd_args.camera.set_orientation(orientation);
+        let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
+            cmd_args.star_catalog.as_ref().unwrap(),
+            &cmd_args.camera,
+            cmd_args.closeness,
+            0.03,
+            40.0,
+        );
+        if num_unmapped < best_match.2 {
+            best_match = (*q, *x, num_unmapped);
+        }
+        eprintln!(
+            "Candidate {i} {} unmapped {num_unmapped} total_error {total_error}",
+            x.to_degrees()
+        );
+    }
+    eprintln!(
+        "Using candidate with triangle angle error {} and {} unmapped stars out of {}",
+        best_match.1.to_degrees(),
+        best_match.2,
+        cmd_args.star_mapping.mappings().len()
+    );
+
+    cmd_args.camera.set_orientation(best_match.0);
 
     cmd_args.output_camera()?;
     Ok(())
@@ -1482,7 +1587,10 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 //a Star orient
 //fp star_orient_cmd
 fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("orient").about("Orient on all of the mapped stars");
+    let command = Command::new("orient")
+        .about("Orient on all of the mapped stars")
+        .long_about(STAR_LONG_HELP);
+
     let mut build = CommandBuilder::new(command, Some(Box::new(star_orient_fn)));
     CmdArgs::add_args_write_camera(&mut build);
     build
@@ -1506,9 +1614,12 @@ fn star_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 //a Star update_star_mapping
 //fp star_update_mapping_cmd
 fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("update_star_mapping").about(
-        "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
-    );
+    let command = Command::new("update_star_mapping")
+        .about(
+            "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
+        )
+        .long_about(STAR_LONG_HELP);
+
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
     CmdArgs::add_args_within(&mut build);
@@ -1542,8 +1653,10 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 //a Star show_star_mapping
 //fp star_show_mapping_cmd
 fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
-    let command =
-        Command::new("show_star_mapping").about("Show the mapped stars onto an output image");
+    let command = Command::new("show_star_mapping")
+        .about("Show the mapped stars onto an output image")
+        .long_about(STAR_LONG_HELP);
+
     let mut build = CommandBuilder::new(command, Some(Box::new(star_show_mapping_fn)));
     ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
     ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
@@ -1613,7 +1726,10 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 //a Star calibrate_desc
 //fp star_calibrate_desc_cmd
 fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("calibrate_desc").about("Generate a calibration description");
+    let command = Command::new("calibrate_desc")
+        .about("Generate a calibration description")
+        .long_about(STAR_LONG_HELP);
+
     let mut build = CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)));
     CmdArgs::add_args_write_mapping(&mut build);
     build
@@ -1656,25 +1772,4 @@ fn main() -> Result<()> {
     let mut command = build.build();
     command.execute_env(&mut cmd_args)?;
     Ok(())
-}
-
-//a Star subcommand with its commands
-fn star_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("star")
-        .about("Calibrate a lens using stars")
-        .long_about(STAR_LONG_HELP);
-
-    let mut build = CommandBuilder::<CmdArgs>::new(command, None);
-    CmdArgs::add_args_closeness(&mut build);
-    CmdArgs::add_args_star_mapping(&mut build);
-    CmdArgs::add_args_star_catalog(&mut build);
-    CmdArgs::add_args_brightness(&mut build);
-
-    build.add_subcommand(star_show_mapping_cmd());
-    build.add_subcommand(star_find_stars_cmd());
-    build.add_subcommand(star_orient_cmd());
-    build.add_subcommand(star_calibrate_desc_cmd());
-    build.add_subcommand(star_update_mapping_cmd());
-
-    build
 }
