@@ -2,12 +2,11 @@
 use std::rc::Rc;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{json, Error, Point3D, Quat, Result};
 use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, LensPolys};
 use ic_project::Project;
-
-use crate::builder::{CommandArgs, CommandBuilder};
 
 //a CameraProjection
 // should move to using the camera database - need a new section - and body and lens names from within the database plus the focus distance

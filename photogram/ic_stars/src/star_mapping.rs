@@ -320,7 +320,7 @@ impl StarMapping {
     pub fn create_calibration_mapping(&self, catalog: &Catalog) -> CalibrationMapping {
         let mut world = vec![];
         let mut sensor = vec![];
-        for (i, mapping) in self.mappings.iter().enumerate() {
+        for mapping in &self.mappings {
             if mapping.3 != 0 {
                 if let Some(c) = catalog.find_sorted(mapping.3) {
                     let star = &catalog[c];

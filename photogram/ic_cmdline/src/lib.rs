@@ -1,8 +1,9 @@
 //a Modules
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use ic_camera::CameraInstance;
 use ic_mapping::{CameraPtMapping, PointMapping};
+use thunderclap::{CommandArgs, CommandBuilder};
 
 pub mod camera;
 pub mod file_system;
@@ -12,10 +13,8 @@ pub mod mapping;
 pub mod project;
 pub mod threads;
 
-pub mod builder;
-
-use builder::{CommandArgs, CommandBuilder};
 use ic_base::{Error, Result};
+
 //a Errors
 //fp add_errors_arg
 pub fn add_errors_arg(cmd: Command) -> Command {
@@ -80,158 +79,5 @@ where
             .long_help("Set verbose")
             .action(ArgAction::SetTrue),
         Box::new(move |args, matches| set(args, *matches.get_one::<bool>("verbose").unwrap())),
-    );
-}
-
-//mp add_arg_usize
-pub fn add_arg_usize<C, F>(
-    build: &mut CommandBuilder<C>,
-    tag: &'static str,
-    short: Option<char>,
-    help: &'static str,
-    default_value: Option<&'static str>,
-    set: F,
-    required: bool,
-) where
-    C: CommandArgs<Error = Error>,
-    F: Fn(&mut C, usize) -> Result<()> + 'static,
-{
-    let mut arg = Arg::new(tag)
-        .long(tag)
-        .help(help)
-        .value_parser(value_parser!(usize))
-        .required(required)
-        .action(ArgAction::Set);
-    if let Some(short) = short {
-        arg = arg.short(short);
-    }
-    if let Some(default_value) = default_value {
-        arg = arg.default_value(default_value);
-    }
-    build.add_arg(
-        arg,
-        Box::new(move |args, matches| set(args, *matches.get_one::<usize>(tag).unwrap())),
-    );
-}
-
-//mp add_arg_isize
-pub fn add_arg_isize<C, F>(
-    build: &mut CommandBuilder<C>,
-    tag: &'static str,
-    short: Option<char>,
-    help: &'static str,
-    default_value: Option<&'static str>,
-    set: F,
-    required: bool,
-) where
-    C: CommandArgs<Error = Error>,
-    F: Fn(&mut C, isize) -> Result<()> + 'static,
-{
-    let mut arg = Arg::new(tag)
-        .long(tag)
-        .help(help)
-        .value_parser(value_parser!(isize))
-        .required(required)
-        .action(ArgAction::Set);
-    if let Some(short) = short {
-        arg = arg.short(short);
-    }
-    if let Some(default_value) = default_value {
-        arg = arg.default_value(default_value);
-    }
-    build.add_arg(
-        arg,
-        Box::new(move |args, matches| set(args, *matches.get_one::<isize>(tag).unwrap())),
-    );
-}
-
-//mp add_arg_f32
-pub fn add_arg_f32<C, F>(
-    build: &mut CommandBuilder<C>,
-    tag: &'static str,
-    short: Option<char>,
-    help: &'static str,
-    default_value: Option<&'static str>,
-    set: F,
-    required: bool,
-) where
-    C: CommandArgs<Error = Error>,
-    F: Fn(&mut C, f32) -> Result<()> + 'static,
-{
-    let mut arg = Arg::new(tag)
-        .long(tag)
-        .help(help)
-        .value_parser(value_parser!(f32))
-        .required(required)
-        .action(ArgAction::Set);
-    if let Some(short) = short {
-        arg = arg.short(short);
-    }
-    if let Some(default_value) = default_value {
-        arg = arg.default_value(default_value);
-    }
-    build.add_arg(
-        arg,
-        Box::new(move |args, matches| set(args, *matches.get_one::<f32>(tag).unwrap())),
-    );
-}
-
-//mp add_arg_f64
-pub fn add_arg_f64<C, F>(
-    build: &mut CommandBuilder<C>,
-    tag: &'static str,
-    short: Option<char>,
-    help: &'static str,
-    default_value: Option<&'static str>,
-    set: F,
-    required: bool,
-) where
-    C: CommandArgs<Error = Error>,
-    F: Fn(&mut C, f64) -> Result<()> + 'static,
-{
-    let mut arg = Arg::new(tag)
-        .long(tag)
-        .help(help)
-        .value_parser(value_parser!(f64))
-        .required(required)
-        .action(ArgAction::Set);
-    if let Some(short) = short {
-        arg = arg.short(short);
-    }
-    if let Some(default_value) = default_value {
-        arg = arg.default_value(default_value);
-    }
-    build.add_arg(
-        arg,
-        Box::new(move |args, matches| set(args, *matches.get_one::<f64>(tag).unwrap())),
-    );
-}
-//mp add_arg_string
-pub fn add_arg_string<C, F>(
-    build: &mut CommandBuilder<C>,
-    tag: &'static str,
-    short: Option<char>,
-    help: &'static str,
-    default_value: Option<&'static str>,
-    set: F,
-    required: bool,
-) where
-    C: CommandArgs<Error = Error>,
-    F: Fn(&mut C, &str) -> Result<()> + 'static,
-{
-    let mut arg = Arg::new(tag)
-        .long(tag)
-        .help(help)
-        .required(required)
-        .action(ArgAction::Set);
-    if let Some(short) = short {
-        arg = arg.short(short);
-    }
-    if let Some(default_value) = default_value {
-        arg = arg.default_value(default_value);
-    }
-    build.add_arg(
-        arg,
-        Box::new(move |args, matches| set(args, matches.get_one::<String>(tag).unwrap().as_ref())),
     );
 }

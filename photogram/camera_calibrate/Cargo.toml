@@ -28,6 +28,7 @@ geo-nd.workspace = true
 clap.workspace = true
 star-catalog.workspace = true
 
+thunderclap.workspace = true
 ic_base.workspace = true
 ic_camera.workspace = true
 ic_cmdline.workspace = true

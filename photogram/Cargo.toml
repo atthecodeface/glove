@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-# members = [ "camera_calibrate", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_stars", "ic_threads", "image_analyze", "image_calibrate", "image_server"]
-members = [ "camera_calibrate", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_stars", "ic_threads", "image_analyze", "image_calibrate", "image_server", "ic_play"]
+members = [ "camera_calibrate", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_stars", "ic_threads", "image_analyze", "image_calibrate", "image_server", "ic_play", "thunderclap"]
 
 [workspace.package]
 edition = "2021"
@@ -27,6 +26,7 @@ ic_project = { version = "0.1.0", path = "./ic_project" }
 ic_stars = { version = "0.1.0", path = "./ic_stars" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
 ic_play = { version = "0.1.0", path = "./ic_play" }
+thunderclap = { version = "0.1.0", path = "./thunderclap" }
 
 nalgebra = "0.32.1"
 plotters = "0.3.3"

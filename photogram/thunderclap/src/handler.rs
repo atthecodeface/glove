@@ -2,69 +2,9 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 
-use clap::{Arg, ArgMatches, Command};
+use clap::{ArgMatches, Command};
 
-pub trait CommandArgs {
-    type Error: std::convert::From<String> + std::fmt::Display;
-    type Value: std::default::Default;
-}
-
-pub trait CommandFn<C: CommandArgs>: Fn(&mut C) -> Result<C::Value, C::Error> + 'static {}
-
-pub trait ArgFn<C: CommandArgs>: Fn(&mut C, &ArgMatches) -> Result<(), C::Error> + 'static {}
-
-impl<C: CommandArgs, T: Fn(&mut C) -> Result<C::Value, C::Error> + 'static> CommandFn<C> for T {}
-impl<C: CommandArgs, T: Fn(&mut C, &ArgMatches) -> Result<(), C::Error> + 'static> ArgFn<C> for T {}
-
-//a CommandBuilder
-//tp CommandBuilder
-pub struct CommandBuilder<C: CommandArgs> {
-    command: Command,
-    handler: Option<Box<dyn CommandFn<C>>>,
-    sub_cmds: HashMap<String, CommandBuilder<C>>,
-    args: Vec<(String, Box<dyn ArgFn<C>>)>,
-}
-
-impl<C: CommandArgs> CommandBuilder<C> {
-    pub fn new(mut command: Command, handler: Option<Box<dyn CommandFn<C>>>) -> Self {
-        if handler.is_none() {
-            command = command.subcommand_required(true);
-        }
-        let sub_cmds = HashMap::default();
-        let args = vec![];
-
-        Self {
-            command,
-            handler,
-            sub_cmds,
-            args,
-        }
-    }
-
-    pub fn add_arg(&mut self, arg: Arg, handler: Box<dyn ArgFn<C>>) {
-        let name = arg.get_id().as_str().into();
-        self.command = std::mem::take(&mut self.command).arg(arg);
-        self.args.push((name, handler));
-    }
-
-    pub fn add_subcommand(&mut self, subcommand: Self) {
-        self.sub_cmds
-            .insert(subcommand.command.get_name().into(), subcommand);
-    }
-
-    pub fn build(self) -> (Command, CommandHandlerSet<C>) {
-        let mut command = self.command;
-        let handler = self.handler;
-        let args = self.args;
-        let mut sub_cmds = HashMap::default();
-        for (k, sc) in self.sub_cmds.into_iter() {
-            let (sc, schs) = sc.build();
-            sub_cmds.insert(k, schs);
-            command = command.subcommand(sc);
-        }
-        (command, CommandHandlerSet::new(handler, sub_cmds, args))
-    }
-}
+use crate::{ArgFn, CommandArgs, CommandBuilder, CommandFn};
 
 //a CommandHandlerSet
 pub struct CommandHandlerSet<C: CommandArgs> {
@@ -74,7 +14,7 @@ pub struct CommandHandlerSet<C: CommandArgs> {
 }
 
 impl<C: CommandArgs> CommandHandlerSet<C> {
-    fn new(
+    pub fn new(
         handler: Option<Box<dyn CommandFn<C>>>,
         sub_cmds: HashMap<String, CommandHandlerSet<C>>,
         args: Vec<(String, Box<dyn ArgFn<C>>)>,
@@ -129,7 +69,7 @@ pub struct CommandSet<C: CommandArgs> {
 
 impl<C: CommandArgs> CommandSet<C> {
     pub fn new(builder: CommandBuilder<C>) -> Self {
-        let (command, handler_set) = builder.build();
+        let (command, handler_set) = builder.take();
         let command = command.no_binary_name(true);
         Self {
             command,

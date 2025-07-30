@@ -204,13 +204,14 @@ use std::io::Write;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
 use star_catalog::{Catalog, StarFilter};
+use thunderclap::args;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::json;
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection, LensPolys};
-use ic_cmdline::builder::{CommandArgs, CommandBuilder, CommandSet};
 use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
 use ic_stars::StarMapping;
@@ -463,7 +464,7 @@ impl CmdArgs {
 impl CmdArgs {
     //fp add_args_write_camera
     fn add_args_write_camera(build: &mut CommandBuilder<Self>) {
-        ic_cmdline::add_arg_string(
+        args::add_string(
             build,
             "write_camera",
             None,
@@ -476,7 +477,7 @@ impl CmdArgs {
 
     //fp add_args_write_mapping
     fn add_args_write_mapping(build: &mut CommandBuilder<Self>) {
-        ic_cmdline::add_arg_string(
+        args::add_string(
             build,
             "write_mapping",
             None,
@@ -489,7 +490,7 @@ impl CmdArgs {
 
     //fp add_args_write_polys
     fn add_args_write_polys(build: &mut CommandBuilder<Self>) {
-        ic_cmdline::add_arg_string(
+        args::add_string(
             build,
             "write_polys",
             None,
@@ -502,7 +503,7 @@ impl CmdArgs {
 
     //fp add_args_poly_degree
     fn add_args_poly_degree(build: &mut CommandBuilder<Self>) {
-        ic_cmdline::add_arg_usize(
+        args::add_usize(
             build,
             "poly_degree",
             None,
@@ -515,7 +516,7 @@ impl CmdArgs {
 
     //fp add_args_num_pts
     fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
-        ic_cmdline::add_arg_usize(
+        args::add_usize(
             build,
             "num_pts",
             Some('n'),
@@ -532,7 +533,7 @@ impl CmdArgs {
         min: Option<&'static str>,
         max: Option<&'static str>,
     ) {
-        ic_cmdline::add_arg_f64(
+        args::add_f64(
             build,
             "min_yaw",
             None,
@@ -541,7 +542,7 @@ impl CmdArgs {
             CmdArgs::set_yaw_min,
             false,
         );
-        ic_cmdline::add_arg_f64(
+        args::add_f64(
             build,
             "max_yaw",
             None,
@@ -1411,7 +1412,7 @@ fn main() -> Result<()> {
     //    build.add_subcommand(grid_calibrate_cmd());
 
     let mut cmd_args = CmdArgs::default();
-    let mut command: CommandSet<_> = build.into();
+    let mut command = build.build();
     command.execute_env(&mut cmd_args)?;
     Ok(())
 }
@@ -1424,7 +1425,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
 
-    ic_cmdline::add_arg_f64(&mut build,
+    args::add_f64(&mut build,
                                     "closeness", None,
                                     "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
                                     Some("0.2"),
@@ -1447,7 +1448,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         Box::new(CmdArgs::arg_star_catalog),
     );
 
-    ic_cmdline::add_arg_f32(
+    args::add_f32(
         &mut build,
         "brightness",
         None,
@@ -1462,7 +1463,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     let mut sm_build = CommandBuilder::new(sm_command, Some(Box::new(show_star_mapping_cmd)));
     ic_cmdline::image::add_arg_read_img(&mut sm_build, CmdArgs::set_read_img, false, Some(1));
     ic_cmdline::image::add_arg_write_img(&mut sm_build, CmdArgs::set_write_img, false);
-    ic_cmdline::add_arg_f64(
+    args::add_f64(
         &mut sm_build,
         "within",
         None,
@@ -1494,7 +1495,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
     );
     let mut ms_build = CommandBuilder::new(ms_command, Some(Box::new(update_star_mapping_cmd)));
-    ic_cmdline::add_arg_f64(
+    args::add_f64(
         &mut ms_build,
         "yaw_error",
         None,
@@ -1503,7 +1504,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         CmdArgs::set_yaw_error,
         false,
     );
-    ic_cmdline::add_arg_f64(
+    args::add_f64(
         &mut ms_build,
         "within",
         None,
