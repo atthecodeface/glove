@@ -57,6 +57,9 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
     /// argument's [ArgFn] returns an error then all processing is
     /// stopped and that error is returned.
     fn handle_args(&self, cmd_args: &mut C, matches: &ArgMatches) -> Result<(), C::Error> {
+        if let Some(arg_reset_fn) = &self.arg_reset {
+            (*arg_reset_fn)(cmd_args);
+        }
         for (a, f) in self.args.iter() {
             if matches.contains_id(a) {
                 if true {

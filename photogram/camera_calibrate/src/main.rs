@@ -403,6 +403,7 @@ pub struct CmdArgs {
     camera: CameraInstance,
     write_camera: Option<String>,
     write_mapping: Option<String>,
+    write_star_mapping: Option<String>,
     write_polys: Option<String>,
 
     mapping: Option<CalibrationMapping>,
@@ -430,6 +431,13 @@ impl CommandArgs for CmdArgs {
 
 //ip CmdArgs - setters and getters
 impl CmdArgs {
+    fn reset_args(&mut self) {
+        self.write_img = None;
+        self.write_mapping = None;
+        self.write_star_mapping = None;
+        self.write_polys = None;
+        self.write_camera = None;
+    }
     fn get_cdb(&self) -> &CameraDatabase {
         self.cdb.as_ref().unwrap()
     }
@@ -463,6 +471,10 @@ impl CmdArgs {
     }
     fn set_write_mapping(&mut self, s: &str) -> Result<()> {
         self.write_mapping = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_write_star_mapping(&mut self, s: &str) -> Result<()> {
+        self.write_star_mapping = Some(s.to_owned());
         Ok(())
     }
     fn set_write_polys(&mut self, s: &str) -> Result<()> {
@@ -551,6 +563,18 @@ impl CmdArgs {
             "File to write a derived mapping JSON to",
             None,
             CmdArgs::set_write_mapping,
+            false,
+        );
+    }
+
+    //fp add_args_write_star_mapping
+    fn add_args_write_star_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_star_mapping",
+            None,
+            "File to write a derived star mapping JSON to",
+            None,
+            CmdArgs::set_write_star_mapping,
             false,
         );
     }
@@ -750,52 +774,71 @@ impl CmdArgs {
         }
     }
 
-    //mp output_camera
-    fn output_camera(&self) -> Result<()> {
-        let s = self.camera.to_json()?;
+    //mp write_outputsw
+    fn write_outputs(&self) -> Result<()> {
         if let Some(filename) = &self.write_camera {
+            let s = self.camera.to_json()?;
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
-        } else {
-            println!("{s}");
+        }
+        if let Some(filename) = &self.write_mapping {
+            if let Some(s) = self.mapping.as_ref() {
+                let s = s.clone().to_json()?;
+                let mut f = std::fs::File::create(filename)?;
+                f.write_all(s.as_bytes())?;
+            }
+        }
+        if let Some(filename) = &self.write_star_mapping {
+            let s = self.star_mapping.clone().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
+        if let Some(filename) = &self.write_polys {
+            let s = self.camera.lens().polys().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
         }
         Ok(())
+    }
+
+    //mp output_camera
+    fn output_camera(&self) -> CmdResult {
+        if self.write_camera.is_none() {
+            let s = self.camera.to_json()?;
+            Ok(s.to_string())
+        } else {
+            cmd_ok()
+        }
     }
 
     //mp output_mapping
-    fn output_mapping(&self) -> Result<()> {
-        let s = self.mapping.as_ref().unwrap().clone().to_json()?;
-        if let Some(filename) = &self.write_mapping {
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
+    fn output_mapping(&self) -> CmdResult {
+        if self.write_mapping.is_none() {
+            let s = self.mapping.as_ref().unwrap().clone().to_json()?;
+            Ok(s.to_string())
         } else {
-            println!("{s}");
+            cmd_ok()
         }
-        Ok(())
     }
 
     //mp output_star_mapping
-    fn output_star_mapping(&self) -> Result<()> {
-        let s = self.star_mapping.clone().to_json()?;
-        if let Some(filename) = &self.write_mapping {
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
+    fn output_star_mapping(&self) -> CmdResult {
+        if self.write_star_mapping.is_none() {
+            let s = self.star_mapping.clone().to_json()?;
+            Ok(s.to_string())
         } else {
-            println!("{s}");
+            cmd_ok()
         }
-        Ok(())
     }
 
     //mp output_polynomials
-    fn output_polynomials(&self) -> Result<()> {
-        let s = self.camera.lens().polys().to_json()?;
-        if let Some(filename) = &self.write_polys {
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
+    fn output_polynomials(&self) -> CmdResult {
+        if self.write_polys.is_none() {
+            let s = self.camera.lens().polys().to_json()?;
+            Ok(s.to_string())
         } else {
-            println!("{s}");
+            cmd_ok()
         }
-        Ok(())
     }
 }
 
@@ -905,6 +948,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
         img.write(cmd_args.write_img.as_ref().unwrap())?;
     }
+    cmd_args.write_outputs()?;
     cmd_ok()
 }
 
@@ -981,8 +1025,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     });
 
     cmd_args.camera.set_position(best_cam_pos);
-    cmd_args.output_camera()?;
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
 }
 
 //a Orient
@@ -1096,8 +1140,8 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         eprintln!("{camera}");
     });
 
-    cmd_args.output_camera()?;
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
 }
 
 //a Lens calibrate
@@ -1194,9 +1238,8 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     camera_lens.set_polys(LensPolys::new(stw, wts));
     cmd_args.camera.set_lens(camera_lens);
 
-    cmd_args.output_polynomials()?;
-
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_polynomials()
 }
 
 //a Yaw plot
@@ -1521,7 +1564,10 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
         .about("Find a camera orientation using two star triangles from an image")
         .long_about(STAR_FIND_STARS_LONG_HELP);
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
+    CmdArgs::add_args_yaw_error(&mut build);
+    CmdArgs::add_args_within(&mut build);
     CmdArgs::add_args_write_camera(&mut build);
+    CmdArgs::add_args_write_star_mapping(&mut build);
     build
 }
 
@@ -1543,12 +1589,12 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
     for (i, (x, q)) in angle_orientations.iter().enumerate() {
         cmd_args.camera.set_orientation(*q);
-        let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
+        let _ = cmd_args.star_mapping.update_star_mappings(
             cmd_args.star_catalog.as_ref().unwrap(),
             &cmd_args.camera,
             cmd_args.closeness,
-            0.03,
-            40.0,
+            cmd_args.yaw_error,
+            cmd_args.within,
         );
         let Ok(orientation) = cmd_args
             .star_mapping
@@ -1565,8 +1611,8 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             cmd_args.star_catalog.as_ref().unwrap(),
             &cmd_args.camera,
             cmd_args.closeness,
-            0.03,
-            40.0,
+            cmd_args.yaw_error,
+            cmd_args.within,
         );
         if num_unmapped < best_match.2 {
             best_match = (orientation, *x, num_unmapped);
@@ -1588,8 +1634,8 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     eprintln!("{}", &cmd_args.camera);
     //});
 
-    cmd_args.output_camera()?;
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
 }
 
 //a Star orient
@@ -1615,8 +1661,8 @@ fn star_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             brightness,
         )?;
     cmd_args.camera.set_orientation(orientation);
-    cmd_args.output_camera()?;
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
 }
 
 //a Star update_star_mapping
@@ -1631,7 +1677,7 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
     CmdArgs::add_args_within(&mut build);
-    CmdArgs::add_args_write_mapping(&mut build);
+    CmdArgs::add_args_write_star_mapping(&mut build);
     build
 }
 
@@ -1655,8 +1701,9 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         "{num_unmapped} stars were not mapped out of {}, total error of mapped stars {total_error:.4e}|",
         cmd_args.star_mapping.mappings().len(),
     );
-    cmd_args.output_star_mapping()?;
-    cmd_ok()
+
+    cmd_args.write_outputs()?;
+    cmd_args.output_star_mapping()
 }
 
 //a Star show_star_mapping
@@ -1750,8 +1797,8 @@ fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .star_mapping
         .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());
     cmd_args.set_mapping(pc)?;
-    cmd_args.output_mapping()?;
-    cmd_ok()
+    cmd_args.write_outputs()?;
+    cmd_args.output_mapping()
 }
 
 //a Main
@@ -1763,6 +1810,7 @@ fn main() -> Result<()> {
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, None);
+    build.set_arg_reset(Box::new(CmdArgs::reset_args));
     ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
     ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, false);
     ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, false);
