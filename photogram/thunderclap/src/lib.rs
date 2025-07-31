@@ -7,7 +7,7 @@ pub use builder::CommandBuilder;
 pub use traits::CommandArgs;
 
 pub(crate) use handler::{CommandHandlerSet, CommandSet};
-pub(crate) use traits::{ArgFn, CommandFn};
+pub(crate) use traits::{ArgFn, ArgResetFn, CommandFn};
 
 pub fn bound<F, V>(v: V, min: Option<V>, max: Option<V>, f: F) -> Result<V, String>
 where

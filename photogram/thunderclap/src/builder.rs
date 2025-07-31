@@ -3,15 +3,14 @@ use std::collections::HashMap;
 
 use clap::{value_parser, Arg, ArgAction, Command};
 
-use crate::{ArgFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet};
+use crate::{ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet};
 
 //a CommandBuilder
 //tp CommandBuilder
 pub struct CommandBuilder<C: CommandArgs> {
     command: Command,
-    handler: Option<Box<dyn CommandFn<C>>>,
+    handler_set: CommandHandlerSet<C>,
     sub_cmds: HashMap<String, CommandBuilder<C>>,
-    args: Vec<(String, Box<dyn ArgFn<C>>)>,
 }
 
 impl<C: CommandArgs> CommandBuilder<C> {
@@ -19,21 +18,23 @@ impl<C: CommandArgs> CommandBuilder<C> {
         if handler.is_none() {
             command = command.subcommand_required(true);
         }
+        let handler_set = CommandHandlerSet::new(handler);
         let sub_cmds = HashMap::default();
-        let args = vec![];
-
         Self {
             command,
-            handler,
+            handler_set,
             sub_cmds,
-            args,
         }
+    }
+
+    pub fn set_arg_reset(&mut self, handler: Box<dyn ArgResetFn<C>>) {
+        self.handler_set.set_arg_reset(handler);
     }
 
     pub fn add_arg(&mut self, arg: Arg, handler: Box<dyn ArgFn<C>>) {
         let name = arg.get_id().as_str().into();
         self.command = std::mem::take(&mut self.command).arg(arg);
-        self.args.push((name, handler));
+        self.handler_set.add_arg(name, handler);
     }
 
     pub fn add_subcommand(&mut self, subcommand: Self) {
@@ -43,15 +44,13 @@ impl<C: CommandArgs> CommandBuilder<C> {
 
     pub(crate) fn take(self) -> (Command, CommandHandlerSet<C>) {
         let mut command = self.command;
-        let handler = self.handler;
-        let args = self.args;
-        let mut sub_cmds = HashMap::default();
+        let mut handler_set = self.handler_set;
         for (k, sc) in self.sub_cmds.into_iter() {
             let (sc, schs) = sc.take();
-            sub_cmds.insert(k, schs);
+            handler_set.add_subcommand(k, schs);
             command = command.subcommand(sc);
         }
-        (command, CommandHandlerSet::new(handler, sub_cmds, args))
+        (command, handler_set)
     }
 
     pub fn build(self) -> CommandSet<C> {

@@ -21,6 +21,23 @@ pub trait CommandArgs {
 
 //a ArgFn
 //tt ArgFn
+/// Trait of functions submitted to reset [CommandArgs] prior to a (sub)command
+///
+/// This is invoked for a subcommand prior to setting its matches
+///
+/// It can be used to reset once-only arguments; on the command line
+/// this will generally have no effect, as the arguments are yet to be
+/// set by ArgFn invocations; in batch mode or interactive mode this
+/// may reset values that are used once only (on previous invocations)
+///
+/// This function need not be provided if the [CommandArgs] are
+/// autoreset at the *end* of a command by the application.
+pub trait ArgResetFn<C: CommandArgs>: Fn(&mut C) -> () + 'static {}
+
+//ip ArgResetFn for Fn(CommandArgs)
+impl<C: CommandArgs, T: Fn(&mut C) -> () + 'static> ArgResetFn<C> for T {}
+
+//tt ArgFn
 /// Trait of functions submitted to update [CommandArgs] with a value from the [ArgMatches]
 ///
 /// This is invoked for a specific argument when it is provided in the
