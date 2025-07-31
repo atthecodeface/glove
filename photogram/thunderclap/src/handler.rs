@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 
-use clap::{ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use crate::{ArgFn, CommandArgs, CommandBuilder, CommandFn};
 
@@ -77,21 +77,92 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 
-    pub fn execute<I, T>(&mut self, itr: I, cmd_args: &mut C) -> Result<C::Value, C::Error>
+    pub fn main(builder: CommandBuilder<C>, allow_batch: bool, allow_interactive: bool) -> Self {
+        let (command, handler_set) = builder.take();
+        let mut command = command.no_binary_name(true);
+        if allow_batch {
+            command = command.subcommand_required(false);
+            command = command.arg(
+                Arg::new("batch")
+                    .long("batch")
+                    .help("Execute a batch set of commands")
+                    .action(ArgAction::Append),
+            );
+        }
+        Self {
+            command,
+            handler_set,
+        }
+    }
+
+    pub fn execute_str(
+        &mut self,
+        cmd_name: &str,
+        s: &str,
+        cmd_args: &mut C,
+    ) -> Result<C::Value, C::Error> {
+        let mut value_stack = vec![];
+        for l in s.lines() {
+            let l = l.trim();
+            if l.is_empty() {
+                continue;
+            }
+            let v = self.execute(cmd_name, l.split_whitespace(), cmd_args)?;
+            value_stack.push(v);
+        }
+        if value_stack.is_empty() {
+            Ok(C::Value::default())
+        } else {
+            Ok(value_stack.pop().unwrap())
+        }
+    }
+
+    pub fn execute<I, T>(
+        &mut self,
+        cmd_name: &str,
+        itr: I,
+        cmd_args: &mut C,
+    ) -> Result<C::Value, C::Error>
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        match self.command.try_get_matches_from_mut(itr) {
+        let mut cmd = self.command.clone().bin_name(cmd_name);
+        match cmd.try_get_matches_from_mut(itr) {
             Err(e) => {
                 e.exit();
             }
-            Ok(matches) => self.handler_set.handle_matches(cmd_args, &matches),
+            Ok(matches) => {
+                if matches.contains_id("batch") {
+                    let batches: Vec<_> = matches
+                        .get_many::<String>("batch")
+                        .unwrap()
+                        .map(|filename| {
+                            (
+                                filename.clone(),
+                                std::fs::read_to_string(filename)
+                                    .map_err(|e| format!("Failed to load batch file {filename}")),
+                            )
+                        })
+                        .collect();
+                    for b in &batches {
+                        if let Err(err) = &b.1 {
+                            return Err(err.clone().into());
+                        }
+                    }
+                    for (filename, s) in batches {
+                        let _ = self.execute_str(&filename, &s.unwrap(), cmd_args)?;
+                    }
+                }
+                self.handler_set.handle_matches(cmd_args, &matches)
+            }
         }
     }
 
     pub fn execute_env(&mut self, cmd_args: &mut C) -> Result<C::Value, C::Error> {
-        match self.execute(std::env::args_os().skip(1), cmd_args) {
+        let mut iter = std::env::args_os();
+        let cmd_name = iter.next().unwrap();
+        match self.execute(cmd_name.to_str().unwrap(), iter, cmd_args) {
             Err(e) => {
                 eprintln!("{e}");
                 std::process::exit(4);

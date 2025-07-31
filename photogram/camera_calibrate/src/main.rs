@@ -1756,10 +1756,10 @@ fn main() -> Result<()> {
         .long_about(CAMERA_CALIBRATE_LONG_HELP)
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
+    let mut build = CommandBuilder::new(command, None);
     ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
-    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, true);
-    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, true);
+    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, false);
+    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, false);
 
     build.add_subcommand(calibrate_cmd());
     build.add_subcommand(locate_cmd());
@@ -1772,7 +1772,7 @@ fn main() -> Result<()> {
     //    build.add_subcommand(grid_calibrate_cmd());
 
     let mut cmd_args = CmdArgs::default();
-    let mut command = build.build();
+    let mut command = build.main(true, true);
     command.execute_env(&mut cmd_args)?;
     Ok(())
 }

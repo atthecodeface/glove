@@ -58,6 +58,10 @@ impl<C: CommandArgs> CommandBuilder<C> {
         CommandSet::new(self)
     }
 
+    pub fn main(self, allow_batch: bool, allow_interactive: bool) -> CommandSet<C> {
+        CommandSet::main(self, allow_batch, allow_interactive)
+    }
+
     //mp add_flag
     pub fn add_flag<F>(
         &mut self,
