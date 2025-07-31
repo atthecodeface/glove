@@ -523,7 +523,8 @@ impl StarMapping {
                 // r = cos(x = angle of rotation) = 1 - x^2/2 + x^4/24 - ...
                 // x^2 = 2(1-r)
                 let x2 = (1.0 - r) * 2.0;
-                if x2 < 3.1E-5 {
+                if x2 < max_angle_delta * max_angle_delta {
+                    // 3.1E-5 {
                     // x = 0.2 degrees
                     let qs = [
                         (1.0, mag1_q_m_to_c.into_array()),
@@ -624,11 +625,9 @@ impl StarMapping {
         //cb Add (in blue) the Calibration stars that map to a Catalog star
         for mapping in &self.mappings {
             if let Some(c) = catalog.find_sorted(mapping.3) {
-                if catalog[c].magnitude() < search_brightness {
-                    let pt: &[f64; 3] = catalog[c].vector();
-                    let mapped = camera.world_xyz_to_px_abs_xy((*pt).into());
-                    mapped_pts.push((mapped, style).into());
-                }
+                let pt: &[f64; 3] = catalog[c].vector();
+                let mapped = camera.world_xyz_to_px_abs_xy((*pt).into());
+                mapped_pts.push((mapped, style).into());
             }
         }
         Ok(())

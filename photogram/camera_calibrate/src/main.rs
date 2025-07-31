@@ -405,6 +405,7 @@ pub struct CmdArgs {
     write_mapping: Option<String>,
     write_star_mapping: Option<String>,
     write_polys: Option<String>,
+    write_svg: Option<String>,
 
     mapping: Option<CalibrationMapping>,
     star_catalog: Option<Box<Catalog>>,
@@ -437,7 +438,9 @@ impl CmdArgs {
         self.write_mapping = None;
         self.write_star_mapping = None;
         self.write_polys = None;
+        self.write_svg = None;
         self.write_camera = None;
+        self.use_pts = 0;
     }
     fn get_cdb(&self) -> &CameraDatabase {
         self.cdb.as_ref().unwrap()
@@ -480,6 +483,10 @@ impl CmdArgs {
     }
     fn set_write_polys(&mut self, s: &str) -> Result<()> {
         self.write_polys = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_write_svg(&mut self, s: &str) -> Result<()> {
+        self.write_svg = Some(s.to_owned());
         Ok(())
     }
     fn set_use_pts(&mut self, v: usize) -> Result<()> {
@@ -600,6 +607,18 @@ impl CmdArgs {
             "File to write a derived polynomials JSON to",
             None,
             CmdArgs::set_write_polys,
+            false,
+        );
+    }
+
+    //fp add_args_write_svg
+    fn add_args_write_svg(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_svg",
+            None,
+            "File to write an output SVG to",
+            None,
+            CmdArgs::set_write_svg,
             false,
         );
     }
@@ -1278,6 +1297,7 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
     CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_args_write_svg(&mut build);
 
     build
 }
@@ -1432,8 +1452,14 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .append_to(poloto::header().append(theme))
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
-    println!("{plot_initial}");
 
+    let s = plot_initial.to_string();
+    if let Some(filename) = &cmd_args.write_svg {
+        let mut f = std::fs::File::create(filename)?;
+        f.write_all(s.as_bytes())?;
+    } else {
+        println!("{s}");
+    }
     cmd_ok()
 }
 
