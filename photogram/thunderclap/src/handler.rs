@@ -62,7 +62,7 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
         }
         for (a, f) in self.args.iter() {
             if matches.contains_id(a) {
-                if true {
+                if false {
                     for (i, mut r) in matches.get_raw_occurrences(a).unwrap().enumerate() {
                         if r.len() == 1 {
                             eprintln!(
@@ -192,6 +192,9 @@ impl<C: CommandArgs> CommandSet<C> {
     fn execute_str_line(&mut self, cmd_args: &mut C, l: &str) -> Result<(), C::Error> {
         let l = l.trim();
         if !l.is_empty() {
+            if l.as_bytes()[0] == b'#' {
+                return Ok(());
+            }
             let v = self.execute(cmd_args, l.split_whitespace())?;
             self.result_history.push(Rc::new(v));
         }

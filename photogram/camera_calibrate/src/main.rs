@@ -417,6 +417,7 @@ pub struct CmdArgs {
     yaw_min: f64,
     yaw_max: f64,
     poly_degree: usize,
+    triangle_closeness: f64,
     closeness: f64,
     yaw_error: f64,
     within: f64,
@@ -509,6 +510,10 @@ impl CmdArgs {
         Ok(())
     }
 
+    fn set_triangle_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.triangle_closeness = closeness;
+        Ok(())
+    }
     fn set_closeness(&mut self, closeness: f64) -> Result<()> {
         self.closeness = closeness;
         Ok(())
@@ -537,6 +542,14 @@ impl CmdArgs {
             n.min(self.use_pts)
         } else {
             n
+        }
+    }
+
+    fn ensure_star_catalog(&self) -> Result<()> {
+        if self.star_catalog.is_none() {
+            Err("Star catalog *must* have been specified".into())
+        } else {
+            Ok(())
         }
     }
 }
@@ -671,11 +684,22 @@ impl CmdArgs {
                                     CmdArgs::set_closeness,
                                                            false);
     }
+    //fp add_args_triangle_closeness
+    fn add_args_triangle_closeness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "triangle_closeness",
+            None,
+            "Closeness (degrees) to find triangles of stars",
+            Some("0.2"),
+            CmdArgs::set_triangle_closeness,
+            false,
+        );
+    }
     //fp add_args_star_mapping
     fn add_args_star_mapping(build: &mut CommandBuilder<Self>) {
         build.add_arg(
             Arg::new("star_mapping")
-                .required(true)
+                .required(false)
                 .help("File mapping sensor coordinates to catalog identifiers")
                 .action(ArgAction::Set),
             Box::new(CmdArgs::arg_star_mapping),
@@ -687,7 +711,7 @@ impl CmdArgs {
         build.add_arg(
             Arg::new("star_catalog")
                 .long("catalog")
-                .required(true)
+                .required(false)
                 .help("Star catalog to use")
                 .action(ArgAction::Set),
             Box::new(CmdArgs::arg_star_catalog),
@@ -1544,10 +1568,14 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_LONG_HELP);
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
+    CmdArgs::add_args_triangle_closeness(&mut build);
     CmdArgs::add_args_closeness(&mut build);
     CmdArgs::add_args_star_mapping(&mut build);
     CmdArgs::add_args_star_catalog(&mut build);
     CmdArgs::add_args_brightness(&mut build);
+    CmdArgs::add_args_write_mapping(&mut build);
+    CmdArgs::add_args_write_camera(&mut build);
+    CmdArgs::add_args_write_star_mapping(&mut build);
 
     build.add_subcommand(star_show_mapping_cmd());
     build.add_subcommand(star_find_stars_cmd());
@@ -1566,14 +1594,12 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
     CmdArgs::add_args_within(&mut build);
-    CmdArgs::add_args_write_camera(&mut build);
-    CmdArgs::add_args_write_star_mapping(&mut build);
     build
 }
 
 //fp star_find_stars_fn
 fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let closeness = cmd_args.closeness;
+    cmd_args.ensure_star_catalog()?;
 
     cmd_args
         .star_catalog
@@ -1584,7 +1610,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let angle_orientations = cmd_args.star_mapping.find_orientation_from_triangles(
         cmd_args.star_catalog.as_ref().unwrap(),
         &cmd_args.camera,
-        closeness.to_radians() as f32,
+        cmd_args.triangle_closeness,
     )?;
     let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
     for (i, (x, q)) in angle_orientations.iter().enumerate() {
@@ -1601,7 +1627,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             .find_orientation_from_all_mapped_stars(
                 cmd_args.star_catalog.as_ref().unwrap(),
                 &cmd_args.camera,
-                10.0, // brightness,
+                cmd_args.brightness,
             )
         else {
             continue;
@@ -1630,9 +1656,13 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     );
 
     cmd_args.camera.set_orientation(best_match.0);
-    //cmd_args.if_verbose(|| {
-    eprintln!("{}", &cmd_args.camera);
-    //});
+    let _ = cmd_args.star_mapping.update_star_mappings(
+        cmd_args.star_catalog.as_ref().unwrap(),
+        &cmd_args.camera,
+        cmd_args.closeness,
+        cmd_args.yaw_error,
+        cmd_args.within,
+    );
 
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
@@ -1646,12 +1676,12 @@ fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_orient_fn)));
-    CmdArgs::add_args_write_camera(&mut build);
     build
 }
 
 //fp star_orient_fn
 fn star_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    cmd_args.ensure_star_catalog()?;
     let brightness = cmd_args.brightness;
     let orientation = cmd_args
         .star_mapping
@@ -1677,12 +1707,12 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
     CmdArgs::add_args_within(&mut build);
-    CmdArgs::add_args_write_star_mapping(&mut build);
     build
 }
 
 //fp star_update_mapping_fn
 fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    cmd_args.ensure_star_catalog()?;
     cmd_args
         .star_catalog
         .as_mut()
@@ -1722,6 +1752,7 @@ fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
 
 //fp star_show_mapping_fn
 fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    cmd_args.ensure_star_catalog()?;
     let within = cmd_args.within;
 
     cmd_args
@@ -1786,13 +1817,13 @@ fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
         .about("Generate a calibration description")
         .long_about(STAR_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)));
-    CmdArgs::add_args_write_mapping(&mut build);
+    let build = CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)));
     build
 }
 
 //fp star_calibrate_desc_fn
 fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    cmd_args.ensure_star_catalog()?;
     let pc = cmd_args
         .star_mapping
         .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());

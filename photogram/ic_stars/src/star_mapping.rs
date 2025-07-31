@@ -381,13 +381,14 @@ impl StarMapping {
     }
 
     //mp find_orientation_from_triangles
-    /// A value of 0.003 is normal for closeness
+    /// A value of 0.15 degrees is normal for max_angle_delta
     pub fn find_orientation_from_triangles(
         &mut self,
         catalog: &Catalog,
         camera: &CameraInstance,
-        closeness: f32,
+        max_angle_delta: f64,
     ) -> Result<Vec<(f64, Quat)>> {
+        let max_angle_delta = max_angle_delta.to_radians();
         //cb Create list of mag1_stars and directions to them, and mag2 if possible
         let mut mag1_stars = vec![];
         let mut mag2_stars = vec![];
@@ -439,7 +440,7 @@ impl StarMapping {
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
         let candidate_tris =
-            catalog.find_star_triangles(subcube_iter, &mag1_angles, closeness as f64);
+            catalog.find_star_triangles(subcube_iter, &mag1_angles, max_angle_delta);
 
         let mut printed = 0;
         let mut candidate_q_m_to_c = vec![];
@@ -481,7 +482,7 @@ impl StarMapping {
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
         let mag2_candidate_tris =
-            catalog.find_star_triangles(subcube_iter, &mag2_angles, closeness as f64);
+            catalog.find_star_triangles(subcube_iter, &mag2_angles, max_angle_delta);
         for (n, tri) in mag2_candidate_tris.iter().enumerate() {
             let q_m_to_c = orientation_mapping_triangle(
                 catalog[tri.0].vector(),
