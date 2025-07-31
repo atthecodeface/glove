@@ -388,6 +388,12 @@ rotation, and so is 1.0. For close matches (angle x close to 0) the cosine is ap
   ";
 
 //a Types
+//a CmdResult
+type CmdResult = std::result::Result<String, ic_base::Error>;
+fn cmd_ok() -> CmdResult {
+    Ok("".into())
+}
+
 //a CmdArgs
 //tp CmdArgs
 #[derive(Default)]
@@ -414,6 +420,12 @@ pub struct CmdArgs {
     yaw_error: f64,
     within: f64,
     brightness: f32,
+}
+
+//ip CommandArgs for CmdArgs
+impl CommandArgs for CmdArgs {
+    type Error = ic_base::Error;
+    type Value = String;
 }
 
 //ip CmdArgs - setters and getters
@@ -787,12 +799,6 @@ impl CmdArgs {
     }
 }
 
-//ip CommandArgs for CmdArgs
-impl CommandArgs for CmdArgs {
-    type Error = ic_base::Error;
-    type Value = ();
-}
-
 //a Calibrate
 //fi calibrate_cmd
 fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
@@ -811,7 +817,7 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi calibrate_fn
-fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
 
     let v = calibrate.get_pairings(&cmd_args.camera);
@@ -899,7 +905,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         }
         img.write(cmd_args.write_img.as_ref().unwrap())?;
     }
-    Ok(())
+    cmd_ok()
 }
 
 //a Locate
@@ -918,7 +924,7 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi locate_fn
-fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Reset the camera position and orientation, defensively
     cmd_args.camera.set_position([0., 0., 0.].into());
     cmd_args.camera.set_orientation(Quat::default());
@@ -976,7 +982,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     cmd_args.camera.set_position(best_cam_pos);
     cmd_args.output_camera()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Orient
@@ -995,7 +1001,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi orient_fn
-fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
@@ -1091,7 +1097,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     });
 
     cmd_args.output_camera()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Lens calibrate
@@ -1113,7 +1119,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi lens_calibrate_fn
-fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
@@ -1190,7 +1196,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     cmd_args.output_polynomials()?;
 
-    Ok(())
+    cmd_ok()
 }
 
 //a Yaw plot
@@ -1210,7 +1216,7 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi yaw_plot_fn
-fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
     let mut camera_linear = camera.clone();
@@ -1361,7 +1367,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         .map_err(|e| format!("{e:?}"))?;
     println!("{plot_initial}");
 
-    Ok(())
+    cmd_ok()
 }
 
 //a Roll plot
@@ -1381,7 +1387,7 @@ fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi roll_plot_fn
-fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
@@ -1420,7 +1426,7 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         .map_err(|e| format!("{e:?}"))?;
     println!("{plot_initial}");
 
-    Ok(())
+    cmd_ok()
 }
 
 //a Grid image
@@ -1439,7 +1445,7 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fi grid_image_fn
-fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
     let camera = &cmd_args.camera;
 
@@ -1485,7 +1491,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     }
     img.write(cmd_args.write_img.as_ref().unwrap())?;
 
-    Ok(())
+    cmd_ok()
 }
 
 //a Star subcommand with its commands
@@ -1520,7 +1526,7 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_find_stars_fn
-fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let closeness = cmd_args.closeness;
 
     cmd_args
@@ -1583,7 +1589,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> Result<()> {
     //});
 
     cmd_args.output_camera()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Star orient
@@ -1599,7 +1605,7 @@ fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_orient_fn
-fn star_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn star_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let brightness = cmd_args.brightness;
     let orientation = cmd_args
         .star_mapping
@@ -1610,7 +1616,7 @@ fn star_orient_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         )?;
     cmd_args.camera.set_orientation(orientation);
     cmd_args.output_camera()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Star update_star_mapping
@@ -1630,7 +1636,7 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_update_mapping_fn
-fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args
         .star_catalog
         .as_mut()
@@ -1650,7 +1656,7 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
         cmd_args.star_mapping.mappings().len(),
     );
     cmd_args.output_star_mapping()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Star show_star_mapping
@@ -1668,7 +1674,7 @@ fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_show_mapping_fn
-fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let within = cmd_args.within;
 
     cmd_args
@@ -1723,7 +1729,7 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> Result<()> {
 
     cmd_args.draw_image(&mapped_pts)?;
 
-    Ok(())
+    cmd_ok()
 }
 
 //a Star calibrate_desc
@@ -1739,13 +1745,13 @@ fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_calibrate_desc_fn
-fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> Result<()> {
+fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pc = cmd_args
         .star_mapping
         .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());
     cmd_args.set_mapping(pc)?;
     cmd_args.output_mapping()?;
-    Ok(())
+    cmd_ok()
 }
 
 //a Main

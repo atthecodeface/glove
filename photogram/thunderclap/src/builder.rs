@@ -55,7 +55,7 @@ impl<C: CommandArgs> CommandBuilder<C> {
     }
 
     pub fn build(self) -> CommandSet<C> {
-        CommandSet::new(self)
+        CommandSet::subcmd(self)
     }
 
     pub fn main(self, allow_batch: bool, allow_interactive: bool) -> CommandSet<C> {

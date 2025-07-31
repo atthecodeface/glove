@@ -1,19 +1,28 @@
 //a Imports
 use std::collections::HashMap;
 use std::ffi::OsString;
+use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use crate::{ArgFn, CommandArgs, CommandBuilder, CommandFn};
 
 //a CommandHandlerSet
+//tp CommandHandlerSet
+/// A mapping for a single command and its arguments to appropriate functions
+///
+/// Subcommands of the command each have their own
+/// [CommandHandlerSet], held in a hash table,
 pub struct CommandHandlerSet<C: CommandArgs> {
     handler: Option<Box<dyn CommandFn<C>>>,
     sub_cmds: HashMap<String, CommandHandlerSet<C>>,
     args: Vec<(String, Box<dyn ArgFn<C>>)>,
 }
 
+//ip CommandHandlerSet
 impl<C: CommandArgs> CommandHandlerSet<C> {
+    //cp new
+    /// Create a new [CommandHandlerSet], packaging the data provided
     pub fn new(
         handler: Option<Box<dyn CommandFn<C>>>,
         sub_cmds: HashMap<String, CommandHandlerSet<C>>,
@@ -26,6 +35,12 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
         }
     }
 
+    //mi handle_args
+    /// Handle all of the arguments in the application-specified order
+    ///
+    /// Each argument is expected to update 'cmd_args'; if an
+    /// argument's [ArgFn] returns an error then all processing is
+    /// stopped and that error is returned.
     fn handle_args(&self, cmd_args: &mut C, matches: &ArgMatches) -> Result<(), C::Error> {
         for (a, f) in self.args.iter() {
             if matches.contains_id(a) {
@@ -35,23 +50,38 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
         Ok(())
     }
 
+    //mi execute_sub_cmd
+    /// Execute a named subcommand of this handler
+    ///
+    /// The subcommand's handler is invoked.
     fn execute_sub_cmd(
         &self,
         subcommand: &str,
         cmd_args: &mut C,
         sub_matches: &ArgMatches,
-    ) -> Result<C::Value, C::Error> {
+    ) -> Result<String, C::Error> {
         let Some(sub_handler_set) = self.sub_cmds.get(subcommand) else {
             panic!("Subcommand was added to clap so there should be a match in the table");
         };
         sub_handler_set.handle_matches(cmd_args, sub_matches)
     }
 
-    fn execute_cmd(&self, cmd_args: &mut C) -> Result<C::Value, C::Error> {
-        self.handler.as_ref().unwrap()(cmd_args)
+    //mi execute_cmd
+    /// Execute the command function of this handler
+    fn execute_cmd(&self, cmd_args: &mut C) -> Result<String, C::Error> {
+        let result = self.handler.as_ref().unwrap()(cmd_args)?;
+        Ok(result.to_string())
     }
 
-    fn handle_matches(&self, cmd_args: &mut C, matches: &ArgMatches) -> Result<C::Value, C::Error> {
+    //mi handle_matches
+    /// Handle an 'ArgMatches' for this command, with a current set of 'CommandArgs'
+    ///
+    /// Any arguments provided in the matches are handled first,
+    /// updating the 'CommandArgs'
+    ///
+    /// Then either a subcommand of the handler is invoked, or if none
+    /// is provided then the function for this handler is invoked
+    fn handle_matches(&self, cmd_args: &mut C, matches: &ArgMatches) -> Result<String, C::Error> {
         self.handle_args(cmd_args, matches)?;
         if let Some((subcommand, submatches)) = matches.subcommand() {
             self.execute_sub_cmd(subcommand, cmd_args, submatches)
@@ -62,22 +92,51 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
 }
 
 //a CommandSet
+//tp CommandSet
+/// This is a 'built' command with its handlers, and handlers for the
+/// hierarchy of subcommands.
+///
+/// This is created using a [crate::CommandBuilder], and its `main`
+/// method.
 pub struct CommandSet<C: CommandArgs> {
     command: Command,
     handler_set: CommandHandlerSet<C>,
+    cmd_stack: Vec<(String, Option<usize>)>,
+    variables: HashMap<String, Rc<String>>,
+    result_history: Vec<Rc<String>>,
 }
 
+//ip CommandSet
 impl<C: CommandArgs> CommandSet<C> {
-    pub fn new(builder: CommandBuilder<C>) -> Self {
-        let (command, handler_set) = builder.take();
-        let command = command.no_binary_name(true);
+    //cp new
+    /// Create a new command set, for a subcommand
+    pub(crate) fn new(command: Command, handler_set: CommandHandlerSet<C>) -> Self {
         Self {
             command,
             handler_set,
+            cmd_stack: vec![],
+            variables: HashMap::default(),
+            result_history: vec![],
         }
     }
 
-    pub fn main(builder: CommandBuilder<C>, allow_batch: bool, allow_interactive: bool) -> Self {
+    //cp subcmd
+    /// Create a new command set, for a subcommand
+    pub(crate) fn subcmd(builder: CommandBuilder<C>) -> Self {
+        let (command, handler_set) = builder.take();
+        let command = command.no_binary_name(true);
+        Self::new(command, handler_set)
+    }
+
+    //cp main
+    /// Create a new command set as a 'main' command handler
+    ///
+    /// This is the toplevel command handler
+    pub(crate) fn main(
+        builder: CommandBuilder<C>,
+        allow_batch: bool,
+        allow_interactive: bool,
+    ) -> Self {
         let (command, handler_set) = builder.take();
         let mut command = command.no_binary_name(true);
         if allow_batch {
@@ -89,45 +148,46 @@ impl<C: CommandArgs> CommandSet<C> {
                     .action(ArgAction::Append),
             );
         }
-        Self {
-            command,
-            handler_set,
-        }
+        Self::new(command, handler_set)
     }
 
-    pub fn execute_str(
-        &mut self,
-        cmd_name: &str,
-        s: &str,
-        cmd_args: &mut C,
-    ) -> Result<C::Value, C::Error> {
-        let mut value_stack = vec![];
+    //mi execute_str_line
+    /// Execute commands from a single-line[str]
+    fn execute_str_line(&mut self, cmd_args: &mut C, l: &str) -> Result<(), C::Error> {
+        let l = l.trim();
+        if !l.is_empty() {
+            let v = self.execute(cmd_args, l.split_whitespace())?;
+            self.result_history.push(Rc::new(v));
+        }
+        Ok(())
+    }
+
+    //mi execute_str
+    /// Execute commands from a [str]
+    fn execute_str(&mut self, cmd_args: &mut C, s: &str) -> Result<(), C::Error> {
         for l in s.lines() {
-            let l = l.trim();
-            if l.is_empty() {
-                continue;
-            }
-            let v = self.execute(cmd_name, l.split_whitespace(), cmd_args)?;
-            value_stack.push(v);
+            self.execute_str_line(cmd_args, l)?;
         }
-        if value_stack.is_empty() {
-            Ok(C::Value::default())
-        } else {
-            Ok(value_stack.pop().unwrap())
-        }
+        Ok(())
     }
 
-    pub fn execute<I, T>(
-        &mut self,
-        cmd_name: &str,
-        itr: I,
-        cmd_args: &mut C,
-    ) -> Result<C::Value, C::Error>
+    //mi execute
+    /// Execute at the top level, given an iterator that provides the arguments
+    ///
+    /// It is deemed to be executed from 'cmd_stack.last()';
+    fn execute<I, T>(&mut self, cmd_args: &mut C, itr: I) -> Result<String, C::Error>
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        let mut cmd = self.command.clone().bin_name(cmd_name);
+        let mut cmd = self.command.clone();
+        if let Some((name, opt_line)) = self.cmd_stack.last() {
+            if let Some(line) = opt_line {
+                cmd = cmd.bin_name(format!("{name} line {line}"));
+            } else {
+                cmd = cmd.bin_name(name);
+            }
+        }
         match cmd.try_get_matches_from_mut(itr) {
             Err(e) => {
                 e.exit();
@@ -151,7 +211,9 @@ impl<C: CommandArgs> CommandSet<C> {
                         }
                     }
                     for (filename, s) in batches {
-                        let _ = self.execute_str(&filename, &s.unwrap(), cmd_args)?;
+                        self.cmd_stack.push((filename.into(), Some(0)));
+                        self.execute_str(cmd_args, &s.unwrap())?;
+                        self.cmd_stack.pop();
                     }
                 }
                 self.handler_set.handle_matches(cmd_args, &matches)
@@ -159,10 +221,12 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 
-    pub fn execute_env(&mut self, cmd_args: &mut C) -> Result<C::Value, C::Error> {
+    pub fn execute_env(&mut self, cmd_args: &mut C) -> Result<String, C::Error> {
         let mut iter = std::env::args_os();
         let cmd_name = iter.next().unwrap();
-        match self.execute(cmd_name.to_str().unwrap(), iter, cmd_args) {
+        self.cmd_stack
+            .push((cmd_name.to_str().unwrap().into(), None));
+        match self.execute(cmd_args, iter) {
             Err(e) => {
                 eprintln!("{e}");
                 std::process::exit(4);
