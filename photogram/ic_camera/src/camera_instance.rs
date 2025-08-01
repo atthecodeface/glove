@@ -281,7 +281,7 @@ impl CameraProjection for CameraInstance {
         RollYaw::from_roll_tan_yaw(
             ry_frame.sin_roll(),
             ry_frame.cos_roll(),
-            self.lens.sensor_to_world(ry_frame.tan_yaw()),
+            self.lens.sensor_to_world(ry_frame.yaw()).tan(),
         )
     }
 
@@ -290,7 +290,7 @@ impl CameraProjection for CameraInstance {
         RollYaw::from_roll_tan_yaw(
             ry_world.sin_roll(),
             ry_world.cos_roll(),
-            self.lens.world_to_sensor(ry_world.tan_yaw()),
+            self.lens.world_to_sensor(ry_world.yaw()).tan(),
         )
     }
 

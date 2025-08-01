@@ -1267,7 +1267,10 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let calibrate = cmd_args.mapping.as_ref().unwrap();
-    let camera = &cmd_args.camera;
+    let mut camera_linear = cmd_args.camera.clone();
+    let mut lens_linear = camera_linear.lens().clone();
+    lens_linear.set_polys(LensPolys::default());
+    camera_linear.set_lens(lens_linear);
 
     let yaw_range_min = cmd_args.yaw_min.to_radians();
     let yaw_range_max = cmd_args.yaw_max.to_radians();
@@ -1279,8 +1282,8 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Calculate Roll/Yaw for each point given camera, and store in a mapping
     let mut ws_yaws = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let world_txty = camera.world_xyz_to_camera_txty(pm.model());
-        let sensor_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+        let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
+        let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
         let world_ry: RollYaw = world_txty.into();
         let sensor_ry: RollYaw = sensor_txty.into();
@@ -1311,7 +1314,8 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut tail_s_to_w = 1.0;
     let mut grad_world_yaws = vec![];
     let mut sensor_yaws = vec![];
-    for (w, s) in mean_median_wc_yaws {
+    for (w, s) in mean_median_wc_yaws.iter().copied() {
+        //for (w, s) in mean_median_wc_yaws {
         if s < yaw_range_max {
             sensor_yaws.push(s);
             if s < 0.001 {
@@ -1329,6 +1333,9 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //        grad_world_yaws.push(0.);
     // sensor_yaws.push(0.);
     // }
+
+    let sys = sensor_yaws.clone();
+    let gwys = grad_world_yaws.clone();
 
     //cb Calculate Polynomials for camera-to-world and vice-versa
     // encourage it to go through the origin
@@ -1364,7 +1371,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut world_yaw = vec![];
 
     for pm in pms.mappings().iter().take(num_pts) {
-        let sensor_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+        let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
         let sensor_ry: RollYaw = sensor_txty.into();
         let s = sensor_ry.yaw();
         let w = stw.calc(s);
@@ -1378,6 +1385,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let stw_clone = stw.clone();
     let wts_clone = wts.clone();
+
     let mut camera_lens = cmd_args.camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));
     cmd_args.camera.set_lens(camera_lens);
@@ -1399,22 +1407,22 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
         let plots = poloto::build::origin();
         let plots = plots.chain(
-            poloto::build::plot("Original")
-                .scatter(ws_yaws.iter().map(|(w, s)| (s.to_degrees(), w / s - 1.0))),
-        );
-        let plots = plots.chain(
-            poloto::build::plot("Poly source").line(
-                sensor_yaws
-                    .iter()
-                    .zip(grad_world_yaws.iter())
-                    .map(|(s, gw)| (s.to_degrees(), gw)),
-            ),
-        );
-        let plots = plots.chain(
             poloto::build::plot("Poly").line(
                 (0..300)
                     .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
                     .map(|s| (s.to_degrees(), stw_clone.calc(s) / s - 1.0)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Original")
+                .scatter(ws_yaws.iter().map(|(w, s)| (s.to_degrees(), w / s - 1.0))),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly source").scatter(
+                sensor_yaws
+                    .iter()
+                    .zip(grad_world_yaws.iter())
+                    .map(|(s, gw)| (s.to_degrees(), gw)),
             ),
         );
         let plot_initial = poloto::frame_build()
@@ -1548,7 +1556,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     use poloto::prelude::*;
     use tagu::prelude::*;
     let theme = poloto::render::Theme::light();
-    let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:3px;}"));
+    let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1.5px;}"));
     let theme = theme.append(tagu::build::raw(
         ".poloto_text.poloto_legend{font-size:10px;}",
     ));
