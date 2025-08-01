@@ -21,7 +21,7 @@ fn orientation_mapping_triangle(
     di_c: Point3D,
     dj_c: Point3D,
     dk_c: Point3D,
-) -> Quat {
+) -> (Quat, f64) {
     let qs = vec![
         (1.0, orientation_mapping(di_m, dj_m, di_c, dj_c).into()),
         (1.0, orientation_mapping(di_m, dk_m, di_c, dk_c).into()),
@@ -30,7 +30,16 @@ fn orientation_mapping_triangle(
         (1.0, orientation_mapping(dk_m, di_m, dk_c, di_c).into()),
         (1.0, orientation_mapping(dk_m, dj_m, dk_c, dj_c).into()),
     ];
-    quat::weighted_average_many(qs.iter().copied()).into()
+    let q_avg: Quat = quat::weighted_average_many(qs.iter().copied()).into();
+    let mut err = 0.0;
+    let q_c = q_avg.conjugate();
+    for q in qs {
+        let q: Quat = q.1.into();
+        let q = q * q_c;
+        let r = q.as_rijk().0.abs();
+        err += 1.0 - r;
+    }
+    (q_avg, err)
 }
 
 //fp orientation_mapping
@@ -381,83 +390,69 @@ impl StarMapping {
     }
 
     //mp find_orientation_from_triangles
-    /// A value of 0.15 degrees is normal for max_angle_delta
-    pub fn find_orientation_from_triangles(
-        &mut self,
+    fn find_stars(
+        &self,
         catalog: &Catalog,
         camera: &CameraInstance,
         max_angle_delta: f64,
-    ) -> Result<Vec<(f64, Quat)>> {
-        let max_angle_delta = max_angle_delta.to_radians();
+        mag: usize,
+    ) -> Result<Vec<(Quat, (CatalogIndex, CatalogIndex, CatalogIndex), f64)>> {
         //cb Create list of mag1_stars and directions to them, and mag2 if possible
-        let mut mag1_stars = vec![];
-        let mut mag2_stars = vec![];
+        let mut selected_mappings = vec![];
         for i in 0..self.mappings.len() {
-            if self.mappings[i].2 == 1 {
-                mag1_stars.push(i);
-            }
-            if self.mappings[i].2 == 2 {
-                mag2_stars.push(i);
+            if self.mappings[i].2 == mag {
+                selected_mappings.push(i);
             }
         }
 
-        if mag1_stars.len() < 3 || mag2_stars.len() < 3 {
+        if selected_mappings.len() < 3 {
             return Err(format!(
-            "The calibration requires three 'mag 1' and three 'mag 2' stars; there were {} and {}",
-            mag1_stars.len(),
-            mag2_stars.len()
-        )
+                "The calibration requires three 'mag {mag}' star; there were {}",
+                selected_mappings.len()
+            )
             .into());
         }
 
-        let mag1_directions_c: Vec<Point3D> = mag1_stars
-            .iter()
-            .map(|n| self.mapped_camera_direction(camera, *n))
-            .collect();
-        let mag2_directions_c: Vec<Point3D> = mag2_stars
+        let sensor_directions: Vec<Point3D> = selected_mappings
             .iter()
             .map(|n| self.mapped_camera_direction(camera, *n))
             .collect();
 
         //cb Create angles between first three mag1 stars
-        let mag1_angles = [
-            mag1_directions_c[1].dot(&mag1_directions_c[2]).acos(),
-            mag1_directions_c[2].dot(&mag1_directions_c[0]).acos(),
-            mag1_directions_c[0].dot(&mag1_directions_c[1]).acos(),
+        let sensor_angles = [
+            sensor_directions[1].dot(&sensor_directions[2]).acos(),
+            sensor_directions[2].dot(&sensor_directions[0]).acos(),
+            sensor_directions[0].dot(&sensor_directions[1]).acos(),
         ];
-        let angle_degrees: Vec<_> = mag1_angles.iter().map(|a| a.to_degrees()).collect();
-        eprintln!("Angles (just using focal length of lens) between first three magnitude '1' stars: {angle_degrees:?}" );
-
-        //cb Create angles between first three mag2 stars
-        let mag2_angles = [
-            mag2_directions_c[1].dot(&mag2_directions_c[2]).acos(),
-            mag2_directions_c[2].dot(&mag2_directions_c[0]).acos(),
-            mag2_directions_c[0].dot(&mag2_directions_c[1]).acos(),
-        ];
-        let angle_degrees: Vec<_> = mag2_angles.iter().map(|a| a.to_degrees()).collect();
-        eprintln!( "Angles (just using focal length of lens) between first three magnitude '2' stars: {angle_degrees:?}");
+        let angle_degrees: Vec<_> = sensor_angles.iter().map(|a| a.to_degrees()).collect();
+        eprintln!("Angles (just using focal length of lens) between first three magnitude '{mag}' stars: {angle_degrees:?}" );
 
         //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
         let candidate_tris =
-            catalog.find_star_triangles(subcube_iter, &mag1_angles, max_angle_delta);
+            catalog.find_star_triangles(subcube_iter, &sensor_angles, max_angle_delta);
 
         let mut printed = 0;
         let mut candidate_q_m_to_c = vec![];
         eprintln!(
-            "\nGenerating candidate StarCatalog 'id's for the three stars for magnitude 1 triangle",
+            "\nGenerating candidate StarCatalog 'id's for the three stars for magnitude {mag} triangle",
         );
         for (n, tri) in candidate_tris.iter().enumerate() {
-            let q_m_to_c = orientation_mapping_triangle(
+            let (q_m_to_c, err) = orientation_mapping_triangle(
                 catalog[tri.0].vector(),
                 catalog[tri.1].vector(),
                 catalog[tri.2].vector(),
-                mag1_directions_c[0],
-                mag1_directions_c[1],
-                mag1_directions_c[2],
+                sensor_directions[0],
+                sensor_directions[1],
+                sensor_directions[2],
             );
+            if err < 0.01 {
+                candidate_q_m_to_c.push((q_m_to_c, *tri, err));
+            }
+        }
+        candidate_q_m_to_c.sort_by(|a, b| (a.2).partial_cmp(&b.2).unwrap());
 
-            candidate_q_m_to_c.push((n, q_m_to_c));
+        for (q, tri, e) in &candidate_q_m_to_c {
             printed += 1;
             match printed.cmp(&10) {
                 std::cmp::Ordering::Equal => {
@@ -465,7 +460,7 @@ impl StarMapping {
                 }
                 std::cmp::Ordering::Less => {
                     eprintln!(
-                        "{n}: {}, {}, {}",
+                        "{e:.6e}: {}, {}, {}",
                         catalog[tri.0].id(),
                         catalog[tri.1].id(),
                         catalog[tri.2].id(),
@@ -475,49 +470,29 @@ impl StarMapping {
             }
         }
         eprintln!("Total: {} candidates", candidate_q_m_to_c.len());
+        Ok(candidate_q_m_to_c)
+    }
 
-        //cb Find candidates for the first three mag2 stars if given
-        let mut mag2_candidate_q_m_to_c = vec![];
+    //mp find_orientation_from_triangles
+    /// A value of 0.15 degrees is normal for max_angle_delta
+    pub fn find_orientation_from_triangles(
+        &mut self,
+        catalog: &Catalog,
+        camera: &CameraInstance,
+        max_angle_delta: f64,
+    ) -> Result<Vec<(f64, Quat)>> {
+        let max_angle_delta = max_angle_delta.to_radians();
 
-        //cb Find candidates for the three stars
-        let subcube_iter = Subcube::iter_all();
-        let mag2_candidate_tris =
-            catalog.find_star_triangles(subcube_iter, &mag2_angles, max_angle_delta);
-        for (n, tri) in mag2_candidate_tris.iter().enumerate() {
-            let q_m_to_c = orientation_mapping_triangle(
-                catalog[tri.0].vector(),
-                catalog[tri.1].vector(),
-                catalog[tri.2].vector(),
-                mag2_directions_c[0],
-                mag2_directions_c[1],
-                mag2_directions_c[2],
-            );
-
-            mag2_candidate_q_m_to_c.push((n, q_m_to_c));
-
-            printed += 1;
-            match printed.cmp(&10) {
-                std::cmp::Ordering::Equal => {
-                    eprintln!("...");
-                }
-                std::cmp::Ordering::Less => {
-                    eprintln!(
-                        "{n}: {}, {}, {}",
-                        catalog[tri.0].id(),
-                        catalog[tri.1].id(),
-                        catalog[tri.2].id(),
-                    );
-                }
-                _ => {}
-            }
-        }
+        //cb Create list of mag1_stars and directions to them, and mag2 if possible
+        let candidate_q_m_to_c = self.find_stars(catalog, camera, max_angle_delta, 1)?;
+        let mag2_candidate_q_m_to_c = self.find_stars(catalog, camera, max_angle_delta, 2)?;
 
         //cb Find mag1 that match mag2
         eprintln!("\nFinding matching orientations for magnitude 1 and magnitude 2 candidates",);
         let mut printed = 0;
         let mut mag1_mag2_pairs = vec![];
-        for (n1, mag1_q_m_to_c) in candidate_q_m_to_c.iter() {
-            for (n2, mag2_q_m_to_c) in mag2_candidate_q_m_to_c.iter() {
+        for (mag1_q_m_to_c, mag1_tri, e1) in candidate_q_m_to_c.iter() {
+            for (mag2_q_m_to_c, mag2_tri, e2) in mag2_candidate_q_m_to_c.iter() {
                 let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
                 let r = q.as_rijk().0.abs();
                 // r = cos(x = angle of rotation) = 1 - x^2/2 + x^4/24 - ...
@@ -531,8 +506,6 @@ impl StarMapping {
                         (1.0, mag2_q_m_to_c.into_array()),
                     ];
                     let q_r: Quat = quat::weighted_average_many(qs.into_iter()).into();
-                    let mag1_tri = &candidate_tris[*n1];
-                    let mag2_tri = &mag2_candidate_tris[*n2];
                     mag1_mag2_pairs.push((x2.sqrt(), q_r, *mag1_tri, *mag2_tri));
                     printed += 1;
                     match printed.cmp(&10) {

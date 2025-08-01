@@ -199,6 +199,7 @@
 //!
 
 //a Imports
+use std::collections::VecDeque;
 use std::io::Write;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
@@ -386,6 +387,45 @@ describe the combined mapping - and an identity mapping as no angle of
 rotation, and so is 1.0. For close matches (angle x close to 0) the cosine is approximately 1-x^2/2.
 
   ";
+
+//a Utility functions
+fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    // world, sensor
+    let mut mean_median_wc_yaws = vec![];
+
+    // sensor, grad at sensor
+    let mut filter: VecDeque<_> = vec![(0.0, 1.0); 8].into();
+    let n = (filter.len() + 1) as f64;
+    let mid = (filter.len() + 1) / 2;
+    for (i, (w, c)) in ws_yaws.iter().enumerate() {
+        filter.push_back((*c, w / c));
+        let mut total = 0.0;
+        let mut smallest = filter[0].1;
+        let mut largest = filter[0].1;
+        for (w, v) in &filter {
+            total += *v;
+            smallest = smallest.min(*v);
+            largest = largest.max(*v);
+        }
+        let mean = (total - smallest - largest) / (n - 2.0);
+        if i >= mid * 2 {
+            mean_median_wc_yaws.push((mean * filter[mid].0, filter[mid].0));
+            if false {
+                eprintln!(
+                "Orig s,w {:0.4},{:0.4} : Filter mid s,w {:0.4},{:0.4}, pushed s,w {:0.4},{:0.4}",
+                c.to_degrees(),
+                w.to_degrees(),
+                filter[mid].0.to_degrees(),
+                (filter[mid].1 * filter[mid].0).to_degrees(),
+                mean_median_wc_yaws.last().unwrap().1.to_degrees(),
+                mean_median_wc_yaws.last().unwrap().0.to_degrees(),
+            );
+            }
+        }
+        filter.pop_front();
+    }
+    mean_median_wc_yaws
+}
 
 //a Types
 //a CmdResult
@@ -1236,106 +1276,201 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Set up HashMaps and collections
     let (_nps, pms) = cmd_args.setup();
 
-    //cb Calculate Roll/Yaw for each point given camera
-    let mut world_yaws = vec![];
-    let mut camera_yaws = vec![];
-    let mut camera_yaws_all = vec![];
+    //cb Calculate Roll/Yaw for each point given camera, and store in a mapping
+    let mut ws_yaws = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
-        let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+        let world_txty = camera.world_xyz_to_camera_txty(pm.model());
+        let sensor_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
-        let model_ry: RollYaw = model_txty.into();
-        let cam_ry: RollYaw = cam_txty.into();
+        let world_ry: RollYaw = world_txty.into();
+        let sensor_ry: RollYaw = sensor_txty.into();
 
-        if cam_ry.yaw() < yaw_range_min {
-            continue;
+        if sensor_ry.yaw() > yaw_range_min {
+            ws_yaws.push((world_ry.yaw(), sensor_ry.yaw()));
         }
+    }
+    ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-        camera_yaws_all.push(cam_ry.yaw());
-        if cam_ry.yaw() < yaw_range_max {
-            world_yaws.push(model_ry.yaw());
-            camera_yaws.push(cam_ry.yaw());
+    let mean_median_wc_yaws = filter_ws_yaws(&ws_yaws);
+
+    if false {
+        for i in 0..ws_yaws.len() {
+            let f = ws_yaws[i];
+            let m = mean_median_wc_yaws[i];
+            eprintln!(
+                "{i} s {:0.4} {:0.4} {:0.4}  or_w {:0.4} => {:0.4} md_w",
+                m.1.to_degrees(),
+                f.1 / f.0 - 1.0,
+                m.1 / m.0 - 1.0,
+                f.0.to_degrees(),
+                m.0.to_degrees(),
+            );
         }
     }
 
-    loop {
-        let mut cys = vec![];
-        let mut rel_wcys = vec![];
-        for i in 0..camera_yaws.len() {
-            let c = camera_yaws[i];
-            let w = world_yaws[i];
-            cys.push(c);
-            rel_wcys.push(w / c - 1.0);
-        }
-        cys.push(0.0);
-        rel_wcys.push(0.0);
-        let mut p = polynomial::min_squares_dyn(cmd_args.poly_degree, &cys, &rel_wcys);
-        p[0] = 0.0;
-        let n = cys.len();
-        let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-            polynomial::error_in_y_stats(&p, &cys, &rel_wcys);
-        let sd_err = variance_err.sqrt();
-        let max_err = max_sq_err.sqrt();
-
-        let scale = if n > 25000 { 3.0 } else { 3.0 };
-        let dmin = sd_err * scale;
-        let dmax = sd_err * scale;
-        let outliers = polynomial::find_outliers(&p, &cys, &rel_wcys, dmin, dmax);
-        eprintln!(" rel {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
-        if outliers.is_empty() {
-            break;
-        }
-        for n in outliers.iter().rev() {
-            world_yaws.remove(*n);
-            camera_yaws.remove(*n);
+    let mut tail_s_to_w = 1.0;
+    let mut grad_world_yaws = vec![];
+    let mut sensor_yaws = vec![];
+    for (w, s) in mean_median_wc_yaws {
+        if s < yaw_range_max {
+            sensor_yaws.push(s);
+            if s < 0.001 {
+                grad_world_yaws.push(0.0);
+            } else {
+                grad_world_yaws.push(w / s - 1.0);
+                tail_s_to_w = w / s;
+            }
+        } else {
+            // grad_world_yaws.push(tail_s_to_w - 1.0);
+            // sensor_yaws.push(s);
         }
     }
+    // for i in 0..10 {
+    //        grad_world_yaws.push(0.);
+    // sensor_yaws.push(0.);
+    // }
 
     //cb Calculate Polynomials for camera-to-world and vice-versa
     // encourage it to go through the origin
-    for _ in 0..10 {
-        world_yaws.push(0.);
-        camera_yaws.push(0.);
-    }
 
     let mut wts;
     let mut stw;
     loop {
-        let n = world_yaws.len();
-        stw = polynomial::min_squares_dyn(cmd_args.poly_degree, &camera_yaws, &world_yaws);
-        stw[0] = 0.0;
+        let n = grad_world_yaws.len();
+        stw = polynomial::min_squares_dyn(cmd_args.poly_degree - 1, &sensor_yaws, &grad_world_yaws);
         let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-            polynomial::error_in_y_stats(&stw, &camera_yaws, &world_yaws);
+            polynomial::error_in_y_stats(&stw, &sensor_yaws, &grad_world_yaws);
         let sd_err = variance_err.sqrt();
         let max_err = max_sq_err.sqrt();
 
         let dmin = sd_err * 3.0;
         let dmax = sd_err * 3.0;
-        let outliers = polynomial::find_outliers(&stw, &camera_yaws, &world_yaws, dmin, dmax);
+        let outliers = polynomial::find_outliers(&stw, &sensor_yaws, &grad_world_yaws, dmin, dmax);
         eprintln!(" {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
+        // break;
         if outliers.is_empty() {
             break;
         }
         for n in outliers.iter().rev() {
-            world_yaws.remove(*n);
-            camera_yaws.remove(*n);
+            grad_world_yaws.remove(*n);
+            sensor_yaws.remove(*n);
         }
     }
+    // Convert p(s) to (p(s)+1) * s
+    stw.insert(0, 0.0);
+    stw[1] += 1.0;
 
-    let mut sensor_yaw = vec![];
+    let mut grad_sensor_yaw = vec![];
     let mut world_yaw = vec![];
-    for s in &camera_yaws_all {
-        sensor_yaw.push(*s);
-        world_yaw.push(stw.calc(*s));
-    }
-    wts = polynomial::min_squares_dyn(7, &world_yaw, &sensor_yaw);
-    wts[0] = 0.0;
 
+    for pm in pms.mappings().iter().take(num_pts) {
+        let sensor_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
+        let sensor_ry: RollYaw = sensor_txty.into();
+        let s = sensor_ry.yaw();
+        let w = stw.calc(s);
+        world_yaw.push(w);
+        grad_sensor_yaw.push(s / w - 1.0);
+    }
+
+    wts = polynomial::min_squares_dyn(cmd_args.poly_degree - 1, &world_yaw, &grad_sensor_yaw);
+    wts.insert(0, 0.0);
+    wts[1] += 1.0;
+
+    let stw_clone = stw.clone();
+    let wts_clone = wts.clone();
     let mut camera_lens = cmd_args.camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));
     cmd_args.camera.set_lens(camera_lens);
 
     cmd_args.write_outputs()?;
+
+    //cb stw plot
+    {
+        use poloto::prelude::*;
+        use tagu::prelude::*;
+        let theme = poloto::render::Theme::light();
+        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_text.poloto_legend{font-size:10px;}",
+        ));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
+        ));
+
+        let plots = poloto::build::origin();
+        let plots = plots.chain(
+            poloto::build::plot("Original")
+                .scatter(ws_yaws.iter().map(|(w, s)| (s.to_degrees(), w / s - 1.0))),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly source").line(
+                sensor_yaws
+                    .iter()
+                    .zip(grad_world_yaws.iter())
+                    .map(|(s, gw)| (s.to_degrees(), gw)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly").line(
+                (0..300)
+                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
+                    .map(|s| (s.to_degrees(), stw_clone.calc(s) / s - 1.0)),
+            ),
+        );
+        let plot_initial = poloto::frame_build()
+            .data(plots)
+            .build_and_label(("Lens Cal Sensor-to-world", "Sensor", "World"))
+            .append_to(poloto::header().append(theme))
+            .render_string()
+            .map_err(|e| format!("{e:?}"))?;
+
+        let mut f = std::fs::File::create("lc_stw.svg")?;
+        f.write_all(plot_initial.to_string().as_bytes())?;
+    }
+
+    //cb wts plot
+    {
+        use poloto::prelude::*;
+        use tagu::prelude::*;
+        let theme = poloto::render::Theme::light();
+        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_text.poloto_legend{font-size:10px;}",
+        ));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
+        ));
+
+        let plots = poloto::build::origin();
+        let plots = plots.chain(
+            poloto::build::plot("Original")
+                .scatter(ws_yaws.iter().map(|(w, s)| (w.to_degrees(), s / w - 1.0))),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly source").scatter(
+                world_yaw
+                    .iter()
+                    .zip(grad_sensor_yaw.iter())
+                    .map(|(w, gs)| (w.to_degrees(), gs)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly").line(
+                (0..300)
+                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
+                    .map(|w| (w.to_degrees(), wts_clone.calc(w) / w - 1.0)),
+            ),
+        );
+        let plot_initial = poloto::frame_build()
+            .data(plots)
+            .build_and_label(("Lens Cal World-to-sensor", "World", "Sensor"))
+            .append_to(poloto::header().append(theme))
+            .render_string()
+            .map_err(|e| format!("{e:?}"))?;
+
+        let mut f = std::fs::File::create("lc_wts.svg")?;
+        f.write_all(plot_initial.to_string().as_bytes())?;
+    }
     cmd_args.output_polynomials()
 }
 
@@ -1370,8 +1505,8 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let yaw_range_max = cmd_args.yaw_max.to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
-    let f_world = |w: f64, s: f64| (w.to_degrees(), (s - w).to_degrees());
-    let f_rel_error = |w: f64, s: f64| (w.to_degrees(), s / w - 1.0);
+    let f_world = |w: f64, s: f64| (s.to_degrees(), (s - w).to_degrees());
+    let f_rel_error = |w: f64, s: f64| (s.to_degrees(), s / w - 1.0);
     let plot_f = {
         if cmd_args.use_deltas {
             f_rel_error
@@ -1385,32 +1520,28 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     //cb Calculate Error in yaw/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
+    let mut ws_yaws = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let model_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
-        let cam_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
+        let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
+        let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
-        let model_ry: RollYaw = model_txty.into();
-        let cam_ry: RollYaw = cam_txty.into();
+        let world_ry: RollYaw = world_txty.into();
+        let sensor_ry: RollYaw = sensor_txty.into();
 
-        if cam_ry.yaw() > yaw_range_max {
+        if sensor_ry.yaw() > yaw_range_max {
             continue;
         }
-
-        if (model_ry.yaw() / cam_ry.yaw()) > 1.2 {
+        if sensor_ry.yaw() < yaw_range_min {
             continue;
         }
-        let mut quad = 0;
-        if cam_ry.cos_roll() < 0.0 {
-            // X < 0
-            quad += 1;
-        }
-        if cam_ry.sin_roll() < 0.0 {
-            // Y < 0
-            quad += 2;
-        }
-        if cam_ry.yaw() > yaw_range_min {
-            pts[quad].push(plot_f(model_ry.yaw(), cam_ry.yaw()));
-        }
+        ws_yaws.push((world_ry.yaw(), sensor_ry.yaw()));
+    }
+    ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
+
+    let mean_median_ws_yaws = filter_ws_yaws(&ws_yaws);
+
+    for (w, s) in mean_median_ws_yaws.iter() {
+        pts[0].push(plot_f(*w, *s));
     }
 
     //cb Plot 4 graphs for quadrants and one for the polynomial
@@ -1431,17 +1562,19 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for i in 0..=100 {
         let model_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
         let model_ry = RollYaw::of_yaw(model_yaw);
-        let frame_ry = camera.ry_camera_to_ry_frame(model_ry);
-        wts_poly_pts.push(plot_f(model_yaw, frame_ry.yaw()));
+        let sensor_ry = camera.ry_camera_to_ry_frame(model_ry);
+        if sensor_ry.yaw() > yaw_range_min && sensor_ry.yaw() < yaw_range_max {
+            wts_poly_pts.push(plot_f(model_yaw, sensor_ry.yaw()));
+        }
     }
 
     let mut stw_poly_pts = vec![];
     for i in 0..=400 {
-        let frame_yaw = (i as f64) / 400.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
-        let frame_ry = RollYaw::of_yaw(frame_yaw);
-        let model_ry = camera.ry_frame_to_ry_camera(frame_ry);
+        let sensor_yaw = (i as f64) / 400.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
+        let sensor_ry = RollYaw::of_yaw(sensor_yaw);
+        let model_ry = camera.ry_frame_to_ry_camera(sensor_ry);
         if model_ry.yaw() > yaw_range_min && model_ry.yaw() < yaw_range_max {
-            stw_poly_pts.push(plot_f(model_ry.yaw(), frame_yaw));
+            stw_poly_pts.push(plot_f(model_ry.yaw(), sensor_yaw));
         }
     }
 
@@ -1490,20 +1623,20 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let plot = poloto::build::plot("Quad x>0 y>0");
     let plot = plot.scatter(pts[0].iter());
     let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x<0 y>0");
-    let plot = plot.scatter(pts[1].iter());
-    let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x>0 y<0");
-    let plot = plot.scatter(pts[2].iter());
-    let plots = plots.chain(plot);
-    let plot = poloto::build::plot("Quad x<0 y<0");
-    let plot = plot.scatter(pts[3].iter());
-    let plots = plots.chain(plot);
+
+    // let plot = poloto::build::plot("Quad x<0 y>0");
+    // let plot = plot.scatter(pts[1].iter());
+    // let plots = plots.chain(plot);
+    // let plot = poloto::build::plot("Quad x>0 y<0");
+    // let plot = plot.scatter(pts[2].iter());
+    // let plots = plots.chain(plot);
+    // let plot = poloto::build::plot("Quad x<0 y<0");
+    // let plot = plot.scatter(pts[3].iter());
+    // let plots = plots.chain(plot);
 
     let plot_initial = poloto::frame_build()
         .data(plots)
-        // .build_and_label(("Relative Yaw Error v Yaw", "World yaw / °", "(w-c)/w"))
-        .build_and_label(("Sensor yaw", "World yaw / °", "(w-c)/w"))
+        .build_and_label(("Yaw plot", "Sensor yaw / °", "s/w-1 or s-w"))
         .append_to(poloto::header().append(theme))
         .render_string()
         .map_err(|e| format!("{e:?}"))?;

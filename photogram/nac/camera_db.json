@@ -28,7 +28,7 @@
             "name": "Canon EOS REBEL T2i",
             "aliases": ["T2i"],
            "px_centre":[2592.0,1728.0],
-//            "px_centre":[2580.0,1728.0],
+//           "px_centre":[2580.0,1728.0],
             "px_width":5184.0,
             "px_height":3456.0,
             "flip_y":true,
