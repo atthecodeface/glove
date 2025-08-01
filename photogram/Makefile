@@ -151,7 +151,7 @@ cal_step_9:
 
 .PHONY: cal_step_10
 cal_step_10:
-	${MAKE} N=9 NP1=10 POLY_DEGREE=5 YAW_MAX=44 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n_reset
+	${MAKE} N=9 NP1=10 POLY_DEGREE=5 YAW_MAX=44 YAW_ERROR=0.02 STAR_BRIGHTNESS='--brightness 9.0' cal_step_n # _reset
 
 .PHONY: cal_step_final
 cal_step_final:
@@ -161,7 +161,7 @@ cal_step_final:
 .PHONY: cal_reset_np1
 cal_reset_np1:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2) *given* a calibration N"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} --brightness 5.5 --triangle_closeness 0.2 --closeness 0.6 --write_camera ${CAL_DIR}/rebase_camera.json find_stars 
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} --brightness 5.5 --triangle_closeness 0.2 --closeness 0.2 --write_camera ${CAL_DIR}/rebase_camera.json find_stars 
 	@echo "Now create an updated star mapping with ids from the star catalog for mappings that map on to stars"
 	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/rebase_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 --write_star_mapping ${CAL_DIR}/stars_mapped_using_rebase.json update_star_mapping --within ${YAW_MAX} 
 	@echo "Orient based on updated star mapping"
@@ -184,7 +184,7 @@ cal_lens_calibrate_n:
 .PHONY: cal_yaw_plot_n
 cal_yaw_plot_n:
 	@echo "Create the Yaw plot of ${N} & ${NP1}"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json yaw_plot --min_yaw ${YAW_MIN} --max_yaw ${YAW_MAX} --mappings ${CAL_DIR}/mapping_${N}.json > ${CAL_DIR}/cal_mapping_${N}.svg
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json yaw_plot --min_yaw ${YAW_MIN} --max_yaw ${YAW_MAX} --mappings ${CAL_DIR}/mapping_${N}.json --write_svg ${CAL_DIR}/cal_mapping_${N}.svg
 
 .PHONY: cal_orient_n
 cal_orient_n:

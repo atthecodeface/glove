@@ -414,6 +414,7 @@ pub struct CmdArgs {
     read_img: Vec<String>,
     write_img: Option<String>,
 
+    use_deltas: bool,
     use_pts: usize,
     yaw_min: f64,
     yaw_max: f64,
@@ -441,6 +442,10 @@ impl CmdArgs {
         self.write_svg = None;
         self.write_camera = None;
         self.use_pts = 0;
+        self.use_deltas = false;
+    }
+    fn camera_mut(&mut self) -> &mut CameraInstance {
+        &mut self.camera
     }
     fn get_cdb(&self) -> &CameraDatabase {
         self.cdb.as_ref().unwrap()
@@ -487,6 +492,10 @@ impl CmdArgs {
     }
     fn set_write_svg(&mut self, s: &str) -> Result<()> {
         self.write_svg = Some(s.to_owned());
+        Ok(())
+    }
+    fn set_use_deltas(&mut self, use_deltas: bool) -> Result<()> {
+        self.use_deltas = use_deltas;
         Ok(())
     }
     fn set_use_pts(&mut self, v: usize) -> Result<()> {
@@ -632,6 +641,16 @@ impl CmdArgs {
             Some("5"),
             CmdArgs::set_poly_degree,
             false,
+        );
+    }
+
+    //fp add_args_use_deltas
+    fn add_args_use_deltas(build: &mut CommandBuilder<Self>) {
+        build.add_flag(
+            "use_deltas",
+            None,
+            "Use deltas for plotting rather than absolute values",
+            CmdArgs::set_use_deltas,
         );
     }
 
@@ -1220,6 +1239,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Calculate Roll/Yaw for each point given camera
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
+    let mut camera_yaws_all = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
         let model_txty = camera.world_xyz_to_camera_txty(pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
@@ -1227,13 +1247,47 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let model_ry: RollYaw = model_txty.into();
         let cam_ry: RollYaw = cam_txty.into();
 
-        if cam_ry.yaw() > yaw_range_max {
+        if cam_ry.yaw() < yaw_range_min {
             continue;
         }
 
-        if cam_ry.yaw() > yaw_range_min {
+        camera_yaws_all.push(cam_ry.yaw());
+        if cam_ry.yaw() < yaw_range_max {
             world_yaws.push(model_ry.yaw());
             camera_yaws.push(cam_ry.yaw());
+        }
+    }
+
+    loop {
+        let mut cys = vec![];
+        let mut rel_wcys = vec![];
+        for i in 0..camera_yaws.len() {
+            let c = camera_yaws[i];
+            let w = world_yaws[i];
+            cys.push(c);
+            rel_wcys.push(w / c - 1.0);
+        }
+        cys.push(0.0);
+        rel_wcys.push(0.0);
+        let mut p = polynomial::min_squares_dyn(cmd_args.poly_degree, &cys, &rel_wcys);
+        p[0] = 0.0;
+        let n = cys.len();
+        let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
+            polynomial::error_in_y_stats(&p, &cys, &rel_wcys);
+        let sd_err = variance_err.sqrt();
+        let max_err = max_sq_err.sqrt();
+
+        let scale = if n > 25000 { 3.0 } else { 3.0 };
+        let dmin = sd_err * scale;
+        let dmax = sd_err * scale;
+        let outliers = polynomial::find_outliers(&p, &cys, &rel_wcys, dmin, dmax);
+        eprintln!(" rel {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
+        if outliers.is_empty() {
+            break;
+        }
+        for n in outliers.iter().rev() {
+            world_yaws.remove(*n);
+            camera_yaws.remove(*n);
         }
     }
 
@@ -1254,11 +1308,11 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             polynomial::error_in_y_stats(&stw, &camera_yaws, &world_yaws);
         let sd_err = variance_err.sqrt();
         let max_err = max_sq_err.sqrt();
-        eprintln!(" {n} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
 
         let dmin = sd_err * 3.0;
         let dmax = sd_err * 3.0;
         let outliers = polynomial::find_outliers(&stw, &camera_yaws, &world_yaws, dmin, dmax);
+        eprintln!(" {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
         if outliers.is_empty() {
             break;
         }
@@ -1270,7 +1324,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let mut sensor_yaw = vec![];
     let mut world_yaw = vec![];
-    for s in &camera_yaws {
+    for s in &camera_yaws_all {
         sensor_yaw.push(*s);
         world_yaw.push(stw.calc(*s));
     }
@@ -1297,6 +1351,7 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
     CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
     CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_args_use_deltas(&mut build);
     CmdArgs::add_args_write_svg(&mut build);
 
     build
@@ -1315,13 +1370,13 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let yaw_range_max = cmd_args.yaw_max.to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
-    let f_world = |w: f64, s: f64| (w.to_degrees(), s.to_degrees());
+    let f_world = |w: f64, s: f64| (w.to_degrees(), (s - w).to_degrees());
     let f_rel_error = |w: f64, s: f64| (w.to_degrees(), s / w - 1.0);
     let plot_f = {
-        if false {
-            f_world
-        } else {
+        if cmd_args.use_deltas {
             f_rel_error
+        } else {
+            f_world
         }
     };
 
@@ -1870,7 +1925,13 @@ fn main() -> Result<()> {
     build.set_arg_reset(Box::new(CmdArgs::reset_args));
     ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
     ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, false);
-    ic_cmdline::camera::add_arg_camera(&mut build, CmdArgs::get_cdb, CmdArgs::set_camera, false);
+    ic_cmdline::camera::add_arg_camera(
+        &mut build,
+        CmdArgs::get_cdb,
+        CmdArgs::set_camera,
+        CmdArgs::camera_mut,
+        false,
+    );
 
     build.add_subcommand(calibrate_cmd());
     build.add_subcommand(locate_cmd());

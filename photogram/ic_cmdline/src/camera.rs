@@ -110,11 +110,17 @@ pub fn use_polys_arg() -> Arg {
 }
 
 //mp add_arg_camera
-pub fn add_arg_camera<C, F, G>(build: &mut CommandBuilder<C>, get_db: G, set: F, required: bool)
-where
+pub fn add_arg_camera<C, F, G, H>(
+    build: &mut CommandBuilder<C>,
+    get_db: G,
+    set: F,
+    borrow_mut: H,
+    required: bool,
+) where
     C: CommandArgs<Error = Error>,
     F: Fn(&mut C, CameraInstance) -> Result<()> + 'static,
     G: Fn(&C) -> &CameraDatabase + 'static,
+    H: Fn(&mut C) -> &mut CameraInstance + 'static + Clone,
 {
     build.add_arg(
         camera_arg(required),
@@ -126,23 +132,34 @@ where
             if let Some(lens) = matches.get_one::<String>("use_lens") {
                 camera.set_lens(get_db(args).get_lens_err(lens)?.clone());
             }
-            if let Some(focus) = matches.get_one::<f64>("use_focus") {
-                camera.set_mm_focus_distance(*focus);
-            }
-            if let Some(polys) = matches.get_one::<String>("use_polys") {
-                let json = json::read_file(polys)?;
-                let lens_polys: LensPolys = json::from_json("lens polynomials", &json)?;
-                let mut lens = camera.lens().clone();
-                lens.set_polys(lens_polys);
-                camera.set_lens(lens);
-            }
             set(args, camera)
         }),
     );
     build.add_arg(use_body_arg(), Box::new(move |_, _| Ok(())));
     build.add_arg(use_lens_arg(), Box::new(move |_, _| Ok(())));
-    build.add_arg(use_focus_arg(), Box::new(move |_, _| Ok(())));
-    build.add_arg(use_polys_arg(), Box::new(move |_, _| Ok(())));
+    let bm = borrow_mut.clone();
+    build.add_arg(
+        use_focus_arg(),
+        Box::new(move |args, matches| {
+            let camera = bm(args);
+            let focus = matches.get_one::<f64>("use_focus").unwrap();
+            camera.set_mm_focus_distance(*focus);
+            Ok(())
+        }),
+    );
+    build.add_arg(
+        use_polys_arg(),
+        Box::new(move |args, matches| {
+            let polys = matches.get_one::<String>("use_polys").unwrap();
+            let json = json::read_file(polys)?;
+            let lens_polys: LensPolys = json::from_json("lens polynomials", &json)?;
+            let camera = borrow_mut(args);
+            let mut lens = camera.lens().clone();
+            lens.set_polys(lens_polys);
+            camera.set_lens(lens);
+            Ok(())
+        }),
+    );
 }
 
 //mp add_arg_camera_database
