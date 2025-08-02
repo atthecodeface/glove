@@ -206,6 +206,20 @@ impl CameraInstance {
         ry_camera.into()
     }
 
+    //fp px_abs_xy_to_camera_txty
+    /// Map a screen Point2D coordinate to tan(x)/tan(y)
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
+        let px_rel_xy = self.px_abs_xy_to_px_rel_xy(px_abs_xy);
+        self.xpx_rel_xy_to_txty(px_rel_xy)
+    }
+
+    //fp camera_txty_to_px_abs_xy
+    /// Map a tan(x)/tan(y) to screen Point2D coordinate
+    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
+        let px_rel_xy = self.xtxty_to_px_rel_xy(*txty);
+        self.px_rel_xy_to_px_abs_xy(px_rel_xy)
+    }
+
     //zz All done
 }
 
@@ -292,7 +306,7 @@ impl CameraProjection for CameraInstance {
     }
 
     //mp sensor_txty_to_px_abs_xy
-    fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
+    fn sensor_txty_to_px_abs_xy(&self, txty: TanXTanY) -> Point2D {
         let pxy_rel = [
             txty[0] * self.x_px_from_tan_sc,
             txty[1] * self.y_px_from_tan_sc,
@@ -303,22 +317,12 @@ impl CameraProjection for CameraInstance {
 
     //mp px_abs_xy_to_sensor_txty
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: Point2D) -> TanXTanY {
-        let pxy_rel = self.body.px_rel_xy_to_px_abs_xy(pxy_abs);
-        (&pxy_rel).into()
-    }
-
-    //fp px_abs_xy_to_camera_txty
-    /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
-        let px_rel_xy = self.px_abs_xy_to_px_rel_xy(px_abs_xy);
-        self.xpx_rel_xy_to_txty(px_rel_xy)
-    }
-
-    //fp camera_txty_to_px_abs_xy
-    /// Map a tan(x)/tan(y) to screen Point2D coordinate
-    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let px_rel_xy = self.xtxty_to_px_rel_xy(*txty);
-        self.px_rel_xy_to_px_abs_xy(px_rel_xy)
+        let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
+        [
+            pxy_rel[0] / self.x_px_from_tan_sc,
+            pxy_rel[1] / self.y_px_from_tan_sc,
+        ]
+        .into()
     }
 
     /// Map from centre-relative to absolute pixel
@@ -329,24 +333,6 @@ impl CameraProjection for CameraInstance {
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
         self.body.px_abs_xy_to_px_rel_xy(xy)
-    }
-
-    /// Map an actual frame RY to a world RY
-    fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw {
-        RollYaw::from_roll_tan_yaw(
-            ry_frame.sin_roll(),
-            ry_frame.cos_roll(),
-            self.lens.sensor_to_world(ry_frame.yaw()).tan(),
-        )
-    }
-
-    /// Map an actual world RY to a camera frame RY
-    fn ry_camera_to_ry_frame(&self, ry_world: RollYaw) -> RollYaw {
-        RollYaw::from_roll_tan_yaw(
-            ry_world.sin_roll(),
-            ry_world.cos_roll(),
-            self.lens.world_to_sensor(ry_world.yaw()).tan(),
-        )
     }
 
     //mp px_rel_xy_to_ry

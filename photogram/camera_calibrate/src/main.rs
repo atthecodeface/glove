@@ -1570,7 +1570,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for i in 0..=100 {
         let model_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
         let model_ry = RollYaw::of_yaw(model_yaw);
-        let sensor_ry = camera.ry_camera_to_ry_frame(model_ry);
+        let sensor_ry = camera.camera_ry_to_sensor_ry(model_ry);
         if sensor_ry.yaw() > yaw_range_min && sensor_ry.yaw() < yaw_range_max {
             wts_poly_pts.push(plot_f(model_yaw, sensor_ry.yaw()));
         }
@@ -1580,7 +1580,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for i in 0..=400 {
         let sensor_yaw = (i as f64) / 400.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
         let sensor_ry = RollYaw::of_yaw(sensor_yaw);
-        let model_ry = camera.ry_frame_to_ry_camera(sensor_ry);
+        let model_ry = camera.sensor_ry_to_camera_ry(sensor_ry);
         if model_ry.yaw() > yaw_range_min && model_ry.yaw() < yaw_range_max {
             stw_poly_pts.push(plot_f(model_ry.yaw(), sensor_yaw));
         }
@@ -2021,8 +2021,9 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let s = angle.sin();
             let c = angle.cos();
             let world_ry = RollYaw::from_roll_yaw(s, c, yaw);
-            let world_txty = world_ry.into();
-            let pxy = cmd_args.camera.camera_txty_to_px_abs_xy(&world_txty);
+            let sensor_ry = cmd_args.camera.camera_ry_to_sensor_ry(world_ry);
+            let sensor_txty = sensor_ry.into();
+            let pxy = cmd_args.camera.sensor_txty_to_px_abs_xy(sensor_txty);
             mapped_pts.push((pxy, 3).into());
         }
     }

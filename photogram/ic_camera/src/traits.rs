@@ -84,16 +84,6 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// camera to a Roll/Yaw
     fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw;
 
-    //mp ry_frame_to_ry_camera
-    /// Apply the lens projection to a frame RY to generate a RY
-    /// relative to the camera in world space
-    fn ry_frame_to_ry_camera(&self, ry_frame: RollYaw) -> RollYaw;
-
-    //mp ry_world_to_ry_frame
-    /// Apply the lens projection to a world RY to generate a RY
-    /// relative to the frame
-    fn ry_camera_to_ry_frame(&self, ry_world: RollYaw) -> RollYaw;
-
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection
     fn sensor_ry_to_camera_ry(&self, ry: RollYaw) -> RollYaw;
@@ -104,19 +94,29 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
 
     //mp sensor_txty_to_px_abs_xy
     /// Map a sensor (unprojected) tan(x)/tan(y) to sensor Point2D coordinate
-    fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D;
+    fn sensor_txty_to_px_abs_xy(&self, txty: TanXTanY) -> Point2D;
 
     //mp px_abs_xy_to_sensor_txty
     /// Map a sensor Point2D coordinate to sensor (unprojected) tan(x)/tan(y)
     fn px_abs_xy_to_sensor_txty(&self, px_abs_xy: Point2D) -> TanXTanY;
 
-    //mp px_abs_xy_to_camera_txty
-    /// Map a screen Point2D coordinate to tan(x)/tan(y)
-    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY;
+    //mp px_abs_xy_to_camera_txty (derived)
+    /// Map a sensor Point2D coordinate to camera (projected) tan(x)/tan(y)
+    fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
+        let sensor_txty = self.px_abs_xy_to_sensor_txty(px_abs_xy);
+        let sensor_ry = sensor_txty.into();
+        let camera_ry = self.sensor_ry_to_camera_ry(sensor_ry);
+        camera_ry.into()
+    }
 
-    //mp camera_txty_to_px_abs_xy
-    /// Map a tan(x)/tan(y) to screen Point2D coordinate
-    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D;
+    //mp camera_txty_to_px_abs_xy (derived)
+    /// Map a camera (projected) tan(x)/tan(y) to a sensor Point2D coordinate
+    fn camera_txty_to_px_abs_xy(&self, camera_txty: TanXTanY) -> Point2D {
+        let camera_ry = camera_txty.into();
+        let sensor_ry = self.camera_ry_to_sensor_ry(camera_ry);
+        let sensor_txty = sensor_ry.into();
+        self.sensor_txty_to_px_abs_xy(sensor_txty)
+    }
 
     //md camera_txty_to_world_dir (derived)
     /// Convert a TanXTanY in camera space to a direction from the camera in world space
@@ -176,6 +176,7 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// and then to tan(x)/tan(y), then to camera sensor pixel X-Y coordinates
     #[inline]
     fn world_xyz_to_px_abs_xy(&self, world_xyz: Point3D) -> Point2D {
-        self.camera_txty_to_px_abs_xy(&self.world_xyz_to_camera_txty(world_xyz))
+        let camera_txty = self.world_xyz_to_camera_txty(world_xyz);
+        self.camera_txty_to_px_abs_xy(camera_txty)
     }
 }
