@@ -168,6 +168,44 @@ impl CameraInstance {
         self.world_xyz_to_px_abs_xy(model)
     }
 
+    //mp txty_to_px_rel_xy
+    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
+    /// pixel in the frame of the camera
+    ///
+    /// This must apply the lens projection
+    fn xtxty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
+        let ry_camera: RollYaw = txty.into();
+        let ry_frame = RollYaw::from_roll_tan_yaw(
+            ry_camera.sin_roll(),
+            ry_camera.cos_roll(),
+            self.lens.world_to_sensor(ry_camera.tan_yaw()),
+        );
+        let txty_frame: TanXTanY = ry_frame.into();
+        [
+            txty_frame[0] * self.x_px_from_tan_sc,
+            txty_frame[1] * self.y_px_from_tan_sc,
+        ]
+        .into()
+    }
+
+    //mp xpx_rel_xy_to_txty
+    /// Map an actual centre-relative XY pixel in the frame of the
+    /// camera to a Roll/Yaw
+    fn xpx_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY {
+        let txty_frame: TanXTanY = [
+            px_xy[0] / self.x_px_from_tan_sc,
+            px_xy[1] / self.y_px_from_tan_sc,
+        ]
+        .into();
+        let ry_frame: RollYaw = txty_frame.into();
+        let ry_camera = RollYaw::from_roll_tan_yaw(
+            ry_frame.sin_roll(),
+            ry_frame.cos_roll(),
+            self.lens.sensor_to_world(ry_frame.tan_yaw()),
+        );
+        ry_camera.into()
+    }
+
     //zz All done
 }
 
@@ -235,17 +273,51 @@ impl CameraProjection for CameraInstance {
         self.derive()
     }
 
+    //mp sensor_ry_to_camera_ry
+    /// Apply the lens projection
+    #[inline]
+    #[must_use]
+    fn sensor_ry_to_camera_ry(&self, mut ry: RollYaw) -> RollYaw {
+        let tan_yaw = ry.tan_yaw();
+        ry.with_tan_yaw(self.lens.sensor_to_world(tan_yaw))
+    }
+
+    //mp camera_ry_to_sensor_ry
+    /// Apply the lens projection
+    #[inline]
+    #[must_use]
+    fn camera_ry_to_sensor_ry(&self, ry: RollYaw) -> RollYaw {
+        let tan_yaw = ry.tan_yaw();
+        ry.with_tan_yaw(self.lens.world_to_sensor(tan_yaw))
+    }
+
+    //mp sensor_txty_to_px_abs_xy
+    fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
+        let pxy_rel = [
+            txty[0] * self.x_px_from_tan_sc,
+            txty[1] * self.y_px_from_tan_sc,
+        ]
+        .into();
+        self.body.px_rel_xy_to_px_abs_xy(pxy_rel)
+    }
+
+    //mp px_abs_xy_to_sensor_txty
+    fn px_abs_xy_to_sensor_txty(&self, pxy_abs: Point2D) -> TanXTanY {
+        let pxy_rel = self.body.px_rel_xy_to_px_abs_xy(pxy_abs);
+        (&pxy_rel).into()
+    }
+
     //fp px_abs_xy_to_camera_txty
     /// Map a screen Point2D coordinate to tan(x)/tan(y)
     fn px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
         let px_rel_xy = self.px_abs_xy_to_px_rel_xy(px_abs_xy);
-        self.px_rel_xy_to_txty(px_rel_xy)
+        self.xpx_rel_xy_to_txty(px_rel_xy)
     }
 
     //fp camera_txty_to_px_abs_xy
     /// Map a tan(x)/tan(y) to screen Point2D coordinate
     fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let px_rel_xy = self.txty_to_px_rel_xy(*txty);
+        let px_rel_xy = self.xtxty_to_px_rel_xy(*txty);
         self.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 
@@ -257,23 +329,6 @@ impl CameraProjection for CameraInstance {
     /// Map from absolute to centre-relative pixel
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
         self.body.px_abs_xy_to_px_rel_xy(xy)
-    }
-
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    fn px_rel_xy_to_txty(&self, px_xy: Point2D) -> TanXTanY {
-        let txty_frame: TanXTanY = [
-            px_xy[0] / self.x_px_from_tan_sc,
-            px_xy[1] / self.y_px_from_tan_sc,
-        ]
-        .into();
-        let ry_frame: RollYaw = txty_frame.into();
-        let ry_camera = RollYaw::from_roll_tan_yaw(
-            ry_frame.sin_roll(),
-            ry_frame.cos_roll(),
-            self.lens.sensor_to_world(ry_frame.tan_yaw()),
-        );
-        ry_camera.into()
     }
 
     /// Map an actual frame RY to a world RY
@@ -292,25 +347,6 @@ impl CameraProjection for CameraInstance {
             ry_world.cos_roll(),
             self.lens.world_to_sensor(ry_world.yaw()).tan(),
         )
-    }
-
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
-    ///
-    /// This must apply the lens projection
-    fn txty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
-        let ry_camera: RollYaw = txty.into();
-        let ry_frame = RollYaw::from_roll_tan_yaw(
-            ry_camera.sin_roll(),
-            ry_camera.cos_roll(),
-            self.lens.world_to_sensor(ry_camera.tan_yaw()),
-        );
-        let txty_frame: TanXTanY = ry_frame.into();
-        [
-            txty_frame[0] * self.x_px_from_tan_sc,
-            txty_frame[1] * self.y_px_from_tan_sc,
-        ]
-        .into()
     }
 
     //mp px_rel_xy_to_ry

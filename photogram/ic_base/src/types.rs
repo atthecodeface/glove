@@ -253,6 +253,12 @@ impl RollYaw {
         self.tan_yaw
     }
 
+    //ap with_tan_yaw
+    pub fn with_tan_yaw(mut self, tan_yaw: f64) -> Self {
+        self.tan_yaw = tan_yaw;
+        self
+    }
+
     //ap yaw
     /// Not a high performance operation
     pub fn yaw(&self) -> f64 {
