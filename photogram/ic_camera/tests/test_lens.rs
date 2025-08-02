@@ -19,20 +19,20 @@ where
     let mut num_out_of_range = 0;
 
     let wrange = wmax - wmin;
-    let mut yaws = vec![];
-    let mut mapped = vec![];
-    for i in 0..=1000 {
-        let world = (i as f64) / 1000.0 * wrange + wmin;
-        yaws.push(world);
-        mapped.push(fwd_fn(world));
-    }
+    let yaws = (0..1000).map(|i| ((i as f64) / 1000.0 * wrange + wmin));
 
-    let mut wts = polynomial::min_squares_dyn(degree, &yaws, &mapped);
-    let mut stw = polynomial::min_squares_dyn(degree, &mapped, &yaws);
+    let ytm = yaws.clone().map(|y| (y, fwd_fn(y)));
+    let mty = yaws.clone().map(|y| (fwd_fn(y), y));
+
+    for (a, b) in ytm.clone().take(10) {
+        eprintln!("{a} {b}");
+    }
+    let mut wts = polynomial::min_squares_dyn(degree, ytm);
+    let mut stw = polynomial::min_squares_dyn(degree, mty);
     eprintln!("{wts:?}");
     wts[0] = 0.0;
     stw[0] = 0.0;
-    for world in yaws.iter().copied() {
+    for world in yaws.clone() {
         let sensor = wts.calc(world);
         let tab = stw.calc(sensor);
         if !ignore_tab {

@@ -389,44 +389,6 @@ rotation, and so is 1.0. For close matches (angle x close to 0) the cosine is ap
   ";
 
 //a Utility functions
-fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
-    // world, sensor
-    let mut mean_median_wc_yaws = vec![];
-
-    // sensor, grad at sensor
-    let mut filter: VecDeque<_> = vec![(0.0, 1.0); 8].into();
-    let n = (filter.len() + 1) as f64;
-    let mid = (filter.len() + 1) / 2;
-    for (i, (w, c)) in ws_yaws.iter().enumerate() {
-        filter.push_back((*c, w / c));
-        let mut total = 0.0;
-        let mut smallest = filter[0].1;
-        let mut largest = filter[0].1;
-        for (w, v) in &filter {
-            total += *v;
-            smallest = smallest.min(*v);
-            largest = largest.max(*v);
-        }
-        let mean = (total - smallest - largest) / (n - 2.0);
-        if i >= mid * 2 {
-            mean_median_wc_yaws.push((mean * filter[mid].0, filter[mid].0));
-            if false {
-                eprintln!(
-                "Orig s,w {:0.4},{:0.4} : Filter mid s,w {:0.4},{:0.4}, pushed s,w {:0.4},{:0.4}",
-                c.to_degrees(),
-                w.to_degrees(),
-                filter[mid].0.to_degrees(),
-                (filter[mid].1 * filter[mid].0).to_degrees(),
-                mean_median_wc_yaws.last().unwrap().1.to_degrees(),
-                mean_median_wc_yaws.last().unwrap().0.to_degrees(),
-            );
-            }
-        }
-        filter.pop_front();
-    }
-    mean_median_wc_yaws
-}
-
 //a Types
 //a CmdResult
 type CmdResult = std::result::Result<String, ic_base::Error>;
@@ -983,12 +945,25 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         });
     }
 
+    let wcy = world_yaws
+        .iter()
+        .zip(camera_yaws.iter())
+        .map(|(x, y)| (*x, *y));
+    let ycw = camera_yaws
+        .iter()
+        .zip(world_yaws.iter())
+        .map(|(x, y)| (*x, *y));
     let poly_degree = 5;
-    let wts = polynomial::min_squares_dyn(poly_degree, &world_yaws, &camera_yaws);
-    let stw = polynomial::min_squares_dyn(poly_degree, &camera_yaws, &world_yaws);
+    let wts = polynomial::min_squares_dyn(poly_degree, wcy);
+    let stw = polynomial::min_squares_dyn(poly_degree, ycw);
+
+    let wc = world_yaws
+        .iter()
+        .zip(camera_yaws.iter())
+        .map(|(x, y)| (*x, *y));
 
     let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-        polynomial::error_in_y_stats(&wts, &world_yaws, &camera_yaws);
+        polynomial::error_in_y_stats(&wts, wc);
     let sd_err = variance_err.sqrt();
     let max_err = max_sq_err.sqrt();
     eprintln!(" err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
@@ -1295,7 +1270,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
     ws_tan_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-    let mean_median_ws_tan_yaws = filter_ws_yaws(&ws_tan_yaws);
+    let mean_median_ws_tan_yaws = polynomial::filter_ws_yaws(&ws_tan_yaws);
 
     if false {
         for i in 0..ws_tan_yaws.len() {
@@ -1345,20 +1320,19 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut stw;
     loop {
         let n = grad_world_tan_yaws.len();
-        stw = polynomial::min_squares_dyn(
-            cmd_args.poly_degree - 1,
-            &sensor_tan_yaws,
-            &grad_world_tan_yaws,
-        );
+        let s_gw = sensor_tan_yaws
+            .iter()
+            .zip(grad_world_tan_yaws.iter())
+            .map(|(x, y)| (*x, *y));
+        stw = polynomial::min_squares_dyn(cmd_args.poly_degree - 1, s_gw.clone());
         let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-            polynomial::error_in_y_stats(&stw, &sensor_tan_yaws, &grad_world_tan_yaws);
+            polynomial::error_in_y_stats(&stw, s_gw.clone());
         let sd_err = variance_err.sqrt();
         let max_err = max_sq_err.sqrt();
 
         let dmin = sd_err * 3.0;
         let dmax = sd_err * 3.0;
-        let outliers =
-            polynomial::find_outliers(&stw, &sensor_tan_yaws, &grad_world_tan_yaws, dmin, dmax);
+        let outliers = polynomial::find_outliers(&stw, s_gw.clone(), dmin, dmax);
         eprintln!(" {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
         // break;
         if outliers.is_empty() {
@@ -1385,11 +1359,11 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         grad_sensor_tan_yaw.push(s / w - 1.0);
     }
 
-    wts = polynomial::min_squares_dyn(
-        cmd_args.poly_degree - 1,
-        &world_tan_yaw,
-        &grad_sensor_tan_yaw,
-    );
+    let w_gs = world_tan_yaw
+        .iter()
+        .zip(grad_sensor_tan_yaw.iter())
+        .map(|(x, y)| (*x, *y));
+    wts = polynomial::min_squares_dyn(cmd_args.poly_degree - 1, w_gs);
     wts.insert(0, 0.0);
     wts[1] += 1.0;
 
@@ -1562,7 +1536,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
     ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-    let mean_median_ws_yaws = filter_ws_yaws(&ws_yaws);
+    let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws);
 
     for (w, s) in mean_median_ws_yaws.iter() {
         pts[0].push(plot_f(*w, *s));

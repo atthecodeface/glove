@@ -143,14 +143,21 @@ impl PolyIntercept {
             y.push(pts[*pt].1);
             g.push(((*dxy / spacing) + 0.5).floor());
         }
+
+        let gx = intercept_pts
+            .iter()
+            .map(|(pt, dxy)| (((*dxy / spacing) + 0.5).floor(), pts[*pt].0));
+        let gy = intercept_pts
+            .iter()
+            .map(|(pt, dxy)| (((*dxy / spacing) + 0.5).floor(), pts[*pt].1));
         let poly_degree = 5;
-        let px_of_g = polynomial::min_squares_dyn(poly_degree, &g, &x);
-        let py_of_g = polynomial::min_squares_dyn(poly_degree, &g, &y);
+        let px_of_g = polynomial::min_squares_dyn(poly_degree, gx.clone());
+        let py_of_g = polynomial::min_squares_dyn(poly_degree, gy.clone());
         let g_of_p = {
             if y_intercept {
-                polynomial::min_squares_dyn(poly_degree, &x, &g)
+                polynomial::min_squares_dyn(poly_degree, gx.map(|(g, x)| (x, g)))
             } else {
-                polynomial::min_squares_dyn(poly_degree, &y, &g)
+                polynomial::min_squares_dyn(poly_degree, gy.map(|(g, y)| (y, g)))
             }
         };
         Some(Self {

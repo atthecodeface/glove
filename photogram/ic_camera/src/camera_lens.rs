@@ -130,6 +130,7 @@ use serde::{Deserialize, Serialize};
 use ic_base::json;
 use ic_base::Result;
 
+use crate::polynomial;
 use crate::polynomial::CalcPoly;
 
 //a Serialization
@@ -327,6 +328,80 @@ impl LensPolys {
     //ap wts_poly
     pub fn wts_poly(&self) -> &[f64] {
         &self.wts_poly
+    }
+    //cp calibration
+    pub fn calibration(
+        poly_degree: usize,
+        sensor_yaws: &[f64],
+        world_yaws: &[f64],
+        yaw_range_min: f64,
+        yaw_range_max: f64,
+    ) -> Self {
+        //cb Calculate ws_tan_yaws
+        let mut ws_tan_yaws: Vec<_> = sensor_yaws
+            .iter()
+            .zip(world_yaws.iter())
+            .filter(|(s, _)| **s > yaw_range_min)
+            .map(|(s, w)| (w.tan(), s.tan()))
+            .collect();
+        ws_tan_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
+
+        let mean_median_ws_tan_yaws = polynomial::filter_ws_yaws(&ws_tan_yaws);
+
+        let mut sy_gwy: Vec<_> = mean_median_ws_tan_yaws
+            .iter()
+            .filter(|(_, s)| *s < yaw_range_max.tan())
+            .map(|(w, s)| {
+                if *s < 0.001 {
+                    (*s, 0.)
+                } else {
+                    (*s, w / s - 1.0)
+                }
+            })
+            .collect();
+
+        let mut stw;
+        loop {
+            let n = sy_gwy.len();
+            stw = polynomial::min_squares_dyn(
+                poly_degree - 1, // note - will multiply the polynomial by 'x'
+                sy_gwy.iter().copied(),
+            );
+            let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
+                polynomial::error_in_y_stats(&stw, sy_gwy.iter().copied());
+            let sd_err = variance_err.sqrt();
+            let max_err = max_sq_err.sqrt();
+
+            let dmin = sd_err * 3.0;
+            let dmax = sd_err * 3.0;
+            let outliers = polynomial::find_outliers(&stw, sy_gwy.iter().copied(), dmin, dmax);
+            eprintln!(" {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
+            // break;
+            if outliers.is_empty() {
+                break;
+            }
+            for n in outliers.iter().rev() {
+                sy_gwy.remove(*n);
+            }
+        }
+
+        // Convert p(s) to (p(s)+1) * s
+        stw.insert(0, 0.0);
+        stw[1] += 1.0;
+
+        let wy_gsy = sensor_yaws.iter().map(|s| {
+            let w = stw.calc(*s);
+            (w, *s / w - 1.0)
+        });
+
+        let mut wts = polynomial::min_squares_dyn(
+            poly_degree - 1, // note - will multiply the polynomial by 'x'
+            wy_gsy,
+        );
+        wts.insert(0, 0.0);
+        wts[1] += 1.0;
+
+        Self::new(stw, wts)
     }
 }
 
