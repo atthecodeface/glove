@@ -14,6 +14,12 @@ pub trait CameraSensor: std::fmt::Debug {
     /// Name of the sensor (camera), for recording in files
     fn name(&self) -> &str;
 
+    //mp sensor_size
+    fn sensor_size(&self) -> (f64, f64);
+
+    //mp sensor_center
+    fn sensor_center(&self) -> Point2D;
+
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates
@@ -65,19 +71,11 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
 
-    //mp sensor_size?
-    //mp sensor_center?
-    //mp px_abs_xy_to_px_rel_xy - remove me
-    /// Map from absolute to centre-relative pixel
-    ///
-    /// The units are pixels in both coordinates
-    fn px_abs_xy_to_px_rel_xy(&self, px_xy: Point2D) -> Point2D;
+    //mp sensor_size
+    fn sensor_size(&self) -> (f64, f64);
 
-    //mp px_rel_xy_to_px_abs_xy - remove me
-    /// Map from centre-relative to absolute pixel
-    ///
-    /// The units are pixels in both coordinates
-    fn px_rel_xy_to_px_abs_xy(&self, px_xy: Point2D) -> Point2D;
+    //mp sensor_center
+    fn sensor_center(&self) -> Point2D;
 
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection

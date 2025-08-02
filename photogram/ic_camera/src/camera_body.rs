@@ -271,6 +271,16 @@ impl CameraSensor for CameraBody {
         &self.name
     }
 
+    //mp sensor_size
+    fn sensor_size(&self) -> (f64, f64) {
+        (self.px_width, self.px_height)
+    }
+
+    //mp sensor_center
+    fn sensor_center(&self) -> Point2D {
+        self.px_centre.into()
+    }
+
     //fp px_abs_xy_to_px_rel_xy
     #[inline]
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {

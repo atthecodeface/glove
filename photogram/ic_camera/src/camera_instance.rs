@@ -220,6 +220,17 @@ impl CameraInstance {
         self.px_rel_xy_to_px_abs_xy(px_rel_xy)
     }
 
+    //mp px_rel_xy_to_px_abs_xy
+    /// Map from centre-relative to absolute pixel
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+        self.body.px_rel_xy_to_px_abs_xy(xy)
+    }
+
+    //mp px_abs_xy_to_px_rel_xy
+    /// Map from absolute to centre-relative pixel
+    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
+        self.body.px_abs_xy_to_px_rel_xy(xy)
+    }
     //zz All done
 }
 
@@ -246,27 +257,30 @@ impl std::fmt::Display for CameraInstance {
 
 //ip CameraProjection for CameraInstance
 impl CameraProjection for CameraInstance {
+    //ap camera_name
     /// Get name of camera
     fn camera_name(&self) -> String {
         self.body.name().into()
     }
 
+    //ap lens_name
     /// Get name of lens
     fn lens_name(&self) -> String {
         self.lens.name().into()
     }
 
+    //ap focus_distance
     // focus_distance
     fn focus_distance(&self) -> f64 {
         self.mm_focus_distance
     }
 
-    //mp position
+    //ap position
     fn position(&self) -> Point3D {
         self.position
     }
 
-    //mp orientation
+    //ap orientation
     fn orientation(&self) -> Quat {
         self.orientation
     }
@@ -281,10 +295,20 @@ impl CameraProjection for CameraInstance {
         self.orientation = q;
     }
 
-    // set_focus_distance
+    //mp set_focus_distance
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {
         self.mm_focus_distance = mm_focus_distance;
         self.derive()
+    }
+
+    //mp sensor_size
+    fn sensor_size(&self) -> (f64, f64) {
+        self.body.sensor_size()
+    }
+
+    //mp sensor_center
+    fn sensor_center(&self) -> Point2D {
+        self.body.sensor_center()
     }
 
     //mp sensor_ry_to_camera_ry
@@ -323,15 +347,5 @@ impl CameraProjection for CameraInstance {
             pxy_rel[1] / self.y_px_from_tan_sc,
         ]
         .into()
-    }
-
-    /// Map from centre-relative to absolute pixel
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        self.body.px_rel_xy_to_px_abs_xy(xy)
-    }
-
-    /// Map from absolute to centre-relative pixel
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
-        self.body.px_abs_xy_to_px_rel_xy(xy)
     }
 }
