@@ -338,20 +338,20 @@ impl LensPolys {
         yaw_range_min: f64,
         yaw_range_max: f64,
     ) -> Self {
-        //cb Calculate ws_tan_yaws
-        let mut ws_tan_yaws: Vec<_> = sensor_yaws
+        //cb Calculate ws_yaws
+        let mut ws_yaws: Vec<_> = sensor_yaws
             .iter()
             .zip(world_yaws.iter())
             .filter(|(s, _)| **s > yaw_range_min)
-            .map(|(s, w)| (w.tan(), s.tan()))
+            .map(|(s, w)| (*w, *s))
             .collect();
-        ws_tan_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
+        ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-        let mean_median_ws_tan_yaws = polynomial::filter_ws_yaws(&ws_tan_yaws);
+        let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws);
 
-        let mut sy_gwy: Vec<_> = mean_median_ws_tan_yaws
+        let mut sy_gwy: Vec<_> = mean_median_ws_yaws
             .iter()
-            .filter(|(_, s)| *s < yaw_range_max.tan())
+            .filter(|(_, s)| *s < yaw_range_max)
             .map(|(w, s)| {
                 if *s < 0.001 {
                     (*s, 0.)
@@ -368,6 +368,8 @@ impl LensPolys {
                 poly_degree - 1, // note - will multiply the polynomial by 'x'
                 sy_gwy.iter().copied(),
             );
+
+            break;
             let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
                 polynomial::error_in_y_stats(&stw, sy_gwy.iter().copied());
             let sd_err = variance_err.sqrt();
@@ -547,14 +549,102 @@ impl CameraLens {
     //ap sensor_to_world - map tan to tan
     #[inline]
     pub fn sensor_to_world(&self, tan: f64) -> f64 {
-        self.polys.stw_poly.calc(tan)
+        self.polys.stw_poly.calc(tan.atan()).tan()
     }
 
     //ap world_to_sensor - map tan to tan
     #[inline]
     pub fn world_to_sensor(&self, tan: f64) -> f64 {
-        self.polys.wts_poly.calc(tan)
+        self.polys.wts_poly.calc(tan.atan()).tan()
     }
 
     //zz All done
 }
+//a Plotting
+/*
+    //cb stw plot
+    {
+        use poloto::prelude::*;
+        use tagu::prelude::*;
+        let theme = poloto::render::Theme::light();
+        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_text.poloto_legend{font-size:10px;}",
+        ));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
+        ));
+
+        let plots = poloto::build::origin();
+        let plots = plots.chain(
+            poloto::build::plot("Poly").line(
+                (0..300)
+                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
+                    .map(|s| (s.to_degrees(), stw_clone.calc(s.tan()) / s.tan() - 1.0)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Original").scatter(
+                world_yaws
+                    .iter().zip(sensor_yaws.iter())
+                    .map(|(w, s)| (s.to_degrees(), w / s - 1.0)),
+            ),
+        );
+        let plot_initial = poloto::frame_build()
+            .data(plots)
+            .build_and_label(("Lens Cal Sensor-to-world", "Sensor", "(tan w)/(tan s) - 1"))
+            .append_to(poloto::header().append(theme))
+            .render_string()
+            .map_err(|e| format!("{e:?}"))?;
+
+        let mut f = std::fs::File::create("lc_stw.svg")?;
+        f.write_all(plot_initial.to_string().as_bytes())?;
+    }
+
+    //cb wts plot
+    {
+        use poloto::prelude::*;
+        use tagu::prelude::*;
+        let theme = poloto::render::Theme::light();
+        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_text.poloto_legend{font-size:10px;}",
+        ));
+        let theme = theme.append(tagu::build::raw(
+            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
+        ));
+
+        let plots = poloto::build::origin();
+        let plots = plots.chain(
+            poloto::build::plot("Original").scatter(
+                ws_tan_yaws
+                    .iter()
+                    .map(|(w, s)| (w.atan().to_degrees(), s / w - 1.0)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly source").scatter(
+                world_tan_yaw
+                    .iter()
+                    .zip(grad_sensor_tan_yaw.iter())
+                    .map(|(w, gs)| (w.atan().to_degrees(), gs)),
+            ),
+        );
+        let plots = plots.chain(
+            poloto::build::plot("Poly").line(
+                (0..300)
+                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
+                    .map(|w| (w.to_degrees(), wts_clone.calc(w.tan()) / w.tan() - 1.0)),
+            ),
+        );
+        let plot_initial = poloto::frame_build()
+            .data(plots)
+            .build_and_label(("Lens Cal World-to-sensor", "World", "(tan s)/(tan w) - 1"))
+            .append_to(poloto::header().append(theme))
+            .render_string()
+            .map_err(|e| format!("{e:?}"))?;
+
+        let mut f = std::fs::File::create("lc_wts.svg")?;
+        f.write_all(plot_initial.to_string().as_bytes())?;
+    }
+*/
