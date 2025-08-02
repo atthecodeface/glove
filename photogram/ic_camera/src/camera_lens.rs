@@ -101,27 +101,6 @@
 
  The door looks to be at an angle of 1.88 degrees
 
-
-//tt SphericalLensProjection
-/// The concept is that there are absolute pixel positions within a
-/// sensor, which can be converted to relative, which can be converted
-/// to a tan(x)/tan(y) - in world space X/Z and Y/Z, which can be
-/// mapped from (but not really to) xyz
-///
-/// The projection of the lens maps a world-angle to a sensor-angle,
-/// and vice-versa
-///
-/// A particular lens may be focused on infinity, or closer; the
-/// closer the focus, the larger the image on the sensor (as the lens
-/// is further from the sensor). To allow for this a client requires
-/// the knowledge of the focal length of the lens; the projection
-/// mapping is not impacted by moving the lens, of course.
-pub trait SphericalLensProjection: std::fmt::Debug {
-    fn mm_focal_length(&self) -> f64;
-    fn sensor_to_world(&self, tan: f64) -> f64;
-    fn world_to_sensor(&self, tan: f64) -> f64;
-}
-
 !*/
 
 //a Imports

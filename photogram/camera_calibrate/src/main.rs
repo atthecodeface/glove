@@ -1217,6 +1217,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("{camera}");
     });
+    cmd_args.camera = camera;
 
     cmd_args.write_outputs()?;
     cmd_args.output_camera()

@@ -219,7 +219,7 @@ x:
 .PHONY: x
 
 y:
-	${CAMERA_CALIBRATE} ${CAMERA_DB} calibrate --camera ${DATA_DIR}camera_calibrate_6028.json --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
+	${CAMERA_CALIBRATE} ${CAMERA_DB} --camera ${DATA_DIR}camera_calibrate_6028.json calibrate --read ${IMAGE_DIR}/4v3a6028.JPG --write 28.png
 
 
 #a Correlation
