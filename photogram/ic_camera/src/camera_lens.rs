@@ -466,13 +466,14 @@ impl CameraLens {
     //ap sensor_to_world - map tan to tan
     #[inline]
     pub fn sensor_to_world(&self, tan: f64) -> f64 {
-        self.polys.stw_poly.calc(tan.atan()).tan()
+        self.polys.stw_poly.calc(tan)
     }
 
     //ap world_to_sensor
     #[inline]
     pub fn world_to_sensor(&self, tan: f64) -> f64 {
-        self.polys.wts_poly.calc(tan.atan()).tan()
+        self.polys.wts_poly.calc(tan)
     }
+
     //zz All done
 }
