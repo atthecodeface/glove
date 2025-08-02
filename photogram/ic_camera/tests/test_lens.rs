@@ -21,6 +21,27 @@ where
     let wrange = wmax - wmin;
     let yaws = (0..1000).map(|i| ((i as f64) / 1000.0 * wrange + wmin));
 
+    let sensor_yaws: Vec<_> = yaws.clone().map(|s| fwd_fn(s)).collect();
+    let world_yaws: Vec<_> = yaws.clone().collect();
+    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0);
+    let mut num_errors = 0;
+    for world in yaws.clone() {
+        let lens_sensor = lens_poly.wts_poly().calc(world);
+        let sensor = fwd_fn(world);
+        if (sensor - lens_sensor).abs() < 0.01 {
+            continue;
+        }
+        eprintln!("{world} {sensor} {lens_sensor} {}", sensor - lens_sensor);
+        num_errors += 1;
+    }
+
+    if num_errors > 0 {
+        return Err(format!(
+            "Mismatch in *calibration* constructor in camera_lens {num_errors} errors"
+        )
+        .into());
+    }
+
     let ytm = yaws.clone().map(|y| (y, fwd_fn(y)));
     let mty = yaws.clone().map(|y| (fwd_fn(y), y));
 

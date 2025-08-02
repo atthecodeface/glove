@@ -329,6 +329,7 @@ impl LensPolys {
     pub fn wts_poly(&self) -> &[f64] {
         &self.wts_poly
     }
+
     //cp calibration
     pub fn calibration(
         poly_degree: usize,
@@ -391,7 +392,11 @@ impl LensPolys {
 
         let wy_gsy = sensor_yaws.iter().map(|s| {
             let w = stw.calc(*s);
-            (w, *s / w - 1.0)
+            if w.abs() < 0.001 {
+                (w, 0.)
+            } else {
+                (w, *s / w - 1.0)
+            }
         });
 
         let mut wts = polynomial::min_squares_dyn(
@@ -401,6 +406,7 @@ impl LensPolys {
         wts.insert(0, 0.0);
         wts[1] += 1.0;
 
+        eprintln!("{stw:?} {wts:?}");
         Self::new(stw, wts)
     }
 }
@@ -544,7 +550,7 @@ impl CameraLens {
         self.polys.stw_poly.calc(tan)
     }
 
-    //ap world_to_sensor
+    //ap world_to_sensor - map tan to tan
     #[inline]
     pub fn world_to_sensor(&self, tan: f64) -> f64 {
         self.polys.wts_poly.calc(tan)
