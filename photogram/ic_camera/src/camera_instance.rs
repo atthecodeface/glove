@@ -334,16 +334,4 @@ impl CameraProjection for CameraInstance {
     fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
         self.body.px_abs_xy_to_px_rel_xy(xy)
     }
-
-    //mp px_rel_xy_to_ry
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw {
-        let txty_frame: TanXTanY = [
-            px_xy[0] / self.x_px_from_tan_sc,
-            px_xy[1] / self.y_px_from_tan_sc,
-        ]
-        .into();
-        txty_frame.into()
-    }
 }

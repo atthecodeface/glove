@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use ic_base::json;
-use ic_base::{Point2D, Point3D, Result, RollYaw};
+use ic_base::{Point2D, Point3D, Result, TanXTanY};
 
 use crate::{CameraInstance, CameraProjection};
 
@@ -70,18 +70,17 @@ impl CalibrationMapping {
     }
 
     //ap get_pairings
-    /// Get pairings between grid points, their camera-relative Point3Ds, and the roll-yaw described by
-    /// the camera focus distance and lens type (not using its
-    /// polynomial)
-    pub fn get_pairings(&self, camera: &CameraInstance) -> Vec<(Point3D, Point3D, RollYaw)> {
+    /// Get pairings between grid points, their camera-relative
+    /// Point3Ds, and the sensor TanXTanYroll (i.e. not using its lens
+    /// mapping)
+    pub fn get_pairings(&self, camera: &CameraInstance) -> Vec<(Point3D, Point3D, TanXTanY)> {
         let mut result = vec![];
         for (kx, ky, kz, vx, vy) in &self.mappings {
             let grid_world: Point3D = [*kx, *ky, *kz].into();
             let grid_camera = camera.world_xyz_to_camera_xyz(grid_world);
             let pxy_abs: Point2D = [*vx as f64, *vy as f64].into();
-            let pxy_rel = camera.px_abs_xy_to_px_rel_xy(pxy_abs);
-            let ry = camera.px_rel_xy_to_ry(pxy_rel);
-            result.push((grid_world, grid_camera, ry));
+            let sensor_txty = camera.px_abs_xy_to_sensor_txty(pxy_abs);
+            result.push((grid_world, grid_camera, sensor_txty));
         }
         result
     }

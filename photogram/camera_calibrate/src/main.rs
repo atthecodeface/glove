@@ -968,16 +968,17 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let v = calibrate.get_pairings(&cmd_args.camera);
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
-    for (n, (grid, camera_rel_xyz, pxy_ry)) in v.iter().enumerate() {
+    for (n, (grid, camera_rel_xyz, sensor_txty)) in v.iter().enumerate() {
         let camera_rel_txty: TanXTanY = camera_rel_xyz.into();
         let camera_rel_ry: RollYaw = camera_rel_txty.into();
         world_yaws.push(camera_rel_ry.yaw());
-        camera_yaws.push(pxy_ry.yaw());
+        let sensor_ry: RollYaw = (*sensor_txty).into();
+        camera_yaws.push(sensor_ry.yaw());
         cmd_args.if_verbose(|| {
             eprintln!(
-                "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {pxy_ry} : camera_rel_ty {} : pxy_ty {}",
+                "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {sensor_ry} : camera_rel_ty {} : pxy_ty {}",
                 camera_rel_ry.tan_yaw(),
-                pxy_ry.tan_yaw()
+                sensor_ry.tan_yaw()
             );
         });
     }

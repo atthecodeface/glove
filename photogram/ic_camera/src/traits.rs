@@ -79,11 +79,6 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// The units are pixels in both coordinates
     fn px_rel_xy_to_px_abs_xy(&self, px_xy: Point2D) -> Point2D;
 
-    //mp px_rel_xy_to_ry
-    /// Map an actual centre-relative XY pixel in the frame of the
-    /// camera to a Roll/Yaw
-    fn px_rel_xy_to_ry(&self, px_xy: Point2D) -> RollYaw;
-
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection
     fn sensor_ry_to_camera_ry(&self, ry: RollYaw) -> RollYaw;
