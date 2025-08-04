@@ -69,6 +69,11 @@ impl CalibrationMapping {
         self.mappings.len()
     }
 
+    //ap is_empty
+    pub fn is_empty(&self) -> bool {
+        self.mappings.is_empty()
+    }
+
     //ap get_pairings
     /// Get pairings between grid points, their camera-relative
     /// Point3Ds, and the sensor TanXTanYroll (i.e. not using its lens
