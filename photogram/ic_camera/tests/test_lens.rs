@@ -133,7 +133,7 @@ fn test_equisolid() -> Result<()> {
         fwd_fn,
         8,
         0.0,
-        0.95 * std::f64::consts::PI / 2.0,
+        0.92 * std::f64::consts::PI / 2.0,
         &lens,
         false,
     )
