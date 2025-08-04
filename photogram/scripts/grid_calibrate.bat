@@ -5,7 +5,7 @@
 locate --write_camera located.json   --mappings nac/camera_6028_mappings.json --num_pts 6 
 orient --write_camera oriented.json  --mappings nac/camera_6028_mappings.json
 grid_image      --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
-lens_calibrate  --mappings nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 7 --write_polys lens_cal.json
+lens_calibrate  --mappings nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 4 --write_polys lens_cal.json
 
 --use_polys lens_cal.json
 

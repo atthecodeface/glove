@@ -299,14 +299,16 @@ impl LensPolys {
         self
     }
 
-    //ap stw_poly
-    pub fn stw_poly(&self) -> &[f64] {
-        &self.stw_poly
+    //mp stw
+    /// Map from sensor angle to world angle
+    pub fn stw(&self, angle: f64) -> f64 {
+        self.stw_poly.calc(angle)
     }
 
-    //ap wts_poly
-    pub fn wts_poly(&self) -> &[f64] {
-        &self.wts_poly
+    //mp wts
+    /// Map from world angle to sensor angle
+    pub fn wts(&self, angle: f64) -> f64 {
+        self.wts_poly.calc(angle)
     }
 
     //cp calibration
@@ -529,16 +531,16 @@ impl CameraLens {
         self.mm_focal_length
     }
 
-    //ap sensor_to_world - map tan to tan
+    //ap tan_sensor_to_tan_world - map tan to tan
     #[inline]
-    pub fn sensor_to_world(&self, tan: f64) -> f64 {
-        self.polys.stw_poly.calc(tan.atan()).tan()
+    pub fn tan_sensor_to_tan_world(&self, tan: f64) -> f64 {
+        self.polys.stw(tan.atan()).tan()
     }
 
-    //ap world_to_sensor - map tan to tan
+    //ap tan_world_to_tan_sensor - map tan to tan
     #[inline]
-    pub fn world_to_sensor(&self, tan: f64) -> f64 {
-        self.polys.wts_poly.calc(tan.atan()).tan()
+    pub fn tan_world_to_tan_sensor(&self, tan: f64) -> f64 {
+        self.polys.wts(tan.atan()).tan()
     }
 
     //zz All done
