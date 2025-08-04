@@ -111,7 +111,7 @@ camera_calibrate:
 .PHONY: cal_initial
 cal_initial:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2); this then updates the mapping, orients, and updates the mapping again"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${INITIAL_CAL} star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.6 --write_camera ${CAL_DIR}/orient_0.json --write_star_mapping ${CAL_DIR}/stars_mapped_using_0.json --triangle_closeness 0.6 find_stars --within 20 --yaw_error 0.03
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${INITIAL_CAL} star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.6 --yaw_min 0 --yaw_max 20 --write_camera ${CAL_DIR}/orient_0.json --write_star_mapping ${CAL_DIR}/stars_mapped_using_0.json --triangle_closeness 0.6 find_stars --yaw_error 0.03
 
 .PHONY: cal_step_1
 cal_step_1:
@@ -163,7 +163,7 @@ cal_reset_np1:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2) *given* a calibration N"
 	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} --brightness 5.5 --triangle_closeness 0.2 --closeness 0.2 --write_camera ${CAL_DIR}/rebase_camera.json find_stars 
 	@echo "Now create an updated star mapping with ids from the star catalog for mappings that map on to stars"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/rebase_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 --write_star_mapping ${CAL_DIR}/stars_mapped_using_rebase.json update_star_mapping --within ${YAW_MAX} 
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/rebase_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 --write_star_mapping ${CAL_DIR}/stars_mapped_using_rebase.json  --yaw_min 0 --yaw_max ${YAW_MAX} update_star_mapping
 	@echo "Orient based on updated star mapping"
 	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_DIR}/stars_mapped_using_rebase.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_camera ${CAL_DIR}/orient_${NP1}.json orient 
 
@@ -179,12 +179,12 @@ cal_step_n_reset:
 .PHONY: cal_lens_calibrate_n
 cal_lens_calibrate_n:
 	@echo "Calibrate the lens cal ${NP1}"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys nac/lens_linear.json lens_calibrate --min_yaw ${YAW_MIN} --max_yaw ${YAW_MAX} --poly_degree ${POLY_DEGREE} --mappings ${CAL_DIR}/mapping_${N}.json --write_polys ${CAL_DIR}/lens_cal_${NP1}.json
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys nac/lens_linear.json lens_calibrate --yaw_min ${YAW_MIN} --yaw_max ${YAW_MAX} --poly_degree ${POLY_DEGREE} --mappings ${CAL_DIR}/mapping_${N}.json --write_polys ${CAL_DIR}/lens_cal_${NP1}.json
 
 .PHONY: cal_yaw_plot_n
 cal_yaw_plot_n:
 	@echo "Create the Yaw plot of ${N} & ${NP1}"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json yaw_plot --min_yaw ${YAW_MIN} --max_yaw ${YAW_MAX} --mappings ${CAL_DIR}/mapping_${N}.json --write_svg ${CAL_DIR}/cal_mapping_${N}.svg
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${N}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json yaw_plot --yaw_min ${YAW_MIN} --yaw_max ${YAW_MAX} --mappings ${CAL_DIR}/mapping_${N}.json --write_svg ${CAL_DIR}/cal_mapping_${N}.svg
 
 .PHONY: cal_orient_n
 cal_orient_n:
@@ -194,7 +194,7 @@ cal_orient_n:
 .PHONY: cal_update_star_mapping_n
 cal_update_star_mapping_n:
 	@echo "Update the star mapping from ${N} using lens cal and orient ${NP1}"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${NP1}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_star_mapping ${CAL_DIR}/stars_mapped_using_${NP1}.json update_star_mapping --within ${YAW_MAX} --yaw_error ${YAW_ERROR}
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/orient_${NP1}.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_star_mapping ${CAL_DIR}/stars_mapped_using_${NP1}.json   --yaw_min 0 --yaw_max ${YAW_MAX} update_star_mapping --yaw_error ${YAW_ERROR}
 
 .PHONY: cal_output_3d_mapping_n
 cal_output_3d_mapping_n:
