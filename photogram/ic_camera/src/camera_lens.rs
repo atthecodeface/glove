@@ -122,94 +122,128 @@ pub fn serialize_lens_name<S: serde::Serializer>(
 }
 
 //a Constants for standard lens types
-pub const LP_EQUISOLID: ([f64; 7], [f64; 7]) = (
+pub const LP_EQUISOLID: ([f64; 8], [f64; 8]) = (
     [
-        0.0,
-        0.4997494436465786,
-        0.0020654588006436825,
-        -0.06921000644797459,
-        0.009734337567351758,
-        0.0066660778247751296,
-        -0.00195744882512372,
+        0.5049139795319206,
+        -0.14158755799508072,
+        0.3774922168813646,
+        -0.7446562055265531,
+        0.7699006744660437,
+        -0.42570943126338534,
+        0.1195501816982869,
+        -0.01339476510474924,
     ],
     [
-        0.0,
-        1.987718482123455,
-        0.24317235918715596,
-        -0.9263885319232941,
-        7.228096961975098,
-        -12.305673584342003,
-        9.575857356190681,
+        2.000002112823495,
+        1.0001099132932723,
+        0.7438999339938164,
+        0.8153012990951538,
+        -0.4687538146972656,
+        6.977931976318359,
+        -14.935401916503906,
+        19.272201538085938,
     ],
 );
 
-pub const LP_STEREOGRAPHIC: ([f64; 7], [f64; 7]) = (
+pub const LP_STEREOGRAPHIC: ([f64; 6], [f64; 6]) = (
     [
-        0.0,
-        0.9963953544211108,
-        0.03322175214998424,
-        -0.3751326131168753,
-        0.22490806435234845,
-        -0.05375197483226657,
-        0.0039019385731080547,
+        0.9999434081934879,
+        -0.24807933074976063,
+        0.11356718564456969,
+        -0.04671305180727359,
+        0.01238922817447019,
+        -0.0014438993367207331,
     ],
     [
-        0.0,
-        1.001861843658844,
-        -0.01971894665621221,
-        0.33221330866217613,
-        -0.15700633265078068,
-        0.19460456538945436,
-        -0.028680953895673156,
+        1.0000037222656601,
+        0.24992434741579928,
+        0.06319007861748105,
+        0.009060527081601322,
+        0.004209373408230022,
+        -0.003147703035210725,
     ],
 );
 
 pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
     [
-        0.0,
-        0.9998419532785192,
-        0.0013162735849618912,
-        -0.33344507962465286,
-        -0.03441770374774933,
-        0.3506765365600586,
-        -0.28652286529541016,
-        0.1022481769323349,
-        -0.014303863048553467,
+        0.9999945081426631,
+        -0.33315453279647045,
+        0.197819119784981,
+        -0.13177823554724455,
+        0.08084718603640795,
+        -0.03879949636757374,
+        0.012711051385849714,
+        -0.002450463129207492,
+        0.00020686324569396675,
     ],
     [
-        0.0,
-        0.9982260325923562,
-        0.03605024516582489,
-        0.02770853042602539,
-        1.3280048370361328,
-        -3.0907912254333496,
-        4.449044227600098,
-        -3.244915008544922,
-        1.0540469884872437,
+        1.0000033089982026,
+        0.33332523237913847,
+        0.13340910151600838,
+        0.053256869316101074,
+        0.025336742401123047,
+        -0.0004899501800537109,
+        0.017971515655517578,
+        -0.010636568069458008,
+        0.005235612392425537,
     ],
 );
 
-pub const LP_ORTHOGRAPHIC: ([f64; 7], [f64; 7]) = (
+pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
     [
-        0.0,
-        0.9941659067408182,
-        0.06303225585725158,
-        -0.7806377926608548,
-        0.6024768308270723,
-        -0.20585763768758625,
-        0.026198503939667717,
+        0.9998927521296537,
+        -0.4939921221230179,
+        0.3082115144934505,
+        -0.0569944754242897,
+        -0.28119038604199886,
+        0.42734219692647457,
+        -0.2843244094401598,
+        0.09226620756089687,
+        -0.011822816508356482,
     ],
     [
-        0.0,
-        0.3191991178318858,
-        9.813045187387615,
-        -55.521155001595616,
-        149.31334675848484,
-        -186.43467409163713,
-        89.10336443781853,
+        1.0007894445116108,
+        0.32264182437211275,
+        7.223541587591171,
+        -100.59029412269592,
+        729.6587390899658,
+        -2855.4287719726562,
+        6187.3221435546875,
+        -6975.573104858398,
+        3200.957588195801,
     ],
 );
 //a LensPolys
+//tp LensPolys
+/// Polynomials that map (in some manner) sensor yaw to and from world
+/// yaw for a spherical lens
+///
+/// The simplest polynomial mapping P(yaw) is from yaw angle to yaw
+/// angle (in radians). However, the mapping has two properties: it
+/// maps yaw of 0 to yaw of 0, and it is antisymmetric. i.e. P(0)=0,
+/// P(-yaw)=-P(yaw).
+///
+/// If this is encoded as a polynomial (as it is here) this means that
+/// the *even* coefficients *must* be zero.
+///
+///  i.e. P(x) = p1.x + p3.x^3 + p5.x^5 + ... (p even are zero)
+///
+/// So encoding this as a simple polynomial will waste half of the
+/// coefficients
+///
+/// Hence this actually encodes the polynomial as Q(x), where:
+///
+///    P(yaw) = yaw*Q(yaw^2)
+///
+///    x * Q(x^2) = p1.x + p3.x^3 + p5.x^5 + ...
+///
+///    Q(x^2) = p1 + p3.x^2 + p5.x^4 + ...
+///
+///    q0 = p1, q1 = p3, q2 = p5, q3 = p7, ...
+///
+/// To calculate P(yaw), then, this is just yaw * Q(yaw^2)
+///
+/// The default *linear* polynomial is P(yaw) = yaw => Q(yaw^2)=1
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LensPolys {
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
@@ -225,8 +259,8 @@ pub struct LensPolys {
 impl std::default::Default for LensPolys {
     fn default() -> Self {
         Self {
-            stw_poly: vec![0., 1.],
-            wts_poly: vec![0., 1.],
+            stw_poly: vec![1.],
+            wts_poly: vec![1.],
         }
     }
 }
@@ -301,17 +335,39 @@ impl LensPolys {
 
     //mp stw
     /// Map from sensor angle to world angle
+    ///
+    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
     pub fn stw(&self, angle: f64) -> f64 {
-        self.stw_poly.calc(angle)
+        angle * self.stw_poly.calc(angle.powi(2))
     }
 
     //mp wts
     /// Map from world angle to sensor angle
+    ///
+    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
     pub fn wts(&self, angle: f64) -> f64 {
-        self.wts_poly.calc(angle)
+        angle * self.wts_poly.calc(angle.powi(2))
     }
 
     //cp calibration
+    /// Calculate polynomials of best-fit for a given set of sensor
+    /// and world yaws
+    ///
+    /// This generates first a sensor-to-world mapping, and then a
+    /// world-to-sensor mapping that is a good inverse of that.
+    ///
+    /// The initial generation sorts the sensor/world pairs according
+    /// to the sensor value, and then applies a median filter to
+    /// remove outliers. This filter consides 2N+1 consecutive
+    /// world/sensor values (centred on sensor value S) and ignores
+    /// the largest and smallest values (if N were one this would just
+    /// taken the median); it uses the mean of the remaining 2N-1
+    /// values as the actual world/sensor value for the sensor value
+    /// S.
+    ///
+    /// The polynomial generated is a best fit for X values of
+    /// sensor^2 and Y values of world/sensor, as required by the
+    /// compressed polynomials used in the LensPoly type.
     pub fn calibration(
         poly_degree: usize,
         sensor_yaws: &[f64],
@@ -345,10 +401,7 @@ impl LensPolys {
         let mut stw;
         loop {
             let n = sy_gwy.len();
-            stw = polynomial::min_squares_dyn(
-                poly_degree - 1, // note - will multiply the polynomial by 'x'
-                sy_gwy.iter().copied(),
-            );
+            stw = polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied());
 
             break;
             let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
@@ -369,25 +422,8 @@ impl LensPolys {
             }
         }
 
-        // Convert s*p(s^2) to q(s)
-        // So stw = x*p(x^2) = x*pi.(x^2)^i = pi.x^(2i+1) = q(s) with q(0)=0
-        //
-        // This has 0 coefficients for x^2i.
-        //
-        // Hence q(x) = bj.x^j has j=2i+1 -> i=(j-1)/2
-        //
-        //  b(2k) = 0
-        //
-        //  b(2k+1) = pk
-        //
-        // Hence [p0, p1, p2, ..] becomes [0, p0, 0, p1, ...]
-        let n = stw.len();
-        for i in 0..n {
-            stw.insert(i * 2, 0.0);
-        }
-
         let wy_gsy = sensor_yaws.iter().map(|s| {
-            let w = stw.calc(*s);
+            let w = *s * stw.calc(s.powi(2));
             if w.abs() < 0.001 {
                 (w.powi(2), 1.)
             } else {
@@ -395,14 +431,7 @@ impl LensPolys {
             }
         });
 
-        let mut wts = polynomial::min_squares_dyn(
-            poly_degree - 1, // note - will multiply the polynomial by 'x'
-            wy_gsy,
-        );
-        let n = wts.len();
-        for i in 0..n {
-            wts.insert(i * 2, 0.0);
-        }
+        let mut wts = polynomial::min_squares_dyn(poly_degree, wy_gsy);
 
         eprintln!("{stw:?} {wts:?}");
         Self::new(stw, wts)

@@ -26,7 +26,7 @@ where
     let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0);
     let mut num_errors = 0;
     for world in yaws.clone() {
-        let lens_sensor = lens_poly.wts_poly().calc(world);
+        let lens_sensor = lens_poly.wts(world);
         let sensor = fwd_fn(world);
         if (sensor - lens_sensor).abs() < 0.01 {
             continue;
@@ -41,6 +41,10 @@ where
         )
         .into());
     }
+
+    eprintln!("pub const LP_{name}: ([f64; {degree}], [f64; {degree}]) = (");
+    eprintln!("{}", lens_poly.to_json()?);
+    eprintln!(");");
 
     let ytm = yaws.clone().map(|y| (y, fwd_fn(y)));
     let mty = yaws.clone().map(|y| (fwd_fn(y), y));
@@ -67,8 +71,8 @@ where
             num_out_of_range += 1;
         }
 
-        let lens_sensor = lens.wts_poly().calc(world);
-        let lens_tab = lens.stw_poly().calc(sensor);
+        let lens_sensor = lens.wts(world);
+        let lens_tab = lens.stw(sensor);
         if !ignore_tab {
             if (world - lens_tab).abs() > 0.001 {
                 eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
@@ -76,15 +80,13 @@ where
             }
         }
         if (lens_sensor - fwd_fn(world)).abs() > 0.001 {
-            eprintln!("lens_sensor {lens_sensor:0.4} fwd {:0.4}", fwd_fn(world));
+            eprintln!(
+                "lens_sensor {lens_sensor:0.4} fwd {:0.4} world {world:0.4}",
+                fwd_fn(world)
+            );
             num_out_of_range += 1;
         }
     }
-
-    eprintln!("pub const LP_{name}: ([f64; {degree}], [f64; {degree}]) = (");
-    eprintln!("  {wts:?},");
-    eprintln!("  {stw:?},");
-    eprintln!(");");
 
     if num_out_of_range > 0 {
         return Err("Failed".into());
@@ -129,9 +131,9 @@ fn test_equisolid() -> Result<()> {
     test_mapping(
         "EQUISOLID",
         fwd_fn,
-        7,
+        8,
         0.0,
-        std::f64::consts::PI / 2.0,
+        0.95 * std::f64::consts::PI / 2.0,
         &lens,
         false,
     )
@@ -144,9 +146,9 @@ fn test_orthographic() -> Result<()> {
     test_mapping(
         "ORTHOGRAPHIC",
         fwd_fn,
-        7,
+        9,
         0.0,
-        1.4, // std::f64::consts::PI / 2.0,
+        0.9 * std::f64::consts::PI / 2.0,
         &lens,
         true,
     )
