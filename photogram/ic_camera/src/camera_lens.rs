@@ -331,13 +331,7 @@ impl LensPolys {
         let mut sy_gwy: Vec<_> = mean_median_ws_yaws
             .iter()
             .filter(|(_, s)| *s < yaw_range_max)
-            .map(|(w, s)| {
-                if *s < 0.001 {
-                    (*s, 0.)
-                } else {
-                    (*s, w / s - 1.0)
-                }
-            })
+            .map(|(w, s)| if *s < 0.001 { (*s, 1.) } else { (*s, w / s) })
             .collect();
 
         let mut stw;
@@ -369,14 +363,13 @@ impl LensPolys {
 
         // Convert p(s) to (p(s)+1) * s
         stw.insert(0, 0.0);
-        stw[1] += 1.0;
 
         let wy_gsy = sensor_yaws.iter().map(|s| {
             let w = stw.calc(*s);
             if w.abs() < 0.001 {
-                (w, 0.)
+                (w, 1.)
             } else {
-                (w, *s / w - 1.0)
+                (w, *s / w)
             }
         });
 
@@ -385,7 +378,6 @@ impl LensPolys {
             wy_gsy,
         );
         wts.insert(0, 0.0);
-        wts[1] += 1.0;
 
         eprintln!("{stw:?} {wts:?}");
         Self::new(stw, wts)

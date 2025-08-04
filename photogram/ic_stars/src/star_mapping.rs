@@ -195,9 +195,11 @@ impl StarMapping {
         camera: &CameraInstance,
         close_enough_roll: f64,
         yaw_max_rel_error: f64,
-        within: f64,
+        yaw_min: f64,
+        yaw_max: f64,
     ) -> (usize, f64) {
-        let within = within.to_radians();
+        let yaw_min = yaw_min.to_radians();
+        let yaw_max = yaw_max.to_radians();
         let mut num_unmapped = 0;
         let mut total_error = 0.;
         for i in 0..self.mappings.len() {
@@ -206,7 +208,7 @@ impl StarMapping {
             let cam_ry: RollYaw = cam_txty.into();
             let star_m = self.star_direction(camera, i);
             let mut okay = false;
-            if cam_ry.yaw() > within {
+            if cam_ry.yaw() < yaw_min || cam_ry.yaw() > yaw_max {
             } else {
                 let subcube_iter = Subcube::iter_all();
                 if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
@@ -334,8 +336,13 @@ impl StarMapping {
             if mapping.3 != 0 {
                 if let Some(c) = catalog.find_sorted(mapping.3) {
                     let star = &catalog[c];
-                    // eprintln!("{star:?}");
                     let sv: &[f64; 3] = star.vector();
+
+                    // Note that the *distance* is not important; the
+                    // 3D point of the mapping is always converted to
+                    // a direction (subtracting the camera position)
+                    // and reoriented for the camera, and the apparent
+                    // distance is irrelevant
                     let sv = [-sv[0], -sv[1], -sv[2]];
                     let map = [mapping.0 as f64, mapping.1 as f64].into();
                     world.push(sv.into());

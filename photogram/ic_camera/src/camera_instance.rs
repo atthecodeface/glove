@@ -249,7 +249,7 @@ impl std::fmt::Display for CameraInstance {
         let dxyz = quat::apply3(&quat::conjugate(self.orientation.as_ref()), &[0., 0., 1.]);
         write!(
             fmt,
-            "   @[{:.2},{:.2},{:.2}] in dir [{:.2},{:.2},{:.2}]",
+            "   @[{:.2},{:.2},{:.2}] in dir [{:.3e},{:.3e},{:.3e}]",
             self.position[0], self.position[1], self.position[2], dxyz[0], dxyz[1], dxyz[2],
         )
     }

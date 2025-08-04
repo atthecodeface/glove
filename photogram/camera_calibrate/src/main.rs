@@ -675,17 +675,17 @@ impl CmdArgs {
         max: Option<&'static str>,
     ) {
         build.add_arg_f64(
-            "min_yaw",
+            "yaw_min",
             None,
-            "Minimim yaw to use for calibration in degrees",
+            "Minimim yaw to use for plotting or updating the star mapping, in degrees",
             min,
             CmdArgs::set_yaw_min,
             false,
         );
         build.add_arg_f64(
-            "max_yaw",
+            "yaw_max",
             None,
-            "Maximim yaw to use for calibration",
+            "Maximim yaw to use for plotting or updating the star mapping, in degrees",
             max,
             CmdArgs::set_yaw_max,
             false,
@@ -867,42 +867,26 @@ impl CmdArgs {
 
     //mp output_camera
     fn output_camera(&self) -> CmdResult {
-        if self.write_camera.is_none() {
-            let s = self.camera.to_json()?;
-            Ok(s.to_string())
-        } else {
-            cmd_ok()
-        }
+        let s = self.camera.to_json()?;
+        Ok(s.to_string())
     }
 
     //mp output_mapping
     fn output_mapping(&self) -> CmdResult {
-        if self.write_mapping.is_none() {
-            let s = self.mapping.as_ref().unwrap().clone().to_json()?;
-            Ok(s.to_string())
-        } else {
-            cmd_ok()
-        }
+        let s = self.mapping.as_ref().unwrap().clone().to_json()?;
+        Ok(s.to_string())
     }
 
     //mp output_star_mapping
     fn output_star_mapping(&self) -> CmdResult {
-        if self.write_star_mapping.is_none() {
-            let s = self.star_mapping.clone().to_json()?;
-            Ok(s.to_string())
-        } else {
-            cmd_ok()
-        }
+        let s = self.star_mapping.clone().to_json()?;
+        Ok(s.to_string())
     }
 
     //mp output_polynomials
     fn output_polynomials(&self) -> CmdResult {
-        if self.write_polys.is_none() {
-            let s = self.camera.lens().polys().to_json()?;
-            Ok(s.to_string())
-        } else {
-            cmd_ok()
-        }
+        let s = self.camera.lens().polys().to_json()?;
+        Ok(s.to_string())
     }
 }
 
@@ -1203,10 +1187,6 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             //                "dj_c==q*dj_m? {dj_c} ==? {:?}",
             //                quat::apply3(q.as_ref(), dj_m.as_ref())
             //            );
-            cmd_args.if_verbose(|| {
-                eprintln!("{q}");
-            });
-
             qs.push((1., q.into()));
         }
     }
@@ -1602,6 +1582,7 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
     CmdArgs::add_args_write_mapping(&mut build);
     CmdArgs::add_args_write_camera(&mut build);
     CmdArgs::add_args_write_star_mapping(&mut build);
+    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
 
     build.add_subcommand(star_show_mapping_cmd());
     build.add_subcommand(star_find_stars_cmd());
@@ -1619,7 +1600,6 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_FIND_STARS_LONG_HELP);
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
-    CmdArgs::add_args_within(&mut build);
     build
 }
 
@@ -1646,7 +1626,8 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             &cmd_args.camera,
             cmd_args.closeness,
             cmd_args.yaw_error,
-            cmd_args.within,
+            cmd_args.yaw_min,
+            cmd_args.yaw_max,
         );
         let Ok(orientation) = cmd_args
             .star_mapping
@@ -1664,7 +1645,8 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             &cmd_args.camera,
             cmd_args.closeness,
             cmd_args.yaw_error,
-            cmd_args.within,
+            cmd_args.yaw_min,
+            cmd_args.yaw_max,
         );
         if num_unmapped < best_match.2 {
             best_match = (orientation, *x, num_unmapped);
@@ -1687,7 +1669,8 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         &cmd_args.camera,
         cmd_args.closeness,
         cmd_args.yaw_error,
-        cmd_args.within,
+        cmd_args.yaw_min,
+        cmd_args.yaw_max,
     );
 
     cmd_args.write_outputs()?;
@@ -1732,7 +1715,6 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
-    CmdArgs::add_args_within(&mut build);
     build
 }
 
@@ -1751,7 +1733,8 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         &cmd_args.camera,
         cmd_args.closeness,
         cmd_args.yaw_error,
-        cmd_args.within,
+        cmd_args.yaw_min,
+        cmd_args.yaw_max,
     );
     eprintln!(
         "{num_unmapped} stars were not mapped out of {}, total error of mapped stars {total_error:.4e}|",
