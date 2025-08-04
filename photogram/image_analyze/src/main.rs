@@ -274,7 +274,7 @@ fn find_regions_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
     let min_brightness = 0.05;
     // let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
     let regions =
-        Region::regions_of_image(&img, &|c| c.brightness() > min_brightness, &|c0, c1| {
+        Region::regions_of_image(img, &|c| c.brightness() > min_brightness, &|c0, c1| {
             (c0.brightness() - c1.brightness()).abs() < 0.6
         });
     let regions: Vec<_> = regions.into_iter().filter(|r| r.count() > 15).collect();
@@ -291,7 +291,7 @@ fn find_regions_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Resu
         }
 
         for (c, (px, py)) in &cogs {
-            img.draw_cross([*px as f64, *py as f64].into(), 5.0, c);
+            img.draw_cross([(*px), (*py)].into(), 5.0, c);
         }
         img.write(write_filename)?;
     }
@@ -345,7 +345,7 @@ fn find_grid_points_cmd() -> (Command, SubCmdFn) {
 fn find_grid_points_fn(mut base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
     let img = &mut base_args.images[0];
     let bg = base_args.bg_color.unwrap_or(Color::black());
-    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg), &|c0, c1| {
+    let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg), &|c0, c1| {
         (c0.brightness() - c1.brightness()).abs() < 0.1
     });
     let cogs: Vec<(f64, f64)> = regions.into_iter().map(|x| x.cog()).collect();

@@ -64,7 +64,7 @@ fn orientation_mapping(di_m: &[f64; 3], dj_m: &[f64; 3], di_c: Point3D, dj_c: Po
 
 //fp closest_star
 fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
-    let s = Subcube::of_vector(&v.into_array().into());
+    let s = Subcube::of_vector(&v.into_array());
     let mut closest = None;
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {

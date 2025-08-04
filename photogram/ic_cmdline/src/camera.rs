@@ -226,7 +226,7 @@ pub fn set_opt_camera_database(
 fn get_camera_of_db(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraInstance> {
     let camera_filename = matches.get_one::<String>("camera").unwrap();
     let camera_json = json::read_file(camera_filename)?;
-    Ok(CameraInstance::from_json(cdb, &camera_json)?)
+    CameraInstance::from_json(cdb, &camera_json)
 }
 
 //fp get_camera
@@ -241,7 +241,7 @@ pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInsta
 fn get_calibration_mapping(matches: &ArgMatches) -> Result<CalibrationMapping> {
     let filename = matches.get_one::<String>("calibration_mapping").unwrap();
     let json = json::read_file(filename)?;
-    Ok(CalibrationMapping::from_json(&json)?)
+    CalibrationMapping::from_json(&json)
 }
 
 //mp add_arg_calibration_mapping
@@ -257,8 +257,8 @@ where
             .required(required)
             .help("Camera calibration mapping JSON")
             .action(ArgAction::Set),
-        Box::new(move |mut args, matches| {
-            get_calibration_mapping(matches).and_then(|v| set(&mut args, v))
+        Box::new(move |args, matches| {
+            get_calibration_mapping(matches).and_then(|v| set(args, v))
         }),
     );
 }

@@ -40,7 +40,7 @@ pub fn main() -> Result<(), String> {
         [-w / 2.0, 0.0],
     ];
     let plot = poloto::build::plot("Background");
-    let plot = plot.line(bg.into_iter().copied());
+    let plot = plot.line(bg.iter().copied());
     let plots = plots.chain(plot);
 
     let plot = plot_of_theta(0.07 * π);

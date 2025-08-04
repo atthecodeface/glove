@@ -205,9 +205,7 @@ impl<C: CommandArgs> CommandSet<C> {
     /// Execute commands from a [str]
     fn execute_str(&mut self, cmd_args: &mut C, s: &str) -> Result<(), C::Error> {
         for l in s.lines() {
-            self.cmd_stack.last_mut().map(|c_l| {
-                c_l.1 = c_l.1.map(|x| x + 1);
-            });
+            if let Some(c_l) = self.cmd_stack.last_mut() { c_l.1 = c_l.1.map(|x| x + 1); }
             self.execute_str_line(cmd_args, l)?;
         }
         Ok(())
@@ -254,7 +252,7 @@ impl<C: CommandArgs> CommandSet<C> {
                         }
                     }
                     for (filename, s) in batches {
-                        self.cmd_stack.push((filename.into(), Some(0)));
+                        self.cmd_stack.push((filename, Some(0)));
                         self.execute_str(cmd_args, &s.unwrap())?;
                         self.cmd_stack.pop();
                     }

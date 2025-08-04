@@ -916,7 +916,7 @@ impl CmdArgs {
     //fp arg_star_catalog
     fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
         let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
-        let mut catalog = Catalog::load_catalog(&catalog_filename, 99.)?;
+        let mut catalog = Catalog::load_catalog(catalog_filename, 99.)?;
         catalog.derive_data();
         args.star_catalog = Some(Box::new(catalog));
         Ok(())
@@ -1173,7 +1173,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Set up HashMaps and collections
     let (_nps, pms) = cmd_args.setup();
     let n = cmd_args.use_pts(pms.mappings().len());
-    let closest_n: Vec<usize> = (0..n).into_iter().collect();
+    let closest_n: Vec<usize> = (0..n).collect();
 
     //cb For required pairings, display data
     cmd_args.show_step("Using the following mappings ([n] [world] : [pxy] : [world_dir]");
@@ -1251,7 +1251,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     //cb Set up HashMaps and collections
     let n = cmd_args.use_pts(calibrate.len());
-    let closest_n: Vec<usize> = (0..n).into_iter().collect();
+    let closest_n: Vec<usize> = (0..n).collect();
     let (_nps, pms) = cmd_args.setup();
 
     //cb For required pairings, display data
@@ -1923,7 +1923,7 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .set_filter(StarFilter::brighter_than(cmd_args.brightness));
 
     //cb Show the star mappings
-    let _ = cmd_args
+    cmd_args
         .star_mapping
         .show_star_mappings(cmd_args.star_catalog.as_ref().unwrap(), &cmd_args.camera);
 
@@ -1978,8 +1978,8 @@ fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
         .about("Generate a calibration description")
         .long_about(STAR_LONG_HELP);
 
-    let build = CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)));
-    build
+    
+    CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)))
 }
 
 //fp star_calibrate_desc_fn

@@ -1,5 +1,5 @@
 //a Imports
-use ic_base::{Error, Result};
+use ic_base::Result;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::LensPolys;
@@ -21,7 +21,7 @@ where
     let wrange = wmax - wmin;
     let yaws = (0..1000).map(|i| ((i as f64) / 1000.0 * wrange + wmin));
 
-    let sensor_yaws: Vec<_> = yaws.clone().map(|s| fwd_fn(s)).collect();
+    let sensor_yaws: Vec<_> = yaws.clone().map(&fwd_fn).collect();
     let world_yaws: Vec<_> = yaws.clone().collect();
     let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0);
     let mut num_errors = 0;
@@ -60,12 +60,11 @@ where
     for world in yaws.clone() {
         let sensor = wts.calc(world);
         let tab = stw.calc(sensor);
-        if !ignore_tab {
-            if (world - tab).abs() > 0.001 {
+        if !ignore_tab
+            && (world - tab).abs() > 0.001 {
                 eprintln!("world {world:0.4} there and back {tab:0.4}");
                 num_out_of_range += 1;
             }
-        }
         if (sensor - fwd_fn(world)).abs() > 0.001 {
             eprintln!("sensor {sensor:0.4} fwd {:0.4}", fwd_fn(world));
             num_out_of_range += 1;
@@ -73,12 +72,11 @@ where
 
         let lens_sensor = lens.wts(world);
         let lens_tab = lens.stw(sensor);
-        if !ignore_tab {
-            if (world - lens_tab).abs() > 0.001 {
+        if !ignore_tab
+            && (world - lens_tab).abs() > 0.001 {
                 eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
                 num_out_of_range += 1;
             }
-        }
         if (lens_sensor - fwd_fn(world)).abs() > 0.001 {
             eprintln!(
                 "lens_sensor {lens_sensor:0.4} fwd {:0.4} world {world:0.4}",
@@ -91,7 +89,7 @@ where
     if num_out_of_range > 0 {
         return Err("Failed".into());
     }
-    return Ok(());
+    Ok(())
 }
 
 #[test]

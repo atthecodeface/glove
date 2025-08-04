@@ -48,7 +48,7 @@ impl CalibrationMapping {
         assert_eq!(world.len(), sensor.len());
         let mappings = world
             .into_iter()
-            .zip(sensor.into_iter())
+            .zip(sensor)
             .map(|(w, s)| (w[0], w[1], w[2], s[0] as usize, s[1] as usize))
             .collect();
         Self { mappings }

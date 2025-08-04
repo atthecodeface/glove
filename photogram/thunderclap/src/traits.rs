@@ -32,10 +32,10 @@ pub trait CommandArgs {
 ///
 /// This function need not be provided if the [CommandArgs] are
 /// autoreset at the *end* of a command by the application.
-pub trait ArgResetFn<C: CommandArgs>: Fn(&mut C) -> () + 'static {}
+pub trait ArgResetFn<C: CommandArgs>: Fn(&mut C) + 'static {}
 
 //ip ArgResetFn for Fn(CommandArgs)
-impl<C: CommandArgs, T: Fn(&mut C) -> () + 'static> ArgResetFn<C> for T {}
+impl<C: CommandArgs, T: Fn(&mut C) + 'static> ArgResetFn<C> for T {}
 
 //tt ArgFn
 /// Trait of functions submitted to update [CommandArgs] with a value from the [ArgMatches]

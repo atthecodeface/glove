@@ -81,7 +81,7 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
     // sensor, grad at sensor
     let mut filter: VecDeque<_> = vec![(0.0, 1.0); 8].into();
     let n = (filter.len() + 1) as f64;
-    let mid = (filter.len() + 1) / 2;
+    let mid = filter.len().div_ceil(2);
     for (i, (w, c)) in ws_yaws.iter().enumerate() {
         filter.push_back((*c, w / c));
         let mut total = 0.0;
@@ -234,11 +234,11 @@ pub fn find_outliers<I: Iterator<Item = (f64, f64)>>(
 fn test_poly() -> Result<(), String> {
     let f = |x: f64| (x / 10.).sin().atan();
     let err = |x0: f64, x1: f64| {
-        (if x0.abs() < 0.000001 {
+        if x0.abs() < 0.000001 {
             x1 - x0
         } else {
-            (x1 / x0 - 1.0)
-        })
+            x1 / x0 - 1.0
+        }
     };
 
     // x in 1.41

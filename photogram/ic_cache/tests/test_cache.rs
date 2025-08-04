@@ -1,10 +1,6 @@
 //a Imports
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::rc::Rc;
 
-use ic_cache::{Cache, CacheRef, Cacheable};
+use ic_cache::{Cache, Cacheable};
 
 //a Cache
 use std::any::Any;
