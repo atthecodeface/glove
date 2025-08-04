@@ -144,7 +144,7 @@
 //! provided so that the first 'N' values are not heavily biased to
 //! one sector of the image).
 //!
-//! # Generating a test image
+//! # Generating a grid test image
 //!
 //! An image can be generated that overlays on the source image the
 //! pairings as provided, and mapped through the lens.
@@ -264,7 +264,6 @@
 //!
 
 //a Imports
-use std::collections::VecDeque;
 use std::io::Write;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
@@ -375,28 +374,32 @@ A *spherical* camera lens mapping is a function of Yaw in world space
 to Yaw in sensor space - Roll is not important. This tool therefore
 generates the two Yaw values (world and sensor) for all of the mapping
 points, given the camera position and orientation, and it generates a
-graph and a polynomial of best fit (with the extra assertion that the
-point (0,0) is on the Yaw/Yaw graph).
+polynomial of best fit.
 
-Actually two polynomials are generated - one forward (wts) and one
+In fact two polynomials are generated - one forward (wts) and one
 backward (stw); these should be used in a camera_db JSON file.
 
 ";
 
 //hi YAW_PLOT_LONG_HELP
 const YAW_PLOT_LONG_HELP: &str = "\
-The plot that is generated is an SVG file showing Yaw/Yaw-1 - bear in
-mind that any lens mapping specified for the camera in the database is
-used, so that a perfectly calibrated camera/lens with a perfect
-mapping file will have straight lines on the X axis. Furthermore,
-there are *four* graphs overlaid, using different colors - one for
-each quadrant of the camera sensor; also the polynomial of best fit is
-plotted too.
+Generate an SVG file with a plot of world 'yaw' versus sensor 'yaw'
+
+The plot that is generated is an SVG file with the X axis being the
+yaw value in 'sensor' space, and the Y axis either the world yaw minus
+the sensor yaw, or alternatively relative delta (world/sensor-1).
+
+Additional lines are overlaid for different standard lens calibrations
+(linear, equiangular, equisolid, stereographic, and orthographic).
+
+Finally a scatter plot is included with the *filtered* values from the *mapping*.
 ";
 
 //hi ROLL_PLOT_LONG_HELP
 const ROLL_PLOT_LONG_HELP: &str = "\
 Generate a plot for all the mappings of model roll versus world roll
+
+This is provided for completeness, and graphs roll delta versus yaw delta
 ";
 
 //hi GRID_IMAGE_LONG_HELP
@@ -414,7 +417,6 @@ This set of commands allows for calibrating a lens using a photograph taken of s
 
 //hi STAR_FIND_STARS_LONG_HELP
 const STAR_FIND_STARS_LONG_HELP: &str = "\
-
 Using the camera body, lens, focus distance, and current lens
 calibration, find an absolute orientation of an image given two
 triangles of star PXY locations in the mapping file.
@@ -452,6 +454,74 @@ describe the combined mapping - and an identity mapping as no angle of
 rotation, and so is 1.0. For close matches (angle x close to 0) the cosine is approximately 1-x^2/2.
 
   ";
+
+//hi STAR_ORIENT_LONG_HELP
+const STAR_ORIENT_LONG_HELP: &str = "\
+Using the camera body, lens, focus distance, current lens calibration,
+and a *star mapping*, find an absolute orientation of the camera using
+all of the mappings in the *star mapping* file.
+
+For each catalog id in the *star mapping* we can retrieve the star
+direction vector for the star in the catalog, as a camera relative
+direction (ignoring the current camera orientation).
+
+For each pair of star positions A and B we can thus generate a
+quaternion that maps camera relative direction A to star catalog
+direction A *and* that maps camera relative direction B to
+(approximately) star catalog direction B. The approximation comes
+from the errors in the sensor image positions and the camera
+calibration, which lead to an error in the camera-relative angle
+between A and B.
+
+We can calculate quaternions for every pair (A,B) - including the
+reverse (B,A), but not (A,A) - and gnerate an average (so for N
+positions in the *star mapping* there are N*(N-1) quaternions).
+
+This quaternion provides the best guess for the orientation for
+the camera.
+  ";
+
+//hi STAR_UPDATE_MAPPING_LONG_HELP
+const STAR_UPDATE_MAPPING_LONG_HELP: &str = "\
+Using the camera body, lens, focus distance, current lens calibration,
+current camera orientation, and a *star mapping*, update the mapping
+of pixel XY to stars in the catalog within certain bounds.
+
+For each pixel XY in the *star mapping* we can derive a real world
+star direction vector (using the camera calibration and the
+orientation); the catalog can be searched to find the closest star to
+that direction vector, and if it meets the criteria (brightness, error
+in yaw, etc) then the pixel XY can be deemed to be mapped to that star
+(using its catalog ID).
+
+All of the star mappings will be updated.
+";
+
+//hi STAR_SHOW_STARS_LONG_HELP
+const STAR_SHOW_STARS_LONG_HELP: &str = "\
+This draws on an image provided (as a JPEG or PNG) details of a star
+mapping, given the current camera orientation and calibration.
+
+It adds a small purple cross at every sensor pixel XY indicated by the
+*star mapping*.
+
+It adds a cyan cross for every *mapped* star in the mapping, showing
+how that star direction maps onto the image using the camera
+orientation and calibration.
+
+It adds a yellow X for every star in the catalog, showing
+how that star direction maps onto the image using the camera
+orientation and calibration.
+
+Hence every cyan cross will appear centred with a yellow X, forming a
+yellow-cyan asterisk.
+
+A perfect mapping, orientation and calibration will have all the
+purple crosses marking the same pixels as a yellow/cyan asterisk.
+
+It also draws on circles for yaw values of 5, 10, 15, 20, etc degrees.
+
+";
 
 //a Utility functions
 //a Types
@@ -1518,6 +1588,7 @@ fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(roll_plot_fn)));
 
     ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
+    CmdArgs::add_args_write_svg(&mut build);
     CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
     CmdArgs::add_args_num_pts(&mut build);
 
@@ -1550,7 +1621,17 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     //cb Plot 4 graphs for quadrants and one for the polynomial
-    use poloto::build::PlotIterator;
+    use poloto::prelude::*;
+    use tagu::prelude::*;
+    let theme = poloto::render::Theme::light();
+    let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1.5px;}"));
+    let theme = theme.append(tagu::build::raw(
+        ".poloto_text.poloto_legend{font-size:10px;}",
+    ));
+    let theme = theme.append(tagu::build::raw(
+        ".poloto_line{stroke-dasharray:2;stroke-width:2;}",
+    ));
+
     let plots = poloto::build::origin();
     let plot = poloto::build::plot("Roll ");
     let plot = plot.scatter(pts.iter());
@@ -1559,10 +1640,17 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let plot_initial = poloto::frame_build()
         .data(plots)
         .build_and_label(("Roll diff v Yaw diff", "Yaw C-W / °", "Roll C-W / °"))
-        .append_to(poloto::header().light_theme())
+        .append_to(poloto::header().append(theme))
         .render_string()
         .map_err(|e| format!("{e:?}"))?;
-    println!("{plot_initial}");
+
+    let s = plot_initial.to_string();
+    if let Some(filename) = &cmd_args.write_svg {
+        let mut f = std::fs::File::create(filename)?;
+        f.write_all(s.as_bytes())?;
+    } else {
+        println!("{s}");
+    }
 
     cmd_ok()
 }
@@ -1747,10 +1835,9 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("orient")
         .about("Orient on all of the mapped stars")
-        .long_about(STAR_LONG_HELP);
+        .long_about(STAR_ORIENT_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(star_orient_fn)));
-    build
+    CommandBuilder::new(command, Some(Box::new(star_orient_fn)))
 }
 
 //fp star_orient_fn
@@ -1776,7 +1863,7 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
         .about(
             "Generate an updated mapping of stars from the catalog to with ids frmom the catalog",
         )
-        .long_about(STAR_LONG_HELP);
+        .long_about(STAR_UPDATE_MAPPING_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
     CmdArgs::add_args_yaw_error(&mut build);
@@ -1815,7 +1902,7 @@ fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("show_star_mapping")
         .about("Show the mapped stars onto an output image")
-        .long_about(STAR_LONG_HELP);
+        .long_about(STAR_SHOW_STARS_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_show_mapping_fn)));
     ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
@@ -1848,7 +1935,6 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         &cmd_args.camera,
         &mut mapped_pts,
         1,
-        cmd_args.brightness,
     )?;
 
     // Mark the mapping points with small purple crosses

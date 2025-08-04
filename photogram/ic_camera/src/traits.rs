@@ -79,10 +79,12 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
 
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection
+    #[must_use]
     fn sensor_ry_to_camera_ry(&self, ry: RollYaw) -> RollYaw;
 
     //mp camera_ry_to_sensor_ry
     /// Apply the lens projection
+    #[must_use]
     fn camera_ry_to_sensor_ry(&self, ry: RollYaw) -> RollYaw;
 
     //mp sensor_txty_to_px_abs_xy

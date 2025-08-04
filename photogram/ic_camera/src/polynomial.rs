@@ -87,7 +87,7 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
         let mut total = 0.0;
         let mut smallest = filter[0].1;
         let mut largest = filter[0].1;
-        for (w, v) in &filter {
+        for (_w, v) in &filter {
             total += *v;
             smallest = smallest.min(*v);
             largest = largest.max(*v);

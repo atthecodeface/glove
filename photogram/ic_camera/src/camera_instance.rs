@@ -168,44 +168,6 @@ impl CameraInstance {
         self.world_xyz_to_px_abs_xy(model)
     }
 
-    //mp txty_to_px_rel_xy
-    /// Map a tan(x), tan(y) (i.e. x/z, y/z) to a centre-relative XY
-    /// pixel in the frame of the camera
-    ///
-    /// This must apply the lens projection
-    fn xtxty_to_px_rel_xy(&self, txty: TanXTanY) -> Point2D {
-        let ry_camera: RollYaw = txty.into();
-        let ry_frame = RollYaw::from_roll_tan_yaw(
-            ry_camera.sin_roll(),
-            ry_camera.cos_roll(),
-            self.lens.tan_world_to_tan_sensor(ry_camera.tan_yaw()),
-        );
-        let txty_frame: TanXTanY = ry_frame.into();
-        [
-            txty_frame[0] * self.x_px_from_tan_sc,
-            txty_frame[1] * self.y_px_from_tan_sc,
-        ]
-        .into()
-    }
-
-    //fp camera_txty_to_px_abs_xy
-    /// Map a tan(x)/tan(y) to screen Point2D coordinate
-    fn camera_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let px_rel_xy = self.xtxty_to_px_rel_xy(*txty);
-        self.px_rel_xy_to_px_abs_xy(px_rel_xy)
-    }
-
-    //mp px_rel_xy_to_px_abs_xy
-    /// Map from centre-relative to absolute pixel
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        self.body.px_rel_xy_to_px_abs_xy(xy)
-    }
-
-    //mp px_abs_xy_to_px_rel_xy
-    /// Map from absolute to centre-relative pixel
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
-        self.body.px_abs_xy_to_px_rel_xy(xy)
-    }
     //zz All done
 }
 
@@ -289,8 +251,7 @@ impl CameraProjection for CameraInstance {
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection
     #[inline]
-    #[must_use]
-    fn sensor_ry_to_camera_ry(&self, mut ry: RollYaw) -> RollYaw {
+    fn sensor_ry_to_camera_ry(&self, ry: RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_sensor_to_tan_world(tan_yaw))
     }
@@ -298,7 +259,6 @@ impl CameraProjection for CameraInstance {
     //mp camera_ry_to_sensor_ry
     /// Apply the lens projection
     #[inline]
-    #[must_use]
     fn camera_ry_to_sensor_ry(&self, ry: RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_world_to_tan_sensor(tan_yaw))

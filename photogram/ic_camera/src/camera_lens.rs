@@ -401,7 +401,7 @@ impl LensPolys {
 
         let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws);
 
-        let mut sy_gwy: Vec<_> = mean_median_ws_yaws
+        let sy_gwy: Vec<_> = mean_median_ws_yaws
             .iter()
             .filter(|(_, s)| *s < yaw_range_max)
             .map(|(w, s)| {

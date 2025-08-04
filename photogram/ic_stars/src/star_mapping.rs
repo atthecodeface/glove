@@ -444,7 +444,7 @@ impl StarMapping {
         eprintln!(
             "\nGenerating candidate StarCatalog 'id's for the three stars for magnitude {mag} triangle",
         );
-        for (n, tri) in candidate_tris.iter().enumerate() {
+        for tri in candidate_tris.iter() {
             let (q_m_to_c, err) = orientation_mapping_triangle(
                 catalog[tri.0].vector(),
                 catalog[tri.1].vector(),
@@ -459,7 +459,7 @@ impl StarMapping {
         }
         candidate_q_m_to_c.sort_by(|a, b| (a.2).partial_cmp(&b.2).unwrap());
 
-        for (q, tri, e) in &candidate_q_m_to_c {
+        for (_q, tri, e) in &candidate_q_m_to_c {
             printed += 1;
             match printed.cmp(&10) {
                 std::cmp::Ordering::Equal => {
@@ -498,8 +498,8 @@ impl StarMapping {
         eprintln!("\nFinding matching orientations for magnitude 1 and magnitude 2 candidates",);
         let mut printed = 0;
         let mut mag1_mag2_pairs = vec![];
-        for (mag1_q_m_to_c, mag1_tri, e1) in candidate_q_m_to_c.iter() {
-            for (mag2_q_m_to_c, mag2_tri, e2) in mag2_candidate_q_m_to_c.iter() {
+        for (mag1_q_m_to_c, mag1_tri, _e1) in candidate_q_m_to_c.iter() {
+            for (mag2_q_m_to_c, mag2_tri, _e2) in mag2_candidate_q_m_to_c.iter() {
                 let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
                 let r = q.as_rijk().0.abs();
                 // r = cos(x = angle of rotation) = 1 - x^2/2 + x^4/24 - ...
@@ -600,7 +600,6 @@ impl StarMapping {
         camera: &CameraInstance,
         mapped_pts: &mut Vec<ImagePt>,
         style: u8,
-        search_brightness: f32,
     ) -> Result<()> {
         //cb Add (in blue) the Calibration stars that map to a Catalog star
         for mapping in &self.mappings {

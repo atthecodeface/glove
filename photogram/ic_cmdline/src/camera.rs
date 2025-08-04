@@ -119,34 +119,61 @@ pub fn add_arg_camera<C, F, G, H>(
 ) where
     C: CommandArgs<Error = Error>,
     F: Fn(&mut C, CameraInstance) -> Result<()> + 'static,
-    G: Fn(&C) -> &CameraDatabase + 'static,
+    G: Fn(&C) -> &CameraDatabase + 'static + Clone,
     H: Fn(&mut C) -> &mut CameraInstance + 'static + Clone,
 {
+    let bm = borrow_mut;
+    let gd = get_db;
+
+    let get_db = gd.clone();
     build.add_arg(
         camera_arg(required),
         Box::new(move |args, matches| {
-            let mut camera = get_camera_of_db(matches, get_db(args))?;
-            if let Some(body) = matches.get_one::<String>("use_body") {
-                camera.set_body(get_db(args).get_body_err(body)?.clone());
-            }
-            if let Some(lens) = matches.get_one::<String>("use_lens") {
-                camera.set_lens(get_db(args).get_lens_err(lens)?.clone());
-            }
+            let camera = get_camera_of_db(matches, get_db(args))?;
             set(args, camera)
         }),
     );
     build.add_arg(use_body_arg(), Box::new(move |_, _| Ok(())));
     build.add_arg(use_lens_arg(), Box::new(move |_, _| Ok(())));
-    let bm = borrow_mut.clone();
+
+    let borrow_mut = bm.clone();
+    let get_db = gd.clone();
+    build.add_arg(
+        use_lens_arg(),
+        Box::new(move |args, matches| {
+            let body = matches.get_one::<String>("use_body").unwrap();
+            let body = get_db(args).get_body_err(body)?.clone();
+            let camera = borrow_mut(args);
+            camera.set_body(body);
+            Ok(())
+        }),
+    );
+
+    let borrow_mut = bm.clone();
+    let get_db = gd.clone();
+    build.add_arg(
+        use_lens_arg(),
+        Box::new(move |args, matches| {
+            let lens = matches.get_one::<String>("use_lens").unwrap();
+            let lens = get_db(args).get_lens_err(lens)?.clone();
+            let camera = borrow_mut(args);
+            camera.set_lens(lens);
+            Ok(())
+        }),
+    );
+
+    let borrow_mut = bm.clone();
     build.add_arg(
         use_focus_arg(),
         Box::new(move |args, matches| {
-            let camera = bm(args);
+            let camera = borrow_mut(args);
             let focus = matches.get_one::<f64>("use_focus").unwrap();
             camera.set_mm_focus_distance(*focus);
             Ok(())
         }),
     );
+
+    let borrow_mut = bm.clone();
     build.add_arg(
         use_polys_arg(),
         Box::new(move |args, matches| {
