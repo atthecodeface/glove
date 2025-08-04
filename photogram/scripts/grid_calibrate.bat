@@ -31,3 +31,7 @@ grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG
 
 yaw_plot --yaw_min 0.1 --yaw_max 14.0 --mappings nac/camera_6028_mappings.json --write_svg lens_calibration.svg
 # --use_deltas
+
+lens_calibrate  --mappings nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 6 --write_polys lens_cal.json
+grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w c.png
+yaw_plot --yaw_min 0.1 --yaw_max 14.0 --mappings nac/camera_6028_mappings.json --write_svg lens_calibration2.svg

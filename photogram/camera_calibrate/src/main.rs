@@ -1,27 +1,75 @@
 //a Documentation
-//! Test of camera calibration
+//! # Camera calibration tool
 //!
-//! This is trying to calibrate to a grid
+//! This tool is used to convert *mappings*, generated either by hand
+//! or automatically, into lens calibrations.
 //!
-//! The example grid was captured on a Canon 5D mark IV, with a 50mm lens focuses on 'infinity'
+//! A *mapping* can be a correspondence betwen pixel XY values from an
+//! image to 3D world positions (such as a graph paper grid placed
+//! nominally in the Z=0 plane), or a *star mapping* that is a
+//! correspondence between pixel XY values and known stars (from
+//! hipparcos catalog, normally).
 //!
-//! The camera is face-on to the grid (which is graph paper); the
-//! approximate intersections of 550 grid lines was capture as sensor pixel
-//! coordinates XY and mm XY pairings. The grid is assumed to be at Z=0.
+//! A lens calibration is a pair of polynomials that map from apparent
+//! sensor 'yaw' (the angle that a pixel XY is off-centre) to an
+//! apparent world 'yaw' (the angle that the actual point or star is
+//! offset from the direction of the image). This lens calibration
+//! should be specific to the lens (in a removable lens camera) and
+//! should apply to whatever camera body the lens is used in; the
+//! distance that the lens was focused on *does* impact the
+//! calibration, so images should alwayws be used with the same focus
+//! distance.
 //!
-//! # Calibration first step - locate the camera
+//! ## Grid calibration
+//!
+//! A photograph of graph paper should be taken, focused on
+//! 'infinity', with as wide an aperture as possible, so that the
+//! image fills the screen. Ideally the photograph should be straight
+//! on to the graph paper, but this need not be precise. The location
+//! of the camera relative to the image need not be recorded.
+//!
+//! In the base example used to develop the tool, the camera is
+//! face-on to a grid (which is graph paper); the approximate
+//! intersections of 550 grid lines were captured as sensor pixel
+//! coordinates XY and graph paper mm XY pairings; the graph paper was
+//! assumed to be at Z=0. Hence a *mapping* file from PXY to 'world'
+//! 3D coordinates of (x,y,z) in mm could be produced.
+//!
+//! ## Grid calibration first step - locate the camera
 //!
 //! The first step is to locate the camera, given the camera body, an
 //! uncalibrated lens (i.e. something with an identity sensor to world
-//! mapping), and with a given focusing distance (known ideally!) for
-//! the image and hence pairings.
+//! mapping), and with a given focusing distance for
+//! the image and *mapping*.
 //!
-//! The first 'N' pairings are used to create a
-//! ModelLineSet, which is a set of ModelLines (between grid points,
-//! hence all in the plane Z=0) and the angles subtended by the
-//! camera, given by the sensor pixel coordinates through the
-//! camera/lens model from the database (i.e. this includes the lens
-//! mapping)
+//! This is performed using the 'locate' command, using the first few
+//! N (e.g. N=6) mapping points (which should not all be in a line,
+//! and should be near the centre of the image ideally); it converts
+//! the pixel XY values for these mappings into approximate world
+//! directions, assuming a linear lens mapping, and hence it estimates
+//! the angular delta between every N^2-1 pairs; for every pair of
+//! points in world space and an angular delta for that pair there is
+//! a locus of points (a surface) in world space where for all the
+//! locus points see that angle when looking at the pair. Any three
+//! mapping pairs will provide three loci (each of which is a surface)
+//! and the intersection of three surfaces is a single point - which
+//! must be the location of the camera. Hence an initial approximation
+//! for the location of the camera can be determined using three pairs
+//! from the N^2-1 pairs; this can be improved by using all N^2-1
+//! pairs to find a location of least error.
+//!
+//! Note that for this to operate well the first N points in the
+//! *mapping* should be near the centre of the image (maybe 1/4 of the
+//! height of the image from the centre), and spread roughly evenly
+//! around the centre (perhaps in a circle).
+//!
+//! ## Camera location determination, programmatically
+//!
+//! The first 'N' mappings are used to create a [ModelLineSet], which is
+//! a set of ModelLines (between grid points, hence all in the plane
+//! Z=0) and the angles subtended by the camera, given by the sensor
+//! pixel coordinates through the camera/lens model from the database
+//! (i.e. this includes the lens mapping)
 //!
 //! Note that this does not assume the orientation of position of the
 //! camera; it purely uses the absolute pixel XY to relative pixel XY
@@ -39,7 +87,7 @@
 //!
 //! From this 'known good position' the best orientation can be
 //! determined, by creating quaternion orientations for every pair of
-//! pairings (or for the first N pairings) by:
+//! *mappings* (or for the first N pairings) by:
 //!
 //!   1. Find the unit direction from the camera to both of the model points (A, B)
 //!
@@ -78,6 +126,23 @@
 //!
 //! When initially generating a lens calibration it is normal to use
 //! the same first 'N' points as the locating of the camera.
+//!
+//! # Refinement
+//!
+//! The initial location of the camera uses an incorrect lens
+//! calibration, and this is also used for an initial orientation.
+//! From these values a first lens calibration can be determined.
+//!
+//! The lens calibration can be refined by repeating the process, this
+//! time using the lens calibration to generate a better location for
+//! the camera, and hence a better orientation and new lens
+//! calibration.
+//!
+//! Ths *first* stage can use a small value of 'N' for the camera
+//! positioning - a value of 6 is quite fast; the final calibration
+//! should use a much larger value of 'N' (and the mappings should be
+//! provided so that the first 'N' values are not heavily biased to
+//! one sector of the image).
 //!
 //! # Generating a test image
 //!

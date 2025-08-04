@@ -122,6 +122,7 @@ pub fn serialize_lens_name<S: serde::Serializer>(
 }
 
 //a Constants for standard lens types
+//cp LP_EQUISOLID
 pub const LP_EQUISOLID: ([f64; 8], [f64; 8]) = (
     [
         0.5049139795319206,
@@ -145,6 +146,7 @@ pub const LP_EQUISOLID: ([f64; 8], [f64; 8]) = (
     ],
 );
 
+//cp LP_STEREOGRAPHIC
 pub const LP_STEREOGRAPHIC: ([f64; 6], [f64; 6]) = (
     [
         0.9999434081934879,
@@ -164,6 +166,7 @@ pub const LP_STEREOGRAPHIC: ([f64; 6], [f64; 6]) = (
     ],
 );
 
+//cp LP_EQUIANGULAR
 pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
     [
         0.9999945081426631,
@@ -189,6 +192,7 @@ pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
     ],
 );
 
+//cp LP_ORTHOGRAPHIC
 pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
     [
         0.9998927521296537,
@@ -213,6 +217,7 @@ pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
         3200.957588195801,
     ],
 );
+
 //a LensPolys
 //tp LensPolys
 /// Polynomials that map (in some manner) sensor yaw to and from world
@@ -244,6 +249,14 @@ pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
 /// To calculate P(yaw), then, this is just yaw * Q(yaw^2)
 ///
 /// The default *linear* polynomial is P(yaw) = yaw => Q(yaw^2)=1
+///
+/// Now, for most lenses P(x) is near x for most reasonable x; hence Q(yaw^2) = 1+R(yaw^2)
+///
+///    R(x^2) = p1-1 + p3.x^2 + p5.x^4 + ...
+///
+///    r0 = p1-1, r1 = p3, r2 = p5, r3 = p7, ...
+///
+/// The calibration could take advantage of this
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LensPolys {
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
@@ -259,8 +272,8 @@ pub struct LensPolys {
 impl std::default::Default for LensPolys {
     fn default() -> Self {
         Self {
-            stw_poly: vec![1.],
-            wts_poly: vec![1.],
+            stw_poly: vec![0.],
+            wts_poly: vec![0.],
         }
     }
 }
@@ -338,7 +351,7 @@ impl LensPolys {
     ///
     /// Use the fact that P(yaw) = yaw * poly(yaw^2)
     pub fn stw(&self, angle: f64) -> f64 {
-        angle * self.stw_poly.calc(angle.powi(2))
+        angle * self.stw_poly.calc(angle.powi(2)) + angle
     }
 
     //mp wts
@@ -346,7 +359,7 @@ impl LensPolys {
     ///
     /// Use the fact that P(yaw) = yaw * poly(yaw^2)
     pub fn wts(&self, angle: f64) -> f64 {
-        angle * self.wts_poly.calc(angle.powi(2))
+        angle * self.wts_poly.calc(angle.powi(2)) + angle
     }
 
     //cp calibration
@@ -391,48 +404,37 @@ impl LensPolys {
             .filter(|(_, s)| *s < yaw_range_max)
             .map(|(w, s)| {
                 if *s < 0.001 {
-                    (s.powi(2), 1.)
+                    (s.powi(2), 0.)
                 } else {
-                    (s.powi(2), w / s)
+                    (s.powi(2), (w - s) / s)
                 }
             })
             .collect();
 
-        let mut stw;
-        loop {
-            let n = sy_gwy.len();
-            stw = polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied());
-
-            break;
-            let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-                polynomial::error_in_y_stats(&stw, sy_gwy.iter().copied());
-            let sd_err = variance_err.sqrt();
-            let max_err = max_sq_err.sqrt();
-
-            let dmin = sd_err * 3.0;
-            let dmax = sd_err * 3.0;
-            let outliers = polynomial::find_outliers(&stw, sy_gwy.iter().copied(), dmin, dmax);
-            eprintln!(" {n} removing {} err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}", outliers.len());
-            // break;
-            if outliers.is_empty() {
-                break;
-            }
-            for n in outliers.iter().rev() {
-                sy_gwy.remove(*n);
-            }
-        }
+        let stw = polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied());
 
         let wy_gsy = sensor_yaws.iter().map(|s| {
-            let w = *s * stw.calc(s.powi(2));
+            let w = *s * stw.calc(s.powi(2)) + *s;
             if w.abs() < 0.001 {
-                (w.powi(2), 1.)
+                (w.powi(2), 0.)
             } else {
-                (w.powi(2), *s / w)
+                (w.powi(2), (*s - w) / w)
             }
         });
 
-        let mut wts = polynomial::min_squares_dyn(poly_degree, wy_gsy);
+        let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy);
 
+        for max_rel_err in [0.01_f64, 0.001_f64, 0.0001_f64] {
+            let last_coeff = *(stw.last().unwrap());
+            let max_angle = (max_rel_err / last_coeff)
+                .abs()
+                .powf(0.5 / (stw.len() as f64));
+            eprintln!(
+                "Max usable angle for {}% angle error is stw: {}",
+                max_rel_err * 100.0,
+                max_angle.to_degrees()
+            );
+        }
         eprintln!("{stw:?} {wts:?}");
         Self::new(stw, wts)
     }
