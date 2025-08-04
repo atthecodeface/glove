@@ -369,7 +369,18 @@ impl LensPolys {
             }
         }
 
-        // Convert p(s^2) to (p(s)) * s
+        // Convert s*p(s^2) to q(s)
+        // So stw = x*p(x^2) = x*pi.(x^2)^i = pi.x^(2i+1) = q(s) with q(0)=0
+        //
+        // This has 0 coefficients for x^2i.
+        //
+        // Hence q(x) = bj.x^j has j=2i+1 -> i=(j-1)/2
+        //
+        //  b(2k) = 0
+        //
+        //  b(2k+1) = pk
+        //
+        // Hence [p0, p1, p2, ..] becomes [0, p0, 0, p1, ...]
         let n = stw.len();
         for i in 0..n {
             stw.insert(i * 2, 0.0);
