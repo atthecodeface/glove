@@ -85,6 +85,46 @@ impl<C: CommandArgs> CommandBuilder<C> {
     }
 }
 
+//a ArgCount
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ArgCount {
+    #[default]
+    Optional, // 0 or 1, not required, Set, num_args None
+    Required,       // 1, required, Set, num_args None
+    Exactly(usize), // n > 1, required, Append, num args Some(n)
+    Any,            // 0 to inf; not required, Append, num_args None
+    Min(usize),     // n to inf, required, Append, num_args(n..)
+    Max(usize),     // 0 to max, not required, Append, num_args(0..=n)
+}
+impl ArgCount {
+    fn required(&self) -> bool {
+        use ArgCount::*;
+        match self {
+            Required => true,
+            Exactly(_n) => true,
+            Min(_n) => true,
+            _ => false,
+        }
+    }
+    fn action(&self) -> ArgAction {
+        use ArgCount::*;
+        match self {
+            Optional => ArgAction::Set,
+            Required => ArgAction::Set,
+            _ => ArgAction::Append,
+        }
+    }
+    fn num_args(&self) -> Option<clap::builder::ValueRange> {
+        use ArgCount::*;
+        match self {
+            Exactly(n) => Some((*n).into()),
+            Min(n) => Some((*n..).into()),
+            Max(n) => Some((0..=*n).into()),
+            _ => None,
+        }
+    }
+}
+
 //ap add_arg
 macro_rules! add_arg {
     ($m:ident, $t: ty, ref $ft:ty ) => {
@@ -94,18 +134,24 @@ macro_rules! add_arg {
                 tag: &'static str,
                 short: Option<char>,
                 help: &'static str,
+                count: ArgCount,
                 default_value: Option<&'static str>,
                 set: F,
-                required: bool,
             ) where
                 F: Fn(&mut C, &$ft) -> Result<(), C::Error> + 'static,
             {
+                let required = count.required();
+                let action = count.action();
+                let num_args = count.num_args();
                 let mut arg = Arg::new(tag)
                     .long(tag)
                     .help(help)
                     .value_parser(value_parser!($t))
                     .required(required)
-                    .action(ArgAction::Set);
+                    .action(action);
+                if let Some(num_args) = num_args {
+                    arg = arg.num_args(num_args);
+                }
                 if let Some(short) = short {
                     arg = arg.short(short);
                 }
@@ -129,18 +175,24 @@ macro_rules! add_arg {
                 tag: &'static str,
                 short: Option<char>,
                 help: &'static str,
+                count: ArgCount,
                 default_value: Option<&'static str>,
                 set: F,
-                required: bool,
             ) where
                 F: Fn(&mut C, $ft) -> Result<(), C::Error> + 'static,
             {
+                let required = count.required();
+                let action = count.action();
+                let num_args = count.num_args();
                 let mut arg = Arg::new(tag)
                     .long(tag)
                     .help(help)
                     .value_parser(value_parser!($t))
                     .required(required)
-                    .action(ArgAction::Set);
+                    .action(action);
+                if let Some(num_args) = num_args {
+                    arg = arg.num_args(num_args);
+                }
                 if let Some(short) = short {
                     arg = arg.short(short);
                 }

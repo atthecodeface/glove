@@ -22,6 +22,7 @@ serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
 clap.workspace = true
+thunderclap.workspace = true
 
 ic_base.workspace = true
 ic_camera.workspace = true

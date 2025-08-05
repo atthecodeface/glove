@@ -269,7 +269,7 @@ use std::io::Write;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use geo_nd::{quat, Quaternion, Vector};
 use star_catalog::{Catalog, StarFilter};
-use thunderclap::{CommandArgs, CommandBuilder};
+use thunderclap::{ArgCount, CommandArgs, CommandBuilder};
 
 use ic_base::json;
 use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
@@ -715,9 +715,9 @@ impl CmdArgs {
             "write_camera",
             None,
             "File to write the final camera JSON to",
+            ArgCount::Optional,
             None,
             CmdArgs::set_write_camera,
-            false,
         );
     }
 
@@ -727,9 +727,9 @@ impl CmdArgs {
             "write_mapping",
             None,
             "File to write a derived mapping JSON to",
+            ArgCount::Optional,
             None,
             CmdArgs::set_write_mapping,
-            false,
         );
     }
 
@@ -739,9 +739,9 @@ impl CmdArgs {
             "write_star_mapping",
             None,
             "File to write a derived star mapping JSON to",
+            ArgCount::Optional,
             None,
             CmdArgs::set_write_star_mapping,
-            false,
         );
     }
 
@@ -751,9 +751,9 @@ impl CmdArgs {
             "write_polys",
             None,
             "File to write a derived polynomials JSON to",
+            ArgCount::Optional,
             None,
             CmdArgs::set_write_polys,
-            false,
         );
     }
 
@@ -763,9 +763,9 @@ impl CmdArgs {
             "write_svg",
             None,
             "File to write an output SVG to",
+            ArgCount::Optional,
             None,
             CmdArgs::set_write_svg,
-            false,
         );
     }
 
@@ -775,9 +775,9 @@ impl CmdArgs {
             "poly_degree",
             None,
             "Degree of polynomial to use for the lens calibration (5 for 50mm)",
+            ArgCount::Optional,
             Some("5"),
             CmdArgs::set_poly_degree,
-            false,
         );
     }
 
@@ -797,9 +797,9 @@ impl CmdArgs {
             "num_pts",
             Some('n'),
             "Number of points to use (from start of mapping); if not specified, use all",
+            ArgCount::Optional,
             None,
             CmdArgs::set_use_pts,
-            false,
         );
     }
 
@@ -813,17 +813,17 @@ impl CmdArgs {
             "yaw_min",
             None,
             "Minimim yaw to use for plotting or updating the star mapping, in degrees",
+            ArgCount::Optional,
             min,
             CmdArgs::set_yaw_min,
-            false,
         );
         build.add_arg_f64(
             "yaw_max",
             None,
             "Maximim yaw to use for plotting or updating the star mapping, in degrees",
+            ArgCount::Optional,
             max,
             CmdArgs::set_yaw_max,
-            false,
         );
     }
 
@@ -833,9 +833,9 @@ impl CmdArgs {
             "yaw_error",
             None,
             "Maximum relative error in yaw to permit a closest match for",
+            ArgCount::Optional,
             Some("0.03"),
             CmdArgs::set_yaw_error,
-            false,
         );
     }
 
@@ -845,31 +845,36 @@ impl CmdArgs {
             "within",
             None,
             "Only use catalog stars Within this angle (degrees) for mapping",
+            ArgCount::Optional,
             Some("15"),
             CmdArgs::set_within,
-            false,
         );
     }
 
     //fp add_args_closeness
     fn add_args_closeness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(                                    "closeness", None,
-                                    "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
-                                    Some("0.2"),
-                                    CmdArgs::set_closeness,
-                                                           false);
+        build.add_arg_f64(
+            "closeness",
+            None,
+            "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+            ArgCount::Optional,
+            Some("0.2"),
+            CmdArgs::set_closeness,
+        );
     }
+
     //fp add_args_triangle_closeness
     fn add_args_triangle_closeness(build: &mut CommandBuilder<Self>) {
         build.add_arg_f64(
             "triangle_closeness",
             None,
             "Closeness (degrees) to find triangles of stars",
+            ArgCount::Optional,
             Some("0.2"),
             CmdArgs::set_triangle_closeness,
-            false,
         );
     }
+
     //fp add_args_star_mapping
     fn add_args_star_mapping(build: &mut CommandBuilder<Self>) {
         build.add_arg(
@@ -899,9 +904,9 @@ impl CmdArgs {
             "brightness",
             None,
             "Maximum brightness of stars to use in the catalog",
+            ArgCount::Optional,
             Some("5.0"),
             CmdArgs::set_brightness,
-            false,
         );
     }
 
@@ -1978,7 +1983,6 @@ fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
         .about("Generate a calibration description")
         .long_about(STAR_LONG_HELP);
 
-    
     CommandBuilder::new(command, Some(Box::new(star_calibrate_desc_fn)))
 }
 
