@@ -56,7 +56,7 @@ pub struct CmdArgs {
     // camera is a *specific* camera, not part of a CIP or project
     camera: CameraInstance,
 
-    calibration_mapping: Option<CalibrationMapping>,
+    calibration_mapping: CalibrationMapping,
 
     star_catalog: Option<Box<Catalog>>,
     star_mapping: StarMapping,
@@ -161,6 +161,26 @@ impl CmdArgs {
         &mut self.camera
     }
 
+    //mi calibration_mapping
+    pub fn calibration_mapping(&self) -> &CalibrationMapping {
+        &self.calibration_mapping
+    }
+
+    //mi star_catalog
+    pub fn star_catalog(&self) -> &Catalog {
+        self.star_catalog.as_ref().unwrap()
+    }
+
+    //mi star_catalog_mut
+    pub fn star_catalog_mut(&mut self) -> &mut Catalog {
+        self.star_catalog.as_mut().unwrap()
+    }
+
+    //mi star_mapping
+    pub fn star_mapping(&self) -> &StarMapping {
+        &self.star_mapping
+    }
+
     //mi bg_color
     pub fn bg_color(&self) -> Option<&Color> {
         self.bg_color.as_ref()
@@ -211,9 +231,64 @@ impl CmdArgs {
         self.angle
     }
 
+    //mi yaw_min
+    pub fn yaw_min(&self) -> f64 {
+        self.yaw_min
+    }
+
+    //mi yaw_max
+    pub fn yaw_max(&self) -> f64 {
+        self.yaw_max
+    }
+
+    //mi within
+    pub fn within(&self) -> f64 {
+        self.within
+    }
+
+    //mi brightness
+    pub fn brightness(&self) -> f32 {
+        self.brightness
+    }
+
+    //mi closeness
+    pub fn closeness(&self) -> f64 {
+        self.closeness
+    }
+
+    //mi yaw_error
+    pub fn yaw_error(&self) -> f64 {
+        self.yaw_error
+    }
+
+    //mi triangle_closeness
+    pub fn triangle_closeness(&self) -> f64 {
+        self.triangle_closeness
+    }
+
+    //mi use_deltas
+    pub fn use_deltas(&self) -> bool {
+        self.use_deltas
+    }
+
+    //mi poly_degree
+    pub fn poly_degree(&self) -> usize {
+        self.poly_degree
+    }
+
+    //mi read_img
+    pub fn read_img(&self) -> &[String] {
+        &self.read_img
+    }
+
     //mi write_img
     pub fn write_img(&self) -> Option<&str> {
         self.write_img.as_ref().map(|s| s.as_str())
+    }
+
+    //mi write_svg
+    pub fn write_svg(&self) -> Option<&str> {
+        self.write_svg.as_ref().map(|s| s.as_str())
     }
 }
 
@@ -235,11 +310,18 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_calibration_mapping
-    fn set_calibration_mapping(&mut self, calibration_mapping: CalibrationMapping) -> Result<()> {
-        self.calibration_mapping = Some(calibration_mapping);
+    //mi set_calibration_mapping_file
+    pub fn set_calibration_mapping_file(&mut self, filename: &str) -> Result<()> {
+        let json = json::read_file(filename)?;
+        self.calibration_mapping = CalibrationMapping::from_json(&json)?;
         Ok(())
     }
+
+    //mi set_calibration_mapping
+    pub fn set_calibration_mapping(&mut self, mapping: CalibrationMapping) {
+        self.calibration_mapping = mapping;
+    }
+
     //mi set_camera_db
     fn set_camera_db(&mut self, camera_db_filename: &str) -> Result<()> {
         let camera_db_json = json::read_file(camera_db_filename)?;
@@ -253,7 +335,8 @@ impl CmdArgs {
     fn set_camera_file(&mut self, camera_filename: &str) -> Result<()> {
         let camera_json = json::read_file(camera_filename)?;
         let camera = CameraInstance::from_json(&self.cdb.borrow(), &camera_json)?;
-        self.set_camera(camera)
+        self.set_camera(camera);
+        Ok(())
     }
 
     //mi set_camera_body
@@ -316,8 +399,8 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_camera
-    fn set_camera(&mut self, camera: CameraInstance) -> Result<()> {
+    //mp set_camera
+    pub fn set_camera(&mut self, camera: CameraInstance) {
         if self.project.ncips() == 0 {
             let cip: Rrc<Cip> = Cip::default().into();
             self.cip = cip.clone();
@@ -325,7 +408,6 @@ impl CmdArgs {
         }
         self.cip.borrow_mut().set_camera(camera.clone().into());
         self.camera = camera;
-        Ok(())
     }
 
     //mi add_read_img
@@ -547,7 +629,7 @@ impl CmdArgs {
     }
 
     // mi use_pts
-    fn use_pts(&self, n: usize) -> usize {
+    pub fn use_pts(&self, n: usize) -> usize {
         if self.use_pts != 0 {
             n.min(self.use_pts)
         } else {
@@ -556,7 +638,7 @@ impl CmdArgs {
     }
 
     // mi ensure_star_catalog
-    fn ensure_star_catalog(&self) -> Result<()> {
+    pub fn ensure_star_catalog(&self) -> Result<()> {
         if self.star_catalog.is_none() {
             Err("Star catalog *must* have been specified".into())
         } else {
@@ -847,6 +929,18 @@ impl CmdArgs {
         );
     }
 
+    //mp add_arg_calibration_mapping
+    pub fn add_arg_calibration_mapping(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_string(
+            "calibration_mapping",
+            Some('m'),
+            "Camera calibration mapping JSON",
+            required.into(),
+            None,
+            CmdArgs::set_calibration_mapping_file,
+        );
+    }
+
     //fp add_arg_write_camera
     pub fn add_arg_write_camera(build: &mut CommandBuilder<Self>) {
         build.add_arg_string(
@@ -906,6 +1000,163 @@ impl CmdArgs {
             CmdArgs::set_write_svg,
         );
     }
+    //fp add_arg_poly_degree
+    pub fn add_arg_poly_degree(build: &mut CommandBuilder<Self>) {
+        build.add_arg_usize(
+            "poly_degree",
+            None,
+            "Degree of polynomial to use for the lens calibration (5 for 50mm)",
+            ArgCount::Optional,
+            Some("5"),
+            CmdArgs::set_poly_degree,
+        );
+    }
+
+    //fp add_arg_use_deltas
+    pub fn add_arg_use_deltas(build: &mut CommandBuilder<Self>) {
+        build.add_flag(
+            "use_deltas",
+            None,
+            "Use deltas for plotting rather than absolute values",
+            CmdArgs::set_use_deltas,
+        );
+    }
+
+    //fp add_arg_num_pts
+    pub fn add_arg_num_pts(build: &mut CommandBuilder<Self>) {
+        build.add_arg_usize(
+            "num_pts",
+            Some('n'),
+            "Number of points to use (from start of mapping); if not specified, use all",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_use_pts,
+        );
+    }
+
+    //fp add_arg_yaw_min_max
+    pub fn add_arg_yaw_min_max(
+        build: &mut CommandBuilder<Self>,
+        min: Option<&'static str>,
+        max: Option<&'static str>,
+    ) {
+        build.add_arg_f64(
+            "yaw_min",
+            None,
+            "Minimim yaw to use for plotting or updating the star mapping, in degrees",
+            ArgCount::Optional,
+            min,
+            CmdArgs::set_yaw_min,
+        );
+        build.add_arg_f64(
+            "yaw_max",
+            None,
+            "Maximim yaw to use for plotting or updating the star mapping, in degrees",
+            ArgCount::Optional,
+            max,
+            CmdArgs::set_yaw_max,
+        );
+    }
+
+    //fp add_arg_yaw_error
+    pub fn add_arg_yaw_error(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "yaw_error",
+            None,
+            "Maximum relative error in yaw to permit a closest match for",
+            ArgCount::Optional,
+            Some("0.03"),
+            CmdArgs::set_yaw_error,
+        );
+    }
+
+    //fp add_arg_within
+    pub fn add_arg_within(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "within",
+            None,
+            "Only use catalog stars Within this angle (degrees) for mapping",
+            ArgCount::Optional,
+            Some("15"),
+            CmdArgs::set_within,
+        );
+    }
+
+    //fp add_arg_closeness
+    pub fn add_arg_closeness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "closeness",
+            None,
+            "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+            ArgCount::Optional,
+            Some("0.2"),
+            CmdArgs::set_closeness,
+        );
+    }
+
+    //fp add_arg_triangle_closeness
+    pub fn add_arg_triangle_closeness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "triangle_closeness",
+            None,
+            "Closeness (degrees) to find triangles of stars",
+            ArgCount::Optional,
+            Some("0.2"),
+            CmdArgs::set_triangle_closeness,
+        );
+    }
+
+    //fp add_arg_star_mapping
+    pub fn add_arg_star_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg(
+            Arg::new("star_mapping")
+                .required(false)
+                .help("File mapping sensor coordinates to catalog identifiers")
+                .action(ArgAction::Set),
+            Box::new(CmdArgs::arg_star_mapping),
+        );
+    }
+
+    //fp add_arg_star_catalog
+    pub fn add_arg_star_catalog(build: &mut CommandBuilder<Self>) {
+        build.add_arg(
+            Arg::new("star_catalog")
+                .long("catalog")
+                .required(false)
+                .help("Star catalog to use")
+                .action(ArgAction::Set),
+            Box::new(CmdArgs::arg_star_catalog),
+        );
+    }
+
+    //fp add_arg_brightness
+    pub fn add_arg_brightness(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f32(
+            "brightness",
+            None,
+            "Maximum brightness of stars to use in the catalog",
+            ArgCount::Optional,
+            Some("5.0"),
+            CmdArgs::set_brightness,
+        );
+    }
+
+    //fp arg_star_mapping
+    pub fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+        let filename = matches.get_one::<String>("star_mapping").unwrap();
+        let json = json::read_file(filename)?;
+        args.star_mapping = StarMapping::from_json(&json)?;
+        Ok(())
+    }
+
+    //fp arg_star_catalog
+    pub fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
+        let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
+        let mut catalog = Catalog::load_catalog(catalog_filename, 99.)?;
+        catalog.derive_data();
+        args.star_catalog = Some(Box::new(catalog));
+        Ok(())
+    }
 }
 
 //ip CmdArgs methods to get
@@ -943,6 +1194,23 @@ impl CmdArgs {
         map(&*pms)
     }
 
+    //mp convert_calibration_mapping
+    pub fn convert_calibration_mapping(&self) {
+        let v = self.calibration_mapping.get_xyz_pairings();
+
+        //cb Add calibrations to NamedPointSet and PointMappingSet
+        for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+            let name = n.to_string();
+            let color = [255, 255, 255, 255].into();
+            self.nps
+                .borrow_mut()
+                .add_pt(name.clone(), color, Some(model_xyz), 0.);
+            self.pms
+                .borrow_mut()
+                .add_mapping(&self.nps.borrow(), &name, &pxy_abs, 0.);
+        }
+    }
+
     //mp draw_image
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
@@ -964,6 +1232,18 @@ impl CmdArgs {
         if self.verbose {
             eprintln!("\n{s}");
         }
+    }
+
+    //mp update_star_mappings
+    pub fn update_star_mappings(&mut self) -> (usize, f64) {
+        self.star_mapping.update_star_mappings(
+            self.star_catalog.as_ref().unwrap(),
+            &self.camera,
+            self.closeness,
+            self.yaw_error,
+            self.yaw_min,
+            self.yaw_max,
+        )
     }
 
     //mp if_verbose
@@ -994,6 +1274,18 @@ impl CmdArgs {
     //mp output_camera
     pub fn output_camera(&self) -> CmdResult {
         let s = self.camera.to_json()?;
+        Ok(s.to_string())
+    }
+
+    //mp output_calibration_mapping
+    pub fn output_calibration_mapping(&self) -> CmdResult {
+        let s = self.calibration_mapping.clone().to_json()?;
+        Ok(s.to_string())
+    }
+
+    //mp output_star_mapping
+    pub fn output_star_mapping(&self) -> CmdResult {
+        let s = self.star_mapping.clone().to_json()?;
         Ok(s.to_string())
     }
 

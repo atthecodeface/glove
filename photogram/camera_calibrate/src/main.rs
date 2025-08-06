@@ -276,6 +276,7 @@ use ic_base::{Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, CameraProjection, LensPolys};
+use ic_cmdline::{cmd_ok, CmdArgs, CmdResult};
 use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{ModelLineSet, NamedPointSet, PointMappingSet};
 use ic_stars::StarMapping;
@@ -524,513 +525,6 @@ It also draws on circles for yaw values of 5, 10, 15, 20, etc degrees.
 ";
 
 //a Utility functions
-//a Types
-//a CmdResult
-type CmdResult = std::result::Result<String, ic_base::Error>;
-fn cmd_ok() -> CmdResult {
-    Ok("".into())
-}
-
-//a CmdArgs
-//tp CmdArgs
-#[derive(Default)]
-pub struct CmdArgs {
-    verbose: bool,
-    cdb: Option<CameraDatabase>,
-    camera: CameraInstance,
-    write_camera: Option<String>,
-    write_mapping: Option<String>,
-    write_star_mapping: Option<String>,
-    write_polys: Option<String>,
-    write_svg: Option<String>,
-
-    mapping: Option<CalibrationMapping>,
-    star_catalog: Option<Box<Catalog>>,
-    star_mapping: StarMapping,
-
-    read_img: Vec<String>,
-    write_img: Option<String>,
-
-    use_deltas: bool,
-    use_pts: usize,
-    yaw_min: f64,
-    yaw_max: f64,
-    poly_degree: usize,
-    triangle_closeness: f64,
-    closeness: f64,
-    yaw_error: f64,
-    within: f64,
-    brightness: f32,
-}
-
-//ip CommandArgs for CmdArgs
-impl CommandArgs for CmdArgs {
-    type Error = ic_base::Error;
-    type Value = String;
-}
-
-//ip CmdArgs - setters and getters
-impl CmdArgs {
-    fn reset_args(&mut self) {
-        self.write_img = None;
-        self.write_mapping = None;
-        self.write_star_mapping = None;
-        self.write_polys = None;
-        self.write_svg = None;
-        self.write_camera = None;
-        self.use_pts = 0;
-        self.use_deltas = false;
-    }
-    fn camera_mut(&mut self) -> &mut CameraInstance {
-        &mut self.camera
-    }
-    fn get_cdb(&self) -> &CameraDatabase {
-        self.cdb.as_ref().unwrap()
-    }
-    fn set_verbose(&mut self, verbose: bool) -> Result<()> {
-        self.verbose = verbose;
-        Ok(())
-    }
-    fn set_cdb(&mut self, cdb: CameraDatabase) -> Result<()> {
-        self.cdb = Some(cdb);
-        Ok(())
-    }
-    fn set_camera(&mut self, camera: CameraInstance) -> Result<()> {
-        self.camera = camera;
-        Ok(())
-    }
-    fn set_mapping(&mut self, mapping: CalibrationMapping) -> Result<()> {
-        self.mapping = Some(mapping);
-        Ok(())
-    }
-    fn set_read_img(&mut self, v: Vec<String>) -> Result<()> {
-        self.read_img = v;
-        Ok(())
-    }
-    fn set_write_img(&mut self, s: &str) -> Result<()> {
-        self.write_img = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_write_camera(&mut self, s: &str) -> Result<()> {
-        self.write_camera = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_write_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_mapping = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_write_star_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_star_mapping = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_write_polys(&mut self, s: &str) -> Result<()> {
-        self.write_polys = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_write_svg(&mut self, s: &str) -> Result<()> {
-        self.write_svg = Some(s.to_owned());
-        Ok(())
-    }
-    fn set_use_deltas(&mut self, use_deltas: bool) -> Result<()> {
-        self.use_deltas = use_deltas;
-        Ok(())
-    }
-    fn set_use_pts(&mut self, v: usize) -> Result<()> {
-        self.use_pts = thunderclap::bound(v, Some(6), None, |v, _| {
-            format!("Number of points ({v}) must be at least six")
-        })?;
-        Ok(())
-    }
-    fn set_yaw_min(&mut self, v: f64) -> Result<()> {
-        self.yaw_min = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
-            format!("Minimum yaw {v} must be in the range 0 to 90")
-        })?;
-        Ok(())
-    }
-    fn set_yaw_max(&mut self, v: f64) -> Result<()> {
-        self.yaw_max = thunderclap::bound(v, Some(self.yaw_min), Some(90.0), |v, _| {
-            format!(
-                "Maximum yaw {v} must be between yaw_min ({}) and 90",
-                self.yaw_min
-            )
-        })?;
-        Ok(())
-    }
-    fn set_poly_degree(&mut self, v: usize) -> Result<()> {
-        self.poly_degree = thunderclap::bound(v, Some(2), Some(12), |v, _| {
-            format!("The polynomial degree {v} should be between 2 and 12 for reliability",)
-        })?;
-        Ok(())
-    }
-
-    fn set_triangle_closeness(&mut self, closeness: f64) -> Result<()> {
-        self.triangle_closeness = closeness;
-        Ok(())
-    }
-    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
-        self.closeness = closeness;
-        Ok(())
-    }
-    fn set_yaw_error(&mut self, v: f64) -> Result<()> {
-        self.yaw_error = thunderclap::bound(v, Some(0.0), Some(1.0), |v, _| {
-            format!("The maximum yaw error {v} must be between 0 and 1 degree",)
-        })?;
-        Ok(())
-    }
-    fn set_within(&mut self, v: f64) -> Result<()> {
-        self.within = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
-            format!("The 'within' yaw {v} must be between 0 and 90 degree",)
-        })?;
-        Ok(())
-    }
-    fn set_brightness(&mut self, v: f32) -> Result<()> {
-        self.brightness = thunderclap::bound(v, Some(0.0), Some(16.0), |v, _| {
-            format!("Brightness (magnitude of stars) {v} must be between 0 and 16",)
-        })?;
-        Ok(())
-    }
-
-    fn use_pts(&self, n: usize) -> usize {
-        if self.use_pts != 0 {
-            n.min(self.use_pts)
-        } else {
-            n
-        }
-    }
-
-    fn ensure_star_catalog(&self) -> Result<()> {
-        if self.star_catalog.is_none() {
-            Err("Star catalog *must* have been specified".into())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-//ip CmdArgs - Argument handling
-impl CmdArgs {
-    //fp add_args_write_camera
-    fn add_args_write_camera(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_camera",
-            None,
-            "File to write the final camera JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_camera,
-        );
-    }
-
-    //fp add_args_write_mapping
-    fn add_args_write_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_mapping",
-            None,
-            "File to write a derived mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_mapping,
-        );
-    }
-
-    //fp add_args_write_star_mapping
-    fn add_args_write_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_star_mapping",
-            None,
-            "File to write a derived star mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_star_mapping,
-        );
-    }
-
-    //fp add_args_write_polys
-    fn add_args_write_polys(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_polys",
-            None,
-            "File to write a derived polynomials JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_polys,
-        );
-    }
-
-    //fp add_args_write_svg
-    fn add_args_write_svg(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_svg",
-            None,
-            "File to write an output SVG to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_svg,
-        );
-    }
-
-    //fp add_args_poly_degree
-    fn add_args_poly_degree(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "poly_degree",
-            None,
-            "Degree of polynomial to use for the lens calibration (5 for 50mm)",
-            ArgCount::Optional,
-            Some("5"),
-            CmdArgs::set_poly_degree,
-        );
-    }
-
-    //fp add_args_use_deltas
-    fn add_args_use_deltas(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "use_deltas",
-            None,
-            "Use deltas for plotting rather than absolute values",
-            CmdArgs::set_use_deltas,
-        );
-    }
-
-    //fp add_args_num_pts
-    fn add_args_num_pts(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "num_pts",
-            Some('n'),
-            "Number of points to use (from start of mapping); if not specified, use all",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_use_pts,
-        );
-    }
-
-    //fp add_args_yaw_min_max
-    fn add_args_yaw_min_max(
-        build: &mut CommandBuilder<Self>,
-        min: Option<&'static str>,
-        max: Option<&'static str>,
-    ) {
-        build.add_arg_f64(
-            "yaw_min",
-            None,
-            "Minimim yaw to use for plotting or updating the star mapping, in degrees",
-            ArgCount::Optional,
-            min,
-            CmdArgs::set_yaw_min,
-        );
-        build.add_arg_f64(
-            "yaw_max",
-            None,
-            "Maximim yaw to use for plotting or updating the star mapping, in degrees",
-            ArgCount::Optional,
-            max,
-            CmdArgs::set_yaw_max,
-        );
-    }
-
-    //fp add_args_yaw_error
-    fn add_args_yaw_error(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "yaw_error",
-            None,
-            "Maximum relative error in yaw to permit a closest match for",
-            ArgCount::Optional,
-            Some("0.03"),
-            CmdArgs::set_yaw_error,
-        );
-    }
-
-    //fp add_args_within
-    fn add_args_within(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "within",
-            None,
-            "Only use catalog stars Within this angle (degrees) for mapping",
-            ArgCount::Optional,
-            Some("15"),
-            CmdArgs::set_within,
-        );
-    }
-
-    //fp add_args_closeness
-    fn add_args_closeness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "closeness",
-            None,
-            "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
-            ArgCount::Optional,
-            Some("0.2"),
-            CmdArgs::set_closeness,
-        );
-    }
-
-    //fp add_args_triangle_closeness
-    fn add_args_triangle_closeness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "triangle_closeness",
-            None,
-            "Closeness (degrees) to find triangles of stars",
-            ArgCount::Optional,
-            Some("0.2"),
-            CmdArgs::set_triangle_closeness,
-        );
-    }
-
-    //fp add_args_star_mapping
-    fn add_args_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg(
-            Arg::new("star_mapping")
-                .required(false)
-                .help("File mapping sensor coordinates to catalog identifiers")
-                .action(ArgAction::Set),
-            Box::new(CmdArgs::arg_star_mapping),
-        );
-    }
-
-    //fp add_args_star_catalog
-    fn add_args_star_catalog(build: &mut CommandBuilder<Self>) {
-        build.add_arg(
-            Arg::new("star_catalog")
-                .long("catalog")
-                .required(false)
-                .help("Star catalog to use")
-                .action(ArgAction::Set),
-            Box::new(CmdArgs::arg_star_catalog),
-        );
-    }
-
-    //fp add_args_brightness
-    fn add_args_brightness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f32(
-            "brightness",
-            None,
-            "Maximum brightness of stars to use in the catalog",
-            ArgCount::Optional,
-            Some("5.0"),
-            CmdArgs::set_brightness,
-        );
-    }
-
-    //fp arg_star_mapping
-    fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-        let filename = matches.get_one::<String>("star_mapping").unwrap();
-        let json = json::read_file(filename)?;
-        args.star_mapping = StarMapping::from_json(&json)?;
-        Ok(())
-    }
-
-    //fp arg_star_catalog
-    fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-        let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
-        let mut catalog = Catalog::load_catalog(catalog_filename, 99.)?;
-        catalog.derive_data();
-        args.star_catalog = Some(Box::new(catalog));
-        Ok(())
-    }
-}
-
-//ip CmdArgs - Operations
-impl CmdArgs {
-    //mp setup
-    fn setup(&self) -> (NamedPointSet, PointMappingSet) {
-        let v = self.mapping.as_ref().unwrap().get_xyz_pairings();
-        let mut nps = NamedPointSet::default();
-        let mut pms = PointMappingSet::default();
-
-        //cb Add calibrations to NamedPointSet and PointMappingSet
-        for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
-            let name = n.to_string();
-            let color = [255, 255, 255, 255].into();
-            nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
-            pms.add_mapping(&nps, &name, &pxy_abs, 0.);
-        }
-        (nps, pms)
-    }
-
-    //mp draw_image
-    pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
-        if self.read_img.is_empty() || self.write_img.is_none() {
-            return Ok(());
-        }
-        let mut img = ImageRgb8::read_image(&self.read_img[0])?;
-        for p in pts {
-            p.draw(&mut img);
-        }
-        img.write(self.write_img.as_ref().unwrap())?;
-        Ok(())
-    }
-
-    //mp show_step
-    fn show_step<S>(&self, s: S)
-    where
-        S: std::fmt::Display,
-    {
-        if self.verbose {
-            eprintln!("\n{s}");
-        }
-    }
-
-    //mp if_verbose
-    fn if_verbose<F>(&self, f: F)
-    where
-        F: FnOnce(),
-    {
-        if self.verbose {
-            f()
-        }
-    }
-
-    //mp write_outputsw
-    fn write_outputs(&self) -> Result<()> {
-        if let Some(filename) = &self.write_camera {
-            let s = self.camera.to_json()?;
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
-        }
-        if let Some(filename) = &self.write_mapping {
-            if let Some(s) = self.mapping.as_ref() {
-                let s = s.clone().to_json()?;
-                let mut f = std::fs::File::create(filename)?;
-                f.write_all(s.as_bytes())?;
-            }
-        }
-        if let Some(filename) = &self.write_star_mapping {
-            let s = self.star_mapping.clone().to_json()?;
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
-        }
-        if let Some(filename) = &self.write_polys {
-            let s = self.camera.lens().polys().to_json()?;
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
-        }
-        Ok(())
-    }
-
-    //mp output_camera
-    fn output_camera(&self) -> CmdResult {
-        let s = self.camera.to_json()?;
-        Ok(s.to_string())
-    }
-
-    //mp output_mapping
-    fn output_mapping(&self) -> CmdResult {
-        let s = self.mapping.as_ref().unwrap().clone().to_json()?;
-        Ok(s.to_string())
-    }
-
-    //mp output_star_mapping
-    fn output_star_mapping(&self) -> CmdResult {
-        let s = self.star_mapping.clone().to_json()?;
-        Ok(s.to_string())
-    }
-
-    //mp output_polynomials
-    fn output_polynomials(&self) -> CmdResult {
-        let s = self.camera.lens().polys().to_json()?;
-        Ok(s.to_string())
-    }
-}
-
 //a Calibrate
 //fi calibrate_cmd
 fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
@@ -1042,17 +536,18 @@ fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
 
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
-    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_read_image(&mut build, Some(1));
+    CmdArgs::add_arg_write_image(&mut build, false);
+
     build
 }
 
 //fi calibrate_fn
 fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let calibrate = cmd_args.calibration_mapping();
 
-    let v = calibrate.get_pairings(&cmd_args.camera);
+    let v = calibrate.get_pairings(cmd_args.camera());
     let mut world_yaws = vec![];
     let mut camera_yaws = vec![];
     for (n, (grid, camera_rel_xyz, sensor_txty)) in v.iter().enumerate() {
@@ -1107,13 +602,16 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     eprintln!(" wts: {wts:?}");
     eprintln!(" stw: {stw:?}");
 
-    eprintln!("cal camera {}", cmd_args.camera);
-    let mut camera = cmd_args.camera.clone();
+    eprintln!("cal camera {}", cmd_args.camera());
+    let mut camera = cmd_args.camera().clone();
     let mut camera_lens = camera.lens().clone();
     camera_lens.set_polys(LensPolys::new(stw, wts));
     camera.set_lens(camera_lens);
-    cmd_args.camera = camera;
-    let camera = &cmd_args.camera;
+
+    cmd_args.set_camera(camera);
+
+    let calibrate = cmd_args.calibration_mapping();
+    let camera = cmd_args.camera();
 
     //    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
     //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
@@ -1134,8 +632,8 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     }
 
-    if !cmd_args.read_img.is_empty() && cmd_args.write_img.is_some() {
-        let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
+    if !cmd_args.read_img().is_empty() && cmd_args.write_img().is_some() {
+        let mut img = cmd_args.get_image_read_or_create()?;
         let c = &[255, 0, 0, 0].into();
         for p in pxys.into_iter() {
             img.draw_cross(p, 5.0, c);
@@ -1149,7 +647,7 @@ fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             }
             img.draw_cross(mapped, 5.0, c);
         }
-        img.write(cmd_args.write_img.as_ref().unwrap())?;
+        img.write(cmd_args.write_img().unwrap())?;
     }
     cmd_args.write_outputs()?;
     cmd_ok()
@@ -1163,9 +661,9 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(LOCATE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    CmdArgs::add_args_num_pts(&mut build);
-    CmdArgs::add_args_write_camera(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_write_camera(&mut build);
 
     build
 }
@@ -1173,12 +671,14 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Reset the camera position and orientation, defensively
-    cmd_args.camera.set_position([0., 0., 0.].into());
-    cmd_args.camera.set_orientation(Quat::default());
+    cmd_args.convert_calibration_mapping();
+    cmd_args.camera_mut().set_position([0., 0., 0.].into());
+    cmd_args.camera_mut().set_orientation(Quat::default());
+    let pms = cmd_args.pms();
+    let pms = pms.borrow();
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = cmd_args.setup();
-    let n = cmd_args.use_pts(pms.mappings().len());
+    let n = cmd_args.use_pts(cmd_args.pms().borrow().mappings().len());
     let closest_n: Vec<usize> = (0..n).collect();
 
     //cb For required pairings, display data
@@ -1189,7 +689,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let grid_xyz = pm.model();
         // Px Abs -> Px Rel -> TxTy -> lens mapping
         let pxy_abs = pm.screen();
-        let txty = cmd_args.camera.px_abs_xy_to_camera_txty(pxy_abs);
+        let txty = cmd_args.camera().px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
         cmd_args.if_verbose(|| {
             eprintln!(">> {n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
@@ -1197,12 +697,12 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     //cb Create ModelLineSet
-    let mut mls = ModelLineSet::new(cmd_args.camera.clone());
+    let mut mls = ModelLineSet::new(cmd_args.camera().clone());
 
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
         let dir0 = cmd_args
-            .camera
+            .camera()
             .px_abs_xy_to_camera_txty(pm0.screen())
             .to_unit_vector();
         for n1 in &closest_n {
@@ -1211,7 +711,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             }
             let pm1 = &pms.mappings()[*n1];
             let dir1 = cmd_args
-                .camera
+                .camera()
                 .px_abs_xy_to_camera_txty(pm1.screen())
                 .to_unit_vector();
             let cos_theta = dir0.dot(&dir1);
@@ -1219,6 +719,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let _ = mls.add_line_of_models(pm0.model(), pm1.model(), angle);
         }
     }
+    drop(pms);
 
     //cb Find best position given ModelLineSet
     // Find best location 'p' for camera
@@ -1227,7 +728,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         eprintln!("{best_cam_pos} {e}",);
     });
 
-    cmd_args.camera.set_position(best_cam_pos);
+    cmd_args.camera_mut().set_position(best_cam_pos);
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -1240,30 +741,31 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(ORIENT_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    CmdArgs::add_args_num_pts(&mut build);
-    CmdArgs::add_args_write_camera(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_write_camera(&mut build);
 
     build
 }
 
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
+    let calibrate = cmd_args.calibration_mapping();
+    let pms = cmd_args.pms();
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
-    let mut camera = cmd_args.camera.clone();
+    let mut camera = cmd_args.camera().clone();
     camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
     let n = cmd_args.use_pts(calibrate.len());
     let closest_n: Vec<usize> = (0..n).collect();
-    let (_nps, pms) = cmd_args.setup();
+    cmd_args.convert_calibration_mapping();
 
     //cb For required pairings, display data
     cmd_args.show_step("All the following mappings ([n] [world] : [pxy] : [world_dir]");
     cmd_args.if_verbose(|| {
-        for pm in pms.mappings() {
+        for pm in pms.borrow().mappings() {
             let n = pm.name();
             let grid_xyz = pm.model();
             // Px Abs -> Px Rel -> TxTy -> lens mapping
@@ -1281,6 +783,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let best_cam_pos = camera.position();
     let mut qs = vec![];
 
+    let pms = pms.borrow();
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
         let di_c = -camera
@@ -1331,6 +834,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             qs.push((1., q.into()));
         }
     }
+    drop(pms);
 
     cmd_args.show_step("Calculate average orientation");
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
@@ -1338,7 +842,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("{camera}");
     });
-    cmd_args.camera = camera;
+    cmd_args.set_camera(camera);
 
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
@@ -1353,34 +857,35 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
 
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_args_num_pts(&mut build);
-    CmdArgs::add_args_poly_degree(&mut build);
-    CmdArgs::add_args_write_polys(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_poly_degree(&mut build);
+    CmdArgs::add_arg_write_polys(&mut build);
 
     build
 }
 
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
-    let mut camera_linear = cmd_args.camera.clone();
+    let calibrate = cmd_args.calibration_mapping();
+    let pms = cmd_args.pms();
+    let mut camera_linear = cmd_args.camera().clone();
     let mut lens_linear = camera_linear.lens().clone();
     lens_linear.set_polys(LensPolys::default());
     camera_linear.set_lens(lens_linear);
 
-    let yaw_range_min = cmd_args.yaw_min.to_radians();
-    let yaw_range_max = cmd_args.yaw_max.to_radians();
+    let yaw_range_min = cmd_args.yaw_min().to_radians();
+    let yaw_range_max = cmd_args.yaw_max().to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = cmd_args.setup();
+    cmd_args.convert_calibration_mapping();
 
     //cb Calculate Roll/Yaw for each point given camera, and store in a mapping
     let mut sensor_yaws = vec![];
     let mut world_yaws = vec![];
-    for pm in pms.mappings().iter().take(num_pts) {
+    for pm in pms.borrow().mappings().iter().take(num_pts) {
         let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -1391,16 +896,16 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     let lens_poly = LensPolys::calibration(
-        cmd_args.poly_degree,
+        cmd_args.poly_degree(),
         &sensor_yaws,
         &world_yaws,
         yaw_range_min,
         yaw_range_max,
     );
 
-    let mut camera_lens = cmd_args.camera.lens().clone();
+    let mut camera_lens = cmd_args.camera().lens().clone();
     camera_lens.set_polys(lens_poly);
-    cmd_args.camera.set_lens(camera_lens);
+    cmd_args.camera_mut().set_lens(camera_lens);
 
     cmd_args.write_outputs()?;
 
@@ -1416,32 +921,33 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(yaw_plot_fn)));
 
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_args_num_pts(&mut build);
-    CmdArgs::add_args_use_deltas(&mut build);
-    CmdArgs::add_args_write_svg(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_use_deltas(&mut build);
+    CmdArgs::add_arg_write_svg(&mut build);
 
     build
 }
 
 //fi yaw_plot_fn
 fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
-    let camera = &cmd_args.camera;
+    let calibrate = cmd_args.calibration_mapping();
+    let pms = cmd_args.pms();
+    let camera = cmd_args.camera();
     let mut camera_linear = camera.clone();
     let mut lens_linear = camera.lens().clone();
     lens_linear.set_polys(LensPolys::default());
     camera_linear.set_lens(lens_linear);
 
-    let yaw_range_min = cmd_args.yaw_min.to_radians();
-    let yaw_range_max = cmd_args.yaw_max.to_radians();
+    let yaw_range_min = cmd_args.yaw_min().to_radians();
+    let yaw_range_max = cmd_args.yaw_max().to_radians();
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     let f_world = |w: f64, s: f64| (s.to_degrees(), (s - w).to_degrees());
     let f_rel_error = |w: f64, s: f64| (s.to_degrees(), s / w - 1.0);
     let plot_f = {
-        if cmd_args.use_deltas {
+        if cmd_args.use_deltas() {
             f_rel_error
         } else {
             f_world
@@ -1449,12 +955,12 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     };
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = cmd_args.setup();
+    cmd_args.convert_calibration_mapping();
 
     //cb Calculate Error in yaw/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
     let mut ws_yaws = vec![];
-    for pm in pms.mappings().iter().take(num_pts) {
+    for pm in pms.borrow().mappings().iter().take(num_pts) {
         let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -1575,7 +1081,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .map_err(|e| format!("{e:?}"))?;
 
     let s = plot_initial.to_string();
-    if let Some(filename) = &cmd_args.write_svg {
+    if let Some(filename) = cmd_args.write_svg() {
         let mut f = std::fs::File::create(filename)?;
         f.write_all(s.as_bytes())?;
     } else {
@@ -1593,27 +1099,28 @@ fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(roll_plot_fn)));
 
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    CmdArgs::add_args_write_svg(&mut build);
-    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_write_svg(&mut build);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
 
     build
 }
 
 //fi roll_plot_fn
 fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
-    let camera = &cmd_args.camera;
+    let calibrate = cmd_args.calibration_mapping();
+    let camera = cmd_args.camera();
+    let pms = cmd_args.pms();
 
     let num_pts = cmd_args.use_pts(calibrate.len());
 
     //cb Set up HashMaps and collections
-    let (_nps, pms) = cmd_args.setup();
+    cmd_args.convert_calibration_mapping();
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = vec![];
-    for pm in pms.mappings().iter().take(num_pts) {
+    for pm in pms.borrow().mappings().iter().take(num_pts) {
         let model_txty = camera.world_xyz_to_camera_txty(pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -1651,7 +1158,7 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .map_err(|e| format!("{e:?}"))?;
 
     let s = plot_initial.to_string();
-    if let Some(filename) = &cmd_args.write_svg {
+    if let Some(filename) = cmd_args.write_svg() {
         let mut f = std::fs::File::create(filename)?;
         f.write_all(s.as_bytes())?;
     } else {
@@ -1669,21 +1176,22 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(grid_image_fn)));
 
-    ic_cmdline::camera::add_arg_calibration_mapping(&mut build, CmdArgs::set_mapping, true);
-    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, true, Some(1));
-    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, true);
-    CmdArgs::add_args_num_pts(&mut build);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_read_image(&mut build, Some(1));
+    CmdArgs::add_arg_write_image(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
     build
 }
 
 //fi grid_image_fn
 fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.mapping.as_ref().unwrap();
-    let camera = &cmd_args.camera;
+    let calibrate = cmd_args.calibration_mapping();
+    let camera = cmd_args.camera();
+    let pms = cmd_args.pms();
 
     //cb Set up HashMaps and collections
     let num_pts = cmd_args.use_pts(calibrate.len());
-    let (_nps, pms) = cmd_args.setup();
+    cmd_args.convert_calibration_mapping();
 
     //cb Create points for crosses for output image
     let mut pts = vec![];
@@ -1700,13 +1208,13 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     }
     let rgba: Color = { [100, 255, 100, 255] }.into();
-    for pm in pms.mappings().iter().take(num_pts) {
+    for pm in pms.borrow().mappings().iter().take(num_pts) {
         pts.push((pm.model(), rgba));
     }
 
     //cb Read source image and draw on it, write output image
     let pxys = calibrate.get_pxys();
-    let mut img = ImageRgb8::read_image(&cmd_args.read_img[0])?;
+    let mut img = cmd_args.get_image_read_or_create()?;
     let c = &[255, 0, 0, 0].into();
     for p in pxys {
         img.draw_cross(p, 5.0, c);
@@ -1721,7 +1229,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
         img.draw_cross(mapped, 5.0, c);
     }
-    img.write(cmd_args.write_img.as_ref().unwrap())?;
+    img.write(cmd_args.write_img().unwrap())?;
 
     cmd_ok()
 }
@@ -1733,15 +1241,15 @@ fn star_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_LONG_HELP);
 
     let mut build = CommandBuilder::<CmdArgs>::new(command, None);
-    CmdArgs::add_args_triangle_closeness(&mut build);
-    CmdArgs::add_args_closeness(&mut build);
-    CmdArgs::add_args_star_mapping(&mut build);
-    CmdArgs::add_args_star_catalog(&mut build);
-    CmdArgs::add_args_brightness(&mut build);
-    CmdArgs::add_args_write_mapping(&mut build);
-    CmdArgs::add_args_write_camera(&mut build);
-    CmdArgs::add_args_write_star_mapping(&mut build);
-    CmdArgs::add_args_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_triangle_closeness(&mut build);
+    CmdArgs::add_arg_closeness(&mut build);
+    CmdArgs::add_arg_star_mapping(&mut build);
+    CmdArgs::add_arg_star_catalog(&mut build);
+    CmdArgs::add_arg_brightness(&mut build);
+    CmdArgs::add_arg_write_calibration_mapping(&mut build);
+    CmdArgs::add_arg_write_camera(&mut build);
+    CmdArgs::add_arg_write_star_mapping(&mut build);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
 
     build.add_subcommand(star_show_mapping_cmd());
     build.add_subcommand(star_find_stars_cmd());
@@ -1758,55 +1266,40 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
         .about("Find a camera orientation using two star triangles from an image")
         .long_about(STAR_FIND_STARS_LONG_HELP);
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
-    CmdArgs::add_args_yaw_error(&mut build);
+    CmdArgs::add_arg_yaw_error(&mut build);
     build
 }
 
 //fp star_find_stars_fn
 fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let brightness = cmd_args.brightness();
     cmd_args.ensure_star_catalog()?;
 
     cmd_args
-        .star_catalog
-        .as_mut()
-        .unwrap()
-        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
+        .star_catalog_mut()
+        .set_filter(StarFilter::brighter_than(brightness));
 
-    let angle_orientations = cmd_args.star_mapping.find_orientation_from_triangles(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        cmd_args.triangle_closeness,
+    let angle_orientations = cmd_args.star_mapping().find_orientation_from_triangles(
+        cmd_args.star_catalog(),
+        cmd_args.camera(),
+        cmd_args.triangle_closeness(),
     )?;
     let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
     for (i, (x, q)) in angle_orientations.iter().enumerate() {
-        cmd_args.camera.set_orientation(*q);
-        let _ = cmd_args.star_mapping.update_star_mappings(
-            cmd_args.star_catalog.as_ref().unwrap(),
-            &cmd_args.camera,
-            cmd_args.closeness,
-            cmd_args.yaw_error,
-            cmd_args.yaw_min,
-            cmd_args.yaw_max,
-        );
+        cmd_args.camera_mut().set_orientation(*q);
+        let _ = cmd_args.update_star_mappings();
         let Ok(orientation) = cmd_args
-            .star_mapping
+            .star_mapping()
             .find_orientation_from_all_mapped_stars(
-                cmd_args.star_catalog.as_ref().unwrap(),
-                &cmd_args.camera,
-                cmd_args.brightness,
+                cmd_args.star_catalog(),
+                cmd_args.camera(),
+                brightness,
             )
         else {
             continue;
         };
-        cmd_args.camera.set_orientation(orientation);
-        let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
-            cmd_args.star_catalog.as_ref().unwrap(),
-            &cmd_args.camera,
-            cmd_args.closeness,
-            cmd_args.yaw_error,
-            cmd_args.yaw_min,
-            cmd_args.yaw_max,
-        );
+        cmd_args.camera_mut().set_orientation(orientation);
+        let (num_unmapped, total_error) = cmd_args.update_star_mappings();
         if num_unmapped < best_match.2 {
             best_match = (orientation, *x, num_unmapped);
         }
@@ -1819,18 +1312,11 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         "Using candidate with triangle angle error {} and {} unmapped stars out of {}",
         best_match.1.to_degrees(),
         best_match.2,
-        cmd_args.star_mapping.mappings().len()
+        cmd_args.star_mapping().mappings().len()
     );
 
-    cmd_args.camera.set_orientation(best_match.0);
-    let _ = cmd_args.star_mapping.update_star_mappings(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        cmd_args.closeness,
-        cmd_args.yaw_error,
-        cmd_args.yaw_min,
-        cmd_args.yaw_max,
-    );
+    cmd_args.camera_mut().set_orientation(best_match.0);
+    let _ = cmd_args.update_star_mappings();
 
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
@@ -1849,15 +1335,15 @@ fn star_orient_cmd() -> CommandBuilder<CmdArgs> {
 //fp star_orient_fn
 fn star_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.ensure_star_catalog()?;
-    let brightness = cmd_args.brightness;
+    let brightness = cmd_args.brightness();
     let orientation = cmd_args
-        .star_mapping
+        .star_mapping()
         .find_orientation_from_all_mapped_stars(
-            cmd_args.star_catalog.as_ref().unwrap(),
-            &cmd_args.camera,
+            cmd_args.star_catalog(),
+            cmd_args.camera(),
             brightness,
         )?;
-    cmd_args.camera.set_orientation(orientation);
+    cmd_args.camera_mut().set_orientation(orientation);
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -1872,31 +1358,23 @@ fn star_update_mapping_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_UPDATE_MAPPING_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_update_mapping_fn)));
-    CmdArgs::add_args_yaw_error(&mut build);
+    CmdArgs::add_arg_yaw_error(&mut build);
     build
 }
 
 //fp star_update_mapping_fn
 fn star_update_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let brightness = cmd_args.brightness();
     cmd_args.ensure_star_catalog()?;
     cmd_args
-        .star_catalog
-        .as_mut()
-        .unwrap()
-        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
+        .star_catalog_mut()
+        .set_filter(StarFilter::brighter_than(brightness));
 
     //cb Show the star mappings
-    let (num_unmapped, total_error) = cmd_args.star_mapping.update_star_mappings(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
-        cmd_args.closeness,
-        cmd_args.yaw_error,
-        cmd_args.yaw_min,
-        cmd_args.yaw_max,
-    );
+    let (num_unmapped, total_error) = cmd_args.update_star_mappings();
     eprintln!(
         "{num_unmapped} stars were not mapped out of {}, total error of mapped stars {total_error:.4e}|",
-        cmd_args.star_mapping.mappings().len(),
+        cmd_args.star_mapping().mappings().len(),
     );
 
     cmd_args.write_outputs()?;
@@ -1911,53 +1389,54 @@ fn star_show_mapping_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(STAR_SHOW_STARS_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(star_show_mapping_fn)));
-    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
-    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
-    CmdArgs::add_args_within(&mut build);
+
+    CmdArgs::add_arg_read_image(&mut build, Some(1));
+    CmdArgs::add_arg_write_image(&mut build, false);
+    CmdArgs::add_arg_within(&mut build);
     build
 }
 
 //fp star_show_mapping_fn
 fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.ensure_star_catalog()?;
-    let within = cmd_args.within;
+    let within = cmd_args.within();
+    let brightness = cmd_args.brightness();
 
     cmd_args
-        .star_catalog
-        .as_mut()
-        .unwrap()
-        .set_filter(StarFilter::brighter_than(cmd_args.brightness));
+        .star_catalog_mut()
+        .set_filter(StarFilter::brighter_than(brightness));
 
     //cb Show the star mappings
     cmd_args
-        .star_mapping
-        .show_star_mappings(cmd_args.star_catalog.as_ref().unwrap(), &cmd_args.camera);
+        .star_mapping()
+        .show_star_mappings(cmd_args.star_catalog(), cmd_args.camera());
 
     let mut mapped_pts = vec![];
 
     // Mark the points with blue-grey crosses
-    cmd_args.star_mapping.img_pts_add_cat_index(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
+    cmd_args.star_mapping().img_pts_add_cat_index(
+        cmd_args.star_catalog(),
+        cmd_args.camera(),
         &mut mapped_pts,
         1,
     )?;
 
     // Mark the mapping points with small purple crosses
     cmd_args
-        .star_mapping
+        .star_mapping()
         .img_pts_add_mapping_pxy(&mut mapped_pts, 0)?;
 
     // Mark the catalog stars with yellow Xs
-    cmd_args.star_mapping.img_pts_add_catalog_stars(
-        cmd_args.star_catalog.as_ref().unwrap(),
-        &cmd_args.camera,
+    cmd_args.star_mapping().img_pts_add_catalog_stars(
+        cmd_args.star_catalog(),
+        cmd_args.camera(),
         &mut mapped_pts,
         within,
         2,
     )?;
 
     // Draw a circle of radius yaw_max
+    let camera = cmd_args.camera();
     for yaw in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] {
         let yaw = (yaw as f64).to_radians();
         for i in 0..3600 {
@@ -1965,9 +1444,9 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let s = angle.sin();
             let c = angle.cos();
             let world_ry = RollYaw::from_roll_yaw(s, c, yaw);
-            let sensor_ry = cmd_args.camera.camera_ry_to_sensor_ry(world_ry);
+            let sensor_ry = camera.camera_ry_to_sensor_ry(world_ry);
             let sensor_txty = sensor_ry.into();
-            let pxy = cmd_args.camera.sensor_txty_to_px_abs_xy(sensor_txty);
+            let pxy = camera.sensor_txty_to_px_abs_xy(sensor_txty);
             mapped_pts.push((pxy, 3).into());
         }
     }
@@ -1991,11 +1470,11 @@ fn star_calibrate_desc_cmd() -> CommandBuilder<CmdArgs> {
 fn star_calibrate_desc_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.ensure_star_catalog()?;
     let pc = cmd_args
-        .star_mapping
-        .create_calibration_mapping(cmd_args.star_catalog.as_ref().unwrap());
-    cmd_args.set_mapping(pc)?;
+        .star_mapping()
+        .create_calibration_mapping(cmd_args.star_catalog());
+    cmd_args.set_calibration_mapping(pc);
     cmd_args.write_outputs()?;
-    cmd_args.output_mapping()
+    cmd_args.output_calibration_mapping()
 }
 
 //a Main
@@ -2008,15 +1487,9 @@ fn main() -> Result<()> {
 
     let mut build = CommandBuilder::new(command, None);
     build.set_arg_reset(Box::new(CmdArgs::reset_args));
-    ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
-    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, false);
-    ic_cmdline::camera::add_arg_camera(
-        &mut build,
-        CmdArgs::get_cdb,
-        CmdArgs::set_camera,
-        CmdArgs::camera_mut,
-        false,
-    );
+    CmdArgs::add_arg_verbose(&mut build);
+    CmdArgs::add_arg_camera_database(&mut build, false);
+    CmdArgs::add_arg_camera(&mut build, false);
 
     build.add_subcommand(calibrate_cmd());
     build.add_subcommand(locate_cmd());

@@ -483,7 +483,7 @@ impl StarMapping {
     //mp find_orientation_from_triangles
     /// A value of 0.15 degrees is normal for max_angle_delta
     pub fn find_orientation_from_triangles(
-        &mut self,
+        &self,
         catalog: &Catalog,
         camera: &CameraInstance,
         max_angle_delta: f64,
