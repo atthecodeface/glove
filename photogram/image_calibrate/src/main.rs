@@ -7,6 +7,7 @@ use thunderclap::CommandBuilder;
 
 use ic_base::{Ray, Result};
 use ic_camera::CameraProjection;
+use ic_cmdline::{CmdArgs, CmdResult};
 use ic_image::{Color, Image, Patch, Region};
 use ic_mapping::{
     CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet, NamedPointSet,
@@ -133,7 +134,6 @@ const PROJECT_LONG_HELP: &str = "\
 Project help";
 
 //a Stuff
-use ic_cmdline::{CmdArgs, CmdResult};
 
 //a Images
 //fi image_cmd
@@ -145,7 +145,7 @@ fn image_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(image_fn)));
     CmdArgs::add_arg_pms(&mut build);
     CmdArgs::add_arg_camera(&mut build, false);
-    CmdArgs::add_arg_read_image(&mut build, Some(1_usize).into()); // 0 or 1 in  alist
+    CmdArgs::add_arg_read_image(&mut build, Some(1_usize)); // 0 or 1 in  alist
     CmdArgs::add_arg_write_image(&mut build, true);
     CmdArgs::add_arg_pms_color(&mut build);
     CmdArgs::add_arg_model_color(&mut build);
@@ -276,9 +276,9 @@ fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
 
     // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
     CmdArgs::add_arg_cip(&mut build, false);
-    CmdArgs::add_arg_read_image(&mut build, 1_usize.into());
+    CmdArgs::add_arg_read_image(&mut build, 1_usize);
     CmdArgs::add_arg_write_image(&mut build, true);
-    CmdArgs::add_arg_named_point(&mut build, (3,).into());
+    CmdArgs::add_arg_named_point(&mut build, (3,));
     build
 }
 
@@ -354,7 +354,7 @@ fn get_point_mappings_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(GET_POINT_MAPPINGS_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(get_point_mappings_fn)));
-    CmdArgs::add_arg_read_image(&mut build, true.into());
+    CmdArgs::add_arg_read_image(&mut build, true);
     CmdArgs::add_arg_bg_color(&mut build);
     build
 }
@@ -402,7 +402,7 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
         .about("Find location and orientation for a camera to map points to model");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-    CmdArgs::add_arg_cip(&mut build, false.into());
+    CmdArgs::add_arg_cip(&mut build, false);
     CmdArgs::add_arg_pms(&mut build);
     CmdArgs::add_arg_camera(&mut build, false);
     CmdArgs::add_arg_write_camera(&mut build);
@@ -460,7 +460,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(ORIENT_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
-    CmdArgs::add_arg_cip(&mut build, false.into());
+    CmdArgs::add_arg_cip(&mut build, false);
     CmdArgs::add_arg_pms(&mut build);
     CmdArgs::add_arg_camera(&mut build, false);
     CmdArgs::add_arg_write_camera(&mut build);
@@ -518,13 +518,12 @@ fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_model_fn)));
     CmdArgs::add_arg_camera(&mut build, false); // required=true
-    CmdArgs::add_arg_ray_file(&mut build, (1,).into());
+    CmdArgs::add_arg_ray_file(&mut build, (1,));
     build
 }
 
 //fi combine_rays_from_model_fn
 fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let nps = cmd_args.nps();
     let named_rays = cmd_args.named_rays();
 
     let mut names = Vec::new();
@@ -554,7 +553,6 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     drop(named_rays);
-    drop(nps);
     eprintln!("Total dsq {tot_d_sq}");
 
     cmd_args.camera_mut().set_position(position);
@@ -568,7 +566,7 @@ fn combine_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("combine_rays_from_camera").about("Combine rays from a camera");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_camera_fn)));
-    CmdArgs::add_arg_ray_file(&mut build, (1,).into());
+    CmdArgs::add_arg_ray_file(&mut build, (1,));
 
     build
 }

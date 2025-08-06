@@ -63,6 +63,14 @@ pub struct CmdArgs {
     cip: Rrc<Cip>,
 
     named_rays: Vec<(String, Ray)>,
+
+    kernels: Vec<String>,
+    kernel_size: usize,
+    scale: f64,
+    angle: f64,
+    px: usize,
+    py: usize,
+    flags: usize,
 }
 
 //ip CommandArgs for CmdArgs
@@ -134,6 +142,36 @@ impl CmdArgs {
         &self.named_rays
     }
 
+    //mi kernels
+    pub fn kernels(&self) -> &[String] {
+        &self.kernels
+    }
+
+    //mi kernel_size
+    pub fn kernel_size(&self) -> usize {
+        self.kernel_size
+    }
+
+    //mi flags
+    pub fn flags(&self) -> usize {
+        self.flags
+    }
+
+    //mi pxy
+    pub fn pxy(&self) -> (usize, usize) {
+        (self.px, self.py)
+    }
+
+    //mi scale
+    pub fn scale(&self) -> f64 {
+        self.scale
+    }
+
+    //mi angle
+    pub fn angle(&self) -> f64 {
+        self.angle
+    }
+
     //mi write_img
     pub fn write_img(&self) -> Option<&str> {
         self.write_img.as_ref().map(|s| s.as_str())
@@ -202,11 +240,11 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_nps
+    //mi add_nps
     /// Adds the named point set into the current NPS...
     ///
     /// Could perhaps do with a way to reset the nps for batch mode
-    fn set_nps(&mut self, nps_filename: &str) -> Result<()> {
+    fn add_nps(&mut self, nps_filename: &str) -> Result<()> {
         let nps_json = json::read_file(nps_filename)?;
         self.project
             .nps_mut()
@@ -214,9 +252,9 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_pms
+    //mi add_pms
     /// Adds a point mapping set
-    fn set_pms(&mut self, pms_filename: &str) -> Result<()> {
+    fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
         let mut pms = PointMappingSet::new();
         let pms_json = json::read_file(pms_filename)?;
         let nf = pms.read_json(&self.project.nps_ref(), &pms_json, true)?;
@@ -244,8 +282,8 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_read_img
-    fn set_read_img(&mut self, s: &str) -> Result<()> {
+    //mi add_read_img
+    fn add_read_img(&mut self, s: &str) -> Result<()> {
         self.read_img.push(s.into());
         Ok(())
     }
@@ -284,6 +322,70 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mi add_kernel
+    /// Add a kernel to run
+    fn add_kernel(&mut self, kernel: &str) -> Result<()> {
+        self.kernels.push(kernel.to_owned());
+        Ok(())
+    }
+
+    //mi set_bg_color
+    fn set_bg_color(&mut self, s: &str) -> Result<()> {
+        let c: Color = s.try_into()?;
+        self.bg_color = Some(c);
+        Ok(())
+    }
+
+    //mi set_pms_color
+    fn set_pms_color(&mut self, s: &str) -> Result<()> {
+        let c: Color = s.try_into()?;
+        self.pms_color = Some(c);
+        Ok(())
+    }
+
+    //mi set_model_color
+    fn set_model_color(&mut self, s: &str) -> Result<()> {
+        let c: Color = s.try_into()?;
+        self.model_color = Some(c);
+        Ok(())
+    }
+
+    //mi set_scale
+    fn set_scale(&mut self, v: f64) -> Result<()> {
+        self.scale = v;
+        Ok(())
+    }
+
+    //mi set_angle
+    fn set_angle(&mut self, v: f64) -> Result<()> {
+        self.angle = v;
+        Ok(())
+    }
+
+    //mi set_px
+    fn set_px(&mut self, v: usize) -> Result<()> {
+        self.px = v;
+        Ok(())
+    }
+
+    //mi set_py
+    fn set_py(&mut self, v: usize) -> Result<()> {
+        self.py = v;
+        Ok(())
+    }
+
+    //mi set_flags
+    fn set_flags(&mut self, v: usize) -> Result<()> {
+        self.flags = v;
+        Ok(())
+    }
+
+    //mi set_kernel_size
+    fn set_kernel_size(&mut self, v: usize) -> Result<()> {
+        self.kernel_size = v;
+        Ok(())
+    }
+
     //mi set_write_img
     fn set_write_img(&mut self, s: &str) -> Result<()> {
         self.write_img = Some(s.to_owned());
@@ -319,27 +421,6 @@ impl CmdArgs {
         self.write_svg = Some(s.to_owned());
         Ok(())
     }
-
-    //mi set_bg_color
-    fn set_bg_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
-        self.bg_color = Some(c);
-        Ok(())
-    }
-
-    //mi set_pms_color
-    fn set_pms_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
-        self.pms_color = Some(c);
-        Ok(())
-    }
-
-    //mi set_model_color
-    fn set_model_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
-        self.model_color = Some(c);
-        Ok(())
-    }
 }
 
 //ip CmdArgs arg build methods
@@ -355,20 +436,32 @@ impl CmdArgs {
     }
 
     //fp add_arg_read_image
-    pub fn add_arg_read_image(build: &mut CommandBuilder<Self>, arg_count: ArgCount) {
+    pub fn add_arg_read_image<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
         build.add_arg_string(
             "read",
             Some('r'),
             "Image to read",
-            arg_count,
+            arg_count.into(),
             None,
-            CmdArgs::set_read_img,
+            CmdArgs::add_read_img,
         );
     }
 
     //fp add_arg_write_image
     pub fn add_arg_write_image(build: &mut CommandBuilder<Self>, required: bool) {
         image::add_arg_write_img(build, CmdArgs::set_write_img, required);
+    }
+
+    //fp add_arg_kernel
+    pub fn add_arg_kernel<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
+        build.add_arg_string(
+            "kernel",
+            None,
+            "Add a kernel to run",
+            arg_count.into(),
+            None,
+            CmdArgs::add_kernel,
+        );
     }
 
     //fp add_arg_nps
@@ -379,7 +472,7 @@ impl CmdArgs {
             "Add a named point set to the list",
             (0,).into(),
             None,
-            CmdArgs::set_nps,
+            CmdArgs::add_nps,
         );
     }
 
@@ -415,7 +508,7 @@ impl CmdArgs {
             "Add a point mapping set",
             false.into(), // Perhaps should allow some in...
             None,
-            CmdArgs::set_pms,
+            CmdArgs::add_pms,
         );
     }
 
@@ -481,26 +574,98 @@ impl CmdArgs {
     }
 
     //fp add_arg_ray_file
-    pub fn add_arg_ray_file(build: &mut CommandBuilder<Self>, arg_count: ArgCount) {
+    pub fn add_arg_ray_file<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
         build.add_arg_string(
             "rays",
             None,
             "Model ray Json files (list of name, ray)",
-            arg_count,
+            arg_count.into(),
             None,
             CmdArgs::set_ray_file,
         );
     }
 
     //fp add_arg_named_point
-    pub fn add_arg_named_point(build: &mut CommandBuilder<Self>, arg_count: ArgCount) {
+    pub fn add_arg_named_point<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
         build.add_arg_string(
             "np",
             None,
             "Specifies named points for the patch",
-            arg_count,
+            arg_count.into(),
             None,
             CmdArgs::set_np,
+        );
+    }
+
+    //fp add_arg_px
+    pub fn add_arg_px(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_usize(
+            "px",
+            None,
+            "Pixel X value to use",
+            required.into(),
+            None,
+            CmdArgs::set_px,
+        );
+    }
+
+    //fp add_arg_py
+    pub fn add_arg_py(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_usize(
+            "py",
+            None,
+            "Pixel Y value to use",
+            required.into(),
+            None,
+            CmdArgs::set_py,
+        );
+    }
+
+    //fp add_arg_kernel_size
+    pub fn add_arg_kernel_size(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_usize(
+            "kernel_size",
+            None,
+            "Size parameter for a kernel",
+            required.into(),
+            Some("8"),
+            CmdArgs::set_kernel_size,
+        );
+    }
+
+    //fp add_arg_flags
+    pub fn add_arg_flags(build: &mut CommandBuilder<Self>) {
+        build.add_arg_usize(
+            "flags",
+            None,
+            "Flags parameter for (e.g.) a kernel",
+            false.into(),
+            Some("0"),
+            CmdArgs::set_flags,
+        );
+    }
+
+    //fp add_arg_scale
+    pub fn add_arg_scale(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "scale",
+            None,
+            "Scale parameter for (e.g.) a kernel",
+            false.into(),
+            Some("1"),
+            CmdArgs::set_scale,
+        );
+    }
+
+    //fp add_arg_angle
+    pub fn add_arg_angle(build: &mut CommandBuilder<Self>) {
+        build.add_arg_f64(
+            "angle",
+            None,
+            "Angle parameter for (e.g.) a kernel",
+            false.into(),
+            Some("0"),
+            CmdArgs::set_angle,
         );
     }
 
@@ -603,6 +768,7 @@ impl CmdArgs {
 
 //ip CmdArgs methods to get
 impl CmdArgs {
+    //mp get_image_read_or_create
     pub fn get_image_read_or_create(&self) -> ic_base::Result<ImageRgb8> {
         let read_filename = self.read_img.first();
         let img = ImageRgb8::read_or_create_image(
@@ -610,6 +776,15 @@ impl CmdArgs {
             self.camera.sensor_size().1 as usize,
             read_filename.map(|x| x.as_str()),
         )?;
+        Ok(img)
+    }
+
+    //mp get_read_image
+    pub fn get_read_image(&self, n: usize) -> ic_base::Result<ImageRgb8> {
+        let Some(read_filename) = self.read_img.get(n) else {
+            return Err(format!("Required at least {} read images to be specified", n + 1).into());
+        };
+        let img = ImageRgb8::read_image(read_filename)?;
         Ok(img)
     }
 }

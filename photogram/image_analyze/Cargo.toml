@@ -15,6 +15,7 @@ repository.workspace = true
 [dependencies]
 nalgebra.workspace = true
 plotters.workspace = true
+thunderclap.workspace = true
 
 bytemuck.workspace = true
 wgpu.workspace = true
