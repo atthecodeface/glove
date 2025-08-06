@@ -1,5 +1,5 @@
 [package]
-name = "image_analyze_bin"
+name = "image_calibrate"
 edition.workspace = true
 version.workspace = true
 description.workspace = true

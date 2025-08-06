@@ -433,7 +433,7 @@ impl std::iter::Iterator for ModelLineSubtendedSurfaceIter {
 #[derive(Debug)]
 pub struct ModelLineSet<C>
 where
-    C: CameraPtMapping + Clone + Sized,
+    C: CameraPtMapping + Sized,
 {
     camera: C,
 
@@ -447,11 +447,10 @@ where
 
 impl<C> ModelLineSet<C>
 where
-    C: CameraPtMapping + Clone + Sized,
+    C: CameraPtMapping + Sized,
 {
     //cp new
-    pub fn new(camera: &C) -> Self {
-        let camera = camera.clone();
+    pub fn new(camera: C) -> Self {
         Self {
             camera,
             model_cog: Point3D::zero(),

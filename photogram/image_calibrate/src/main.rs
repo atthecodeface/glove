@@ -1,20 +1,17 @@
 //a Imports
-use std::cell::Ref;
 use std::collections::HashMap;
 
-use clap::{Arg, ArgAction, Command};
+use clap::Command;
 
-use thunderclap::{CommandArgs, CommandBuilder};
+use thunderclap::CommandBuilder;
 
-use ic_base::{json, Ray, Result};
-use ic_camera::{CameraDatabase, CameraProjection};
-use ic_cmdline as cmdline_args;
+use ic_base::{Ray, Result};
+use ic_camera::CameraProjection;
 use ic_image::{Color, Image, Patch, Region};
 use ic_mapping::{
     CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet, NamedPointSet,
     PointMappingSet,
 };
-use ic_project::Project;
 
 //a Help
 //hi IMAGE_LONG_HELP
@@ -135,95 +132,167 @@ model-space points from the ray intersections.";
 const PROJECT_LONG_HELP: &str = "\
 Project help";
 
+//a Stuff
+use ic_cmdline::{CmdArgs, CmdResult};
+
 //a Images
 //fi image_cmd
 fn image_cmd() -> CommandBuilder<CmdArgs> {
-    let cmd = Command::new("image")
+    let command = Command::new("image")
         .about("Read image and draw crosses on named and mapped points")
         .long_about(IMAGE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(image_fn)));
     CmdArgs::add_arg_pms(&mut build);
-    ic_cmdline::camera::add_arg_camera(
-        &mut build,
-        CmdArgs::get_cdb,
-        CmdArgs::set_camera,
-        CmdArgs::camera_mut,
-        false,
-    );
-    ic_cmdline::image::add_arg_read_img(&mut build, CmdArgs::set_read_img, false, Some(1));
-    ic_cmdline::image::add_arg_write_img(&mut build, CmdArgs::set_write_img, false);
-    let cmd = cmdline_args::image::add_color_arg(
-        cmd,
-        "pms_color",
-        "Color for original PMS frame crosses",
-        false,
-    );
-    let cmd = cmdline_args::image::add_color_arg(
-        cmd,
-        "model_color",
-        "Color for mapped model crosses",
-        false,
-    );
-
+    CmdArgs::add_arg_camera(&mut build, false);
+    CmdArgs::add_arg_read_image(&mut build, Some(1_usize).into()); // 0 or 1 in  alist
+    CmdArgs::add_arg_write_image(&mut build, true);
+    CmdArgs::add_arg_pms_color(&mut build);
+    CmdArgs::add_arg_model_color(&mut build);
     build
 }
 
 //fi image_fn
 fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    //cb Reset the camera position and orientation, defensively
-    let mut img = cmdline_args::image::get_image_read_or_create(matches, &camera)?;
+    let pms_color = cmd_args.pms_color();
+    let model_color = cmd_args.model_color();
+    let use_nps_colors = cmd_args.pms_color().is_none() && cmd_args.model_color().is_none();
 
-    let use_nps_colors = cmd_args.pms_color.is_none() && cmd_args.model_color.is_none();
+    let write_filename = cmd_args.write_img().unwrap();
 
-    let mappings = cmd_args.pms.mappings();
+    let mut img = cmd_args.get_image_read_or_create()?;
 
-    let write_filename = cmdline_args::image::get_opt_image_write_filename(matches)?.unwrap();
-    if cmd_args.pms_color.is_some() || use_nps_colors {
-        for m in mappings {
-            let c = cmd_args.pms_color.as_ref().unwrap_or(m.model.color());
-            img.draw_cross(m.screen(), m.error(), c);
-        }
+    let c = [255, 255, 255, 255].into();
+    let cn = [255, 190, 190, 255].into();
+    let camera = cmd_args.camera();
+    for i in 0_usize..200 {
+        let xyz = (i as f64) * 1.0;
+        let sz = {
+            if i.is_multiple_of(10) {
+                3.0
+            } else if i.is_multiple_of(5) {
+                2.0
+            } else {
+                1.0
+            }
+        };
+        let mapped = camera.map_model([xyz, 0., 0.].into());
+        img.draw_cross(mapped, sz, &c);
+        let mapped = camera.map_model([0., xyz, 0.].into());
+        img.draw_cross(mapped, sz, &c);
+        let mapped = camera.map_model([0., 0., xyz].into());
+        img.draw_cross(mapped, sz, &c);
+
+        let mapped = camera.map_model([-xyz, 0., 0.].into());
+        img.draw_cross(mapped, sz, &cn);
+        let mapped = camera.map_model([0., -xyz, 0.].into());
+        img.draw_cross(mapped, sz, &cn);
+        let mapped = camera.map_model([0., 0., -xyz].into());
+        img.draw_cross(mapped, sz, &cn);
     }
-    if cmd_args.model_color.is_some() || use_nps_colors {
-        for (_name, p) in base_args.nps().iter() {
-            let c = cmd_args.model_color.as_ref().unwrap_or(p.color());
-            let mapped = cmd_args.camera.map_model(p.model().0);
+
+    if pms_color.is_some() || use_nps_colors {
+        cmd_args.pms_map(|pms| {
+            let mappings = pms.mappings();
+            for m in mappings {
+                let c = pms_color.unwrap_or(m.model.color());
+                img.draw_cross(m.screen(), m.error(), c);
+            }
+            Ok(())
+        })?;
+    }
+    if model_color.is_some() || use_nps_colors {
+        let camera = cmd_args.camera();
+        let nps = cmd_args.nps();
+        for (_name, p) in nps.iter() {
+            let c = model_color.unwrap_or(p.color());
+            let xyz = p.model().0;
+            let n = ((xyz[2] * 2.0).abs().floor() as usize);
+            let dz = xyz[2].signum() / 2.0;
+            for z in 0..n {
+                let sz = {
+                    if z.is_multiple_of(10) {
+                        3.0
+                    } else if z.is_multiple_of(5) {
+                        2.0
+                    } else {
+                        1.0
+                    }
+                };
+                let xyz = [xyz[0], xyz[1], (z as f64) * dz];
+                let mapped = camera.map_model(xyz.into());
+                img.draw_cross(mapped, sz, c);
+            }
+            if xyz[0].abs() < xyz[1].abs() {
+                let n = ((xyz[0] * 2.0).abs().floor() as usize);
+                let dx = xyz[0].signum() / 2.0;
+                for x in 0..n {
+                    let sz = {
+                        if x.is_multiple_of(10) {
+                            3.0
+                        } else if x.is_multiple_of(5) {
+                            2.0
+                        } else {
+                            1.0
+                        }
+                    };
+                    let xyz = [(x as f64) * dx, xyz[1], 0.];
+                    let mapped = camera.map_model(xyz.into());
+                    img.draw_cross(mapped, sz, c);
+                }
+            } else {
+                let n = ((xyz[1] * 2.0).abs().floor() as usize);
+                let dy = xyz[1].signum() / 2.0;
+                for y in 0..n {
+                    let sz = {
+                        if y.is_multiple_of(10) {
+                            3.0
+                        } else if y.is_multiple_of(5) {
+                            2.0
+                        } else {
+                            1.0
+                        }
+                    };
+                    let xyz = [xyz[0], (y as f64) * dy, 0.];
+                    let mapped = camera.map_model(xyz.into());
+                    img.draw_cross(mapped, sz, c);
+                }
+            }
+            let mapped = camera.map_model(xyz);
             img.draw_cross(mapped, 5.0, c);
         }
     }
-    img.write(write_filename)
+    img.write(write_filename)?;
+    Ok("".into())
 }
 
 //fi image_patch_cmd
-fn image_patch_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("image_patch")
+fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("image_patch")
         .about("Extract a patch from an image")
         .long_about(IMAGE_PATCH_LONG_HELP);
-    let cmd = cmdline_args::project::add_cip_arg(cmd, false);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(image_patch_fn)));
+
     // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
-    let cmd = cmdline_args::image::add_image_read_arg(cmd, false);
-    let cmd = cmdline_args::image::add_image_write_arg(cmd, true);
-    let cmd = cmd.arg(
-        Arg::new("np")
-            .required(true)
-            .help("Specifies named points for the patch")
-            .action(ArgAction::Append),
-    );
-    (cmd, image_patch_fn)
+    CmdArgs::add_arg_cip(&mut build, false);
+    CmdArgs::add_arg_read_image(&mut build, 1_usize.into());
+    CmdArgs::add_arg_write_image(&mut build, true);
+    CmdArgs::add_arg_named_point(&mut build, (3,).into());
+    build
 }
 
 //fi image_patch_fn
-fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
-    let cip = cip.borrow();
+fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.nps();
+    let cip = cmd_args.cip().borrow();
     let camera = cip.camera_ref();
-    let src_img = cmdline_args::image::get_image_read(matches)?;
-    let write_filename = cmdline_args::image::get_opt_image_write_filename(matches)?.unwrap();
+    let src_img = cmd_args.get_image_read_or_create()?;
+    let write_filename = cmd_args.write_img().unwrap();
 
     let mut model_pts = vec![];
-    for name in matches.get_many::<String>("np").unwrap() {
-        if let Some(n) = base_args.project.nps().borrow().get_pt(name) {
+    for name in cmd_args.np_names() {
+        if let Some(n) = nps.get_pt(name) {
             let model = n.model().0;
             model_pts.push((name, model, camera.map_model(model)))
         } else {
@@ -246,58 +315,63 @@ fn image_patch_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()>
     if let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))? {
         patch.img().write(write_filename)?;
     }
-    Ok(())
+    Ok("".into())
 }
 
 //a Interrogate (show_mappings etc)
 //fi show_mappings_cmd
-fn show_mappings_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("show_mappings")
+fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("show_mappings")
         .about("Show the total and worst error for a point mapping set");
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, show_mappings_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(show_mappings_fn)));
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+    build
 }
 
 //fi show_mappings_fn
-fn show_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
-
+fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.pms();
+    let nps = cmd_args.nps();
+    let camera = cmd_args.camera();
     let mappings = pms.mappings();
 
     let te = camera.total_error(mappings);
     let we = camera.worst_error(mappings);
     camera.show_mappings(mappings);
-    camera.show_point_set(&base_args.nps());
+    camera.show_point_set(&nps);
     println!("WE {we:.2} TE {te:.2}");
 
-    Ok(())
+    Ok("".into())
 }
 
 //a Get point mappings
 //fi get_point_mappings_cmd
-fn get_point_mappings_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("get_point_mappings")
+fn get_point_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("get_point_mappings")
         .about("Read image and find regions")
         .long_about(GET_POINT_MAPPINGS_LONG_HELP);
-    let cmd = cmdline_args::image::add_image_read_arg(cmd, true);
-    let cmd = cmdline_args::image::add_bg_color_arg(cmd, false);
-    (cmd, get_point_mappings_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(get_point_mappings_fn)));
+    CmdArgs::add_arg_read_image(&mut build, true.into());
+    CmdArgs::add_arg_bg_color(&mut build);
+    build
 }
 
 //fi get_point_mappings_fn
-fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let img = cmdline_args::image::get_image_read(matches)?;
-    let bg_color = cmdline_args::image::get_opt_bg_color(matches)?;
-    let bg_color = bg_color.unwrap_or(Color::black());
+fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.nps();
+    let img = cmd_args.get_image_read_or_create()?;
+    let bg_color = cmd_args.bg_color().copied().unwrap_or(Color::black());
+
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color), &|c0, c1| {
         (c0.brightness() - c1.brightness()).abs() < 0.1
     });
     let mut pms = PointMappingSet::default();
     for r in regions {
         let c = r.color();
-        let np = base_args.nps().of_color(&c);
+        let np = nps.of_color(&c);
         if np.is_empty() {
             eprintln!("No named point with color {c} @ {:?}", r.cog());
         } else if np.len() > 1 {
@@ -311,117 +385,153 @@ fn get_point_mappings_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Res
             let screen = r.cog();
             let screen = [screen.0, screen.1].into();
             let error = r.spread();
-            pms.add_mapping(&base_args.nps(), np[0].name(), &screen, error);
+            pms.add_mapping(&nps, np[0].name(), &screen, error);
         }
     }
     println!("{}", serde_json::to_string_pretty(&pms).unwrap());
-    if base_args.verbose {
+    cmd_args.if_verbose(|| {
         eprintln!("Exported {} mappings", pms.mappings().len());
-    }
-    Ok(())
+    });
+    Ok("".into())
 }
 
 //a Locate
 //fi locate_cmd
-fn locate_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("locate")
+fn locate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate")
         .about("Find location and orientation for a camera to map points to model");
-    let cmd = cmdline_args::project::add_cip_arg(cmd, false);
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, false);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, locate_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
+    CmdArgs::add_arg_cip(&mut build, false.into());
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+    CmdArgs::add_arg_write_camera(&mut build);
+    build
 }
 
 //fi locate_fn
-fn locate_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let cip = cmdline_args::project::get_cip(matches, base_args.project())?;
-    let cip = cip.borrow();
-    let mut camera = cip.camera_ref().clone();
-    let pms = cip.pms_ref();
-    let mappings = pms.mappings();
-
-    let mut mls = ModelLineSet::new(&camera);
-    for (i, j) in pms.get_good_screen_pairs(&|_f| true) {
-        mls.add_line((&mappings[i], &mappings[j]));
+fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let mut mls = ModelLineSet::new(cmd_args.camera().clone());
+    cmd_args.pms_map(|pms| {
+        let mappings = pms.mappings();
+        let n = pms.mappings().len();
+        if n < 3 {
+            Err(format!("Required at least 3 mapped points, but found {n}",).into())
+        } else if n < 6 {
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    mls.add_line((&mappings[i], &mappings[j]));
+                }
+            }
+            Ok(())
+        } else {
+            for (i, j) in pms.get_good_screen_pairs(&|_f| true) {
+                mls.add_line((&mappings[i], &mappings[j]));
+            }
+            Ok(())
+        }
+    })?;
+    if mls.num_lines() < 2 {
+        return Err(format!(
+            "Required at least 2 good screen pairs, but found {}",
+            mls.num_lines()
+        )
+        .into());
     }
-    let (location, _err) = mls.find_best_min_err_location(&|_| true, 100, 500);
+    cmd_args.if_verbose(|| {
+        eprintln!("Using {} model lines", mls.num_lines());
+    });
+    // let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);
+    let (location, err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
 
-    camera.set_position(location);
-    println!("{}", serde_json::to_string_pretty(&camera).unwrap());
-    Ok(())
+    cmd_args.camera_mut().set_position(location);
+    cmd_args.if_verbose(|| {
+        eprintln!("{}", cmd_args.camera());
+    });
+    cmd_args.write_outputs();
+    cmd_args.output_camera()
 }
 
 //a orient / reorient
 //fi orient_cmd
-fn orient_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("orient")
+fn orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("orient")
         .about("Set the orientation for a camera using weighted average of pairs of point mappings")
         .long_about(ORIENT_LONG_HELP);
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, orient_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
+    CmdArgs::add_arg_cip(&mut build, false.into());
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+    CmdArgs::add_arg_write_camera(&mut build);
+    build
 }
 
 //fi orient_fn
-fn orient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
-    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
+fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let mut camera = cmd_args.camera().clone();
+    cmd_args.pms_map(|pms| {
+        camera.orient_using_rays_from_model(pms.mappings());
+        Ok(())
+    })?;
 
-    camera.orient_using_rays_from_model(pms.mappings());
+    cmd_args.camera_mut().set_orientation(camera.orientation());
 
-    println!("{}", serde_json::to_string_pretty(&camera).unwrap());
-    Ok(())
+    cmd_args.if_verbose(|| {
+        eprintln!("{}", cmd_args.camera());
+    });
+    cmd_args.write_outputs();
+    cmd_args.output_camera()
 }
 
 //fi reorient_cmd
-fn reorient_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("reorient")
+fn reorient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("reorient")
         .about("Improve orientation for a camera to map points to model")
         .long_about(REORIENT_LONG_HELP);
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, reorient_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(reorient_fn)));
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, true); // required=true
+    build
 }
 
 //fi reorient_fn
-fn reorient_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
-    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
+fn reorient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.pms();
+    let mut camera = cmd_args.camera().clone();
+
     camera.reorient_using_rays_from_model(pms.mappings());
+    *cmd_args.camera_mut() = camera;
+    let camera = cmd_args.camera();
 
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
-    Ok(())
+    Ok("".into())
 }
 
 //a CombineFrom
 //fi combine_rays_from_model_cmd
-fn combine_rays_from_model_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("combine_rays_from_model")
+fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("combine_rays_from_model")
         .about("Combine rays from a model")
         .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    let cmd = cmd.arg(
-        Arg::new("rays")
-            .required(true)
-            .long("rays")
-            .help("Model ray JSON file")
-            .action(ArgAction::Append),
-    );
-    (cmd, combine_rays_from_model_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_model_fn)));
+    CmdArgs::add_arg_camera(&mut build, false); // required=true
+    CmdArgs::add_arg_ray_file(&mut build, (1,).into());
+    build
 }
 
 //fi combine_rays_from_model_fn
-fn combine_rays_from_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let mut camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
-    let ray_filename = matches.get_one::<String>("rays").unwrap();
+fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.nps();
+    let named_rays = cmd_args.named_rays();
 
-    let r_json = json::read_file(ray_filename)?;
-    let named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
     let mut names = Vec::new();
     let mut ray_list = Vec::new();
     for (name, ray) in named_rays {
         names.push(name);
-        ray_list.push(ray);
+        ray_list.push(*ray);
     }
     if ray_list.len() <= 1 {
         return Err(format!(
@@ -437,54 +547,49 @@ fn combine_rays_from_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -
     let mut tot_d_sq = 0.0;
     for (_name, ray) in names.iter().zip(ray_list.iter()) {
         let (_k, d_sq) = ray.distances(&position);
-        if base_args.verbose {
+        cmd_args.if_verbose(|| {
             eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
-        }
+        });
         tot_d_sq += d_sq;
     }
+
+    drop(named_rays);
+    drop(nps);
     eprintln!("Total dsq {tot_d_sq}");
-    camera.set_position(position);
+
+    cmd_args.camera_mut().set_position(position);
+    let camera = cmd_args.camera();
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
-    Ok(())
+    Ok("".into())
 }
 
 //fi combine_rays_from_camera_cmd
-fn combine_rays_from_camera_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("combine_rays_from_camera")
-        .about("Combine rays from a camera")
-        .arg(
-            Arg::new("rays")
-                .required(true)
-                .help("Ray JSON files to be combined")
-                .action(ArgAction::Append),
-        );
-    (cmd, combine_rays_from_camera_fn)
+fn combine_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("combine_rays_from_camera").about("Combine rays from a camera");
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_camera_fn)));
+    CmdArgs::add_arg_ray_file(&mut build, (1,).into());
+
+    build
 }
 
 //fi combine_rays_from_camera_fn
-fn combine_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let ray_filenames: Vec<String> = matches
-        .get_many::<String>("rays")
-        .unwrap()
-        .map(|v| v.into())
-        .collect();
+fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.nps();
+    let named_rays = cmd_args.named_rays();
 
     let mut named_point_rays = HashMap::new();
-    for r in ray_filenames {
-        let r_json = json::read_file(r)?;
-        let rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
-        for (name, ray) in rays {
-            if base_args.nps().get_pt(&name).is_none() {
-                eprintln!(
-                    "Warning: failed to find point name '{}' in named point set",
-                    &name
-                );
-            } else {
-                if !named_point_rays.contains_key(&name) {
-                    named_point_rays.insert(name.clone(), Vec::new());
-                }
-                named_point_rays.get_mut(&name).unwrap().push(ray);
+    for (name, ray) in named_rays {
+        if nps.get_pt(&name).is_none() {
+            eprintln!(
+                "Warning: failed to find point name '{}' in named point set",
+                &name
+            );
+        } else {
+            if !named_point_rays.contains_key(name) {
+                named_point_rays.insert(name.to_owned(), Vec::new());
             }
+            named_point_rays.get_mut(name).unwrap().push(*ray);
         }
     }
 
@@ -498,77 +603,95 @@ fn combine_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) 
         }
     }
 
-    Ok(())
+    Ok("".into())
 }
 
 //a Create Rays
 //fi create_rays_from_model_cmd
-fn create_rays_from_model_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("create_rays_from_model")
+fn create_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("create_rays_from_model")
         .about("Create rays for a given located camera and its mappings")
         .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, create_rays_from_model_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_from_model_fn)));
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+
+    build
 }
 
 //fi create_rays_from_model_fn
-fn create_rays_from_model_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
+fn create_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.pms();
+    let camera = cmd_args.camera();
+
     let mappings = pms.mappings();
 
     let named_rays = camera.get_rays(mappings, false);
 
-    if base_args.verbose {
+    cmd_args.if_verbose(|| {
         for (n, r) in &named_rays {
             let end = r.start + r.direction * 400.0;
             eprintln!("{n} {end}");
         }
-    }
+    });
 
     println!("{}", serde_json::to_string_pretty(&named_rays).unwrap());
-    Ok(())
+    Ok("".into())
 }
 
 //fi create_rays_from_camera_cmd
-fn create_rays_from_camera_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("create_rays_from_camera")
+fn create_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("create_rays_from_camera")
         .about("Create rays for a given located camera and its mappings");
-    let cmd = cmdline_args::mapping::add_pms_arg(cmd, true);
-    let cmd = cmd.arg(cmdline_args::camera::camera_arg(true));
-    (cmd, create_rays_from_camera_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_from_camera_fn)));
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+
+    build
 }
 
 //fi create_rays_from_camera_fn
-fn create_rays_from_camera_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let pms = cmdline_args::mapping::get_pms(matches, &base_args.nps())?;
-    let camera = cmdline_args::camera::get_camera(matches, base_args.project())?;
+fn create_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.pms();
+    let camera = cmd_args.camera();
+
     let mappings = pms.mappings();
 
     println!(
         "{}",
         serde_json::to_string_pretty(&camera.get_rays(mappings, true)).unwrap()
     );
-    Ok(())
+    Ok("".into())
 }
 
 //a Get model points
 //fi get_model_points_cmd
-fn get_model_points_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("get_model_points")
+fn get_model_points_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("get_model_points")
         .about("Get model points from camera and pms")
         .long_about(GET_MODEL_POINTS_LONG_HELP);
-    let cmd = cmdline_args::mapping::add_camera_pms_arg(cmd); // positional
-    (cmd, get_model_points_fn)
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(get_model_points_fn)));
+    CmdArgs::add_arg_pms(&mut build); // used to be positional
+
+    build
 }
 
 //fi get_model_points_fn
-fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Result<()> {
-    let camera_pms =
-        cmdline_args::mapping::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
+fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    // let pms = cmd_args.pms();
+    let nps = cmd_args.nps();
+
+    //
+    let camera_pms: Vec<(ic_camera::CameraInstance, PointMappingSet)> = vec![]; //
+
+    // was camera JSON, PMS json pairs
+    // cmdline_args::mapping::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
+
     let mut result_nps = NamedPointSet::default();
-    for (name, np) in base_args.nps().iter() {
+    for (name, np) in nps.iter() {
         let mut ray_list = Vec::new();
         for (camera, pms) in camera_pms.iter() {
             if let Some(pm) = pms.mapping_of_np(np) {
@@ -582,61 +705,64 @@ fn get_model_points_fn(base_args: BaseArgs, matches: &clap::ArgMatches) -> Resul
                     .iter()
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
                 result_nps.add_pt(name, *np.color(), Some(pt), e_sq.sqrt());
-                if base_args.verbose {
+                cmd_args.if_verbose(|| {
                     for r in ray_list {
                         eprintln!("Ray to {name} {:?}", r.distances(&pt));
                     }
-                }
+                });
             }
         }
     }
     println!("{}", serde_json::to_string_pretty(&result_nps).unwrap());
-    Ok(())
+    Ok("".into())
 }
 
 //a Project as a whole
 //fi project_cmd
-fn project_cmd() -> (Command, SubCmdFn) {
-    let cmd = Command::new("project")
+fn project_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("project")
         .about("Get model points from camera and pms")
         .long_about(PROJECT_LONG_HELP);
-    // let cmd = cmdline_args::project::add_project_arg(cmd, true);
-    (cmd, project_fn)
+
+    CommandBuilder::new(command, Some(Box::new(project_fn)))
 }
 
 //fi project_fn
-fn project_fn(base_args: BaseArgs, _matches: &clap::ArgMatches) -> Result<()> {
-    let camera = base_args.project.cip(0).borrow().camera().clone();
+fn project_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let camera = cmd_args.project().cip(0).borrow().camera().clone();
+
     eprintln!("Camera {camera:?}");
     eprintln!("Mapping {}", camera.borrow().map_model([0., 0., 0.].into()));
     println!(
         "{}",
-        serde_json::to_string_pretty(base_args.project()).unwrap()
+        serde_json::to_string_pretty(cmd_args.project()).unwrap()
     );
-    Ok(())
+    Ok("".into())
 }
 
 //a Main
 //fi main
 fn main() -> Result<()> {
-    let cmd = Command::new("image_calibrate")
+    let command = Command::new("image_calibrate")
         .about("Image calibration tool")
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, None);
-    // build.set_arg_reset(Box::new(CmdArgs::reset_args));
-    ic_cmdline::add_arg_verbose(&mut build, CmdArgs::set_verbose);
-    ic_cmdline::camera::add_arg_camera_database(&mut build, CmdArgs::set_cdb, false);
 
-    let cmd = cmdline_args::project::add_project_arg(cmd, false);
-    let cmd = cmdline_args::mapping::add_nps_arg(cmd, false);
-    // let cmd = cmd.arg(cmdline_args::camera::camera_database_arg(false));
-    // let cmd = cmdline_args::add_verbose_arg(cmd);
+    // build.set_arg_reset(Box::new(CmdArgs::reset_args));
+
+    CmdArgs::add_arg_verbose(&mut build);
+
+    // project must come first, as nps would *add* to it
+    CmdArgs::add_arg_project(&mut build, false);
+
+    CmdArgs::add_arg_nps(&mut build);
+    CmdArgs::add_arg_camera_database(&mut build, false);
 
     build.add_subcommand(image_cmd());
     build.add_subcommand(image_patch_cmd());
     build.add_subcommand(show_mappings_cmd());
-    build.add_subcommand(get_point_mapping_cmd());
+    build.add_subcommand(get_point_mappings_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(reorient_cmd());
@@ -646,8 +772,6 @@ fn main() -> Result<()> {
     build.add_subcommand(create_rays_from_camera_cmd());
     build.add_subcommand(get_model_points_cmd());
     build.add_subcommand(project_cmd());
-
-    let project = cmdline_args::project::get_project(&matches)?;
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);

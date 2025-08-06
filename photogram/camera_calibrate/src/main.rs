@@ -930,6 +930,7 @@ impl CmdArgs {
 
 //ip CmdArgs - Operations
 impl CmdArgs {
+    //mp setup
     fn setup(&self) -> (NamedPointSet, PointMappingSet) {
         let v = self.mapping.as_ref().unwrap().get_xyz_pairings();
         let mut nps = NamedPointSet::default();
@@ -1196,7 +1197,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     //cb Create ModelLineSet
-    let mut mls = ModelLineSet::new(&cmd_args.camera);
+    let mut mls = ModelLineSet::new(cmd_args.camera.clone());
 
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];

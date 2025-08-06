@@ -133,13 +133,11 @@ pub fn add_arg_camera<C, F, G, H>(
             set(args, camera)
         }),
     );
-    build.add_arg(use_body_arg(), Box::new(move |_, _| Ok(())));
-    build.add_arg(use_lens_arg(), Box::new(move |_, _| Ok(())));
 
     let borrow_mut = bm.clone();
     let get_db = gd.clone();
     build.add_arg(
-        use_lens_arg(),
+        use_body_arg(),
         Box::new(move |args, matches| {
             let body = matches.get_one::<String>("use_body").unwrap();
             let body = get_db(args).get_body_err(body)?.clone();
@@ -257,8 +255,6 @@ where
             .required(required)
             .help("Camera calibration mapping JSON")
             .action(ArgAction::Set),
-        Box::new(move |args, matches| {
-            get_calibration_mapping(matches).and_then(|v| set(args, v))
-        }),
+        Box::new(move |args, matches| get_calibration_mapping(matches).and_then(|v| set(args, v))),
     );
 }

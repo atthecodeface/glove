@@ -3,7 +3,8 @@ Q = @
 QMAKE = ${Q} ${MAKE} Q=${Q}
 
 IMG_CAL = ${Q} ./target/release/image_calibrate
-ICAL_LOC = locate --steps=100
+ICAL_LOC = locate
+# --steps=100
 ICAL_ORIENT = orient
 ICAL_IMG = image --pms_color "\#ffff00" --model_color "\#00ffff"
 ICAL_RAYS_FROM_MODEL = create_rays_from_model
@@ -22,12 +23,13 @@ CAL_DIR = cal_output/
 LOCATE_STEPS = --steps 31
 LOCATE_SIZES = 100 50 10 5 1
 
-CAMERA_DB = --db ${DATA_DIR}camera_db.json
+CAMERA_DB = --camera_db ${DATA_DIR}camera_db.json
 NPS_JSON = ${DATA_DIR}nps_noughts_and_crosses.json
 NPS_BASE_JSON = ${DATA_DIR}nps_base.json
 NPS_ALL_JSON  = ${DATA_DIR}nps_all.json
 
-NPS = --nps ${NPS_JSON}
+NPS = --nps ${NPS_BASE_JSON}
+# --nps ${NPS_ALL_JSON}
 NPS_BASE = --nps ${NPS_BASE_JSON}
 NPS_ALL = --nps ${NPS_BASE_JSON} --nps ${NPS_ALL_JSON}
 NPS_GPM = --nps ${NPS_BASE_JSON} --nps ${OUTPUT_DIR}nps_gpm.json
@@ -282,11 +284,36 @@ build:
 test:
 	cargo test --release
 
+.PHONY: do_loc_or
+do_loc_or:
+	${MAKE} IMAGE=4v3a6040 locate
+	${MAKE} IMAGE=4v3a6040 orient
+
+	${MAKE} IMAGE=4v3a6041 locate
+	${MAKE} IMAGE=4v3a6041 orient
+
+	${MAKE} IMAGE=4v3a6042 locate
+	${MAKE} IMAGE=4v3a6042 orient
+
 .PHONY: locate
 locate: located_${IMAGE}.json
 
-located_${IMAGE}.json: ${IMG_CAL} pms_nac_${IMAGE}_training.json camera_nac_${IMAGE}.json ${NPS_JSON}
-	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_LOC}  --pms pms_nac_${IMAGE}_training.json --camera camera_nac_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${IMAGE}.png > $@
+.PHONY: orient
+orient: oriented_${IMAGE}.json
+
+# Use the training PMS to generate a location and orientation, using nps_base
+#
+# 
+located_${IMAGE}.json: ${IMG_CAL} nac/pms_all_${IMAGE}.json nac/camera_nac_${IMAGE}.json
+	${IMG_CAL} -v ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC}  --pms nac/pms_all_${IMAGE}.json --camera nac/camera_nac_${IMAGE}.json --write_camera $@
+oriented_${IMAGE}.json: ${IMG_CAL} nac/pms_all_${IMAGE}.json located_${IMAGE}.json
+	${IMG_CAL} -v ${CAMERA_DB} ${NPS_BASE} ${ICAL_ORIENT}  --pms nac/pms_all_${IMAGE}.json --camera located_${IMAGE}.json --write_camera $@
+	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} ${ICAL_IMG} --camera $@ --pms nac/pms_all_${IMAGE}.json --read ${IMAGE_DIR}/${IMAGE}.JPG --write ${IMAGE}.png
+
+.PHONY: xxx
+xxx:
+	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} get_model_points ${OUTPUT_DIR}${LOC_OR_ORIENT}_4v3a6040.json ${OUTPUT_DIR}pms_all_4v3a6040.json ${OUTPUT_DIR}${LOC_OR_ORIENT}_4v3a6041.json ${OUTPUT_DIR}pms_all_4v3a6041.json ${OUTPUT_DIR}${LOC_OR_ORIENT}_4v3a6042.json ${OUTPUT_DIR}pms_all_4v3a6042.json > ${OUTPUT_DIR}nps_gpm.json
+
 
 .PHONY: create_rays
 create_rays: ${IMAGE}_rays.json

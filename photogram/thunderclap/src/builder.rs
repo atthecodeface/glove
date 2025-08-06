@@ -91,11 +91,51 @@ pub enum ArgCount {
     #[default]
     Optional, // 0 or 1, not required, Set, num_args None
     Required,       // 1, required, Set, num_args None
-    Exactly(usize), // n > 1, required, Append, num args Some(n)
+    Exactly(usize), // n >= 1, required, Append, num args Some(n)
     Any,            // 0 to inf; not required, Append, num_args None
     Min(usize),     // n to inf, required, Append, num_args(n..)
     Max(usize),     // 0 to max, not required, Append, num_args(0..=n)
 }
+
+impl From<usize> for ArgCount {
+    #[track_caller]
+    fn from(n: usize) -> ArgCount {
+        assert!(n != 0, "Cannot require exactly 0 occurrences");
+        ArgCount::Exactly(n)
+    }
+}
+
+impl From<Option<usize>> for ArgCount {
+    #[track_caller]
+    fn from(opt_n: Option<usize>) -> ArgCount {
+        assert!(opt_n != Some(0), "Cannot require at most 0 occurrences");
+        match opt_n {
+            Some(n) => ArgCount::Max(n),
+            _ => ArgCount::Any,
+        }
+    }
+}
+
+impl From<(usize,)> for ArgCount {
+    #[track_caller]
+    fn from((min,): (usize,)) -> ArgCount {
+        match min {
+            0 => ArgCount::Any,
+            n => ArgCount::Min(n),
+        }
+    }
+}
+
+impl From<bool> for ArgCount {
+    fn from(required: bool) -> ArgCount {
+        if required {
+            ArgCount::Required
+        } else {
+            ArgCount::Optional
+        }
+    }
+}
+
 impl ArgCount {
     fn required(&self) -> bool {
         use ArgCount::*;
@@ -161,8 +201,10 @@ macro_rules! add_arg {
                 self.add_arg(
                     arg,
                     Box::new(move |args, matches| {
-                        let v = &*matches.get_one::<$t>(tag).unwrap();
-                        set(args, v)
+                        for v in matches.get_many::<$t>(tag).unwrap() {
+                            set(args, &*v)?
+                        }
+                        Ok(())
                     }),
                 );
             }
@@ -202,8 +244,10 @@ macro_rules! add_arg {
                 self.add_arg(
                     arg,
                     Box::new(move |args, matches| {
-                        let v = *matches.get_one::<$t>(tag).unwrap();
-                        set(args, v)
+                        for v in matches.get_many::<$t>(tag).unwrap() {
+                            set(args, *v)?
+                        }
+                        Ok(())
                     }),
                 );
             }

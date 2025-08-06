@@ -1,8 +1,10 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use geo_nd::Vector;
+use geo_nd::{quat, Quaternion, Vector};
 use serde::{Deserialize, Serialize};
+
+use crate::{Point3D, Quat};
 
 //a run_to_completion
 pub mod rtc {
@@ -128,4 +130,85 @@ where
         dp *= step_scale;
     }
     (moved, err, center)
+}
+
+//fi orientation_mapping_triangle
+/// Get q which maps model to camera
+///
+/// dc === quat::apply3(q, dm)
+pub fn orientation_mapping_triangle(
+    di_m: &[f64; 3],
+    dj_m: &[f64; 3],
+    dk_m: &[f64; 3],
+    di_c: &Point3D,
+    dj_c: &Point3D,
+    dk_c: &Point3D,
+) -> (Quat, f64) {
+    let qs = vec![
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(di_m, dj_m, di_c, dj_c).into(),
+        ),
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(di_m, dk_m, di_c, dk_c).into(),
+        ),
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(dj_m, dk_m, dj_c, dk_c).into(),
+        ),
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(dj_m, di_m, dj_c, di_c).into(),
+        ),
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(dk_m, di_m, dk_c, di_c).into(),
+        ),
+        (
+            1.0,
+            orientation_mapping_vpair_to_ppair(dk_m, dj_m, dk_c, dj_c).into(),
+        ),
+    ];
+    weighted_average_many_with_err(&qs)
+}
+
+//fi weighted_average_many_with_err
+pub fn weighted_average_many_with_err(w_qs: &[(f64, [f64; 4])]) -> (Quat, f64) {
+    let q_avg: Quat = quat::weighted_average_many(w_qs.iter().copied()).into();
+    let mut err = 0.0;
+    let q_c = q_avg.conjugate();
+    let n = w_qs.len();
+    for (_, q) in w_qs {
+        let q: Quat = (*q).into();
+        let q = q * q_c;
+        let r = q.as_rijk().0.abs();
+        err += 1.0 - r;
+    }
+    (q_avg, err / (n as f64))
+}
+
+//fp orientation_mapping_vpair_to_ppair
+pub fn orientation_mapping_vpair_to_ppair(
+    di_m: &[f64; 3],
+    dj_m: &[f64; 3],
+    di_c: &Point3D,
+    dj_c: &Point3D,
+) -> Quat {
+    let z_axis: Point3D = [0., 0., 1.].into();
+    let qi_c: Quat = quat::rotation_of_vec_to_vec(di_c.as_ref(), &z_axis.into()).into();
+    let qi_m: Quat = quat::rotation_of_vec_to_vec(di_m, &z_axis.into()).into();
+
+    let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
+    let dj_m_rotated: Point3D = quat::apply3(qi_m.as_ref(), dj_m).into();
+
+    let theta_dj_m = dj_m_rotated[0].atan2(dj_m_rotated[1]);
+    let theta_dj_c = dj_c_rotated[0].atan2(dj_c_rotated[1]);
+    let theta = theta_dj_m - theta_dj_c;
+    let theta_div_2 = theta / 2.0;
+    let cos_2theta = theta_div_2.cos();
+    let sin_2theta = theta_div_2.sin();
+    let q_z = Quat::of_rijk(cos_2theta, 0.0, 0.0, sin_2theta);
+
+    qi_c.conjugate() * q_z * qi_m
 }

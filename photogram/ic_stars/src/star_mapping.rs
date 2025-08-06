@@ -396,7 +396,7 @@ impl StarMapping {
         Ok(q_r)
     }
 
-    //mp find_orientation_from_triangles
+    //mp find_stars
     fn find_stars(
         &self,
         catalog: &Catalog,

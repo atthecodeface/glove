@@ -109,6 +109,12 @@ impl PointMapping {
         self.model.is_unmapped()
     }
 
+    //ap is_mapped
+    #[inline]
+    pub fn is_mapped(&self) -> bool {
+        !self.model.is_unmapped()
+    }
+
     //mp model
     #[inline]
     pub fn model(&self) -> Point3D {
@@ -311,12 +317,13 @@ impl PointMappingSet {
             .mappings
             .iter()
             .fold(Point2D::default(), |acc, m| acc + m.screen);
+
         let cog = cog / (self.mappings.len() as f64);
         let mut v: Vec<(usize, usize, f64, Point2D)> = self
             .mappings
             .iter()
             .enumerate()
-            .filter(|(_n, m)| !m.is_unmapped())
+            .filter(|(_n, m)| m.is_mapped())
             .filter(|(_n, m)| filter(m))
             .map(|(n, m)| {
                 let pxy = m.screen - cog;
@@ -324,6 +331,7 @@ impl PointMappingSet {
             })
             .collect();
         v.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap().reverse());
+
         let mut pairs: Vec<(usize, usize)> = vec![];
         let mut used_pairs: HashSet<(usize, usize)> = HashSet::default();
         for i in 0..v.len() {

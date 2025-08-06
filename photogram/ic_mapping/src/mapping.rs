@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 
-use ic_base::{Point2D, Point3D, Quat, Ray};
+use ic_base::{utils, Point2D, Point3D, Quat, Ray};
 use ic_camera::{CameraInstance, CameraProjection};
 
 use crate::{BestMapping, ModelLineSet, NamedPointSet, PointMapping, PointMappingSet};
@@ -257,22 +257,23 @@ impl CameraAdjustMapping for CameraInstance {
     //mp locate_using_model_lines
     fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64 {
         let f = |p: &PointMapping| p.model_error() <= max_np_error;
-        let mut mls = ModelLineSet::new(self);
+        let mut mls = ModelLineSet::new(self.clone());
         let mappings = pms.mappings();
         for (i, j) in pms.get_good_screen_pairs(&f) {
             mls.add_line((&mappings[i], &mappings[j]));
         }
-        let (location, err) = mls.find_best_min_err_location(&|_| true, 30, 500);
+        let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);
         self.set_position(location);
         err
     }
 
     //fp orient_using_rays_from_model
+    #[track_caller]
     fn orient_using_rays_from_model(&mut self, mappings: &[PointMapping]) -> f64 {
         let n = mappings.len();
-        assert!(n > 2);
+        assert!(n > 2, "To orient using rays, must have at least 3 mappings");
         let mut qs = vec![];
-        // eprintln!("Befpre orient {self:?}");
+
         for i in 0..n {
             let pm = &mappings[i];
             if pm.is_unmapped() {
@@ -280,10 +281,8 @@ impl CameraAdjustMapping for CameraInstance {
             }
             let screen_xy = pm.screen();
             let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
-            let di_c = camera_pm_txty.to_unit_vector();
-            let di_m = (self.position() - pm.model()).normalize();
-            let z_axis: Point3D = [0., 0., 1.].into();
-            let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
+            let di_c = -camera_pm_txty.to_unit_vector();
+            let di_m = (pm.model() - self.position()).normalize();
 
             for (j, pm) in mappings.iter().enumerate() {
                 if pm.is_unmapped() {
@@ -295,44 +294,62 @@ impl CameraAdjustMapping for CameraInstance {
 
                 let screen_xy = pm.screen();
                 let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
-                let dj_c = camera_pm_txty.to_unit_vector();
-                let dj_m = (self.position() - pm.model()).normalize();
+                let dj_c = -camera_pm_txty.to_unit_vector();
+                let dj_m = (pm.model() - self.position()).normalize();
 
-                let qi_m: Quat = quat::rotation_of_vec_to_vec(&di_m.into(), &z_axis.into()).into();
-                let dj_c_rotated: Point3D = quat::apply3(qi_c.as_ref(), dj_c.as_ref()).into();
-                let dj_m_rotated: Point3D = quat::apply3(qi_m.as_ref(), dj_m.as_ref()).into();
-
-                let theta_dj_m = dj_m_rotated[0].atan2(dj_m_rotated[1]);
-                let theta_dj_c = dj_c_rotated[0].atan2(dj_c_rotated[1]);
-                let theta = theta_dj_m - theta_dj_c;
-                let theta_div_2 = theta / 2.0;
-                let cos_2theta = theta_div_2.cos();
-                let sin_2theta = theta_div_2.sin();
-                let q_z = Quat::of_rijk(cos_2theta, 0.0, 0.0, sin_2theta);
-
-                // At this point, qi_m * di_m = (0,0,1)
-                //
-                // At this point, q_z.conj * qi_m * di_m = (0,0,1)
-                //                q_z.conj * qi_m * dj_m = dj_c_rotated
-                //
-                let q = qi_c.conjugate() * q_z * qi_m;
-
-                // dc_i === quat::apply3(q.as_ref(), di_m.as_ref()).into();
-                // dc_j === quat::apply3(q.as_ref(), dj_m.as_ref()).into();
-                // eprintln!("{di_c} ==? {:?}", quat::apply3(q.as_ref(), di_m.as_ref()));
-                // eprintln!("{dj_c} ==? {:?}", quat::apply3(q.as_ref(), dj_m.as_ref()));
-                self.set_orientation(q);
-                // let _te = self.total_error(mappings);
-                // eprintln!("total error {_te} : {q} :\n   {self}");
-
-                qs.push((1., q.into()));
+                qs.push((
+                    1.0,
+                    utils::orientation_mapping_vpair_to_ppair(
+                        di_m.as_ref(),
+                        dj_m.as_ref(),
+                        &di_c,
+                        &dj_c,
+                    )
+                    .into(),
+                ));
             }
         }
 
-        let qr = quat::weighted_average_many(qs.into_iter()).into();
+        let (qr, e) = utils::weighted_average_many_with_err(&qs);
+
+        let di_c: Point3D = [0., 0., 1.].into();
+        let di_m = quat::apply3(&quat::conjugate(qr.as_ref()), &[0., 0., 1.]);
+
+        let qr_c = qr.conjugate();
+
+        for j in 0..n {
+            let pm = &mappings[j];
+            if pm.is_unmapped() {
+                continue;
+            }
+            let screen_xy = pm.screen();
+            let camera_pm_txty = self.px_abs_xy_to_camera_txty(screen_xy);
+            let dj_c = -camera_pm_txty.to_unit_vector();
+            let dj_m = (pm.model() - self.position()).normalize();
+            let qd = utils::orientation_mapping_vpair_to_ppair(dj_m.as_ref(), &di_m, &dj_c, &di_c);
+            let q = qr_c * qd;
+            let r = q.as_rijk().0.abs();
+            let err2 = {
+                if r < 1.0 {
+                    1.0 - r
+                } else {
+                    0.0
+                }
+            };
+            eprintln!("{j} {err2:.4e} {}", pm.name());
+        }
+
         self.set_orientation(qr);
+        for j in 0..n {
+            let pm = &mappings[j];
+            if pm.is_unmapped() {
+                continue;
+            }
+            let mapped_pxy = self.world_xyz_to_px_abs_xy(pm.model());
+            eprintln!("{j} {mapped_pxy} {}", pm.screen());
+        }
         let te = self.total_error(mappings);
-        eprintln!("total error {te} QR: {qr}");
+        eprintln!("Error in qr's {e} total error {te} QR: {qr}");
         te
     }
 

@@ -183,10 +183,10 @@ impl std::fmt::Display for CameraInstance {
             self.mm_focus_distance,
         )?;
 
-        let dxyz = quat::apply3(&quat::conjugate(self.orientation.as_ref()), &[0., 0., 1.]);
+        let dxyz = quat::apply3(&quat::conjugate(self.orientation.as_ref()), &[0., 0., -1.]);
         write!(
             fmt,
-            "   @[{:.2},{:.2},{:.2}] in dir [{:.3e},{:.3e},{:.3e}]",
+            "   @[{:.2},{:.2},{:.2}] in dir [{:0.4},{:0.4},{:0.4}]",
             self.position[0], self.position[1], self.position[2], dxyz[0], dxyz[1], dxyz[2],
         )
     }

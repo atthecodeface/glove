@@ -113,14 +113,25 @@ impl Project {
     }
 
     //mp set_cdb
-    /// Set the CameraDatabase for the [Project]
-    pub fn set_cdb(&mut self, cdb: Rrc<CameraDatabase>) {
-        self.cdb = cdb;
+    #[track_caller]
+    pub fn set_cdb(&self, cdb: CameraDatabase) {
+        assert_eq!(
+            self.ncips(),
+            0,
+            "Project must have no CIPS to set the camera database"
+        );
+        *self.cdb.borrow_mut() = cdb;
     }
 
     //mp set_nps
     /// Set the NamedPointSet for the [Project]
+    #[track_caller]
     pub fn set_nps(&mut self, nps: Rrc<NamedPointSet>) {
+        assert_eq!(
+            self.ncips(),
+            0,
+            "Project must have no CIPS to *set* the NPS"
+        );
         self.nps = nps;
     }
 
