@@ -1,19 +1,23 @@
-//a Modules
+//a Imports
 use std::cell::Ref;
 use std::io::Write;
 use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
+use star_catalog::{Catalog, StarFilter};
 use thunderclap::{ArgCount, CommandArgs, CommandBuilder};
 
 use ic_base::{json, Ray, Rrc};
+use ic_base::{Error, Result};
 use ic_camera::CameraInstance;
-use ic_camera::{CameraDatabase, CameraProjection, LensPolys};
+use ic_camera::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
 use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{CameraPtMapping, PointMapping};
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
+use ic_stars::StarMapping;
 
+//a Modules
 pub mod camera;
 pub mod file_system;
 pub mod image;
@@ -21,8 +25,6 @@ pub mod kernels;
 pub mod mapping;
 pub mod project;
 pub mod threads;
-
-use ic_base::{Error, Result};
 
 //a CmdResult
 pub type CmdResult = std::result::Result<String, ic_base::Error>;
@@ -39,28 +41,40 @@ pub struct CmdArgs {
 
     project: Project,
 
-    cips: Vec<Rrc<Cip>>,
+    // Camera database that is part of the project
+    cdb: Rrc<CameraDatabase>,
 
-    // Change to Rrc
+    // nps that is part of the project
     nps: Rrc<NamedPointSet>,
-    // Change to Rrc
+
+    // pms that is part of the project
     pms: Rrc<PointMappingSet>,
-    // Keep
+
+    // CIP that is part of the project
+    cip: Rrc<Cip>,
+
+    // camera is a *specific* camera, not part of a CIP or project
     camera: CameraInstance,
 
+    calibration_mapping: Option<CalibrationMapping>,
+
+    star_catalog: Option<Box<Catalog>>,
+    star_mapping: StarMapping,
+
+    read_img: Vec<String>,
+
     write_camera: Option<String>,
-    write_mapping: Option<String>,
+    write_calibration_mapping: Option<String>,
     write_star_mapping: Option<String>,
     write_polys: Option<String>,
-    read_img: Vec<String>,
     write_img: Option<String>,
     write_svg: Option<String>,
 
     bg_color: Option<Color>,
     pms_color: Option<Color>,
     model_color: Option<Color>,
+
     np: Vec<String>, // could be name, 3D, pixel XY (from camera mapping of 3D); might need at least 3
-    cip: Rrc<Cip>,
 
     named_rays: Vec<(String, Ray)>,
 
@@ -71,12 +85,37 @@ pub struct CmdArgs {
     px: usize,
     py: usize,
     flags: usize,
+    use_deltas: bool,
+    use_pts: usize,
+    yaw_min: f64,
+    yaw_max: f64,
+    poly_degree: usize,
+    triangle_closeness: f64,
+    closeness: f64,
+    yaw_error: f64,
+    within: f64,
+    brightness: f32,
 }
 
 //ip CommandArgs for CmdArgs
 impl CommandArgs for CmdArgs {
     type Error = ic_base::Error;
     type Value = String;
+
+    fn reset_args(&mut self) {
+        self.read_img = vec![];
+        self.write_img = None;
+        self.write_calibration_mapping = None;
+        self.write_star_mapping = None;
+        self.write_polys = None;
+        self.write_svg = None;
+        self.write_camera = None;
+        self.use_pts = 0;
+        self.use_deltas = false;
+        self.flags = 0;
+        self.scale = 1.0;
+        self.angle = 0.0;
+    }
 }
 
 //ip CmdArgs accessors
@@ -87,8 +126,8 @@ impl CmdArgs {
     }
 
     //mi cdb
-    pub fn cdb(&self) -> Ref<CameraDatabase> {
-        self.project.cdb_ref()
+    pub fn cdb(&self) -> &Rrc<CameraDatabase> {
+        &self.cdb
     }
 
     //mi nps
@@ -191,9 +230,16 @@ impl CmdArgs {
         let project_json = json::read_file(project_filename)?;
         let project: Project = json::from_json("project", &project_json)?;
         self.project = project;
+        self.nps = self.project.nps().clone();
+        self.cdb = self.project.cdb().clone();
         Ok(())
     }
 
+    //mi set_calibration_mapping
+    fn set_calibration_mapping(&mut self, calibration_mapping: CalibrationMapping) -> Result<()> {
+        self.calibration_mapping = Some(calibration_mapping);
+        Ok(())
+    }
     //mi set_camera_db
     fn set_camera_db(&mut self, camera_db_filename: &str) -> Result<()> {
         let camera_db_json = json::read_file(camera_db_filename)?;
@@ -206,20 +252,20 @@ impl CmdArgs {
     //mi set_camera_file
     fn set_camera_file(&mut self, camera_filename: &str) -> Result<()> {
         let camera_json = json::read_file(camera_filename)?;
-        let camera = CameraInstance::from_json(&self.cdb(), &camera_json)?;
+        let camera = CameraInstance::from_json(&self.cdb.borrow(), &camera_json)?;
         self.set_camera(camera)
     }
 
     //mi set_camera_body
     fn set_camera_body(&mut self, body: &str) -> Result<()> {
-        let body = self.cdb().get_body_err(body)?.clone();
+        let body = self.cdb.borrow().get_body_err(body)?.clone();
         self.camera.set_body(body);
         Ok(())
     }
 
     //mi set_camera_lens
     fn set_camera_lens(&mut self, lens: &str) -> Result<()> {
-        let lens = self.cdb().get_lens_err(lens)?.clone();
+        let lens = self.cdb.borrow().get_lens_err(lens)?.clone();
         self.camera.set_lens(lens);
         Ok(())
     }
@@ -305,6 +351,7 @@ impl CmdArgs {
             .into());
         }
         self.cip = self.project.cip(cip).clone();
+        self.pms = self.cip.borrow().pms().clone();
         Ok(())
     }
 
@@ -398,9 +445,9 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_write_mapping
-    fn set_write_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_mapping = Some(s.to_owned());
+    //mi set_write_calibration_mapping
+    fn set_write_calibration_mapping(&mut self, s: &str) -> Result<()> {
+        self.write_calibration_mapping = Some(s.to_owned());
         Ok(())
     }
 
@@ -420,6 +467,101 @@ impl CmdArgs {
     fn set_write_svg(&mut self, s: &str) -> Result<()> {
         self.write_svg = Some(s.to_owned());
         Ok(())
+    }
+
+    // mi set_use_deltas
+    fn set_use_deltas(&mut self, use_deltas: bool) -> Result<()> {
+        self.use_deltas = use_deltas;
+        Ok(())
+    }
+
+    // mi set_use_pts
+    fn set_use_pts(&mut self, v: usize) -> Result<()> {
+        self.use_pts = thunderclap::bound(v, Some(6), None, |v, _| {
+            format!("Number of points ({v}) must be at least six")
+        })?;
+        Ok(())
+    }
+
+    // mi set_yaw_min
+    fn set_yaw_min(&mut self, v: f64) -> Result<()> {
+        self.yaw_min = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
+            format!("Minimum yaw {v} must be in the range 0 to 90")
+        })?;
+        Ok(())
+    }
+
+    // mi set_yaw_max
+    fn set_yaw_max(&mut self, v: f64) -> Result<()> {
+        self.yaw_max = thunderclap::bound(v, Some(self.yaw_min), Some(90.0), |v, _| {
+            format!(
+                "Maximum yaw {v} must be between yaw_min ({}) and 90",
+                self.yaw_min
+            )
+        })?;
+        Ok(())
+    }
+
+    // mi set_poly_degree
+    fn set_poly_degree(&mut self, v: usize) -> Result<()> {
+        self.poly_degree = thunderclap::bound(v, Some(2), Some(12), |v, _| {
+            format!("The polynomial degree {v} should be between 2 and 12 for reliability",)
+        })?;
+        Ok(())
+    }
+
+    // mi set_triangle_closeness
+    fn set_triangle_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.triangle_closeness = closeness;
+        Ok(())
+    }
+
+    // mi set_closeness
+    fn set_closeness(&mut self, closeness: f64) -> Result<()> {
+        self.closeness = closeness;
+        Ok(())
+    }
+
+    // mi set_yaw_error
+    fn set_yaw_error(&mut self, v: f64) -> Result<()> {
+        self.yaw_error = thunderclap::bound(v, Some(0.0), Some(1.0), |v, _| {
+            format!("The maximum yaw error {v} must be between 0 and 1 degree",)
+        })?;
+        Ok(())
+    }
+
+    // mi set_within
+    fn set_within(&mut self, v: f64) -> Result<()> {
+        self.within = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
+            format!("The 'within' yaw {v} must be between 0 and 90 degree",)
+        })?;
+        Ok(())
+    }
+
+    // mi set_brightness
+    fn set_brightness(&mut self, v: f32) -> Result<()> {
+        self.brightness = thunderclap::bound(v, Some(0.0), Some(16.0), |v, _| {
+            format!("Brightness (magnitude of stars) {v} must be between 0 and 16",)
+        })?;
+        Ok(())
+    }
+
+    // mi use_pts
+    fn use_pts(&self, n: usize) -> usize {
+        if self.use_pts != 0 {
+            n.min(self.use_pts)
+        } else {
+            n
+        }
+    }
+
+    // mi ensure_star_catalog
+    fn ensure_star_catalog(&self) -> Result<()> {
+        if self.star_catalog.is_none() {
+            Err("Star catalog *must* have been specified".into())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -717,15 +859,15 @@ impl CmdArgs {
         );
     }
 
-    //fp add_arg_write_mapping
-    pub fn add_arg_write_mapping(build: &mut CommandBuilder<Self>) {
+    //fp add_arg_write_calibration_mapping
+    pub fn add_arg_write_calibration_mapping(build: &mut CommandBuilder<Self>) {
         build.add_arg_string(
-            "write_mapping",
+            "write_calibration_mapping",
             None,
             "File to write a derived mapping JSON to",
             ArgCount::Optional,
             None,
-            CmdArgs::set_write_mapping,
+            CmdArgs::set_write_calibration_mapping,
         );
     }
 

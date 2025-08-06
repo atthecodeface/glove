@@ -17,6 +17,9 @@ pub trait CommandArgs {
     /// interactive operation, where the results of commands can be
     /// stored for future command invocations
     type Value: std::default::Default + std::string::ToString;
+
+    /// Function invoked before every batch or interactive command to reset temporary options
+    fn reset_args(&mut self) {}
 }
 
 //a ArgFn
