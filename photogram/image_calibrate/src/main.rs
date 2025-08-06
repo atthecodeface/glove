@@ -204,7 +204,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if model_color.is_some() || use_nps_colors {
         let camera = cmd_args.camera();
         let nps = cmd_args.nps();
-        for (_name, p) in nps.iter() {
+        for (_name, p) in nps.borrow().iter() {
             let c = model_color.unwrap_or(p.color());
             let xyz = p.model().0;
             let n = ((xyz[2] * 2.0).abs().floor() as usize);
@@ -292,7 +292,7 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let mut model_pts = vec![];
     for name in cmd_args.np_names() {
-        if let Some(n) = nps.get_pt(name) {
+        if let Some(n) = nps.borrow().get_pt(name) {
             let model = n.model().0;
             model_pts.push((name, model, camera.map_model(model)))
         } else {
@@ -332,7 +332,7 @@ fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi show_mappings_fn
 fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let pms = cmd_args.pms();
+    let pms = cmd_args.pms().borrow();
     let nps = cmd_args.nps();
     let camera = cmd_args.camera();
     let mappings = pms.mappings();
@@ -340,7 +340,7 @@ fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let te = camera.total_error(mappings);
     let we = camera.worst_error(mappings);
     camera.show_mappings(mappings);
-    camera.show_point_set(&nps);
+    camera.show_point_set(&nps.borrow());
     println!("WE {we:.2} TE {te:.2}");
 
     Ok("".into())
@@ -371,7 +371,7 @@ fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut pms = PointMappingSet::default();
     for r in regions {
         let c = r.color();
-        let np = nps.of_color(&c);
+        let np = nps.borrow().of_color(&c);
         if np.is_empty() {
             eprintln!("No named point with color {c} @ {:?}", r.cog());
         } else if np.len() > 1 {
@@ -385,7 +385,7 @@ fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let screen = r.cog();
             let screen = [screen.0, screen.1].into();
             let error = r.spread();
-            pms.add_mapping(&nps, np[0].name(), &screen, error);
+            pms.add_mapping(&nps.borrow(), np[0].name(), &screen, error);
         }
     }
     println!("{}", serde_json::to_string_pretty(&pms).unwrap());
@@ -501,7 +501,7 @@ fn reorient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms();
     let mut camera = cmd_args.camera().clone();
 
-    camera.reorient_using_rays_from_model(pms.mappings());
+    camera.reorient_using_rays_from_model(pms.borrow().mappings());
     *cmd_args.camera_mut() = camera;
     let camera = cmd_args.camera();
 
@@ -578,7 +578,7 @@ fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let mut named_point_rays = HashMap::new();
     for (name, ray) in named_rays {
-        if nps.get_pt(&name).is_none() {
+        if nps.borrow().get_pt(&name).is_none() {
             eprintln!(
                 "Warning: failed to find point name '{}' in named point set",
                 &name
@@ -623,9 +623,7 @@ fn create_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
 
-    let mappings = pms.mappings();
-
-    let named_rays = camera.get_rays(mappings, false);
+    let named_rays = camera.get_rays(pms.borrow().mappings(), false);
 
     cmd_args.if_verbose(|| {
         for (n, r) in &named_rays {
@@ -655,11 +653,9 @@ fn create_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
 
-    let mappings = pms.mappings();
-
     println!(
         "{}",
-        serde_json::to_string_pretty(&camera.get_rays(mappings, true)).unwrap()
+        serde_json::to_string_pretty(&camera.get_rays(pms.borrow().mappings(), true)).unwrap()
     );
     Ok("".into())
 }
@@ -689,7 +685,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     // cmdline_args::mapping::get_camera_pms(matches, &base_args.cdb(), &base_args.nps())?;
 
     let mut result_nps = NamedPointSet::default();
-    for (name, np) in nps.iter() {
+    for (name, np) in nps.borrow().iter() {
         let mut ray_list = Vec::new();
         for (camera, pms) in camera_pms.iter() {
             if let Some(pm) = pms.mapping_of_np(np) {

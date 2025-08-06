@@ -42,9 +42,9 @@ pub struct CmdArgs {
     cips: Vec<Rrc<Cip>>,
 
     // Change to Rrc
-    nps: Rc<NamedPointSet>,
+    nps: Rrc<NamedPointSet>,
     // Change to Rrc
-    pms: PointMappingSet,
+    pms: Rrc<PointMappingSet>,
     // Keep
     camera: CameraInstance,
 
@@ -92,12 +92,12 @@ impl CmdArgs {
     }
 
     //mi nps
-    pub fn nps(&self) -> Ref<NamedPointSet> {
-        self.project.nps_ref()
+    pub fn nps(&self) -> &Rrc<NamedPointSet> {
+        self.project.nps()
     }
 
     //mi pms
-    pub fn pms(&self) -> &PointMappingSet {
+    pub fn pms(&self) -> &Rrc<PointMappingSet> {
         &self.pms
     }
 
