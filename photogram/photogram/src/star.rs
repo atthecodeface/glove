@@ -128,6 +128,7 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("find_stars")
         .about("Find a camera orientation using two star triangles from an image")
         .long_about(STAR_FIND_STARS_LONG_HELP);
+
     let mut build = CommandBuilder::new(command, Some(Box::new(star_find_stars_fn)));
     CmdArgs::add_arg_yaw_error(&mut build);
     build

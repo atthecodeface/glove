@@ -106,6 +106,9 @@ impl CommandArgs for CmdArgs {
         self.flags = 0;
         self.scale = 1.0;
         self.angle = 0.0;
+        if let Some(catalog) = &mut self.star_catalog {
+            catalog.clear_filter();
+        }
     }
 }
 
@@ -1263,6 +1266,16 @@ impl CmdArgs {
         }
         if let Some(filename) = &self.write_polys {
             let s = self.camera.lens().polys().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
+        if let Some(filename) = &self.write_calibration_mapping {
+            let s = self.calibration_mapping.clone().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
+        if let Some(filename) = &self.write_star_mapping {
+            let s = self.star_mapping.clone().to_json()?;
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
         }
