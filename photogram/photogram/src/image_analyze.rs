@@ -9,6 +9,10 @@ use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
 use ic_image::{Color, Image, ImageGray16, Region};
 use ic_kernel::{KernelArgs, Kernels};
+use ic_mapping::{
+    CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet, NamedPointSet,
+    PointMappingSet,
+};
 
 use crate::cmd::{CmdArgs, CmdResult};
 
@@ -42,37 +46,17 @@ frame y) is produced. If a 'write' image filename is provided then an
 image is generated that is black background with red crosses at each
 grid point.";
 
-//hi AS_LUMA_LONG_HELP
-const AS_LUMA_LONG_HELP: &str = "\
-Generate a 16-bit luma image
-";
+//hi GET_POINT_MAPPINGS_LONG_HELP
+const GET_POINT_MAPPINGS_LONG_HELP: &str = "\
+This treats the image file read in as a set of non-background color
+regions each of which should be of a color representing a Named Point
 
-//hi LUMA_WINDOW_LONG_HELP
-const LUMA_WINDOW_LONG_HELP: &str = "\
-Analyze an image in luma space using a window
-";
+A region is a contiguous set of non-background pixels. The
+centre-of-gravity of each region is determined.
 
-//hi LUMA_KERNEL_LONG_HELP
-const LUMA_KERNEL_LONG_HELP: &str = "\
-Analyze kernels to an image in luma space
-
-Convert the image to a 16-bit luma
-
-Apply a number of kernels (with a single set of size, scale etc arguments)
-
-Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
-";
-
-//hi LUMA_KERNEL_PAIR_LONG_HELP
-const LUMA_KERNEL_PAIR_LONG_HELP: &str = "\
-Apply kernels to a pair of images in luma space
-
-Convert the images to 16-bit luma
-
-Apply a number of kernels (with a single set of size, scale etc arguments)
-
-Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
-";
+The Named Point associated with the color of the region is found, and
+a Point Mapping Set is generated mapping the Named Points onto the
+centre of the appropriate region.";
 
 //a Useful functions
 //fi find_center_point
@@ -172,7 +156,7 @@ impl PolyIntercept {
         n: isize,
         origin: usize,
         pts: &[(f64, f64)],
-    ) -> Option<Self> {
+    ) -> Result<Self> {
         let n = n as f64;
         let (cx, cy) = pts[origin];
         let intercept = {
@@ -189,7 +173,8 @@ impl PolyIntercept {
                 (intercept, cy)
             }
         };
-        let intercept_pts = find_axis_pts(y_intercept, spacing / 3.0, (cx, cy), pts)?;
+        let intercept_pts = find_axis_pts(y_intercept, spacing / 3.0, (cx, cy), pts)
+            .ok_or(format!("failed to find intercept"))?;
         let mut g = vec![];
         // if y_intercept then the x values will be diverse and the y values similar
         let mut x = vec![];
@@ -207,16 +192,16 @@ impl PolyIntercept {
             .iter()
             .map(|(pt, dxy)| (((*dxy / spacing) + 0.5).floor(), pts[*pt].1));
         let poly_degree = 5;
-        let px_of_g = polynomial::min_squares_dyn(poly_degree, gx.clone());
-        let py_of_g = polynomial::min_squares_dyn(poly_degree, gy.clone());
+        let px_of_g = polynomial::min_squares_dyn(poly_degree, gx.clone())?;
+        let py_of_g = polynomial::min_squares_dyn(poly_degree, gy.clone())?;
         let g_of_p = {
             if y_intercept {
                 polynomial::min_squares_dyn(poly_degree, gx.map(|(g, x)| (x, g)))
             } else {
                 polynomial::min_squares_dyn(poly_degree, gy.map(|(g, y)| (y, g)))
             }
-        };
-        Some(Self {
+        }?;
+        Ok(Self {
             poly_degree,
             y_intercept,
             intercept,
@@ -246,22 +231,22 @@ impl PolyGrid {
         let mut y_polys = HashMap::new();
         for i in 0..grid_size.1 {
             let gy = i as isize;
-            if let Some(pi) = PolyIntercept::from_pts(true, spacings.0, gy, origin, pts) {
+            if let Ok(pi) = PolyIntercept::from_pts(true, spacings.0, gy, origin, pts) {
                 x_polys.insert(gy, pi);
             }
             if i > 0 {
-                if let Some(pi) = PolyIntercept::from_pts(true, spacings.0, -gy, origin, pts) {
+                if let Ok(pi) = PolyIntercept::from_pts(true, spacings.0, -gy, origin, pts) {
                     x_polys.insert(-gy, pi);
                 }
             }
         }
         for i in 0..grid_size.0 {
             let gx = i as isize;
-            if let Some(pi) = PolyIntercept::from_pts(false, spacings.0, gx, origin, pts) {
+            if let Ok(pi) = PolyIntercept::from_pts(false, spacings.0, gx, origin, pts) {
                 y_polys.insert(gx, pi);
             }
             if i > 0 {
-                if let Some(pi) = PolyIntercept::from_pts(false, spacings.0, -gx, origin, pts) {
+                if let Ok(pi) = PolyIntercept::from_pts(false, spacings.0, -gx, origin, pts) {
                     y_polys.insert(-gx, pi);
                 }
             }
@@ -425,295 +410,52 @@ fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//a Luma
-//fi as_luma_cmd
-fn as_luma_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_luma")
-        .about("Generate a 16-bit luma image")
-        .long_about(AS_LUMA_LONG_HELP);
+//a Get point mappings
+//fi get_point_mappings_cmd
+fn get_point_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("get_point_mappings")
+        .about("Read image and find regions")
+        .long_about(GET_POINT_MAPPINGS_LONG_HELP);
 
-    CommandBuilder::new(command, Some(Box::new(as_luma_fn)))
-}
-
-//fi as_luma_fn
-fn as_luma_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let img = cmd_args.get_image_read_or_create()?;
-
-    eprintln!("Read initial image, size is {:?}", img.size());
-    let (w, h, img_data) = img.as_vec_gray_f32(None);
-
-    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
-
-    eprintln!("Created luma image");
-
-    if let Some(write_filename) = cmd_args.write_img() {
-        img.write(write_filename)?;
-        eprintln!("Image written");
-    } else {
-        eprintln!("Image not written as no output image provided");
-    }
-    Ok("".into())
-}
-
-//fi luma_window_cmd
-fn luma_window_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_window")
-        .about("Analyze an image in luma space using a window")
-        .long_about(LUMA_WINDOW_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(luma_window_fn)))
-}
-
-//fi luma_window_fn
-fn luma_window_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let img = cmd_args.get_image_read_or_create()?;
-
-    eprintln!(
-        "Read initial image, size is {:?} (max pixels in kernel is 4M)",
-        img.size()
-    );
-    let (w, h) = img.size();
-    let npix = w as usize * h as usize;
-    let max = 4 * 1024 * 1024;
-    let scale =
-        (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
-    let (w, h, mut img_data) = img.as_vec_gray_f32(scale);
-    eprintln!(
-        "Using size {w}, {h} ({:.2} Mpx)",
-        (w * h) as f32 / 1024.0 / 1024.0
-    );
-
-    let kernels = Kernels::new();
-    let ws = 8;
-    let args: KernelArgs = (w, h).into();
-    let args = args.with_size(ws as usize);
-    let ws_f = ws as f32;
-    let args_mean = args.with_scale(1.0 / ws_f);
-
-    kernels.run_shader(
-        "window_var",
-        &args_mean,
-        w * h,
-        None,
-        img_data.as_mut_slice(),
-    )?;
-
-    eprintln!("Completed kernel");
-    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
-    eprintln!("Created luma image");
-
-    if let Some(write_filename) = cmd_args.write_img() {
-        img.write(write_filename)?;
-        eprintln!("Image written");
-    } else {
-        eprintln!("Image not written as no output image provided");
-    }
-    Ok("".into())
-}
-
-//fi luma_kernel_cmd
-fn luma_kernel_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_kernel")
-        .about("Apply kernels to an image in luma space")
-        .long_about(LUMA_KERNEL_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(luma_kernel_fn)));
-    CmdArgs::add_arg_kernel(&mut build, (1,));
-    CmdArgs::add_arg_scale(&mut build);
-    CmdArgs::add_arg_kernel_size(&mut build, false);
-    CmdArgs::add_arg_px(&mut build, true);
-    CmdArgs::add_arg_py(&mut build, true);
-
+    let mut build = CommandBuilder::new(command, Some(Box::new(get_point_mappings_fn)));
+    CmdArgs::add_arg_read_image(&mut build, true);
+    CmdArgs::add_arg_bg_color(&mut build);
     build
 }
 
-//fi luma_kernel_fn
-fn luma_kernel_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let img = cmd_args.get_read_image(0)?;
+//fi get_point_mappings_fn
+fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.nps();
+    let img = cmd_args.get_image_read_or_create()?;
+    let bg_color = cmd_args.bg_color().copied().unwrap_or(Color::black());
 
-    let ws = cmd_args.kernel_size();
-    let scale = cmd_args.scale();
-    let xy = cmd_args.pxy();
-    let kernels_to_apply = cmd_args.kernels();
-
-    eprintln!(
-        "Read initial image, size is {:?} (max pixels in kernel is 4M)",
-        img.size()
-    );
-    let (w, h) = img.size();
-    let npix = w as usize * h as usize;
-    let max = 4 * 1024 * 1024;
-    let img_scale =
-        (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
-    let (w, h, mut img_data) = img.as_vec_gray_f32(img_scale);
-    eprintln!(
-        "Using size {w}, {h} ({:.2} Mpx)",
-        (w * h) as f32 / 1024.0 / 1024.0
-    );
-
-    let kernels = Kernels::new();
-    let args: KernelArgs = (w, h).into();
-    let args = args.with_size(ws as usize);
-    let args = args.with_scale(scale as f32);
-    let args = args.with_xy(xy);
-
-    for k in kernels_to_apply {
-        kernels.run_shader(&k, &args, w * h, None, img_data.as_mut_slice())?;
-    }
-
-    eprintln!("Completed kernel");
-    let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
-    eprintln!("Created luma image");
-
-    if let Some(write_filename) = cmd_args.write_img() {
-        img.write(write_filename)?;
-        eprintln!("Image written");
-    } else {
-        eprintln!("Image not written as no output image provided");
-    }
-    Ok("".into())
-}
-
-//fi luma_kernel_pair_cmd
-fn luma_kernel_pair_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_kernel_pair")
-        .about("Apply kernels to a pair of images in luma space")
-        .long_about(LUMA_KERNEL_PAIR_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(luma_kernel_pair_fn)));
-    CmdArgs::add_arg_kernel(&mut build, (1,));
-    CmdArgs::add_arg_scale(&mut build);
-    CmdArgs::add_arg_kernel_size(&mut build, false);
-    CmdArgs::add_arg_px(&mut build, true);
-    CmdArgs::add_arg_py(&mut build, true);
-    CmdArgs::add_arg_angle(&mut build);
-    CmdArgs::add_arg_flags(&mut build);
-
-    build
-}
-
-//fi luma_kernel_pair_fn
-fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let img2 = cmd_args.get_read_image(1)?;
-    let img1 = cmd_args.get_read_image(0)?;
-
-    let ws = cmd_args.kernel_size();
-    let scale = cmd_args.scale();
-    let angle = cmd_args.angle();
-    let xy = cmd_args.pxy();
-    let flags = cmd_args.flags();
-    let kernels_to_apply = cmd_args.kernels();
-
-    eprintln!(
-        "Read initial image, size is {:?} (max pixels in kernel is 4M) : xy {xy:?}",
-        img1.size()
-    );
-
-    let (src_w, src_h) = img1.size();
-    let src_npix = src_w as usize * src_h as usize;
-    let src_max = (4 * 1024 * 1024).min(src_npix);
-    let src_img_scale =
-        Some(((src_max as f32 / src_npix as f32).sqrt() * src_w as f32).floor() as usize);
-    let (src_w, src_h, mut src_img) = img1.as_vec_gray_f32(src_img_scale);
-    eprintln!(
-        "Using size {src_w}, {src_h} ({:.2} Mpx)",
-        (src_w * src_h) as f32 / 1024.0 / 1024.0
-    );
-    {
-        let img = ImageGray16::of_vec_f32(src_w, src_h, src_img.clone(), 1.0);
-        img.write("src_kernel.png")?;
-    }
-
-    let (dst_w, dst_h) = img1.size();
-    let dst_npix = dst_w as usize * dst_h as usize;
-    let dst_max = (4 * 1024 * 1024).min(dst_npix);
-    let dst_img_scale =
-        Some(((dst_max as f32 / dst_npix as f32).sqrt() * dst_w as f32).floor() as usize);
-    let (dst_w, dst_h, mut img_data) = img2.as_vec_gray_f32(dst_img_scale);
-    eprintln!(
-        "Other size {dst_w}, {dst_h} ({:.2} Mpx)",
-        (dst_w * dst_h) as f32 / 1024.0 / 1024.0
-    );
-    {
-        let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
-        img.write("dst_kernel.png")?;
-    }
-
-    let kernels = Kernels::new();
-
-    if flags & 1 != 0 {
-        eprintln!("Applying window_var_scaled to first");
-        let args: KernelArgs = (src_w, src_h).into();
-        let args = args.with_size(4);
-        kernels.run_shader(
-            "window_var_scaled",
-            &args,
-            src_w * src_h,
-            None,
-            src_img.as_mut_slice(),
-        )?;
-        eprintln!("Applying window_var_scaled to second");
-        let args: KernelArgs = (dst_w, dst_h).into();
-        let args = args.with_size(4);
-        kernels.run_shader(
-            "window_var_scaled",
-            &args,
-            dst_w * dst_h,
-            None,
-            img_data.as_mut_slice(),
-        )?;
-    }
-
-    {
-        let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
-        img.write("dst2_kernel.png")?;
-    }
-    let args: KernelArgs = (dst_w, dst_h).into();
-    let args = args.with_size(ws as usize);
-    let args = args.with_scale(scale as f32);
-    let args = args.with_angle(angle.to_radians() as f32);
-    let args = args.with_xy(xy);
-    let args = args.with_src((src_w, src_h));
-
-    for k in kernels_to_apply {
-        {
-            let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
-            img.write("dst3_kernel.png")?;
+    let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color), &|c0, c1| {
+        (c0.brightness() - c1.brightness()).abs() < 0.1
+    });
+    let mut pms = PointMappingSet::default();
+    for r in regions {
+        let c = r.color();
+        let np = nps.borrow().of_color(&c);
+        if np.is_empty() {
+            eprintln!("No named point with color {c} @ {:?}", r.cog());
+        } else if np.len() > 1 {
+            eprintln!(
+                "More than one named point with color {c} @ {:?}: {}, {}, ...",
+                r.cog(),
+                np[0].name(),
+                np[1].name(),
+            );
+        } else {
+            let screen = r.cog();
+            let screen = [screen.0, screen.1].into();
+            let error = r.spread();
+            pms.add_mapping(&nps.borrow(), np[0].name(), &screen, error);
         }
-        eprintln!("Applying {k} with {args:?}");
-        {
-            let img = ImageGray16::of_vec_f32(src_w, src_h, src_img.clone(), 1.0);
-            img.write("before_src_kernel.png")?;
-        }
-        {
-            let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
-            img.write("before_dst_kernel.png")?;
-        }
-        kernels.run_shader(
-            &k,
-            &args,
-            dst_w * dst_h,
-            Some(src_img.as_slice()),
-            img_data.as_mut_slice(),
-        )?;
     }
-
-    if flags & 2 != 0 {
-        let pts =
-            kernels.find_best_n_above_value((dst_w, dst_h), img_data.as_mut_slice(), 500, 0.7, 64);
-        eprintln!("Points {pts:?}");
-    }
-
-    eprintln!("Completed kernel");
-    let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data, 1.0);
-    eprintln!("Created luma image");
-
-    if let Some(write_filename) = cmd_args.write_img() {
-        img.write(write_filename)?;
-        eprintln!("Image written");
-    } else {
-        eprintln!("Image not written as no output image provided");
-    }
+    println!("{}", serde_json::to_string_pretty(&pms).unwrap());
+    cmd_args.if_verbose(|| {
+        eprintln!("Exported {} mappings", pms.mappings().len());
+    });
     Ok("".into())
 }
 
@@ -731,10 +473,7 @@ pub fn image_analyze_cmd() -> CommandBuilder<CmdArgs> {
 
     build.add_subcommand(find_regions_cmd());
     build.add_subcommand(find_grid_points_cmd());
-    build.add_subcommand(as_luma_cmd());
-    build.add_subcommand(luma_window_cmd());
-    build.add_subcommand(luma_kernel_cmd());
-    build.add_subcommand(luma_kernel_pair_cmd());
+    build.add_subcommand(get_point_mappings_cmd());
 
     build
 }

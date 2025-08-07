@@ -107,7 +107,7 @@
 use serde::{Deserialize, Serialize};
 
 use ic_base::json;
-use ic_base::Result;
+use ic_base::{Error, Result};
 
 use crate::polynomial;
 use crate::polynomial::CalcPoly;
@@ -389,7 +389,7 @@ impl LensPolys {
         world_yaws: &[f64],
         yaw_range_min: f64,
         yaw_range_max: f64,
-    ) -> Self {
+    ) -> Result<Self> {
         //cb Calculate ws_yaws
         let mut ws_yaws: Vec<_> = sensor_yaws
             .iter()
@@ -413,7 +413,13 @@ impl LensPolys {
             })
             .collect();
 
-        let stw = polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied());
+        let stw =
+            polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied()).map_err(|e| {
+                Error::SelfError(
+                    format!("failed to derive sensor-to-world polynomial"),
+                    e.into(),
+                )
+            })?;
 
         let wy_gsy = sensor_yaws.iter().map(|s| {
             let w = *s * stw.calc(s.powi(2)) + *s;
@@ -424,7 +430,12 @@ impl LensPolys {
             }
         });
 
-        let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy);
+        let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy).map_err(|e| {
+            Error::SelfError(
+                format!("failed to derive world-to-sensor polynomial"),
+                e.into(),
+            )
+        })?;
 
         for max_rel_err in [0.01_f64, 0.001_f64, 0.0001_f64] {
             let last_coeff = *(stw.last().unwrap());
@@ -437,8 +448,8 @@ impl LensPolys {
                 max_angle.to_degrees()
             );
         }
-        eprintln!("{stw:?} {wts:?}");
-        Self::new(stw, wts)
+        // eprintln!("{stw:?} {wts:?}");
+        Ok(Self::new(stw, wts))
     }
 }
 

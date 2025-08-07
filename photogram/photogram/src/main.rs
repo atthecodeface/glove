@@ -275,6 +275,10 @@ mod cmd;
 pub use cmd::{cmd_ok, CmdArgs, CmdResult};
 mod calibration;
 mod image_analyze;
+mod image_process;
+mod named_points;
+mod point_mapping;
+mod project;
 mod star;
 
 //a Main
@@ -288,9 +292,18 @@ fn main() -> Result<()> {
 
     CmdArgs::add_arg_verbose(&mut build);
 
+    // Camera database and project are really mutually exclusive, as the project includes a camera database
+    CmdArgs::add_arg_camera_database(&mut build, false);
+    CmdArgs::add_arg_project(&mut build, false);
+    CmdArgs::add_arg_camera(&mut build, false);
+
+    build.add_subcommand(project::project_cmd());
+    build.add_subcommand(image_process::image_process_cmd());
     build.add_subcommand(image_analyze::image_analyze_cmd());
     build.add_subcommand(star::star_cmd());
     build.add_subcommand(calibration::calibration_cmd());
+    build.add_subcommand(point_mapping::cip_cmd());
+    build.add_subcommand(named_points::named_points_cmd());
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);

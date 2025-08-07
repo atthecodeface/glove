@@ -145,134 +145,6 @@ of those mappings with *green* crosses.
 
 It also draws black crosses for a range of (x,y,0) values.";
 
-//a Calibrate
-//fi calibrate_cmd
-fn calibrate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("calibrate")
-        .about("Read image and draw crosses on grid coordinates")
-        .long_about(
-            "This uses the camera calibration JSON file in conjunction with a camera body/lens and focus distance to generate the correct focal length and tan-tan mapping for the lens as world-to-screen (and vice-versa) polynomials. The camera calibration JSON file includes 'mappings' that is a list of (grid xmm, grid ymm, x pixel, y pixel) tuples each being the mapping of a grid x,y to a frame pixel x,y on an image. If read and write imnages are provided then the immage is read and red crosses superimposed on the image at the post-calibrated points using the provided grid x,y points as sources (so they should align with the actual grid points on the image)")
-        .version("0.1.0");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(calibrate_fn)));
-
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_read_image(&mut build, Some(1));
-    CmdArgs::add_arg_write_image(&mut build, false);
-
-    build
-}
-
-//fi calibrate_fn
-fn calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
-
-    let v = calibrate.get_pairings(cmd_args.camera());
-    let mut world_yaws = vec![];
-    let mut camera_yaws = vec![];
-    for (n, (grid, camera_rel_xyz, sensor_txty)) in v.iter().enumerate() {
-        let camera_rel_txty: TanXTanY = camera_rel_xyz.into();
-        let camera_rel_ry: RollYaw = camera_rel_txty.into();
-        world_yaws.push(camera_rel_ry.yaw());
-        let sensor_ry: RollYaw = (*sensor_txty).into();
-        camera_yaws.push(sensor_ry.yaw());
-        cmd_args.if_verbose(|| {
-            eprintln!(
-                "{n} {grid} : {camera_rel_xyz} : {camera_rel_ry} : {sensor_ry} : camera_rel_ty {} : pxy_ty {}",
-                camera_rel_ry.tan_yaw(),
-                sensor_ry.tan_yaw()
-            );
-        });
-    }
-
-    let wcy = world_yaws
-        .iter()
-        .zip(camera_yaws.iter())
-        .map(|(x, y)| (*x, *y));
-    let ycw = camera_yaws
-        .iter()
-        .zip(world_yaws.iter())
-        .map(|(x, y)| (*x, *y));
-    let poly_degree = 5;
-    let wts = polynomial::min_squares_dyn(poly_degree, wcy);
-    let stw = polynomial::min_squares_dyn(poly_degree, ycw);
-
-    let wc = world_yaws
-        .iter()
-        .zip(camera_yaws.iter())
-        .map(|(x, y)| (*x, *y));
-
-    let (max_sq_err, max_n, mean_err, mean_sq_err, variance_err) =
-        polynomial::error_in_y_stats(&wts, wc);
-    let sd_err = variance_err.sqrt();
-    let max_err = max_sq_err.sqrt();
-    eprintln!(" err: mean {mean_err:.4e} mean_sq {mean_sq_err:.4e} sd {sd_err:.4e} abs max {max_err:.4e} max_n {max_n}");
-
-    if false {
-        for i in 0..world_yaws.len() {
-            let wy = world_yaws[i];
-            let cy = camera_yaws[i];
-            eprintln!(
-                "{i} {wy} : {} : {cy} : {} : {wy}",
-                wts.calc(wy),
-                stw.calc(cy)
-            );
-        }
-    }
-    eprintln!(" wts: {wts:?}");
-    eprintln!(" stw: {stw:?}");
-
-    eprintln!("cal camera {}", cmd_args.camera());
-    let mut camera = cmd_args.camera().clone();
-    let mut camera_lens = camera.lens().clone();
-    camera_lens.set_polys(LensPolys::new(stw, wts));
-    camera.set_lens(camera_lens);
-
-    cmd_args.set_camera(camera);
-
-    let calibrate = cmd_args.calibration_mapping();
-    let camera = cmd_args.camera();
-
-    //    let m: Point3D = camera.camera_xyz_to_world_xyz([0., 0., -calibrate.distance()].into());
-    //    let w: Point3D = camera.world_xyz_to_camera_xyz([0., 0., 0.].into());
-    //    eprintln!("Camera {camera} focused on {m} world origin in camera {w}");
-
-    let pxys = calibrate.get_pxys();
-    let mut pts = vec![];
-    let n = 30;
-    let n_f = n as f64;
-    let c_f = n_f / 2.0;
-    for y in 0..=n {
-        let y_f = (y as f64 - c_f) * 10.;
-        for x in 0..=n {
-            let x_f = (x as f64 - c_f) * 10.;
-            let pt: Point3D = [x_f, y_f, 0.].into();
-            let rgba = [255, 255, 255, 255].into();
-            pts.push((pt, rgba));
-        }
-    }
-
-    if !cmd_args.read_img().is_empty() && cmd_args.write_img().is_some() {
-        let mut img = cmd_args.get_image_read_or_create()?;
-        let c = &[255, 0, 0, 0].into();
-        for p in pxys.into_iter() {
-            img.draw_cross(p, 5.0, c);
-        }
-        for (p, c) in &pts {
-            let mapped = camera.map_model(*p);
-            if false {
-                let xyz = camera.world_xyz_to_camera_xyz(*p);
-                let txy = camera.world_xyz_to_camera_txty(*p);
-                eprintln!("{mapped} {xyz} {txy} {p} {c:?}");
-            }
-            img.draw_cross(mapped, 5.0, c);
-        }
-        img.write(cmd_args.write_img().unwrap())?;
-    }
-    cmd_args.write_outputs()?;
-    cmd_ok()
-}
-
 //a Locate
 //fi locate_cmd
 fn locate_cmd() -> CommandBuilder<CmdArgs> {
@@ -290,15 +162,14 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.calibration_mapping_to_pms();
+
     //cb Reset the camera position and orientation, defensively
-    cmd_args.convert_calibration_mapping();
     cmd_args.camera_mut().set_position([0., 0., 0.].into());
     cmd_args.camera_mut().set_orientation(Quat::default());
-    let pms = cmd_args.pms();
-    let pms = pms.borrow();
 
     //cb Set up HashMaps and collections
-    let n = cmd_args.use_pts(cmd_args.pms().borrow().mappings().len());
+    let n = cmd_args.use_pts(pms.len());
     let closest_n: Vec<usize> = (0..n).collect();
 
     //cb For required pairings, display data
@@ -339,7 +210,14 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let _ = mls.add_line_of_models(pm0.model(), pm1.model(), angle);
         }
     }
-    drop(pms);
+
+    if mls.num_lines() == 0 {
+        return Err(format!(
+            "no lines generated for locating the camera; was using {} points",
+            closest_n.len()
+        )
+        .into());
+    }
 
     //cb Find best position given ModelLineSet
     // Find best location 'p' for camera
@@ -370,22 +248,20 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
-    let pms = cmd_args.pms();
+    let pms = cmd_args.calibration_mapping_to_pms();
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
     let mut camera = cmd_args.camera().clone();
     camera.set_orientation(Quat::default());
 
     //cb Set up HashMaps and collections
-    let n = cmd_args.use_pts(calibrate.len());
+    let n = cmd_args.use_pts(pms.len());
     let closest_n: Vec<usize> = (0..n).collect();
-    cmd_args.convert_calibration_mapping();
 
     //cb For required pairings, display data
     cmd_args.show_step("All the following mappings ([n] [world] : [pxy] : [world_dir]");
     cmd_args.if_verbose(|| {
-        for pm in pms.borrow().mappings() {
+        for pm in pms.mappings() {
             let n = pm.name();
             let grid_xyz = pm.model();
             // Px Abs -> Px Rel -> TxTy -> lens mapping
@@ -403,7 +279,6 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let best_cam_pos = camera.position();
     let mut qs = vec![];
 
-    let pms = pms.borrow();
     for n0 in &closest_n {
         let pm0 = &pms.mappings()[*n0];
         let di_c = -camera
@@ -488,8 +363,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
-    let pms = cmd_args.pms();
+    let pms = cmd_args.calibration_mapping_to_pms();
     let mut camera_linear = cmd_args.camera().clone();
     let mut lens_linear = camera_linear.lens().clone();
     lens_linear.set_polys(LensPolys::default());
@@ -497,15 +371,12 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let yaw_range_min = cmd_args.yaw_min().to_radians();
     let yaw_range_max = cmd_args.yaw_max().to_radians();
-    let num_pts = cmd_args.use_pts(calibrate.len());
-
-    //cb Set up HashMaps and collections
-    cmd_args.convert_calibration_mapping();
+    let num_pts = cmd_args.use_pts(pms.len());
 
     //cb Calculate Roll/Yaw for each point given camera, and store in a mapping
     let mut sensor_yaws = vec![];
     let mut world_yaws = vec![];
-    for pm in pms.borrow().mappings().iter().take(num_pts) {
+    for pm in pms.mappings().iter().take(num_pts) {
         let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -514,6 +385,10 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         world_yaws.push(world_ry.yaw());
         sensor_yaws.push(sensor_ry.yaw());
     }
+    if sensor_yaws.len() < 30 {
+        eprintln!("Lens calibration being attempted with only {} points; it is unwise to use fewer than 30",
+                  sensor_yaws.len());
+    }
 
     let lens_poly = LensPolys::calibration(
         cmd_args.poly_degree(),
@@ -521,7 +396,19 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         &world_yaws,
         yaw_range_min,
         yaw_range_max,
-    );
+    )
+    .map_err(|e| {
+        (
+            e,
+            format!(
+                "using num_pts {}={}, yaw range {}->{}",
+                num_pts,
+                pms.len(),
+                yaw_range_min.to_degrees(),
+                yaw_range_max.to_degrees()
+            ),
+        )
+    })?;
 
     let mut camera_lens = cmd_args.camera().lens().clone();
     camera_lens.set_polys(lens_poly);
@@ -552,8 +439,7 @@ fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi yaw_plot_fn
 fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
-    let pms = cmd_args.pms();
+    let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
     let mut camera_linear = camera.clone();
     let mut lens_linear = camera.lens().clone();
@@ -562,7 +448,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let yaw_range_min = cmd_args.yaw_min().to_radians();
     let yaw_range_max = cmd_args.yaw_max().to_radians();
-    let num_pts = cmd_args.use_pts(calibrate.len());
+    let num_pts = cmd_args.use_pts(pms.len());
 
     let f_world = |w: f64, s: f64| (s.to_degrees(), (s - w).to_degrees());
     let f_rel_error = |w: f64, s: f64| (s.to_degrees(), s / w - 1.0);
@@ -574,13 +460,10 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     };
 
-    //cb Set up HashMaps and collections
-    cmd_args.convert_calibration_mapping();
-
     //cb Calculate Error in yaw/Yaw for each point given camera
     let mut pts = [vec![], vec![], vec![], vec![]];
     let mut ws_yaws = vec![];
-    for pm in pms.borrow().mappings().iter().take(num_pts) {
+    for pm in pms.mappings().iter().take(num_pts) {
         let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -729,18 +612,14 @@ fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi roll_plot_fn
 fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
+    let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
-    let pms = cmd_args.pms();
 
-    let num_pts = cmd_args.use_pts(calibrate.len());
-
-    //cb Set up HashMaps and collections
-    cmd_args.convert_calibration_mapping();
+    let num_pts = cmd_args.use_pts(pms.len());
 
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = vec![];
-    for pm in pms.borrow().mappings().iter().take(num_pts) {
+    for pm in pms.mappings().iter().take(num_pts) {
         let model_txty = camera.world_xyz_to_camera_txty(pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
@@ -805,13 +684,9 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi grid_image_fn
 fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let calibrate = cmd_args.calibration_mapping();
+    let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
-    let pms = cmd_args.pms();
-
-    //cb Set up HashMaps and collections
-    let num_pts = cmd_args.use_pts(calibrate.len());
-    cmd_args.convert_calibration_mapping();
+    let num_pts = cmd_args.use_pts(pms.len());
 
     //cb Create points for crosses for output image
     let mut pts = vec![];
@@ -828,12 +703,12 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     }
     let rgba: Color = { [100, 255, 100, 255] }.into();
-    for pm in pms.borrow().mappings().iter().take(num_pts) {
+    for pm in pms.mappings().iter().take(num_pts) {
         pts.push((pm.model(), rgba));
     }
 
     //cb Read source image and draw on it, write output image
-    let pxys = calibrate.get_pxys();
+    let pxys = cmd_args.calibration_mapping().get_pxys();
     let mut img = cmd_args.get_image_read_or_create()?;
     let c = &[255, 0, 0, 0].into();
     for p in pxys {
@@ -864,10 +739,6 @@ pub fn calibration_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, None);
 
-    CmdArgs::add_arg_camera_database(&mut build, false);
-    CmdArgs::add_arg_camera(&mut build, false);
-
-    build.add_subcommand(calibrate_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(lens_calibrate_cmd());

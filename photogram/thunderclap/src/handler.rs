@@ -205,7 +205,9 @@ impl<C: CommandArgs> CommandSet<C> {
     /// Execute commands from a [str]
     fn execute_str(&mut self, cmd_args: &mut C, s: &str) -> Result<(), C::Error> {
         for l in s.lines() {
-            if let Some(c_l) = self.cmd_stack.last_mut() { c_l.1 = c_l.1.map(|x| x + 1); }
+            if let Some(c_l) = self.cmd_stack.last_mut() {
+                c_l.1 = c_l.1.map(|x| x + 1);
+            }
             self.execute_str_line(cmd_args, l)?;
         }
         Ok(())
@@ -220,6 +222,7 @@ impl<C: CommandArgs> CommandSet<C> {
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
+        cmd_args.reset_args();
         let mut cmd = self.command.clone();
         if let Some((name, opt_line)) = self.cmd_stack.last() {
             if let Some(line) = opt_line {
@@ -262,6 +265,7 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 
+    //mp execute_env
     pub fn execute_env(&mut self, cmd_args: &mut C) -> Result<String, C::Error> {
         let mut iter = std::env::args_os();
         let cmd_name = iter.next().unwrap();

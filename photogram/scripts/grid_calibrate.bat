@@ -1,20 +1,20 @@
-# ./target/release/camera_calibrate --batch scripts/grid_calibrate.bat
+# ./target/release/photogram --batch scripts/grid_calibrate.bat
 
---db nac/camera_db.json -c nac/camera.json --use_body 5D --use_lens 50mm --use_focus 500000 --use_polys nac/lens_linear.json
+--camera_db nac/camera_db.json -c nac/camera.json --use_body 5D --use_lens 50mm --use_focus 500000 --use_polys nac/lens_linear.json
 
-locate --write_camera located.json   --mappings nac/camera_6028_mappings.json --num_pts 6 
-orient --write_camera oriented.json  --mappings nac/camera_6028_mappings.json
-grid_image      --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
-lens_calibrate  --mappings nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 4 --write_polys lens_cal.json
+calibration locate --write_camera located.json   --calibration_mapping nac/camera_6028_mappings.json --num_pts 6 
+calibration orient --write_camera oriented.json  --calibration_mapping nac/camera_6028_mappings.json
+calibration grid_image      --calibration_mapping nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w a.png
+calibration lens_calibrate  --calibration_mapping nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 4 --write_polys lens_cal.json
 
 --use_polys lens_cal.json
 
-locate --write_camera located_cal.json  --mappings nac/camera_6028_mappings.json --num_pts 12
+calibration locate --write_camera located_cal.json  --calibration_mapping nac/camera_6028_mappings.json --num_pts 12
 # --db nac/camera_db.json -c located_cal.json --use_polys lens_cal.json
 
-orient --write_camera oriented_cal.json --mappings nac/camera_6028_mappings.json
+calibration orient --write_camera oriented_cal.json --calibration_mapping nac/camera_6028_mappings.json
 
-grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w b.png
+calibration grid_image --calibration_mapping nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w b.png
 
 # Note that (0,0) grid is at (3367,2202)
 # Note that (0,10) grid is at (3367,2432)
@@ -29,9 +29,9 @@ grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG
 #
 # So the focus is best (as probably expected) as long
 
-yaw_plot --yaw_min 0.1 --yaw_max 14.0 --mappings nac/camera_6028_mappings.json --write_svg lens_calibration.svg
+calibration yaw_plot --yaw_min 0.1 --yaw_max 14.0 --calibration_mapping nac/camera_6028_mappings.json --write_svg lens_calibration.svg
 # --use_deltas
 
-lens_calibrate  --mappings nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 6 --write_polys lens_cal.json
-grid_image --mappings nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w c.png
-yaw_plot --yaw_min 0.1 --yaw_max 14.0 --mappings nac/camera_6028_mappings.json --write_svg lens_calibration2.svg
+calibration lens_calibrate  --calibration_mapping nac/camera_6028_mappings.json --yaw_min 0.01 --yaw_max 25.0 --poly_degree 6 --write_polys lens_cal.json
+calibration grid_image --calibration_mapping nac/camera_6028_mappings.json -r ../../Images/4V3A6028.JPG -w c.png
+calibration yaw_plot --yaw_min 0.1 --yaw_max 14.0 --calibration_mapping nac/camera_6028_mappings.json --write_svg lens_calibration2.svg

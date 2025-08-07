@@ -1,5 +1,5 @@
 [package]
-name = "image_analyze"
+name = "photogram"
 edition.workspace = true
 version.workspace = true
 description.workspace = true

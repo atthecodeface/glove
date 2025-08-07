@@ -4,7 +4,7 @@ use thiserror::Error;
 pub enum Error {
     #[error("failed to read json: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("Failed to read {0}: {1}")]
+    #[error("failed to read {0}: {1}")]
     JsonCtxt(String, serde_json::Error),
     #[error("{0} {1}")]
     File(String, std::io::Error),
@@ -18,6 +18,10 @@ pub enum Error {
     IOError(#[from] std::io::Error),
     #[error("{0}")]
     StarError(#[from] star_catalog::Error),
+    #[error("failed to fit polynomial using {0} values")]
+    PolynomialFit(usize),
+    #[error("{0}: {1}")]
+    SelfError(String, Box<Self>),
 }
 
 impl<P: std::fmt::Display> std::convert::From<(P, std::io::Error)> for Error {
@@ -34,5 +38,11 @@ impl std::convert::From<String> for Error {
 impl std::convert::From<&str> for Error {
     fn from(s: &str) -> Error {
         Error::Msg(s.to_owned())
+    }
+}
+
+impl std::convert::From<(Self, String)> for Error {
+    fn from((e, s): (Self, String)) -> Error {
+        Error::SelfError(s, e.into())
     }
 }

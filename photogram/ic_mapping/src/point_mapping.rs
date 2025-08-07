@@ -188,6 +188,16 @@ impl PointMappingSet {
         Self::default()
     }
 
+    //ap len
+    pub fn len(&self) -> usize {
+        self.mappings.len()
+    }
+
+    //ap is_empty
+    pub fn is_empty(&self) -> bool {
+        self.mappings.is_empty()
+    }
+
     //mp sorted_order
     pub fn sorted_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.mappings.len()).collect();

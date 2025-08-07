@@ -291,6 +291,16 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mi set_camera_db
+    fn set_camera_db(&mut self, camera_db_filename: &str) -> Result<()> {
+        let camera_db_json = json::read_file(camera_db_filename)?;
+        let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
+        camera_db.derive();
+        self.project.set_cdb(camera_db);
+        self.cdb = self.project.cdb().clone();
+        Ok(())
+    }
+
     //mi set_project
     fn set_project(&mut self, project_filename: &str) -> Result<()> {
         let project_json = json::read_file(project_filename)?;
@@ -311,15 +321,6 @@ impl CmdArgs {
     //mi set_calibration_mapping
     pub fn set_calibration_mapping(&mut self, mapping: CalibrationMapping) {
         self.calibration_mapping = mapping;
-    }
-
-    //mi set_camera_db
-    fn set_camera_db(&mut self, camera_db_filename: &str) -> Result<()> {
-        let camera_db_json = json::read_file(camera_db_filename)?;
-        let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
-        camera_db.derive();
-        self.project.set_cdb(camera_db);
-        Ok(())
     }
 
     //mi set_camera_file
@@ -1192,21 +1193,20 @@ impl CmdArgs {
         map(&*pms)
     }
 
-    //mp convert_calibration_mapping
-    pub fn convert_calibration_mapping(&self) {
+    //mp calibration_mapping_to_pms
+    pub fn calibration_mapping_to_pms(&self) -> PointMappingSet {
         let v = self.calibration_mapping.get_xyz_pairings();
+        let mut nps = NamedPointSet::default();
+        let mut pms = PointMappingSet::default();
 
         //cb Add calibrations to NamedPointSet and PointMappingSet
         for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
             let name = n.to_string();
             let color = [255, 255, 255, 255].into();
-            self.nps
-                .borrow_mut()
-                .add_pt(name.clone(), color, Some(model_xyz), 0.);
-            self.pms
-                .borrow_mut()
-                .add_mapping(&self.nps.borrow(), &name, &pxy_abs, 0.);
+            nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
+            pms.add_mapping(&nps, &name, &pxy_abs, 0.);
         }
+        pms
     }
 
     //mp draw_image
