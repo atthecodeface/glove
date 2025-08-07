@@ -1,7 +1,6 @@
 //a Imports
 use std::io::Write;
 
-
 use ic_base::Result;
 
 use super::{CmdArgs, CmdResult};
@@ -11,6 +10,21 @@ use super::{CmdArgs, CmdResult};
 impl CmdArgs {
     //mp write_outputs
     pub fn write_outputs(&self) -> Result<()> {
+        if let Some(filename) = &self.write_project {
+            let s = self.project.to_json(true)?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
+        if let Some(filename) = &self.write_named_points {
+            let s = self.nps().borrow().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
+        if let Some(filename) = &self.write_point_mapping {
+            let s = self.pms().borrow().to_json()?;
+            let mut f = std::fs::File::create(filename)?;
+            f.write_all(s.as_bytes())?;
+        }
         if let Some(filename) = &self.write_camera {
             let s = self.camera.to_json()?;
             let mut f = std::fs::File::create(filename)?;

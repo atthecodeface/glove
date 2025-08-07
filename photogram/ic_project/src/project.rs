@@ -3,13 +3,55 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Point3D, Ray, Result, Rrc};
+use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraDatabase;
 use ic_mapping::{CameraPtMapping, NamedPointSet};
 
-use crate::{Cip, CipDesc};
+use crate::{Cip, CipDesc, CipFileDesc};
 
 //a Project
+//tp ProjectFileDesc
+/// A project description is a deserializable that can be stored in a
+/// JSON file
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct ProjectFileDesc {
+    cdb: String,
+    nps: String,
+    /// A list of (camera filename, image filename, point mapping set filename)
+    cips: Vec<CipFileDesc>,
+}
+
+//ip ProjectFileDesc
+impl ProjectFileDesc {
+    //cp from_json
+    pub fn from_json(json: &str) -> Result<Self> {
+        json::from_json("project", json)
+    }
+
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
+    }
+
+    //mp load_project
+    pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
+        let mut project = Project::default();
+        project.set_cdb(path_set.load_from_json_file("camera database", &self.cdb)?);
+        project.set_nps(Rrc::new(
+            path_set.load_from_json_file("named point set", &self.nps)?,
+        ));
+        for cip in &self.cips {
+            let cip = Rrc::new(cip.load_cip(path_set, &project)?);
+            project.add_cip(cip);
+        }
+        Ok(project)
+    }
+}
+
 //tp ProjectDesc
 /// A project description is a deserializable that can be stored in a
 /// JSON file

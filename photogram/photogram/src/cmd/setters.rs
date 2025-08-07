@@ -7,7 +7,7 @@ use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, Project};
+use ic_project::{Cip, Project, ProjectFileDesc};
 use ic_stars::StarMapping;
 
 use super::CmdArgs;
@@ -36,6 +36,17 @@ impl CmdArgs {
         let project_json = json::read_file(project_filename)?;
         let project: Project = json::from_json("project", &project_json)?;
         self.project = project;
+        self.nps = self.project.nps().clone();
+        self.cdb = self.project.cdb().clone();
+        Ok(())
+    }
+
+    //mi set_project_desc
+    pub(crate) fn set_project_desc(&mut self, project_filename: &str) -> Result<()> {
+        let project_file_desc: ProjectFileDesc = self
+            .path_set
+            .load_from_json_file("project descriptor", project_filename)?;
+        self.project = project_file_desc.load_project(&self.path_set)?;
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
         Ok(())
@@ -88,6 +99,18 @@ impl CmdArgs {
         let mut lens = self.camera.lens().clone();
         lens.set_polys(lens_polys);
         self.camera.set_lens(lens);
+        Ok(())
+    }
+
+    //mi add_path
+    /// Adds a directory to the search ath
+    pub(crate) fn add_path(&mut self, s: &str) -> Result<()> {
+        match self.path_set.add_path(s) {
+            Err(e) => {
+                eprintln!("Warning: {e}");
+            }
+            _ => (),
+        };
         Ok(())
     }
 
@@ -258,6 +281,23 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mi set_write_project
+    pub(crate) fn set_write_project(&mut self, s: &str) -> Result<()> {
+        self.write_project = Some(s.to_owned());
+        Ok(())
+    }
+
+    //mi set_write_named_points
+    pub(crate) fn set_write_named_points(&mut self, s: &str) -> Result<()> {
+        self.write_named_points = Some(s.to_owned());
+        Ok(())
+    }
+
+    //mi set_write_point_mapping
+    pub(crate) fn set_write_point_mapping(&mut self, s: &str) -> Result<()> {
+        self.write_point_mapping = Some(s.to_owned());
+        Ok(())
+    }
     //mi set_write_camera
     pub(crate) fn set_write_camera(&mut self, s: &str) -> Result<()> {
         self.write_camera = Some(s.to_owned());

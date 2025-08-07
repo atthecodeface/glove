@@ -274,10 +274,10 @@ use ic_base::Result;
 mod cmd;
 pub use cmd::{cmd_ok, CmdArgs, CmdResult};
 mod calibration;
+mod cip;
 mod image_analyze;
 mod image_process;
 mod named_points;
-mod point_mapping;
 mod project;
 mod star;
 
@@ -291,6 +291,7 @@ fn main() -> Result<()> {
     let mut build = CommandBuilder::new(command, None);
 
     CmdArgs::add_arg_verbose(&mut build);
+    CmdArgs::add_arg_path(&mut build);
 
     // Project comes first - if you want to change the camera database
     // for a project, then set that too
@@ -301,12 +302,20 @@ fn main() -> Result<()> {
     // mappings etc, the cip is used
     CmdArgs::add_arg_camera(&mut build, false);
 
+    // Always permit addition of named point sets
+    CmdArgs::add_arg_nps(&mut build);
+
+    // Write out a complete project
+    CmdArgs::add_arg_write_project(&mut build);
+    CmdArgs::add_arg_write_named_points(&mut build);
+    CmdArgs::add_arg_write_point_mapping(&mut build);
+
     build.add_subcommand(project::project_cmd());
     build.add_subcommand(image_process::image_process_cmd());
     build.add_subcommand(image_analyze::image_analyze_cmd());
     build.add_subcommand(star::star_cmd());
     build.add_subcommand(calibration::calibration_cmd());
-    build.add_subcommand(point_mapping::cip_cmd());
+    build.add_subcommand(cip::cip_cmd());
     build.add_subcommand(named_points::named_points_cmd());
 
     let mut cmd_args = CmdArgs::default();

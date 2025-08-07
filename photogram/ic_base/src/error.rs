@@ -4,9 +4,9 @@ use thiserror::Error;
 pub enum Error {
     #[error("failed to read json: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("failed to read {0}: {1}")]
+    #[error("failed to parse Json:\n {0}:\n {1}")]
     JsonCtxt(String, serde_json::Error),
-    #[error("{0} {1}")]
+    #[error("{0}: {1}")]
     File(String, std::io::Error),
     #[error("{0}")]
     Database(String),

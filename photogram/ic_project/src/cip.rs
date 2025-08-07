@@ -3,13 +3,61 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Result, Rrc};
-use ic_camera::{CameraInstance, CameraInstanceDesc};
+use ic_base::{json, PathSet, Result, Rrc};
+use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc};
 use ic_mapping::{CameraAdjustMapping, PointMappingSet};
 
 use crate::Project;
 
 //a Cip
+//tp CipFileDesc
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CipFileDesc {
+    camera_file: String,
+    image: String,
+    pms_file: String,
+}
+
+//ip CipFileDesc
+impl CipFileDesc {
+    //cp from_json
+    pub fn from_json(json: &str) -> Result<Self> {
+        json::from_json("cip", json)
+    }
+
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
+    }
+
+    //mp load_cip
+    pub fn load_cip(&self, path_set: &PathSet, project: &Project) -> Result<Cip> {
+        let mut cip = Cip::default();
+        cip.camera_file = self.camera_file.clone();
+        cip.pms_file = self.pms_file.clone();
+        cip.image = self.image.clone();
+        let camera_desc: CameraInstanceDesc =
+            path_set.load_from_json_file("camera", &self.camera_file)?;
+        cip.camera = CameraInstance::from_desc(&*project.cdb_ref(), camera_desc)?.into();
+        let pms_json = path_set
+            .read_json_file(&self.pms_file)
+            .map_err(|e| (e, "point mapping set".to_owned()))?;
+        let (pms, warnings) = PointMappingSet::from_json(&project.nps_ref(), &pms_json)?;
+        if !warnings.is_empty() {
+            eprintln!(
+                "Warning load point mapping set '{}': {warnings}",
+                &self.pms_file
+            );
+        }
+        cip.pms = Rrc::new(pms);
+        Ok(cip)
+    }
+}
+
 //tp CipDesc
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CipDesc {

@@ -37,6 +37,12 @@ pub mod rtc {
 //tp Rrc
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Rrc<T>(Rc<RefCell<T>>);
+impl<T> Rrc<T> {
+    pub fn new(t: T) -> Self {
+        t.into()
+    }
+}
+
 impl<T> From<T> for Rrc<T> {
     fn from(data: T) -> Self {
         Self(Rc::new(RefCell::new(data)))

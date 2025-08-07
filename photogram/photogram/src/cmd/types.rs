@@ -3,7 +3,7 @@
 use star_catalog::Catalog;
 use thunderclap::CommandArgs;
 
-use ic_base::{Ray, Rrc};
+use ic_base::{PathSet, Ray, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;
@@ -22,6 +22,8 @@ pub fn cmd_ok() -> CmdResult {
 #[derive(Default)]
 pub struct CmdArgs {
     pub(crate) verbose: bool,
+
+    pub(crate) path_set: PathSet,
 
     pub(crate) project: Project,
 
@@ -47,6 +49,9 @@ pub struct CmdArgs {
 
     pub(crate) read_img: Vec<String>,
 
+    pub(crate) write_project: Option<String>,
+    pub(crate) write_named_points: Option<String>,
+    pub(crate) write_point_mapping: Option<String>,
     pub(crate) write_camera: Option<String>,
     pub(crate) write_calibration_mapping: Option<String>,
     pub(crate) write_star_mapping: Option<String>,
@@ -91,12 +96,17 @@ impl CommandArgs for CmdArgs {
         self.cdb = self.project.cdb().clone();
         self.read_img = vec![];
         self.np = vec![];
+
+        self.write_project = None;
+        self.write_named_points = None;
+        self.write_point_mapping = None;
+        self.write_camera = None;
         self.write_img = None;
         self.write_calibration_mapping = None;
         self.write_star_mapping = None;
         self.write_polys = None;
         self.write_svg = None;
-        self.write_camera = None;
+
         self.use_pts = 0;
         self.use_deltas = false;
         self.flags = 0;

@@ -3,9 +3,21 @@ use thunderclap::{ArgCount, CommandBuilder};
 
 use super::CmdArgs;
 
-//a CmdArgs accessors
+//a CmdArgs arg build methods
 //ip CmdArgs arg build methods
 impl CmdArgs {
+    //mp add_arg_path
+    pub fn add_arg_path(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "path",
+            None,
+            "Add a directory to the search path",
+            (0,).into(),
+            None,
+            CmdArgs::add_path,
+        );
+    }
+
     //mp add_arg_verbose
     pub fn add_arg_verbose(build: &mut CommandBuilder<Self>) {
         build.add_flag(
@@ -13,30 +25,6 @@ impl CmdArgs {
             Some('v'),
             "Enable verbose output",
             CmdArgs::set_verbose,
-        );
-    }
-
-    //fp add_arg_read_image
-    pub fn add_arg_read_image<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
-        build.add_arg_string(
-            "read",
-            Some('r'),
-            "Image to read",
-            arg_count.into(),
-            None,
-            CmdArgs::add_read_img,
-        );
-    }
-
-    //fp add_arg_write_image
-    pub fn add_arg_write_image(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "write",
-            Some('w'),
-            "Image to write",
-            required.into(),
-            None,
-            CmdArgs::set_write_img,
         );
     }
 
@@ -81,10 +69,10 @@ impl CmdArgs {
         build.add_arg_string(
             "project",
             None,
-            "Project JSON filename",
+            "Project descriptor JSON filename",
             required.into(),
             None,
-            CmdArgs::set_project,
+            CmdArgs::set_project_desc,
         );
     }
 
@@ -305,65 +293,6 @@ impl CmdArgs {
         );
     }
 
-    //fp add_arg_write_camera
-    pub fn add_arg_write_camera(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_camera",
-            None,
-            "File to write the final camera JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_camera,
-        );
-    }
-
-    //fp add_arg_write_calibration_mapping
-    pub fn add_arg_write_calibration_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_calibration_mapping",
-            None,
-            "File to write a derived mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_calibration_mapping,
-        );
-    }
-
-    //fp add_arg_write_star_mapping
-    pub fn add_arg_write_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_star_mapping",
-            None,
-            "File to write a derived star mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_star_mapping,
-        );
-    }
-
-    //fp add_arg_write_polys
-    pub fn add_arg_write_polys(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_polys",
-            None,
-            "File to write a derived polynomials JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_polys,
-        );
-    }
-
-    //fp add_arg_write_svg
-    pub fn add_arg_write_svg(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_svg",
-            None,
-            "File to write an output SVG to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_svg,
-        );
-    }
     //fp add_arg_poly_degree
     pub fn add_arg_poly_degree(build: &mut CommandBuilder<Self>) {
         build.add_arg_usize(
@@ -503,6 +432,132 @@ impl CmdArgs {
             ArgCount::Optional,
             Some("5.0"),
             CmdArgs::set_brightness,
+        );
+    }
+}
+
+//ip CmdArgs image arg build methods
+impl CmdArgs {
+    //fp add_arg_read_image
+    pub fn add_arg_read_image<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
+        build.add_arg_string(
+            "read",
+            Some('r'),
+            "Image to read",
+            arg_count.into(),
+            None,
+            CmdArgs::add_read_img,
+        );
+    }
+
+    //fp add_arg_write_image
+    pub fn add_arg_write_image(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_string(
+            "write",
+            Some('w'),
+            "Image to write",
+            required.into(),
+            None,
+            CmdArgs::set_write_img,
+        );
+    }
+}
+
+//ip CmdArgs write data arg build methods
+impl CmdArgs {
+    //fp add_arg_write_project
+    pub fn add_arg_write_project(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_project",
+            None,
+            "File to write the final project JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_project,
+        );
+    }
+
+    //fp add_arg_write_named_points
+    pub fn add_arg_write_named_points(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_named_points",
+            None,
+            "File to write the final named_points JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_named_points,
+        );
+    }
+
+    //fp add_arg_write_point_mapping
+    pub fn add_arg_write_point_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_point_mapping",
+            None,
+            "File to write the final point_mapping JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_point_mapping,
+        );
+    }
+
+    //fp add_arg_write_camera
+    pub fn add_arg_write_camera(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_camera",
+            None,
+            "File to write the final camera JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_camera,
+        );
+    }
+
+    //fp add_arg_write_calibration_mapping
+    pub fn add_arg_write_calibration_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_calibration_mapping",
+            None,
+            "File to write a derived mapping JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_calibration_mapping,
+        );
+    }
+
+    //fp add_arg_write_star_mapping
+    pub fn add_arg_write_star_mapping(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_star_mapping",
+            None,
+            "File to write a derived star mapping JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_star_mapping,
+        );
+    }
+
+    //fp add_arg_write_polys
+    pub fn add_arg_write_polys(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_polys",
+            None,
+            "File to write a derived polynomials JSON to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_polys,
+        );
+    }
+
+    //fp add_arg_write_svg
+    pub fn add_arg_write_svg(build: &mut CommandBuilder<Self>) {
+        build.add_arg_string(
+            "write_svg",
+            None,
+            "File to write an output SVG to",
+            ArgCount::Optional,
+            None,
+            CmdArgs::set_write_svg,
         );
     }
 }

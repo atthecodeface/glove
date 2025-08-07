@@ -224,7 +224,6 @@ pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, None);
 
-    CmdArgs::add_arg_nps(&mut build);
     CmdArgs::add_arg_named_point(&mut build, (0,));
 
     build.add_subcommand(combine_rays_from_model_cmd());
