@@ -7,9 +7,10 @@ use thunderclap::CommandBuilder;
 use ic_base::Result;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_cmdline::{CmdArgs, CmdResult};
 use ic_image::{Color, Image, ImageGray16, Region};
 use ic_kernel::{KernelArgs, Kernels};
+
+use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help
 //hi FIND_REGIONS_LONG_HELP
@@ -716,16 +717,13 @@ fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//a Main
-//fi main
-fn main() -> Result<()> {
+//a Image_analyze command
+//fp image_analyze
+pub fn image_analyze_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("image_analyze")
-        .about("Image analysis tool")
-        .version("0.1.0");
+        .about("Analyze an image, finding regions or applying kernels");
 
     let mut build = CommandBuilder::new(command, None);
-
-    CmdArgs::add_arg_verbose(&mut build);
 
     CmdArgs::add_arg_read_image(&mut build, (1,));
     CmdArgs::add_arg_write_image(&mut build, false);
@@ -738,8 +736,5 @@ fn main() -> Result<()> {
     build.add_subcommand(luma_kernel_cmd());
     build.add_subcommand(luma_kernel_pair_cmd());
 
-    let mut cmd_args = CmdArgs::default();
-    let mut command = build.main(true, true);
-    command.execute_env(&mut cmd_args)?;
-    Ok(())
+    build
 }

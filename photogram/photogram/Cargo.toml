@@ -1,5 +1,5 @@
 [package]
-name = "camera_calibrate"
+name = "image_analyze"
 edition.workspace = true
 version.workspace = true
 description.workspace = true
@@ -13,12 +13,13 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow.workspace = true
-
 nalgebra.workspace = true
 plotters.workspace = true
 poloto.workspace = true
+star-catalog.workspace = true
+image.workspace = true
 tagu.workspace = true
+thunderclap.workspace = true
 
 bytemuck.workspace = true
 wgpu.workspace = true
@@ -26,13 +27,11 @@ serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
 clap.workspace = true
-star-catalog.workspace = true
 
-thunderclap.workspace = true
 ic_base.workspace = true
 ic_camera.workspace = true
-ic_cmdline.workspace = true
 ic_image.workspace = true
+ic_project.workspace = true
 ic_kernel.workspace = true
 ic_mapping.workspace = true
 ic_stars.workspace = true
