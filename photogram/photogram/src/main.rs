@@ -292,9 +292,13 @@ fn main() -> Result<()> {
 
     CmdArgs::add_arg_verbose(&mut build);
 
-    // Camera database and project are really mutually exclusive, as the project includes a camera database
-    CmdArgs::add_arg_camera_database(&mut build, false);
+    // Project comes first - if you want to change the camera database
+    // for a project, then set that too
     CmdArgs::add_arg_project(&mut build, false);
+    CmdArgs::add_arg_camera_database(&mut build, false);
+
+    // The camera specification is local to the command - for point
+    // mappings etc, the cip is used
     CmdArgs::add_arg_camera(&mut build, false);
 
     build.add_subcommand(project::project_cmd());

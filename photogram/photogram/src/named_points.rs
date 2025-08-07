@@ -47,6 +47,11 @@ model-space points from the ray intersections.";
 const PROJECT_LONG_HELP: &str = "\
 Project help";
 
+//hi PROJECT_LONG_HELP
+const LIST_LONG_HELP: &str = "\
+List the information about one or more named points
+";
+
 //a CombineFrom
 //fi combine_rays_from_model_cmd
 fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
@@ -55,7 +60,6 @@ fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_model_fn)));
-    CmdArgs::add_arg_camera(&mut build, false); // required=true
     CmdArgs::add_arg_ray_file(&mut build, (1,));
     build
 }
@@ -192,6 +196,25 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
+//a List command
+//fi list_cmd
+fn list_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("list")
+        .about("List information about named points")
+        .long_about(LIST_LONG_HELP);
+
+    CommandBuilder::new(command, Some(Box::new(list_fn)))
+}
+
+//fi list_fn
+fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps = cmd_args.get_nps()?;
+    for np in nps {
+        println!("{np}");
+    }
+    Ok("".into())
+}
+
 //a Named points command
 //fi named_points_cmd
 pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
@@ -201,10 +224,13 @@ pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, None);
 
+    CmdArgs::add_arg_nps(&mut build);
+    CmdArgs::add_arg_named_point(&mut build, (0,));
+
     build.add_subcommand(combine_rays_from_model_cmd());
     build.add_subcommand(combine_rays_from_camera_cmd());
     build.add_subcommand(get_model_points_cmd());
+    build.add_subcommand(list_cmd());
 
-    CmdArgs::add_arg_nps(&mut build);
     build
 }

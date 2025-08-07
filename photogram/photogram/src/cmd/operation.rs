@@ -1,17 +1,77 @@
 //a Imports
+use std::rc::Rc;
+
+use regex::RegexBuilder;
+
 use ic_base::Result;
-use ic_image::{Image, ImagePt, ImageRgb8};
-use ic_mapping::{NamedPointSet, PointMappingSet};
+use ic_image::{Color, Image, ImagePt, ImageRgb8};
+use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
 use super::CmdArgs;
+
+//a Is regex
+fn is_regex(s: &str) -> bool {
+    s.chars().any(|c| "^[*?".contains(c))
+}
 
 //a CmdArgs accessors
 //ip CmdArgs - Operations
 impl CmdArgs {
+    //mp get_nps
+    pub fn get_nps(&self) -> Result<Vec<Rc<NamedPoint>>> {
+        let mut r = vec![];
+        if self.np.is_empty() {
+            return Ok(self
+                .nps
+                .borrow()
+                .iter()
+                .map(|(_, np)| np)
+                .cloned()
+                .collect());
+        }
+        for np in &self.np {
+            if np == "" {
+                continue;
+            }
+            if np.as_bytes()[0] == b'#' {
+                let color = Color::try_from(np.as_str())?;
+                let nps = self.nps.borrow().of_color(&color);
+                if nps.is_empty() {
+                    eprintln!("No named points found with color {color}");
+                }
+                for np in nps {
+                    if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
+                        r.push(np);
+                    }
+                }
+            } else if is_regex(np) {
+                let regex = RegexBuilder::new(np)
+                    .case_insensitive(true)
+                    .build()
+                    .map_err(|e| format!("failed to compile regex '{np}': {e}"))?;
+                for (name, np) in self.nps.borrow().iter() {
+                    if regex.is_match(name) {
+                        if !r.iter().any(|n| Rc::ptr_eq(n, np)) {
+                            r.push(np.clone());
+                        }
+                    }
+                }
+            } else {
+                let Some(np) = self.nps.borrow().get_pt(np) else {
+                    return Err(format!("Could not find named point {np} in the set").into());
+                };
+                if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
+                    r.push(np);
+                }
+            }
+        }
+        Ok(r)
+    }
+
     //mp pms_map
-    pub fn pms_map<M, T>(&self, map: M) -> ic_base::Result<T>
+    pub fn pms_map<M, T>(&self, map: M) -> Result<T>
     where
-        M: FnOnce(&PointMappingSet) -> ic_base::Result<T>,
+        M: FnOnce(&PointMappingSet) -> Result<T>,
     {
         let cip = self.cip.borrow();
         let pms = cip.pms_ref();

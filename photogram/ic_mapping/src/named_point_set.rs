@@ -26,6 +26,7 @@ pub struct NamedPoint {
     model: RefCell<Option<(Point3D, f64)>>,
 }
 
+//fi deserialize_model
 #[allow(dead_code)]
 fn deserialize_model<'de, D>(
     deserializer: D,
@@ -37,6 +38,21 @@ where
     let model = <Option<Point3D>>::deserialize(deserializer)?;
     let model = model.map(|a| (a, 0.));
     Ok(model.into())
+}
+
+//ip Display for NamedPoint
+impl std::fmt::Display for NamedPoint {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        if let Some(position) = self.opt_model() {
+            write!(
+                fmt,
+                "{} {} @[{:.2}, {:.2}, {:.2}]",
+                self.name, self.color, position.0[0], position.0[1], position.0[2],
+            )
+        } else {
+            write!(fmt, "{} {} unmapped", self.name, self.color,)
+        }
+    }
 }
 
 //ip PartialEq for NamedPoint

@@ -174,8 +174,8 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_np
-    pub(crate) fn set_np(&mut self, s: &str) -> Result<()> {
+    //mi add_np
+    pub(crate) fn add_np(&mut self, s: &str) -> Result<()> {
         self.np.push(s.into());
         Ok(())
     }

@@ -178,10 +178,10 @@ impl CmdArgs {
         build.add_arg_string(
             "np",
             None,
-            "Specifies named points for the patch",
+            "The name of a named point to use or look for; can be a regular expression",
             arg_count.into(),
             None,
-            CmdArgs::set_np,
+            CmdArgs::add_np,
         );
     }
 

@@ -19,7 +19,6 @@ pub fn cmd_ok() -> CmdResult {
 
 //a CmdArgs
 //tp CmdArgs
-
 #[derive(Default)]
 pub struct CmdArgs {
     pub(crate) verbose: bool,
@@ -88,7 +87,10 @@ impl CommandArgs for CmdArgs {
     type Value = String;
 
     fn reset_args(&mut self) {
+        self.nps = self.project.nps().clone();
+        self.cdb = self.project.cdb().clone();
         self.read_img = vec![];
+        self.np = vec![];
         self.write_img = None;
         self.write_calibration_mapping = None;
         self.write_star_mapping = None;
