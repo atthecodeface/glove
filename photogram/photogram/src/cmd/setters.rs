@@ -1,4 +1,5 @@
 //a Imports
+use star_catalog::Catalog;
 
 use ic_base::Result;
 use ic_base::{json, Ray, Rrc};
@@ -7,6 +8,7 @@ use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
+use ic_stars::StarMapping;
 
 use super::CmdArgs;
 
@@ -128,6 +130,21 @@ impl CmdArgs {
         }
         self.cip.borrow_mut().set_camera(camera.clone().into());
         self.camera = camera;
+    }
+
+    //mp set_star_mapping_file
+    pub(crate) fn set_star_mapping_file(&mut self, filename: &str) -> Result<()> {
+        let json = json::read_file(filename)?;
+        self.star_mapping = StarMapping::from_json(&json)?;
+        Ok(())
+    }
+
+    //fp set_star_catalog
+    pub fn set_star_catalog(&mut self, filename: &str) -> Result<()> {
+        let mut catalog = Catalog::load_catalog(filename, 99.)?;
+        catalog.derive_data();
+        self.star_catalog = Some(Box::new(catalog));
+        Ok(())
     }
 
     //mi add_read_img

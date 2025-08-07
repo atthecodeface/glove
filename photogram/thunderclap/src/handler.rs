@@ -244,8 +244,9 @@ impl<C: CommandArgs> CommandSet<C> {
                         .map(|filename| {
                             (
                                 filename.clone(),
-                                std::fs::read_to_string(filename)
-                                    .map_err(|e| format!("Failed to load batch file {filename}")),
+                                std::fs::read_to_string(filename).map_err(|e| {
+                                    format!("failed to load batch file {filename}: {e}")
+                                }),
                             )
                         })
                         .collect();

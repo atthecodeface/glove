@@ -1,12 +1,5 @@
 //a Imports
-
-use clap::{Arg, ArgAction, ArgMatches};
-use star_catalog::Catalog;
 use thunderclap::{ArgCount, CommandBuilder};
-
-use ic_base::json;
-use ic_base::Result;
-use ic_stars::StarMapping;
 
 use super::CmdArgs;
 
@@ -479,24 +472,25 @@ impl CmdArgs {
 
     //fp add_arg_star_mapping
     pub fn add_arg_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg(
-            Arg::new("star_mapping")
-                .required(false)
-                .help("File mapping sensor coordinates to catalog identifiers")
-                .action(ArgAction::Set),
-            Box::new(CmdArgs::arg_star_mapping),
+        build.add_arg_string(
+            "star_mapping",
+            None,
+            "JSON file mapping sensor coordinates to catalog identifiers",
+            false.into(),
+            None,
+            CmdArgs::set_star_mapping_file,
         );
     }
 
     //fp add_arg_star_catalog
     pub fn add_arg_star_catalog(build: &mut CommandBuilder<Self>) {
-        build.add_arg(
-            Arg::new("star_catalog")
-                .long("catalog")
-                .required(false)
-                .help("Star catalog to use")
-                .action(ArgAction::Set),
-            Box::new(CmdArgs::arg_star_catalog),
+        build.add_arg_string(
+            "star_catalog",
+            None,
+            "Star catalog to use",
+            false.into(),
+            None,
+            CmdArgs::set_star_catalog,
         );
     }
 
@@ -510,22 +504,5 @@ impl CmdArgs {
             Some("5.0"),
             CmdArgs::set_brightness,
         );
-    }
-
-    //fp arg_star_mapping
-    pub fn arg_star_mapping(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-        let filename = matches.get_one::<String>("star_mapping").unwrap();
-        let json = json::read_file(filename)?;
-        args.star_mapping = StarMapping::from_json(&json)?;
-        Ok(())
-    }
-
-    //fp arg_star_catalog
-    pub fn arg_star_catalog(args: &mut CmdArgs, matches: &ArgMatches) -> Result<()> {
-        let catalog_filename = matches.get_one::<String>("star_catalog").unwrap();
-        let mut catalog = Catalog::load_catalog(catalog_filename, 99.)?;
-        catalog.derive_data();
-        args.star_catalog = Some(Box::new(catalog));
-        Ok(())
     }
 }
