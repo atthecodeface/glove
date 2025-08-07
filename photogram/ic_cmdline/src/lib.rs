@@ -1,10 +1,8 @@
 //a Imports
-use std::cell::Ref;
 use std::io::Write;
-use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use star_catalog::{Catalog, StarFilter};
+use star_catalog::Catalog;
 use thunderclap::{ArgCount, CommandArgs, CommandBuilder};
 
 use ic_base::{json, Ray, Rrc};

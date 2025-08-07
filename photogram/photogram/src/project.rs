@@ -1,19 +1,10 @@
 //a Imports
-use std::collections::HashMap;
 
 use clap::Command;
 
 use thunderclap::CommandBuilder;
 
-use ic_base::{Ray, Result};
-use ic_camera::CameraProjection;
-use ic_image::{Color, Image, Patch, Region};
-use ic_mapping::{
-    CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet, NamedPointSet,
-    PointMappingSet,
-};
-
-use crate::cmd::{cmd_ok, CmdArgs, CmdResult};
+use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help
 //hi PROJECT_LONG_HELP

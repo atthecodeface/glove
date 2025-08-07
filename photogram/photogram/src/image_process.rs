@@ -1,47 +1,14 @@
 //a Imports
-use std::collections::HashMap;
 
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::Result;
-use ic_camera::polynomial;
-use ic_camera::polynomial::CalcPoly;
-use ic_image::{Color, Image, ImageGray16, Region};
+use ic_image::{Image, ImageGray16};
 use ic_kernel::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help
-//hi FIND_REGIONS_LONG_HELP
-const FIND_REGIONS_LONG_HELP: &str = "\
-This treats the image file read in as a set of non-background color
-regions.
-
-A region is a contiguous set of non-background pixels. The
-centre-of-gravity of each region is determined, and the result is a
-JSON file containing a list of pairs of floats of those cogs.";
-
-//hi FIND_GRID_POINTS_LONG_HELP
-const FIND_GRID_POINTS_LONG_HELP: &str = "\
-This treats the image file read in as a set of non-background color
-regions each of which should be centred on a (cm,cm) grid point from a
-square-on photo of a piece of graph paper.
-
-A region is a contiguous set of non-background pixels. The
-centre-of-gravity of each region is determined. The region closest to
-the centre of the photograph is deemed to be (0cm, 0cm). The grid
-should be horizontal and vertical, and the X and Y axes are
-determined, with the approximate 1cm spacing determined in X and
-Y. Horizontal and vertical curves are generated internally using
-points with similar Y and X values, to produce approximations to the
-grid lines on the image, using least-square error polynomial
-approximations. From this approximate grid points are redetermined,
-and a JSON file of a list of tuples of (grid xmm, grid ymm, frame x,
-frame y) is produced. If a 'write' image filename is provided then an
-image is generated that is black background with red crosses at each
-grid point.";
-
 //hi AS_LUMA_LONG_HELP
 const AS_LUMA_LONG_HELP: &str = "\
 Generate a 16-bit luma image
@@ -73,70 +40,6 @@ Apply a number of kernels (with a single set of size, scale etc arguments)
 
 Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
 ";
-
-//a Useful functions
-//fi find_center_point
-/// Find the point closest to the center
-fn find_center_point((cx, cy): (f64, f64), pts: &[(f64, f64)]) -> usize {
-    let mut min_dsq = f64::MAX;
-    let mut min = 0;
-    for (n, (px, py)) in pts.iter().enumerate() {
-        let dx = *px - cx;
-        let dy = *py - cy;
-        let dsq = dx * dx + dy * dy;
-        if dsq < min_dsq {
-            min = n;
-            min_dsq = dsq;
-        }
-    }
-    min
-}
-
-//fi find_axis_pts
-/// From a given origin (cx,cy), follow all those points with similar
-/// cy (for an x axis) or cx, and generate the index of the points and
-/// the delta along the axis for those points on the axis
-fn find_axis_pts(
-    x_axis: bool,
-    closeness: f64,
-    (cx, cy): (f64, f64),
-    pts: &[(f64, f64)],
-) -> Option<Vec<(usize, f64)>> {
-    let mut pts_on_axis = vec![];
-    let c_sq = closeness * closeness;
-    for (n, (px, py)) in pts.iter().enumerate() {
-        let dx = *px - cx;
-        let dy = *py - cy;
-        let (d_off, d_along) = if x_axis { (dy, dx) } else { (dx, dy) };
-        if d_off * d_off < c_sq {
-            pts_on_axis.push((n, d_along));
-        }
-    }
-    if pts_on_axis.is_empty() {
-        None
-    } else {
-        Some(pts_on_axis)
-    }
-}
-
-//fi spacing_of_coords
-fn spacing_of_coords(pts: &[(usize, f64)]) -> Result<f64> {
-    let mut coords: Vec<f64> = pts.iter().map(|(_, n)| *n).collect();
-    coords.sort_by(|f0, f1| f0.partial_cmp(f1).unwrap());
-    let mut min_spacing = coords[1] - coords[0];
-    for i in 1..coords.len() {
-        min_spacing = min_spacing.min(coords[i] - coords[i - 1]);
-    }
-    let mut total_spaces = 0.0;
-    for i in 1..coords.len() {
-        let spacing = coords[i] - coords[i - 1];
-        let d = spacing / min_spacing;
-        let d_n = (d + 0.5).floor();
-        total_spaces += d_n;
-    }
-    let avg_spacing = (coords.last().unwrap() - coords[0]) / total_spaces;
-    Ok(avg_spacing)
-}
 
 //a Luma
 //fi as_luma_cmd

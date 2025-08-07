@@ -5,9 +5,8 @@ use clap::Command;
 use geo_nd::{quat, Quaternion, Vector};
 use thunderclap::CommandBuilder;
 
-use ic_base::{Point3D, Quat, RollYaw, TanXTanY};
+use ic_base::{Point3D, Quat, RollYaw};
 use ic_camera::polynomial;
-use ic_camera::polynomial::CalcPoly;
 use ic_camera::{CameraProjection, LensPolys};
 use ic_image::{Color, Image};
 use ic_mapping::ModelLineSet;
