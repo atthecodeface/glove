@@ -175,20 +175,12 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 
-    //cp subcmd
-    /// Create a new command set, for a subcommand
-    pub(crate) fn subcmd(builder: CommandBuilder<C>) -> Self {
-        let (command, handler_set) = builder.take();
-        let command = command.no_binary_name(true);
-        Self::new(command, handler_set, false)
-    }
-
     //cp main
     /// Create a new command set as a 'main' command handler
     ///
     /// This is the toplevel command handler
     pub(crate) fn main(
-        mut builder: CommandBuilder<C>,
+        builder: CommandBuilder<C>,
         allow_batch: bool,
         allow_interactive: bool,
     ) -> Self {
@@ -287,7 +279,7 @@ impl<C: CommandArgs> CommandSet<C> {
     //mi handle_builtin_echo
     fn handle_builtin_echo(
         &self,
-        cmd_args: &mut C,
+        _cmd_args: &mut C,
         matches: &ArgMatches,
     ) -> Result<String, C::Error> {
         let mut file = {
@@ -305,8 +297,8 @@ impl<C: CommandArgs> CommandSet<C> {
         };
         for v in matches.get_many::<String>("values").unwrap() {
             if let Some(file) = &mut file {
-                write!(file, "{v}\n")
-                    .map_err(|e| format!("Failed to write to echo output file"))?;
+                writeln!(file, "{v}")
+                    .map_err(|_e| "Failed to write to echo output file".to_string())?;
             } else {
                 println!("{v}");
             }
@@ -336,8 +328,10 @@ impl<C: CommandArgs> CommandSet<C> {
     ) -> Result<String, C::Error> {
         if let Some(keys) = matches.get_many::<String>("key") {
             for k in keys {
-                let Some(v) = cmd_args.value_str(&k) else {
-                    return Err(format!("Argument set does not have a value for 'k'").into());
+                let Some(v) = cmd_args.value_str(k) else {
+                    return Err("Argument set does not have a value for 'k'"
+                        .to_string()
+                        .into());
                 };
                 println!("{k:20}: {v}");
             }
@@ -355,8 +349,8 @@ impl<C: CommandArgs> CommandSet<C> {
     //mi handle_builtin_stack_show
     fn handle_builtin_stack_show(
         &mut self,
-        cmd_args: &mut C,
-        matches: &ArgMatches,
+        _cmd_args: &mut C,
+        _matches: &ArgMatches,
     ) -> Result<String, C::Error> {
         for (i, v) in self.result_history.iter().rev().enumerate() {
             println!("{i:4} : {v}");
@@ -367,8 +361,8 @@ impl<C: CommandArgs> CommandSet<C> {
     //mi handle_builtin_stack_clear
     fn handle_builtin_stack_clear(
         &mut self,
-        cmd_args: &mut C,
-        matches: &ArgMatches,
+        _cmd_args: &mut C,
+        _matches: &ArgMatches,
     ) -> Result<String, C::Error> {
         if self.result_history.len() > 1 {
             let _ = self.result_history.drain(1..);
@@ -379,8 +373,8 @@ impl<C: CommandArgs> CommandSet<C> {
     //mi handle_builtin_stack_pop
     fn handle_builtin_stack_pop(
         &mut self,
-        cmd_args: &mut C,
-        matches: &ArgMatches,
+        _cmd_args: &mut C,
+        _matches: &ArgMatches,
     ) -> Result<String, C::Error> {
         if self.result_history.len() > 1 {
             Ok(Rc::into_inner(self.result_history.remove(1)).unwrap())
@@ -392,7 +386,7 @@ impl<C: CommandArgs> CommandSet<C> {
     //mi handle_builtin_stack_push
     fn handle_builtin_stack_push(
         &mut self,
-        cmd_args: &mut C,
+        _cmd_args: &mut C,
         matches: &ArgMatches,
     ) -> Result<String, C::Error> {
         if let Some(values) = matches.get_many::<String>("values") {
@@ -422,25 +416,25 @@ impl<C: CommandArgs> CommandSet<C> {
         match matches.subcommand_name() {
             Some("echo") => self
                 .handle_builtin_echo(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("show") => self
                 .handle_builtin_show(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("set") => self
                 .handle_builtin_set(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("stack_show") => self
                 .handle_builtin_stack_show(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("stack_push") => self
                 .handle_builtin_stack_push(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("stack_pop") => self
                 .handle_builtin_stack_pop(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             Some("stack_clear") => self
                 .handle_builtin_stack_clear(cmd_args, matches.subcommand().unwrap().1)
-                .map(|s| Some(s)),
+                .map(Some),
             _ => Ok(None),
         }
     }
@@ -569,7 +563,7 @@ impl<C: CommandArgs> CommandSet<C> {
 
     //mi executed_result
     fn executed_result(&mut self, result: String) {
-        if result != "" {
+        if !result.is_empty() {
             if !self.result_history.is_empty() {
                 self.result_history.pop();
             }

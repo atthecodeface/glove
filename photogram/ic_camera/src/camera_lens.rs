@@ -420,7 +420,7 @@ impl LensPolys {
         let stw =
             polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied()).map_err(|e| {
                 Error::SelfError(
-                    format!("failed to derive sensor-to-world polynomial"),
+                    "failed to derive sensor-to-world polynomial".to_string(),
                     e.into(),
                 )
             })?;
@@ -436,7 +436,7 @@ impl LensPolys {
 
         let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy).map_err(|e| {
             Error::SelfError(
-                format!("failed to derive world-to-sensor polynomial"),
+                "failed to derive world-to-sensor polynomial".to_string(),
                 e.into(),
             )
         })?;

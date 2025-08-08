@@ -31,7 +31,7 @@ impl CmdArgs {
                 .collect());
         }
         for np in &self.np {
-            if np == "" {
+            if np.is_empty() {
                 continue;
             }
             if np.as_bytes()[0] == b'#' {
@@ -51,11 +51,10 @@ impl CmdArgs {
                     .build()
                     .map_err(|e| format!("failed to compile regex '{np}': {e}"))?;
                 for (name, np) in self.nps.borrow().iter() {
-                    if regex.is_match(name) {
-                        if !r.iter().any(|n| Rc::ptr_eq(n, np)) {
+                    if regex.is_match(name)
+                        && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
                             r.push(np.clone());
                         }
-                    }
                 }
             } else {
                 let Some(np) = self.nps.borrow().get_pt(np) else {
@@ -88,7 +87,7 @@ impl CmdArgs {
     where
         M: FnOnce(&PointMappingSet) -> Result<T>,
     {
-        map(&*self.pms.borrow())
+        map(&self.pms.borrow())
     }
 
     //mp calibration_mapping_to_pms
@@ -149,7 +148,7 @@ impl CmdArgs {
             return Err(format!("could not finde image file {read_filename}").into());
         };
         let img = ImageRgb8::read_image(read_filename)
-            .map_err(|e| (e, format!("failed to read image")))?;
+            .map_err(|e| (e, "failed to read image".to_string()))?;
         Ok(img)
     }
 

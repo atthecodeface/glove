@@ -29,7 +29,7 @@ pub fn get_project(matches: &ArgMatches) -> Result<Project> {
         let mut project = Project::default();
         let cdb = camera::get_camera_database(matches)?;
         let nps = mapping::get_nps(matches)?;
-        project.set_cdb(cdb.into());
+        project.set_cdb(cdb);
         project.set_nps(nps.into());
         Ok(project)
     }

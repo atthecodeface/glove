@@ -179,12 +179,12 @@ impl CmdArgs {
 
     //mi write_img
     pub fn write_img(&self) -> Option<&str> {
-        self.write_img.as_ref().map(|s| s.as_str())
+        self.write_img.as_deref()
     }
 
     //mi write_svg
     pub fn write_svg(&self) -> Option<&str> {
-        self.write_svg.as_ref().map(|s| s.as_str())
+        self.write_svg.as_deref()
     }
 
     //mp use_pts

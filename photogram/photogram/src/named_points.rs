@@ -119,7 +119,7 @@ fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let mut named_point_rays = HashMap::new();
     for (name, ray) in named_rays {
-        if nps.borrow().get_pt(&name).is_none() {
+        if nps.borrow().get_pt(name).is_none() {
             eprintln!(
                 "Warning: failed to find point name '{}' in named point set",
                 &name

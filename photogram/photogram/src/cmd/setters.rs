@@ -66,7 +66,7 @@ impl CmdArgs {
 
     //mi set_camera_json
     pub(crate) fn set_camera_json(&mut self, camera_json: &str) -> Result<()> {
-        let camera = CameraInstance::from_json(&self.cdb.borrow(), &camera_json)?;
+        let camera = CameraInstance::from_json(&self.cdb.borrow(), camera_json)?;
         self.set_camera(camera);
         Ok(())
     }
@@ -112,11 +112,8 @@ impl CmdArgs {
     //mi add_path
     /// Adds a directory to the search ath
     pub(crate) fn add_path(&mut self, s: &str) -> Result<()> {
-        match self.path_set.add_path(s) {
-            Err(e) => {
-                eprintln!("Warning: {e}");
-            }
-            _ => (),
+        if let Err(e) = self.path_set.add_path(s) {
+            eprintln!("Warning: {e}");
         };
         Ok(())
     }

@@ -170,7 +170,7 @@ impl PolyIntercept {
             }
         };
         let intercept_pts = find_axis_pts(y_intercept, spacing / 3.0, (cx, cy), pts)
-            .ok_or(format!("failed to find intercept"))?;
+            .ok_or("failed to find intercept".to_string())?;
         let mut g = vec![];
         // if y_intercept then the x values will be diverse and the y values similar
         let mut x = vec![];

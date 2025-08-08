@@ -169,12 +169,12 @@ fn luma_kernel_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let kernels = Kernels::new();
     let args: KernelArgs = (w, h).into();
-    let args = args.with_size(ws as usize);
+    let args = args.with_size(ws);
     let args = args.with_scale(scale as f32);
     let args = args.with_xy(xy);
 
     for k in kernels_to_apply {
-        kernels.run_shader(&k, &args, w * h, None, img_data.as_mut_slice())?;
+        kernels.run_shader(k, &args, w * h, None, img_data.as_mut_slice())?;
     }
 
     eprintln!("Completed kernel");
@@ -285,7 +285,7 @@ fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         img.write("dst2_kernel.png")?;
     }
     let args: KernelArgs = (dst_w, dst_h).into();
-    let args = args.with_size(ws as usize);
+    let args = args.with_size(ws);
     let args = args.with_scale(scale as f32);
     let args = args.with_angle(angle.to_radians() as f32);
     let args = args.with_xy(xy);
@@ -306,7 +306,7 @@ fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             img.write("before_dst_kernel.png")?;
         }
         kernels.run_shader(
-            &k,
+            k,
             &args,
             dst_w * dst_h,
             Some(src_img.as_slice()),

@@ -317,8 +317,7 @@ impl CameraAdjustMapping for CameraInstance {
 
         let qr_c = qr.conjugate();
 
-        for j in 0..n {
-            let pm = &mappings[j];
+        for pm in mappings.iter() {
             if pm.is_unmapped() {
                 continue;
             }
@@ -329,7 +328,7 @@ impl CameraAdjustMapping for CameraInstance {
             let qd = utils::orientation_mapping_vpair_to_ppair(dj_m.as_ref(), &di_m, &dj_c, &di_c);
             let q = qr_c * qd;
             let r = q.as_rijk().0.abs();
-            let err2 = {
+            let _err2 = {
                 if r < 1.0 {
                     1.0 - r
                 } else {
@@ -340,12 +339,11 @@ impl CameraAdjustMapping for CameraInstance {
         }
 
         self.set_orientation(qr);
-        for j in 0..n {
-            let pm = &mappings[j];
+        for pm in mappings.iter() {
             if pm.is_unmapped() {
                 continue;
             }
-            let mapped_pxy = self.world_xyz_to_px_abs_xy(pm.model());
+            let _mapped_pxy = self.world_xyz_to_px_abs_xy(pm.model());
             // eprintln!("{j} {mapped_pxy} {}", pm.screen());
         }
         let te = self.total_error(mappings);

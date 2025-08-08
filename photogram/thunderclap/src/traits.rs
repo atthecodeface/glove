@@ -32,7 +32,7 @@ pub trait CommandArgs: 'static {
     /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
     ///
     /// Return None if the key is not provided by the args
-    fn value_str(&self, key: &str) -> Option<String> {
+    fn value_str(&self, _key: &str) -> Option<String> {
         None
     }
 
@@ -43,7 +43,7 @@ pub trait CommandArgs: 'static {
     /// Return Ok(true) if the key value was set correctly
     ///
     /// Return Err() if the key was known but could not be set
-    fn value_set(&mut self, key: &str, value: &str) -> Result<bool, Self::Error> {
+    fn value_set(&mut self, _key: &str, _value: &str) -> Result<bool, Self::Error> {
         Ok(false)
     }
 }

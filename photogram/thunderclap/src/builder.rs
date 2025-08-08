@@ -82,12 +82,6 @@ impl<C: CommandArgs> CommandBuilder<C> {
         (command, handler_set)
     }
 
-    //mp build
-    /// Convert the builder into an actual [CommandSet]
-    pub(crate) fn build(self) -> CommandSet<C> {
-        CommandSet::subcmd(self)
-    }
-
     //mp main
     /// Convert the builder into an actual [CommandSet] to be used by 'main'
     pub fn main(self, allow_batch: bool, allow_interactive: bool) -> CommandSet<C> {
@@ -172,12 +166,7 @@ impl From<bool> for ArgCount {
 impl ArgCount {
     fn required(&self) -> bool {
         use ArgCount::*;
-        match self {
-            Required => true,
-            Exactly(_n) => true,
-            Min(_n) => true,
-            _ => false,
-        }
+        matches!(self, Required | Exactly(_) | Min(_))
     }
     fn action(&self) -> ArgAction {
         use ArgCount::*;

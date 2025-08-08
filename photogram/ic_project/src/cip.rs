@@ -4,7 +4,7 @@ use std::cell::{Ref, RefMut};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{json, PathSet, Result, Rrc};
-use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc};
+use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_mapping::{CameraAdjustMapping, PointMappingSet};
 
 use crate::Project;
@@ -36,13 +36,15 @@ impl CipFileDesc {
 
     //mp load_cip
     pub fn load_cip(&self, path_set: &PathSet, project: &Project) -> Result<Cip> {
-        let mut cip = Cip::default();
-        cip.camera_file = self.camera_file.clone();
-        cip.pms_file = self.pms_file.clone();
-        cip.image = self.image.clone();
+        let mut cip = Cip {
+            camera_file: self.camera_file.clone(),
+            pms_file: self.pms_file.clone(),
+            image: self.image.clone(),
+            ..Default::default()
+        };
         let camera_desc: CameraInstanceDesc =
             path_set.load_from_json_file("camera", &self.camera_file)?;
-        cip.camera = CameraInstance::from_desc(&*project.cdb_ref(), camera_desc)?.into();
+        cip.camera = CameraInstance::from_desc(&project.cdb_ref(), camera_desc)?.into();
         let pms_json = path_set
             .read_json_file(&self.pms_file)
             .map_err(|e| (e, "point mapping set".to_owned()))?;

@@ -7,85 +7,123 @@ use ic_base::Error;
 use crate::{CmdArgs, CmdResult};
 
 //ip CommandArgs for CmdArgs
-const KEY_GET_SET_FNS: &[(
-    &str,
-    &dyn Fn(&CmdArgs) -> Option<String>,
-    &dyn Fn(&mut CmdArgs, &str) -> Result<bool, Error>,
-)] = &[
-    (
+struct KeyFn(
+    &'static str,
+    &'static dyn Fn(&CmdArgs) -> Option<String>,
+    &'static dyn Fn(&mut CmdArgs, &str) -> Result<bool, Error>,
+);
+const KEY_FNS: &[KeyFn] = &[
+    KeyFn(
         "camera",
         &|cmd_args| cmd_args.camera.to_json(false).ok(),
-        &|mut cmd_args, s| cmd_args.set_camera_json(s).map(|_| true),
+        &|cmd_args, s| cmd_args.set_camera_json(s).map(|_| true),
     ),
-    (
+    KeyFn(
         "cip.image",
         &|cmd_args| Some(cmd_args.cip.borrow().image().to_owned()),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.image' to '{s}'").into()),
     ),
-    (
+    KeyFn(
         "cip.camera",
         &|cmd_args| cmd_args.cip.borrow().camera().borrow().to_json(false).ok(),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.camera' to '{s}'").into()),
     ),
-    (
-        "cip.point_mappingset",
+    KeyFn(
+        "cip.point_mapping_set",
         &|cmd_args| Some(cmd_args.cip.borrow().pms_file().to_owned()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.point_mappingset' to '{s}'").into()),
+        &|mut _cmd_args, s| {
+            Err(format!("Failed to set key 'cip.point_mapping_set' to '{s}'").into())
+        },
     ),
-    (
-        "point_mappingset",
+    KeyFn(
+        "point_mapping_set",
         &|cmd_args| cmd_args.pms.borrow().to_json(false).ok(),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'point_mappingset' to '{s}'").into()),
+        &|mut _cmd_args, s| Err(format!("Failed to set key 'point_mapping_set' to '{s}'").into()),
     ),
-    (
+    KeyFn(
         "calibration_mapping",
         &|cmd_args| cmd_args.calibration_mapping.to_json(false).ok(),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'calibration_mapping' to '{s}'").into()),
     ),
-    (
+    KeyFn(
         "star_mapping",
         &|cmd_args| cmd_args.star_mapping.to_json(false).ok(),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'star_mapping' to '{s}'").into()),
     ),
-    (
+    KeyFn(
         "brightness",
         &|cmd_args| Some(cmd_args.brightness.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'brightness' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f32>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_brightness(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "closeness",
         &|cmd_args| Some(cmd_args.closeness.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'closeness' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f64>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_closeness(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "poly_degree",
         &|cmd_args| Some(cmd_args.poly_degree.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'poly_degree' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<usize>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_poly_degree(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "triangle_closeness",
         &|cmd_args| Some(cmd_args.triangle_closeness.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'triangle_closeness' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f64>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_triangle_closeness(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "within",
         &|cmd_args| Some(cmd_args.within.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'within' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f64>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_within(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "yaw_error",
         &|cmd_args| Some(cmd_args.yaw_error.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'yaw_error' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f64>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_yaw_error(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "yaw_min",
         &|cmd_args| Some(cmd_args.yaw_min.to_string()),
-        &|mut _cmd_args, s| Err(format!("Failed to set key 'yaw_min' to '{s}'").into()),
+        &|cmd_args, s| {
+            s.parse::<f64>()
+                .map_err(|e| e.to_string().into())
+                .and_then(|v| cmd_args.set_yaw_min(v))
+                .map(|_| true)
+        },
     ),
-    (
+    KeyFn(
         "yaw_max",
         &|cmd_args| Some(cmd_args.yaw_max.to_string()),
-        &|mut cmd_args, s| {
+        &|cmd_args, s| {
             s.parse::<f64>()
                 .map_err(|e| e.to_string().into())
                 .and_then(|v| cmd_args.set_yaw_max(v))
@@ -136,14 +174,14 @@ impl CommandArgs for CmdArgs {
 
     /// Get the keys (elements) of the arguments - used in batch and interactive only
     fn keys(&self) -> Box<dyn Iterator<Item = &str>> {
-        Box::new(KEY_GET_SET_FNS.iter().map(|(k, _g, _s)| *k))
+        Box::new(KEY_FNS.iter().map(|k| k.0))
     }
 
     /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
     fn value_str(&self, key: &str) -> Option<String> {
-        for (k, g, _s) in KEY_GET_SET_FNS.iter() {
-            if key == *k {
-                return g(self);
+        for k in KEY_FNS.iter() {
+            if key == k.0 {
+                return k.1(self);
             }
         }
         None
@@ -151,9 +189,9 @@ impl CommandArgs for CmdArgs {
 
     /// Set the value
     fn value_set(&mut self, key: &str, value: &str) -> Result<bool, Error> {
-        for (k, _g, set) in KEY_GET_SET_FNS.iter() {
-            if key == *k {
-                return set(self, value);
+        for k in KEY_FNS.iter() {
+            if key == k.0 {
+                return k.2(self, value);
             }
         }
         Ok(false)
