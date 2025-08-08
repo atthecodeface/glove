@@ -322,7 +322,9 @@ impl<C: CommandArgs> CommandSet<C> {
     ) -> Result<String, C::Error> {
         let k = matches.get_one::<String>("key").unwrap();
         let v = matches.get_one::<String>("value").unwrap();
-        self.variables.insert(k.into(), Rc::new(v.into()));
+        if !cmd_args.value_set(k, v)? {
+            self.variables.insert(k.into(), Rc::new(v.into()));
+        }
         Ok("".into())
     }
 

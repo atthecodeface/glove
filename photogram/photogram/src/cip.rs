@@ -169,6 +169,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
 
     let mut camera = cmd_args.camera().clone();
+
     cmd_args.pms_map(|pms| {
         camera.orient_using_rays_from_model(pms.mappings());
         Ok(())
@@ -179,6 +180,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
     });
+
     *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
@@ -422,7 +424,6 @@ fn create_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_from_camera_fn)));
     CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
 
     build
 }

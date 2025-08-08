@@ -336,7 +336,7 @@ impl CameraAdjustMapping for CameraInstance {
                     0.0
                 }
             };
-            eprintln!("{j} {err2:.4e} {}", pm.name());
+            // eprintln!("{j} {err2:.4e} {}", pm.name());
         }
 
         self.set_orientation(qr);
@@ -346,7 +346,7 @@ impl CameraAdjustMapping for CameraInstance {
                 continue;
             }
             let mapped_pxy = self.world_xyz_to_px_abs_xy(pm.model());
-            eprintln!("{j} {mapped_pxy} {}", pm.screen());
+            // eprintln!("{j} {mapped_pxy} {}", pm.screen());
         }
         let te = self.total_error(mappings);
         eprintln!("Error in qr's {e} total error {te} QR: {qr}");

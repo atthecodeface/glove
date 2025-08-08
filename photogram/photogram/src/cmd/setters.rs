@@ -64,6 +64,13 @@ impl CmdArgs {
         self.calibration_mapping = mapping;
     }
 
+    //mi set_camera_json
+    pub(crate) fn set_camera_json(&mut self, camera_json: &str) -> Result<()> {
+        let camera = CameraInstance::from_json(&self.cdb.borrow(), &camera_json)?;
+        self.set_camera(camera);
+        Ok(())
+    }
+
     //mi set_camera_file
     pub(crate) fn set_camera_file(&mut self, camera_filename: &str) -> Result<()> {
         let camera_json = json::read_file(camera_filename)?;
