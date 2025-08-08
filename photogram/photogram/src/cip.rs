@@ -362,7 +362,7 @@ fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
     // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
     CmdArgs::add_arg_read_image(&mut build, 1_usize);
     CmdArgs::add_arg_write_image(&mut build, true);
-    CmdArgs::add_arg_named_point(&mut build, (1,));
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
     build
 }
 

@@ -233,7 +233,7 @@ impl Serialize for NamedPointSet {
             let name = &self.names[i];
             let np = self.points.get(name).unwrap();
             let color = np.color();
-            let model = np.model();
+            let model = np.opt_model();
             seq.serialize_element(&(name, color, model))?;
         }
         seq.end()

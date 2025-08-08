@@ -292,6 +292,7 @@ fn main() -> Result<()> {
     let mut build = CommandBuilder::new(command, None);
 
     CmdArgs::add_arg_verbose(&mut build);
+    CmdArgs::add_arg_pretty_json(&mut build);
     CmdArgs::add_arg_path(&mut build);
 
     // Project comes first - if you want to change the camera database
