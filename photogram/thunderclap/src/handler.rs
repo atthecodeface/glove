@@ -287,6 +287,10 @@ impl<C: CommandArgs> CommandSet<C> {
                 let mut options = std::fs::File::options();
                 if matches.get_one::<bool>("append") == Some(&true) {
                     options.append(true);
+                    options.create(true);
+                } else {
+                    options.write(true);
+                    options.create(true);
                 }
                 Some(options.open(filename).map_err(|e| {
                     format!("Failed to create '{filename}' to echo output to ({e})")

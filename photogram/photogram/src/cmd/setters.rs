@@ -21,6 +21,12 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mi set_pretty_json
+    pub(crate) fn set_pretty_json(&mut self, pretty_json: bool) -> Result<()> {
+        self.pretty_json = pretty_json;
+        Ok(())
+    }
+
     //mi set_camera_db
     pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
         let mut camera_db: CameraDatabase = self
@@ -32,11 +38,13 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_project
-    pub(crate) fn set_project(&mut self, filename: &str) -> Result<()> {
+    //mi set_project_file
+    pub(crate) fn set_project_file(&mut self, filename: &str) -> Result<()> {
         self.project = self.path_set.load_from_json_file("project", filename)?;
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
+        self.cip_number = 0;
+        self.cip = self.project.cip(0).clone();
         Ok(())
     }
 
@@ -195,6 +203,7 @@ impl CmdArgs {
             )
             .into());
         }
+        self.cip_number = cip;
         self.cip = self.project.cip(cip).clone();
         self.pms = self.cip.borrow().pms().clone();
         self.camera = self.cip.borrow().camera().borrow().clone();
@@ -282,6 +291,12 @@ impl CmdArgs {
     //mi add_f64_arg
     pub(crate) fn add_f64_arg(&mut self, v: f64) -> Result<()> {
         self.arg_f64s.push(v);
+        Ok(())
+    }
+
+    //mi add_usize_arg
+    pub(crate) fn add_usize_arg(&mut self, v: usize) -> Result<()> {
+        self.arg_usizes.push(v);
         Ok(())
     }
 

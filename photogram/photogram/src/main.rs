@@ -278,6 +278,7 @@ mod cip;
 mod image_analyze;
 mod image_process;
 mod named_points;
+mod point_mappings;
 mod project;
 mod star;
 
@@ -295,7 +296,8 @@ fn main() -> Result<()> {
 
     // Project comes first - if you want to change the camera database
     // for a project, then set that too
-    CmdArgs::add_arg_project(&mut build, false);
+    CmdArgs::add_arg_project_desc(&mut build, false);
+    CmdArgs::add_arg_project_file(&mut build, false);
     CmdArgs::add_arg_camera_database(&mut build, false);
 
     // The camera specification is local to the command - for point
@@ -317,6 +319,7 @@ fn main() -> Result<()> {
     build.add_subcommand(calibration::calibration_cmd());
     build.add_subcommand(cip::cip_cmd());
     build.add_subcommand(named_points::named_points_cmd());
+    build.add_subcommand(point_mappings::point_mappings_cmd());
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);

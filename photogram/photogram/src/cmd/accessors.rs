@@ -2,7 +2,7 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{Point3D, Ray, Result, Rrc};
+use ic_base::{Point2D, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;
@@ -18,6 +18,11 @@ impl CmdArgs {
     //mi project
     pub fn project(&self) -> &Project {
         &self.project
+    }
+
+    //mi pretty_json
+    pub fn pretty_json(&self) -> bool {
+        self.pretty_json
     }
 
     //mi project_mut
@@ -96,6 +101,11 @@ impl CmdArgs {
         self.arg_usizes.get(n).copied()
     }
 
+    //mi arg_usizes
+    pub fn arg_usizes(&self) -> &[usize] {
+        &self.arg_usizes
+    }
+
     //mi arg_as_point3d
     #[track_caller]
     pub fn arg_as_point3d(&self, n: usize) -> Result<Point3D> {
@@ -110,6 +120,17 @@ impl CmdArgs {
             coords[2].parse::<f64>()?,
         ]
         .into())
+    }
+
+    //mi arg_as_point2d
+    #[track_caller]
+    pub fn arg_as_point2d(&self, n: usize) -> Result<Point2D> {
+        assert!(n < self.arg_strings.len());
+        let coords: Vec<_> = self.arg_strings[n].split(',').collect();
+        if coords.len() != 2 {
+            return Err(format!("Expected 2 coordinates for a 2D point, got {coords:?}").into());
+        }
+        Ok([coords[0].parse::<f64>()?, coords[1].parse::<f64>()?].into())
     }
 
     //mi bg_color

@@ -91,7 +91,8 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
 
-    CmdArgs::add_arg_named_point(&mut build, (0,));
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
     CmdArgs::add_arg_pms(&mut build);
 
     CmdArgs::add_arg_write_camera(&mut build);
@@ -111,7 +112,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     cmd_args.pms_map(|pms| {
         let mappings = pms.mappings();
-        if n < 6 {
+        if n < 200 {
             for i in 0..n {
                 for j in (i + 1)..n {
                     let pms_i = pms_n[i];
@@ -477,8 +478,8 @@ fn list_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(list_fn)));
 
-    CmdArgs::add_arg_named_point(&mut build, (0,));
-    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
     build
 }
 
@@ -511,15 +512,21 @@ fn add_cmd() -> CommandBuilder<CmdArgs> {
         &mut build,
         "camera",
         "Camera filename for the CIP",
-        1,
+        Some(1),
         None,
     );
-    CmdArgs::add_arg_positional_string(&mut build, "image", "Image filename for the CIP", 1, None);
+    CmdArgs::add_arg_positional_string(
+        &mut build,
+        "image",
+        "Image filename for the CIP",
+        Some(1),
+        None,
+    );
     CmdArgs::add_arg_positional_string(
         &mut build,
         "pms",
         "Point mapping set filename for the CIP",
-        1,
+        Some(1),
         None,
     );
 
@@ -538,7 +545,9 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cip.set_camera(cmd_args.camera().clone().into());
 
     let cip: Rrc<Cip> = cip.into();
+    let n = cmd_args.project().ncips();
     cmd_args.project_mut().add_cip(cip.clone());
+    let _ = cmd_args.set_cip(n);
     Ok("".into())
 }
 

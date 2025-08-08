@@ -167,6 +167,7 @@ impl NamedPointSet {
             }
         }
     }
+
     //mp add_np
     /// Requires np to not be in the name set already
     pub fn add_np(&mut self, np: &NamedPoint) {

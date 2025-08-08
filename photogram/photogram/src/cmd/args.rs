@@ -28,6 +28,16 @@ impl CmdArgs {
         );
     }
 
+    //mp add_arg_pretty_json
+    pub fn add_arg_pretty_json(build: &mut CommandBuilder<Self>) {
+        build.add_flag(
+            "pretty_json",
+            Some('v'),
+            "Enable pretty_json output",
+            CmdArgs::set_pretty_json,
+        );
+    }
+
     //fp add_arg_kernel
     pub fn add_arg_kernel<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
         build.add_arg_string(
@@ -64,10 +74,22 @@ impl CmdArgs {
         );
     }
 
-    //fp add_arg_project
-    pub fn add_arg_project(build: &mut CommandBuilder<Self>, required: bool) {
+    //fp add_arg_project_file
+    pub fn add_arg_project_file(build: &mut CommandBuilder<Self>, required: bool) {
         build.add_arg_string(
-            "project",
+            "project_file",
+            None,
+            "Complet project JSON filename",
+            required.into(),
+            None,
+            CmdArgs::set_project_file,
+        );
+    }
+
+    //fp add_arg_project_desc
+    pub fn add_arg_project_desc(build: &mut CommandBuilder<Self>, required: bool) {
+        build.add_arg_string(
+            "project_desc",
             None,
             "Project descriptor JSON filename",
             required.into(),
@@ -440,7 +462,7 @@ impl CmdArgs {
         build: &mut CommandBuilder<Self>,
         name: &'static str,
         help: &'static str,
-        number: usize,
+        number: Option<usize>,
         default_value: Option<&'static str>,
     ) {
         build.add_arg_string(
@@ -458,7 +480,7 @@ impl CmdArgs {
         build: &mut CommandBuilder<Self>,
         name: &'static str,
         help: &'static str,
-        number: usize,
+        number: Option<usize>,
         default_value: Option<&'static str>,
     ) {
         build.add_arg_f64(
@@ -468,6 +490,24 @@ impl CmdArgs {
             (number, true).into(),
             default_value,
             CmdArgs::add_f64_arg,
+        );
+    }
+
+    //fp add_arg_positional_usize
+    pub fn add_arg_positional_usize(
+        build: &mut CommandBuilder<Self>,
+        name: &'static str,
+        help: &'static str,
+        number: Option<usize>,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_usize(
+            name,
+            None,
+            help,
+            (number, true).into(),
+            default_value,
+            CmdArgs::add_usize_arg,
         );
     }
 }

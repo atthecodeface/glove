@@ -37,6 +37,7 @@ pub struct CmdArgs {
 
     // CIP that is part of the project
     pub(crate) cip: Rrc<Cip>,
+    pub(crate) cip_number: usize,
 
     // camera is a *specific* camera, not part of a CIP or project
     pub(crate) camera: CameraInstance,
@@ -56,6 +57,8 @@ pub struct CmdArgs {
     pub(crate) closeness: f64,
     pub(crate) within: f64,
     pub(crate) brightness: f32,
+
+    pub(crate) pretty_json: bool,
 
     // Items clear during reset
     pub(crate) read_img: Vec<String>,

@@ -7,12 +7,14 @@ use clap::ArgAction;
 pub enum ArgCount {
     #[default]
     Optional, // false; 0 or 1, not required, Set, num_args None
-    Required,          // true; 1, required, Set, num_args None
-    Exactly(usize),    // usize n; n >= 1, required, Append, num args Some(n)
-    Any,               // None; 0 to inf; not required, Append, num_args None
-    Max(usize),        // Some(usize); 0 to max, not required, Append, num_args(0..=n)
-    Min(usize),        // (n>1,); n to inf, required, Append, num_args(n..)
-    Positional(usize), // (n,true);  0 => not required, 1+ required, Append, num_args Some(n) *positional*
+    Required,                  // true; 1, required, Set, num_args None
+    Exactly(usize),            // usize n; n >= 1, required, Append, num args Some(n)
+    Any,                       // None; 0 to inf; not required, Append, num_args None
+    Max(usize),                // Some(usize); 0 to max, not required, Append, num_args(0..=n)
+    Min(usize),                // (n>1,); n to inf, required, Append, num_args(n..)
+    PositionalOptional,        // (Some(0),true);  optional, Set, num_args Some(n) *positional*
+    PositionalRequired(usize), // (Some(n),true);  required, Set, num_args Some(n) *positional*
+    PositionalAny,             // (None,true);     optional, Append, num_args None *positional*
 }
 
 //ip From<usize> for ArgCount {
@@ -58,15 +60,16 @@ impl From<bool> for ArgCount {
     }
 }
 
-//ip From<(usize, bool)> for ArgCount {
-impl From<(usize, bool)> for ArgCount {
-    fn from((n, positional): (usize, bool)) -> ArgCount {
-        if positional {
-            ArgCount::Positional(n)
-        } else if n > 0 {
-            ArgCount::Exactly(n)
-        } else {
-            ArgCount::Any
+//ip From<(Option<usize>, bool)> for ArgCount {
+impl From<(Option<usize>, bool)> for ArgCount {
+    fn from((opt_n, positional): (Option<usize>, bool)) -> ArgCount {
+        match (opt_n, positional) {
+            (None, true) => ArgCount::PositionalAny,
+            (Some(0), true) => ArgCount::PositionalOptional,
+            (Some(n), true) => ArgCount::PositionalRequired(n),
+            (Some(0), _) => ArgCount::Min(0),
+            (Some(n), _) => ArgCount::Exactly(n),
+            _ => ArgCount::Any,
         }
     }
 }
@@ -75,19 +78,25 @@ impl From<(usize, bool)> for ArgCount {
 impl ArgCount {
     pub(crate) fn uses_tag(&self) -> bool {
         use ArgCount::*;
-        !matches!(self, Positional(_))
+        !matches!(
+            self,
+            PositionalOptional | PositionalRequired(_) | PositionalAny
+        )
     }
     pub(crate) fn required(&self) -> bool {
         use ArgCount::*;
-        !matches!(self, Optional | Any | Max(_) | Positional(0))
+        !matches!(
+            self,
+            Optional | Any | Max(_) | PositionalOptional | PositionalAny
+        )
     }
     pub(crate) fn action(&self) -> ArgAction {
         use ArgCount::*;
         match self {
             Optional => ArgAction::Set,
             Required => ArgAction::Set,
-            Positional(0) => ArgAction::Set,
-            Positional(1) => ArgAction::Set,
+            PositionalOptional => ArgAction::Set,
+            PositionalRequired(1) => ArgAction::Set,
             _ => ArgAction::Append,
         }
     }
@@ -97,9 +106,9 @@ impl ArgCount {
             Exactly(n) => Some((*n).into()),
             Min(n) => Some((*n..).into()),
             Max(n) => Some((0..=*n).into()),
-            Positional(0) => None,
-            Positional(1) => None,
-            Positional(n) => Some((*n).into()),
+            PositionalRequired(0) => None,
+            PositionalRequired(1) => None,
+            PositionalRequired(n) => Some((*n).into()),
             _ => None,
         }
     }
