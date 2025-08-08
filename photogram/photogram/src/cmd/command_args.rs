@@ -147,6 +147,9 @@ impl CommandArgs for CmdArgs {
         self.read_img = vec![];
         self.np = vec![];
         self.kernels = vec![];
+        self.arg_strings = vec![];
+        self.arg_f64s = vec![];
+        self.arg_usizes = vec![];
 
         self.write_project = None;
         self.write_named_points = None;

@@ -434,6 +434,42 @@ impl CmdArgs {
             CmdArgs::set_brightness,
         );
     }
+
+    //fp add_arg_positional_string
+    pub fn add_arg_positional_string(
+        build: &mut CommandBuilder<Self>,
+        name: &'static str,
+        help: &'static str,
+        number: usize,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_string(
+            name,
+            None,
+            help,
+            (number, true).into(),
+            default_value,
+            CmdArgs::add_string_arg,
+        );
+    }
+
+    //fp add_arg_positional_f64
+    pub fn add_arg_positional_f64(
+        build: &mut CommandBuilder<Self>,
+        name: &'static str,
+        help: &'static str,
+        number: usize,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_f64(
+            name,
+            None,
+            help,
+            (number, true).into(),
+            default_value,
+            CmdArgs::add_f64_arg,
+        );
+    }
 }
 
 //ip CmdArgs image arg build methods

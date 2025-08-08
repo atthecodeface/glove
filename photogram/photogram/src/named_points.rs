@@ -7,7 +7,8 @@ use thunderclap::CommandBuilder;
 
 use ic_base::Ray;
 use ic_camera::CameraProjection;
-use ic_mapping::{CameraPtMapping, NamedPointSet, PointMappingSet};
+use ic_image::Color;
+use ic_mapping::{CameraPtMapping, NamedPoint, NamedPointSet, PointMappingSet};
 
 use crate::cmd::{CmdArgs, CmdResult};
 
@@ -47,9 +48,14 @@ model-space points from the ray intersections.";
 const PROJECT_LONG_HELP: &str = "\
 Project help";
 
-//hi PROJECT_LONG_HELP
+//hi LIST_LONG_HELP
 const LIST_LONG_HELP: &str = "\
 List the information about one or more named points
+";
+
+//hi ADD_LONG_HELP
+const ADD_LONG_HELP: &str = "\
+Add a named point to the set
 ";
 
 //a CombineFrom
@@ -196,7 +202,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//a List command
+//a List, add command
 //fi list_cmd
 fn list_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("list")
@@ -215,6 +221,42 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
+//fi add_cmd
+fn add_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("add")
+        .about("Add a named point")
+        .long_about(ADD_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(add_fn)));
+
+    CmdArgs::add_arg_positional_string(&mut build, "name", "Name of point to add", 1, None);
+    CmdArgs::add_arg_positional_string(&mut build, "color", "Color of point", 1, None);
+    CmdArgs::add_arg_positional_string(&mut build, "point3d", "Posiiton in 3D", 0, None);
+    CmdArgs::add_arg_positional_f64(&mut build, "error", "Error radius in 3D", 0, Some("5.0"));
+
+    build
+}
+
+//fi add_fn
+fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let name = cmd_args.get_string_arg(0).unwrap();
+    let color: Color = cmd_args.get_string_arg(1).unwrap().try_into()?;
+    let mut model = None;
+    if cmd_args.arg_strings.len() > 2 {
+        model = Some((
+            cmd_args.arg_as_point3d(2)?,
+            cmd_args.get_f64_arg(0).unwrap_or(0.0),
+        ));
+    }
+    if cmd_args.project().nps_ref().get_pt(&name).is_some() {
+        return Err(format!("Named point {name} already exists in the set").into());
+    }
+
+    let np = NamedPoint::new(name, color, model);
+    cmd_args.project().nps_mut().add_np(&np);
+    Ok("".into())
+}
+
 //a Named points command
 //fi named_points_cmd
 pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
@@ -230,6 +272,7 @@ pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(combine_rays_from_camera_cmd());
     build.add_subcommand(get_model_points_cmd());
     build.add_subcommand(list_cmd());
+    build.add_subcommand(add_cmd());
 
     build
 }

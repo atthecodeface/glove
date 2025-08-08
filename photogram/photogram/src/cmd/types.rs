@@ -71,6 +71,11 @@ pub struct CmdArgs {
     pub(crate) write_img: Option<String>,
     pub(crate) write_svg: Option<String>,
 
+    // Positional string / f64 / usize arguments
+    pub(crate) arg_strings: Vec<String>,
+    pub(crate) arg_f64s: Vec<f64>,
+    pub(crate) arg_usizes: Vec<usize>,
+
     pub(crate) bg_color: Option<Color>,
     pub(crate) pms_color: Option<Color>,
     pub(crate) model_color: Option<Color>,

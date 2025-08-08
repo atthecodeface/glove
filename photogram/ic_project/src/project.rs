@@ -9,7 +9,7 @@ use ic_mapping::{CameraPtMapping, NamedPointSet};
 
 use crate::{Cip, CipDesc, CipFileDesc};
 
-//a Project
+//a ProjectFileDesc
 //tp ProjectFileDesc
 /// A project description is a deserializable that can be stored in a
 /// JSON file
@@ -54,6 +54,7 @@ impl ProjectFileDesc {
     }
 }
 
+//a ProjectDesc
 //tp ProjectDesc
 /// A project description is a deserializable that can be stored in a
 /// JSON file
@@ -65,6 +66,7 @@ struct ProjectDesc {
     cips: Vec<CipDesc>,
 }
 
+//a Project
 //tp Project
 /// This encompasses a complete project
 ///

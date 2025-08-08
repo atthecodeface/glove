@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use clap::{value_parser, Arg, ArgAction, Command};
 
-use crate::{ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet};
+use crate::{ArgCount, ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet};
 
 //a CommandBuilder
 //tp CommandBuilder
@@ -112,83 +112,32 @@ impl<C: CommandArgs> CommandBuilder<C> {
     }
 }
 
-//a ArgCount
-#[derive(Debug, Default, Clone, Copy)]
-pub enum ArgCount {
-    #[default]
-    Optional, // 0 or 1, not required, Set, num_args None
-    Required,       // 1, required, Set, num_args None
-    Exactly(usize), // n >= 1, required, Append, num args Some(n)
-    Any,            // 0 to inf; not required, Append, num_args None
-    Min(usize),     // n to inf, required, Append, num_args(n..)
-    Max(usize),     // 0 to max, not required, Append, num_args(0..=n)
-}
-
-impl From<usize> for ArgCount {
-    #[track_caller]
-    fn from(n: usize) -> ArgCount {
-        assert!(n != 0, "Cannot require exactly 0 occurrences");
-        ArgCount::Exactly(n)
-    }
-}
-
-impl From<Option<usize>> for ArgCount {
-    #[track_caller]
-    fn from(opt_n: Option<usize>) -> ArgCount {
-        assert!(opt_n != Some(0), "Cannot require at most 0 occurrences");
-        match opt_n {
-            Some(n) => ArgCount::Max(n),
-            _ => ArgCount::Any,
-        }
-    }
-}
-
-impl From<(usize,)> for ArgCount {
-    #[track_caller]
-    fn from((min,): (usize,)) -> ArgCount {
-        match min {
-            0 => ArgCount::Any,
-            n => ArgCount::Min(n),
-        }
-    }
-}
-
-impl From<bool> for ArgCount {
-    fn from(required: bool) -> ArgCount {
-        if required {
-            ArgCount::Required
-        } else {
-            ArgCount::Optional
-        }
-    }
-}
-
-impl ArgCount {
-    fn required(&self) -> bool {
-        use ArgCount::*;
-        matches!(self, Required | Exactly(_) | Min(_))
-    }
-    fn action(&self) -> ArgAction {
-        use ArgCount::*;
-        match self {
-            Optional => ArgAction::Set,
-            Required => ArgAction::Set,
-            _ => ArgAction::Append,
-        }
-    }
-    fn num_args(&self) -> Option<clap::builder::ValueRange> {
-        use ArgCount::*;
-        match self {
-            Exactly(n) => Some((*n).into()),
-            Min(n) => Some((*n..).into()),
-            Max(n) => Some((0..=*n).into()),
-            _ => None,
-        }
-    }
-}
-
 //ap add_arg
 macro_rules! add_arg {
+    ($t:ty, $tag:expr, $help:expr, $short:expr, $count:expr, $default_value:expr ) => {{
+        let uses_tag = $count.uses_tag();
+        let required = $count.required();
+        let action = $count.action();
+        let num_args = $count.num_args();
+        let mut arg = Arg::new($tag)
+            .help($help)
+            .value_parser(value_parser!($t))
+            .required(required)
+            .action(action);
+        if let Some(num_args) = num_args {
+            arg = arg.num_args(num_args);
+        }
+        if uses_tag {
+            arg = arg.long($tag);
+        }
+        if let Some(short) = $short {
+            arg = arg.short(short);
+        }
+        if let Some(default_value) = $default_value {
+            arg = arg.default_value(default_value);
+        }
+        arg
+    }};
     ($m:ident, $t: ty, ref $ft:ty ) => {
         impl<C: CommandArgs> CommandBuilder<C> {
             pub fn $m<F>(
@@ -202,24 +151,8 @@ macro_rules! add_arg {
             ) where
                 F: Fn(&mut C, &$ft) -> Result<(), C::Error> + 'static,
             {
-                let required = count.required();
-                let action = count.action();
-                let num_args = count.num_args();
-                let mut arg = Arg::new(tag)
-                    .long(tag)
-                    .help(help)
-                    .value_parser(value_parser!($t))
-                    .required(required)
-                    .action(action);
-                if let Some(num_args) = num_args {
-                    arg = arg.num_args(num_args);
-                }
-                if let Some(short) = short {
-                    arg = arg.short(short);
-                }
-                if let Some(default_value) = default_value {
-                    arg = arg.default_value(default_value);
-                }
+                let arg = add_arg!($t, tag, help, short, count, default_value);
+
                 self.add_arg(
                     arg,
                     Box::new(move |args, matches| {
@@ -245,24 +178,8 @@ macro_rules! add_arg {
             ) where
                 F: Fn(&mut C, $ft) -> Result<(), C::Error> + 'static,
             {
-                let required = count.required();
-                let action = count.action();
-                let num_args = count.num_args();
-                let mut arg = Arg::new(tag)
-                    .long(tag)
-                    .help(help)
-                    .value_parser(value_parser!($t))
-                    .required(required)
-                    .action(action);
-                if let Some(num_args) = num_args {
-                    arg = arg.num_args(num_args);
-                }
-                if let Some(short) = short {
-                    arg = arg.short(short);
-                }
-                if let Some(default_value) = default_value {
-                    arg = arg.default_value(default_value);
-                }
+                let arg = add_arg!($t, tag, help, short, count, default_value);
+
                 self.add_arg(
                     arg,
                     Box::new(move |args, matches| {

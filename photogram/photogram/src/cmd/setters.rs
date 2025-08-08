@@ -22,9 +22,10 @@ impl CmdArgs {
     }
 
     //mi set_camera_db
-    pub(crate) fn set_camera_db(&mut self, camera_db_filename: &str) -> Result<()> {
-        let camera_db_json = json::read_file(camera_db_filename)?;
-        let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
+    pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
+        let mut camera_db: CameraDatabase = self
+            .path_set
+            .load_from_json_file("camera database", filename)?;
         camera_db.derive();
         self.project.set_cdb(camera_db);
         self.cdb = self.project.cdb().clone();
@@ -32,10 +33,8 @@ impl CmdArgs {
     }
 
     //mi set_project
-    pub(crate) fn set_project(&mut self, project_filename: &str) -> Result<()> {
-        let project_json = json::read_file(project_filename)?;
-        let project: Project = json::from_json("project", &project_json)?;
-        self.project = project;
+    pub(crate) fn set_project(&mut self, filename: &str) -> Result<()> {
+        self.project = self.path_set.load_from_json_file("project", filename)?;
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
         Ok(())
@@ -271,6 +270,18 @@ impl CmdArgs {
     //mi set_flags
     pub(crate) fn set_flags(&mut self, v: usize) -> Result<()> {
         self.flags = v;
+        Ok(())
+    }
+
+    //mi add_string_arg
+    pub(crate) fn add_string_arg(&mut self, s: &str) -> Result<()> {
+        self.arg_strings.push(s.to_owned());
+        Ok(())
+    }
+
+    //mi add_f64_arg
+    pub(crate) fn add_f64_arg(&mut self, v: f64) -> Result<()> {
+        self.arg_f64s.push(v);
         Ok(())
     }
 

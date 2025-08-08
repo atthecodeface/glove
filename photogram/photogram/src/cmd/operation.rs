@@ -47,14 +47,13 @@ impl CmdArgs {
                 }
             } else if is_regex(np) {
                 let regex = RegexBuilder::new(np)
-                    .case_insensitive(true)
+                    // .case_insensitive(true)
                     .build()
                     .map_err(|e| format!("failed to compile regex '{np}': {e}"))?;
                 for (name, np) in self.nps.borrow().iter() {
-                    if regex.is_match(name)
-                        && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
-                            r.push(np.clone());
-                        }
+                    if regex.is_match(name) && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
+                        r.push(np.clone());
+                    }
                 }
             } else {
                 let Some(np) = self.nps.borrow().get_pt(np) else {

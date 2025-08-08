@@ -1,9 +1,11 @@
 //a Modules
+mod arg_count;
 mod builder;
 mod handler;
 mod traits;
 
-pub use builder::{ArgCount, CommandBuilder};
+pub use arg_count::ArgCount;
+pub use builder::CommandBuilder;
 pub use traits::CommandArgs;
 
 pub(crate) use handler::{CommandHandlerSet, CommandSet};

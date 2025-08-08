@@ -2,8 +2,7 @@
 
 use star_catalog::Catalog;
 
-use ic_base::Result;
-use ic_base::{Ray, Rrc};
+use ic_base::{Point3D, Ray, Result, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;
@@ -19,6 +18,11 @@ impl CmdArgs {
     //mi project
     pub fn project(&self) -> &Project {
         &self.project
+    }
+
+    //mi project_mut
+    pub fn project_mut(&mut self) -> &mut Project {
+        &mut self.project
     }
 
     //mi cdb
@@ -75,6 +79,37 @@ impl CmdArgs {
     //mi star_mapping
     pub fn star_mapping(&self) -> &StarMapping {
         &self.star_mapping
+    }
+
+    //mi get_string_arg
+    pub fn get_string_arg(&self, n: usize) -> Option<&str> {
+        self.arg_strings.get(n).map(|n| n.as_str())
+    }
+
+    //mi get_f64_arg
+    pub fn get_f64_arg(&self, n: usize) -> Option<f64> {
+        self.arg_f64s.get(n).copied()
+    }
+
+    //mi get_usize_arg
+    pub fn get_usize_arg(&self, n: usize) -> Option<usize> {
+        self.arg_usizes.get(n).copied()
+    }
+
+    //mi arg_as_point3d
+    #[track_caller]
+    pub fn arg_as_point3d(&self, n: usize) -> Result<Point3D> {
+        assert!(n < self.arg_strings.len());
+        let coords: Vec<_> = self.arg_strings[n].split(',').collect();
+        if coords.len() != 3 {
+            return Err(format!("Expected 3 coordinates for a 3D point, got {coords:?}").into());
+        }
+        Ok([
+            coords[0].parse::<f64>()?,
+            coords[1].parse::<f64>()?,
+            coords[2].parse::<f64>()?,
+        ]
+        .into())
     }
 
     //mi bg_color

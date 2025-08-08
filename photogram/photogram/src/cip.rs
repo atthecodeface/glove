@@ -3,9 +3,11 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
+use ic_base::Rrc;
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
 use ic_mapping::{CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet};
+use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
 
@@ -500,6 +502,46 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
+//fi add_cmd
+fn add_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("add").about("Add a new CIP");
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(add_fn)));
+    CmdArgs::add_arg_positional_string(
+        &mut build,
+        "camera",
+        "Camera filename for the CIP",
+        1,
+        None,
+    );
+    CmdArgs::add_arg_positional_string(&mut build, "image", "Image filename for the CIP", 1, None);
+    CmdArgs::add_arg_positional_string(
+        &mut build,
+        "pms",
+        "Point mapping set filename for the CIP",
+        1,
+        None,
+    );
+
+    build
+}
+
+//fi add_fn
+fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let mut cip = Cip::default();
+    let camera_filename = cmd_args.get_string_arg(0).unwrap();
+    let image_filename = cmd_args.get_string_arg(1).unwrap();
+    let pms_filename = cmd_args.get_string_arg(2).unwrap();
+    cip.set_camera_file(camera_filename);
+    cip.set_image(image_filename);
+    cip.set_pms_file(pms_filename);
+    cip.set_camera(cmd_args.camera().clone().into());
+
+    let cip: Rrc<Cip> = cip.into();
+    cmd_args.project_mut().add_cip(cip.clone());
+    Ok("".into())
+}
+
 //a CIP command
 //fp cip_cmd
 pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
@@ -514,6 +556,7 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(image_patch_cmd());
     build.add_subcommand(show_mappings_cmd());
     build.add_subcommand(list_cmd());
+    build.add_subcommand(add_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(reorient_cmd());

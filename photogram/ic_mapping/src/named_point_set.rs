@@ -46,8 +46,8 @@ impl std::fmt::Display for NamedPoint {
         if let Some(position) = self.opt_model() {
             write!(
                 fmt,
-                "{} {} @[{:.2}, {:.2}, {:.2}]",
-                self.name, self.color, position.0[0], position.0[1], position.0[2],
+                "{} {} @[{:.2}, {:.2}, {:.2}] +- {:.2}",
+                self.name, self.color, position.0[0], position.0[1], position.0[2], position.1
             )
         } else {
             write!(fmt, "{} {} unmapped", self.name, self.color,)
