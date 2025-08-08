@@ -40,20 +40,29 @@ impl PathSet {
         }
     }
 
-    //fp read_json_file
-    pub fn read_json_file<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<String> {
-        let mut try_file_text = std::fs::read_to_string(&path);
-        if try_file_text.is_err() {
+    //mp find_file
+    pub fn find_file<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Option<PathBuf> {
+        if path.as_ref().exists() {
+            Some(path.as_ref().into())
+        } else {
             for p in &self.paths {
                 let try_path = p.join(path.as_ref());
-                if let Ok(file_text) = std::fs::read_to_string(&try_path) {
-                    try_file_text = Ok(file_text);
-                    break;
+                if try_path.exists() {
+                    return Some(try_path);
                 }
             }
+            None
         }
-        let file_text = try_file_text.map_err(|e| Error::from((path, e)))?;
-        Ok(remove_comments(&file_text))
+    }
+
+    //fp read_json_file
+    pub fn read_json_file<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<String> {
+        if let Some(path) = self.find_file(&path) {
+            let file_text = std::fs::read_to_string(&path)?;
+            Ok(remove_comments(&file_text))
+        } else {
+            Err(format!("Failed to find '{path}' on the search path").into())
+        }
     }
 
     //mp load_from_json_file

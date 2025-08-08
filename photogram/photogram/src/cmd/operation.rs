@@ -4,6 +4,7 @@ use std::rc::Rc;
 use regex::RegexBuilder;
 
 use ic_base::Result;
+use ic_camera::CameraProjection;
 use ic_image::{Color, Image, ImagePt, ImageRgb8};
 use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
@@ -68,14 +69,26 @@ impl CmdArgs {
         Ok(r)
     }
 
+    //mp get_pms_indices_of_nps
+    pub fn get_pms_indices_of_nps(&self) -> Result<Vec<usize>> {
+        let mut pms = vec![];
+        let nps = self.get_nps()?;
+        for (i, m) in self.pms.borrow().mappings().iter().enumerate() {
+            for n in &nps {
+                if Rc::ptr_eq(n, m.named_point()) {
+                    pms.push(i);
+                }
+            }
+        }
+        Ok(pms)
+    }
+
     //mp pms_map
     pub fn pms_map<M, T>(&self, map: M) -> Result<T>
     where
         M: FnOnce(&PointMappingSet) -> Result<T>,
     {
-        let cip = self.cip.borrow();
-        let pms = cip.pms_ref();
-        map(&*pms)
+        map(&*self.pms.borrow())
     }
 
     //mp calibration_mapping_to_pms
@@ -105,6 +118,39 @@ impl CmdArgs {
         }
         img.write(self.write_img.as_ref().unwrap())?;
         Ok(())
+    }
+
+    //mp get_image_read_or_create
+    pub fn get_image_read_or_create(&self) -> Result<ImageRgb8> {
+        let read_filename = {
+            if self.read_img.is_empty() {
+                None
+            } else {
+                let Some(read_filename) = self.path_set.find_file(&self.read_img[0]) else {
+                    return Err(format!("could not finde image file {}", self.read_img[0]).into());
+                };
+                Some(read_filename)
+            }
+        };
+        let img = ImageRgb8::read_or_create_image::<std::path::PathBuf>(
+            self.camera.sensor_size().0 as usize,
+            self.camera.sensor_size().1 as usize,
+            read_filename,
+        )?;
+        Ok(img)
+    }
+
+    //mp get_read_image
+    pub fn get_read_image(&self, n: usize) -> Result<ImageRgb8> {
+        let Some(read_filename) = self.read_img.get(n) else {
+            return Err(format!("Required at least {} read images to be specified", n + 1).into());
+        };
+        let Some(read_filename) = self.path_set.find_file(read_filename) else {
+            return Err(format!("could not finde image file {read_filename}").into());
+        };
+        let img = ImageRgb8::read_image(read_filename)
+            .map_err(|e| (e, format!("failed to read image")))?;
+        Ok(img)
     }
 
     //mp show_step

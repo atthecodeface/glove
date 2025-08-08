@@ -7,7 +7,7 @@ use clap::ArgMatches;
 ///
 /// This should be implemented by a type that is used to hold and
 /// build the arguments for the execution of commands
-pub trait CommandArgs {
+pub trait CommandArgs: 'static {
     /// Error type returned as an error by all [ArgFn] and [CommandFn]
     type Error: std::convert::From<String> + std::fmt::Display;
 
@@ -18,8 +18,21 @@ pub trait CommandArgs {
     /// stored for future command invocations
     type Value: std::default::Default + std::string::ToString;
 
+    fn cmd_ok() -> Result<Self::Value, Self::Error>;
+
     /// Function invoked before every batch or interactive command to reset temporary options
     fn reset_args(&mut self) {}
+
+    /// Get the keys (elements) of the arguments - used in batch and interactive only
+    fn keys(&self) -> Box<dyn Iterator<Item = &str>> {
+        const KEYS: [String; 0] = [];
+        Box::new(KEYS.iter().map(|s| s.as_str()))
+    }
+
+    /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
+    fn value_str(&self, key: &str) -> Option<String> {
+        None
+    }
 }
 
 //a ArgFn

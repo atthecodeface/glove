@@ -40,7 +40,9 @@ impl ProjectFileDesc {
     //mp load_project
     pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
         let mut project = Project::default();
-        project.set_cdb(path_set.load_from_json_file("camera database", &self.cdb)?);
+        let mut cdb: CameraDatabase = path_set.load_from_json_file("camera database", &self.cdb)?;
+        cdb.derive();
+        project.set_cdb(cdb);
         project.set_nps(Rrc::new(
             path_set.load_from_json_file("named point set", &self.nps)?,
         ));

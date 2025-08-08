@@ -13,7 +13,23 @@ pub struct CommandBuilder<C: CommandArgs> {
     sub_cmds: HashMap<String, CommandBuilder<C>>,
 }
 
+//ip Default for CommandBuilder
+impl<C: CommandArgs> std::default::Default for CommandBuilder<C> {
+    fn default() -> Self {
+        let command = Command::default();
+        let handler_set = CommandHandlerSet::default();
+        let sub_cmds = HashMap::default();
+        Self {
+            command,
+            handler_set,
+            sub_cmds,
+        }
+    }
+}
+
+//ip CommandBuilder
 impl<C: CommandArgs> CommandBuilder<C> {
+    //cp new
     pub fn new(mut command: Command, handler: Option<Box<dyn CommandFn<C>>>) -> Self {
         if handler.is_none() {
             command = command.subcommand_required(true);
@@ -27,21 +43,34 @@ impl<C: CommandArgs> CommandBuilder<C> {
         }
     }
 
-    pub fn set_arg_reset(&mut self, handler: Box<dyn ArgResetFn<C>>) {
+    //mp set_arg_reset
+    pub fn set_arg_reset(&mut self, handler: Box<dyn ArgResetFn<C>>) -> &mut Self {
         self.handler_set.set_arg_reset(handler);
+        self
     }
 
-    pub fn add_arg(&mut self, arg: Arg, handler: Box<dyn ArgFn<C>>) {
+    //mp add_arg
+    pub fn add_arg(&mut self, arg: Arg, handler: Box<dyn ArgFn<C>>) -> &mut Self {
         let name = arg.get_id().as_str().into();
         self.command = std::mem::take(&mut self.command).arg(arg);
         self.handler_set.add_arg(name, handler);
+        self
     }
 
-    pub fn add_subcommand(&mut self, subcommand: Self) {
+    //mp add_subcommand
+    pub fn add_subcommand(&mut self, subcommand: Self) -> &mut Self {
         self.sub_cmds
             .insert(subcommand.command.get_name().into(), subcommand);
+        self
     }
 
+    //mp build_subcommand
+    pub fn build_subcommand(&mut self, subcommand: &mut Self) -> &mut Self {
+        self.add_subcommand(std::mem::take(subcommand));
+        self
+    }
+
+    //mc take
     pub(crate) fn take(self) -> (Command, CommandHandlerSet<C>) {
         let mut command = self.command;
         let mut handler_set = self.handler_set;
@@ -53,10 +82,14 @@ impl<C: CommandArgs> CommandBuilder<C> {
         (command, handler_set)
     }
 
-    pub fn build(self) -> CommandSet<C> {
+    //mp build
+    /// Convert the builder into an actual [CommandSet]
+    pub(crate) fn build(self) -> CommandSet<C> {
         CommandSet::subcmd(self)
     }
 
+    //mp main
+    /// Convert the builder into an actual [CommandSet] to be used by 'main'
     pub fn main(self, allow_batch: bool, allow_interactive: bool) -> CommandSet<C> {
         CommandSet::main(self, allow_batch, allow_interactive)
     }

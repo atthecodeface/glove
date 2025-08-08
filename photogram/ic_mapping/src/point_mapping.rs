@@ -144,6 +144,11 @@ impl PointMapping {
         self.model.name()
     }
 
+    //mp named_point
+    pub fn named_point(&self) -> &Rc<NamedPoint> {
+        &self.model
+    }
+
     //zz All done
 }
 
@@ -246,9 +251,13 @@ impl PointMappingSet {
         }
     }
 
-    //fp to_json
-    pub fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(self)?)
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
     }
 
     //mp rebuild_with_named_point_set

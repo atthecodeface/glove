@@ -90,13 +90,15 @@ impl CameraInstance {
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self> {
         let body = cdb.get_body_err(desc.body())?.clone();
         let lens = cdb.get_lens_err(desc.lens())?.clone();
-        Ok(Self::new(
+        let mut camera = Self::new(
             body,
             lens,
             desc.mm_focus_distance(),
             *desc.position(),
             *desc.orientation(),
-        ))
+        );
+        camera.derive();
+        Ok(camera)
     }
 
     //cp from_json`
@@ -122,8 +124,12 @@ impl CameraInstance {
     }
 
     //fp to_json
-    pub fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string_pretty(self)?)
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
     }
 }
 

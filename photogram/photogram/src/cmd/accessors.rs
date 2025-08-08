@@ -5,8 +5,8 @@ use star_catalog::Catalog;
 use ic_base::Result;
 use ic_base::{Ray, Rrc};
 use ic_camera::CameraInstance;
-use ic_camera::{CalibrationMapping, CameraDatabase, CameraProjection};
-use ic_image::{Color, ImageRgb8};
+use ic_camera::{CalibrationMapping, CameraDatabase};
+use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
 use ic_stars::StarMapping;
@@ -196,27 +196,7 @@ impl CmdArgs {
         }
     }
 
-    //mp get_image_read_or_create
-    pub fn get_image_read_or_create(&self) -> ic_base::Result<ImageRgb8> {
-        let read_filename = self.read_img.first();
-        let img = ImageRgb8::read_or_create_image(
-            self.camera.sensor_size().0 as usize,
-            self.camera.sensor_size().1 as usize,
-            read_filename.map(|x| x.as_str()),
-        )?;
-        Ok(img)
-    }
-
-    //mp get_read_image
-    pub fn get_read_image(&self, n: usize) -> ic_base::Result<ImageRgb8> {
-        let Some(read_filename) = self.read_img.get(n) else {
-            return Err(format!("Required at least {} read images to be specified", n + 1).into());
-        };
-        let img = ImageRgb8::read_image(read_filename)?;
-        Ok(img)
-    }
-
-    // mi ensure_star_catalog
+    //mp ensure_star_catalog
     pub fn ensure_star_catalog(&self) -> Result<()> {
         if self.star_catalog.is_none() {
             Err("Star catalog *must* have been specified".into())

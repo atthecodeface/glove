@@ -194,6 +194,7 @@ impl CmdArgs {
         }
         self.cip = self.project.cip(cip).clone();
         self.pms = self.cip.borrow().pms().clone();
+        self.camera = self.cip.borrow().camera().borrow().clone();
         Ok(())
     }
 

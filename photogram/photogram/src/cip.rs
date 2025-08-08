@@ -1,7 +1,6 @@
 //a Imports
 
 use clap::Command;
-
 use thunderclap::CommandBuilder;
 
 use ic_camera::CameraProjection;
@@ -89,32 +88,38 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
         .about("Find location and orientation for a camera to map points to model");
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-    CmdArgs::add_arg_cip(&mut build, false);
+
+    CmdArgs::add_arg_named_point(&mut build, (0,));
     CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
+
     CmdArgs::add_arg_write_camera(&mut build);
+
     build
 }
 
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+    let n = pms_n.len();
+    if n < 3 {
+        return Err(format!("Required at least 3 mapped points, but found {n}",).into());
+    }
+
     let mut mls = ModelLineSet::new(cmd_args.camera().clone());
+
     cmd_args.pms_map(|pms| {
         let mappings = pms.mappings();
-        let n = pms.mappings().len();
-        if n < 3 {
-            Err(format!("Required at least 3 mapped points, but found {n}",).into())
-        } else if n < 6 {
+        if n < 6 {
             for i in 0..n {
                 for j in (i + 1)..n {
-                    mls.add_line((&mappings[i], &mappings[j]));
+                    let pms_i = pms_n[i];
+                    let pms_j = pms_n[j];
+                    mls.add_line((&mappings[pms_i], &mappings[pms_j]));
                 }
             }
             Ok(())
         } else {
-            for (i, j) in pms.get_good_screen_pairs(&|_f| true) {
-                mls.add_line((&mappings[i], &mappings[j]));
-            }
+            todo!();
             Ok(())
         }
     })?;
@@ -125,9 +130,11 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         )
         .into());
     }
+
     cmd_args.if_verbose(|| {
         eprintln!("Using {} model lines", mls.num_lines());
     });
+
     // let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);
     let (location, _err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
 
@@ -135,6 +142,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
     });
+    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -147,15 +155,19 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(ORIENT_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
-    CmdArgs::add_arg_cip(&mut build, false);
+
+    CmdArgs::add_arg_named_point(&mut build, (0,));
     CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
+
     CmdArgs::add_arg_write_camera(&mut build);
+
     build
 }
 
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+
     let mut camera = cmd_args.camera().clone();
     cmd_args.pms_map(|pms| {
         camera.orient_using_rays_from_model(pms.mappings());
@@ -167,6 +179,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
     });
+    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -190,38 +203,10 @@ fn reorient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     camera.reorient_using_rays_from_model(pms.borrow().mappings());
     *cmd_args.camera_mut() = camera;
-    let camera = cmd_args.camera();
+    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
 
-    println!("{}", serde_json::to_string_pretty(&camera).unwrap());
-    Ok("".into())
-}
-
-//a Interrogate (show_mappings etc)
-//fi show_mappings_cmd
-fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("show_mappings")
-        .about("Show the total and worst error for a point mapping set");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(show_mappings_fn)));
-    CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
-    build
-}
-
-//fi show_mappings_fn
-fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let pms = cmd_args.pms().borrow();
-    let nps = cmd_args.nps();
-    let camera = cmd_args.camera();
-    let mappings = pms.mappings();
-
-    let te = camera.total_error(mappings);
-    let we = camera.worst_error(mappings);
-    camera.show_mappings(mappings);
-    camera.show_point_set(&nps.borrow());
-    println!("WE {we:.2} TE {te:.2}");
-
-    Ok("".into())
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
 }
 
 //a Image and image_patch commands
@@ -232,10 +217,13 @@ fn image_cmd() -> CommandBuilder<CmdArgs> {
         .long_about(IMAGE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(image_fn)));
+
+    CmdArgs::add_arg_named_point(&mut build, (0,));
     CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
-    CmdArgs::add_arg_read_image(&mut build, Some(1_usize)); // 0 or 1 in  alist
+
+    CmdArgs::add_arg_read_image(&mut build, Some(1_usize)); // 0 or 1 in a list
     CmdArgs::add_arg_write_image(&mut build, true);
+
     CmdArgs::add_arg_pms_color(&mut build);
     CmdArgs::add_arg_model_color(&mut build);
     build
@@ -243,6 +231,9 @@ fn image_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi image_fn
 fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let nps_n = cmd_args.get_nps()?;
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+
     let pms_color = cmd_args.pms_color();
     let model_color = cmd_args.model_color();
     let use_nps_colors = cmd_args.pms_color().is_none() && cmd_args.model_color().is_none();
@@ -283,7 +274,8 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if pms_color.is_some() || use_nps_colors {
         cmd_args.pms_map(|pms| {
             let mappings = pms.mappings();
-            for m in mappings {
+            for i in pms_n.iter() {
+                let m = &mappings[*i];
                 let c = pms_color.unwrap_or(m.model.color());
                 img.draw_cross(m.screen(), m.error(), c);
             }
@@ -292,8 +284,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
     if model_color.is_some() || use_nps_colors {
         let camera = cmd_args.camera();
-        let nps = cmd_args.nps();
-        for (_name, p) in nps.borrow().iter() {
+        for p in nps_n {
             let c = model_color.unwrap_or(p.color());
             let xyz = p.model().0;
             let n = (xyz[2] * 2.0).abs().floor() as usize;
@@ -364,42 +355,27 @@ fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(image_patch_fn)));
 
     // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
-    CmdArgs::add_arg_cip(&mut build, false);
     CmdArgs::add_arg_read_image(&mut build, 1_usize);
     CmdArgs::add_arg_write_image(&mut build, true);
-    CmdArgs::add_arg_named_point(&mut build, (3,));
+    CmdArgs::add_arg_named_point(&mut build, (1,));
     build
 }
 
 //fi image_patch_fn
 fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let nps = cmd_args.nps();
+    let nps = cmd_args.get_nps()?;
+
+    if nps.len() < 3 {
+        return Err(format!("Need at least 3 points for a patch, got {}", nps.len()).into());
+    }
+
     let cip = cmd_args.cip().borrow();
     let camera = cip.camera_ref();
+
     let src_img = cmd_args.get_image_read_or_create()?;
     let write_filename = cmd_args.write_img().unwrap();
 
-    let mut model_pts = vec![];
-    for name in cmd_args.np_names() {
-        if let Some(n) = nps.borrow().get_pt(name) {
-            let model = n.model().0;
-            model_pts.push((name, model, camera.map_model(model)))
-        } else {
-            return Err(format!("Could not find NP {name} in the project").into());
-        }
-    }
-    if model_pts.len() < 3 {
-        return Err(format!(
-            "Need at least 3 points for a patch, got {}",
-            model_pts.len()
-        )
-        .into());
-    }
-
-    for m in &model_pts {
-        println!("{} {} {}", m.0, m.1, m.2);
-    }
-    let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
+    let model_pts: Vec<_> = nps.iter().map(|np| np.model().0).collect();
 
     if let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))? {
         patch.img().write(write_filename)?;
@@ -463,20 +439,80 @@ fn create_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//a Main
-//fi main
+//a Interrogate (show_mappings etc)
+//fi show_mappings_cmd
+fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("show_mappings")
+        .about("Show the total and worst error for a point mapping set");
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(show_mappings_fn)));
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+    build
+}
+
+//fi show_mappings_fn
+fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms = cmd_args.pms().borrow();
+    let nps = cmd_args.nps();
+    let camera = cmd_args.camera();
+    let mappings = pms.mappings();
+
+    let te = camera.total_error(mappings);
+    let we = camera.worst_error(mappings);
+    camera.show_mappings(mappings);
+    camera.show_point_set(&nps.borrow());
+    println!("WE {we:.2} TE {te:.2}");
+
+    Ok("".into())
+}
+
+//fi list_cmd
+fn list_cmd() -> CommandBuilder<CmdArgs> {
+    let command =
+        Command::new("list").about("Show the total and worst error for a point mapping set");
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(list_fn)));
+
+    CmdArgs::add_arg_named_point(&mut build, (0,));
+    CmdArgs::add_arg_pms(&mut build);
+    build
+}
+
+//fi list_fn
+fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+    let pms = cmd_args.pms().borrow();
+    let mappings = pms.mappings();
+
+    for i in pms_n {
+        let m = &mappings[i];
+        println!(
+            "{} : {} -> [{:.1}, {:.1}] @ {:.1}",
+            m.name(),
+            m.model(),
+            m.screen()[0],
+            m.screen()[1],
+            m.error()
+        );
+    }
+    Ok("".into())
+}
+
+//a CIP command
+//fp cip_cmd
 pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("cip")
         .about("Operate on a camera/image/point mapping set")
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command, None);
-
-    CmdArgs::add_arg_nps(&mut build);
+    CmdArgs::add_arg_cip(&mut build, false);
 
     build.add_subcommand(image_cmd());
     build.add_subcommand(image_patch_cmd());
     build.add_subcommand(show_mappings_cmd());
+    build.add_subcommand(list_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(reorient_cmd());

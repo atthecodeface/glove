@@ -241,7 +241,8 @@ impl ProjectSet {
         let scale = x_scale.max(y_scale);
         let width = (src_size.0 / scale) as usize;
         let height = (src_size.1 / scale) as usize;
-        let mut scaled_img = ImageRgb8::read_or_create_image(width, height, None).unwrap();
+        let no_file: Option<String> = None;
+        let mut scaled_img = ImageRgb8::read_or_create_image(width, height, no_file).unwrap();
         for y in 0..height {
             let sy = (y as f64 + 0.5) * scale;
             for x in 0..width {

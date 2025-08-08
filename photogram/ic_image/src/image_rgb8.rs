@@ -23,10 +23,10 @@ impl ImageRgb8 {
     }
 
     //fp read_or_create_image
-    pub fn read_or_create_image(
+    pub fn read_or_create_image<P: AsRef<Path>>(
         width: usize,
         height: usize,
-        opt_filename: Option<&str>,
+        opt_filename: Option<P>,
     ) -> Result<Self> {
         let width = width as u32;
         let height = height as u32;
