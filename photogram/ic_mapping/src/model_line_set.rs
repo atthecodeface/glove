@@ -2,16 +2,18 @@
 use std::default::Default;
 
 use geo_nd::{Vector, Vector3};
-use ic_base::{utils, Point3D};
 use serde::{Deserialize, Serialize};
 
-use crate::{CameraPtMapping, ModelLine, ModelLineSubtended, PointMapping};
+use ic_base::{utils, Point3D};
+use ic_camera::CameraProjection;
+
+use crate::{ModelLine, ModelLineSubtended, PointMapping};
 
 //a ModelLineSet
 #[derive(Debug)]
 pub struct ModelLineSet<C>
 where
-    C: CameraPtMapping + Sized,
+    C: CameraProjection + Sized,
 {
     camera: C,
 
@@ -23,9 +25,10 @@ where
     lines: Vec<ModelLineSubtended>,
 }
 
+//ip ModelLineSet
 impl<C> ModelLineSet<C>
 where
-    C: CameraPtMapping + Sized,
+    C: CameraProjection + Sized,
 {
     //cp new
     pub fn new(camera: C) -> Self {
@@ -60,8 +63,8 @@ where
         }
         let model_p0 = pm0.model();
         let model_p1 = pm1.model();
-        let dir_p0 = self.camera.get_pm_unit_vector(pm0);
-        let dir_p1 = self.camera.get_pm_unit_vector(pm1);
+        let dir_p0 = pm0.get_mapped_unit_vector(&self.camera);
+        let dir_p1 = pm1.get_mapped_unit_vector(&self.camera);
         let cos_theta = dir_p0.dot(&dir_p1);
         let angle = cos_theta.acos();
         let model_line = ModelLine::new(model_p0, model_p1);

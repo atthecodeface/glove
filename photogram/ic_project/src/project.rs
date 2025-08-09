@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraDatabase;
-use ic_mapping::{CameraPtMapping, NamedPointSet};
+use ic_mapping::NamedPointSet;
 
 use crate::{Cip, CipDesc, CipFileDesc};
 
@@ -211,7 +211,7 @@ impl Project {
             let cip = cip.borrow();
             for m in cip.pms_ref().mappings() {
                 if m.name() == name {
-                    rays.push(cip.camera_ref().get_pm_as_ray(m, true));
+                    rays.push(m.get_mapped_ray(&*cip.camera_ref(), true));
                 }
             }
         }

@@ -154,6 +154,7 @@ pub struct CommandSet<C: CommandArgs> {
     variables: HashMap<String, Rc<String>>,
     result_history: Vec<Rc<String>>,
     use_builtins: bool,
+    show_result: bool,
 }
 
 //ip CommandSet
@@ -172,6 +173,7 @@ impl<C: CommandArgs> CommandSet<C> {
             variables: HashMap::default(),
             result_history: vec![],
             use_builtins,
+            show_result: true,
         }
     }
 
@@ -606,6 +608,7 @@ impl<C: CommandArgs> CommandSet<C> {
                     }
                 }
                 if matches.contains_id("batch") {
+                    self.show_result = false;
                     let batches: Vec<_> = matches
                         .get_many::<String>("batch")
                         .unwrap()
@@ -659,7 +662,9 @@ impl<C: CommandArgs> CommandSet<C> {
                         Rc::into_inner(self.result_history.remove(0)).unwrap()
                     }
                 };
-                println!("{result}");
+                if self.show_result {
+                    println!("{result}");
+                }
                 Ok(result)
             }
         }

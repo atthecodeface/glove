@@ -64,6 +64,11 @@ impl NamedPointSet {
         }
     }
 
+    //fp has_np
+    pub fn has_np(&self, np: &NamedPoint) -> bool {
+        self.points.contains_key(np.name())
+    }
+
     //mp add_np
     /// Requires np to not be in the name set already
     pub fn add_np(&mut self, np: &NamedPoint) {

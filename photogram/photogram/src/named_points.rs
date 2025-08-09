@@ -8,7 +8,7 @@ use thunderclap::CommandBuilder;
 use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::Color;
-use ic_mapping::{CameraPtMapping, NamedPoint, NamedPointSet, PointMappingSet};
+use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -198,7 +198,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let mut ray_list = Vec::new();
         for (pms, camera) in &cips {
             if let Some(pm) = pms.borrow().mapping_of_np(&np) {
-                let ray = camera.borrow().get_pm_as_ray(pm, true);
+                let ray = pm.get_mapped_ray(&*camera.borrow(), true);
                 ray_list.push(ray);
             }
         }

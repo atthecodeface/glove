@@ -3,10 +3,10 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::Rrc;
+use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
-use ic_mapping::{CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet};
+use ic_mapping::{CameraAdjustMapping, CameraShowMapping, ModelLineSet};
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -81,6 +81,16 @@ the real world direction of the ray.
 
 Given the Named Point's model position and world direction, it has a
 Model-space ray for the named point.
+";
+
+//hi SHOW_RAYS_LONG_HELP
+const SHOW_RAYS_LONG_HELP: &str = "\
+Using the camera, for a subset of the point mapping set for the CIP
+(specified by the named points), show rays either to or from the
+camera.
+
+The rays are generated in the appropriate direction, and their start
+and end points (given the focus distance of the camera) are provided.
 ";
 
 //a Locate
@@ -180,7 +190,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut camera = cmd_args.camera().clone();
 
     cmd_args.pms_map(|pms| {
-        camera.orient_using_rays_from_model(pms.mappings());
+        camera.orient_using_rays_from_model(pms);
         Ok(())
     })?;
 
@@ -212,7 +222,7 @@ fn reorient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms();
     let mut camera = cmd_args.camera().clone();
 
-    camera.reorient_using_rays_from_model(pms.borrow().mappings());
+    camera.reorient_using_rays_from_model(&*pms.borrow());
     *cmd_args.camera_mut() = camera;
     *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
 
@@ -394,59 +404,71 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//a Create Rays
-//fi create_rays_from_model_cmd
-fn create_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
+//a Create/show Rays
+//fi show_rays_cmd
+fn show_rays_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("show_rays")
+        .about("Show rays for the CIP using its camera and mappings")
+        .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(show_rays_fn)));
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
+    // from_camera
+
+    build
+}
+
+//fi show_rays_fn
+fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+    let pms = cmd_args.pms();
+    let camera = cmd_args.camera();
+
+    let from_camera = false;
+    for (_, (pm, ray)) in pms
+        .borrow()
+        .iter_mapped_rays(camera, from_camera)
+        .enumerate()
+        .filter(|(n, pms_ray)| pms_n.contains(n))
+    {
+        let end = ray.start() + ray.direction() * camera.focus_distance();
+        eprintln!("{} {end}", pm.name());
+    }
+    Ok("".into())
+}
+
+//fi create_rays_cmd
+fn create_rays_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("create_rays_from_model")
         .about("Create rays for a given located camera and its mappings")
         .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_from_model_fn)));
-    CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
+    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_fn)));
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
+    // from_camera
 
     build
 }
 
-//fi create_rays_from_model_fn
-fn create_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+//fi create_rays_fn
+fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
 
-    let named_rays = camera.get_rays(pms.borrow().mappings(), false);
+    let from_camera = false;
 
-    cmd_args.if_verbose(|| {
-        for (n, r) in &named_rays {
-            let end = r.start + r.direction * 400.0;
-            eprintln!("{n} {end}");
-        }
-    });
-
-    println!("{}", serde_json::to_string_pretty(&named_rays).unwrap());
-    Ok("".into())
-}
-
-//fi create_rays_from_camera_cmd
-fn create_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("create_rays_from_camera")
-        .about("Create rays for a given located camera and its mappings");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_from_camera_fn)));
-    CmdArgs::add_arg_pms(&mut build);
-
-    build
-}
-
-//fi create_rays_from_camera_fn
-fn create_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let pms = cmd_args.pms();
-    let camera = cmd_args.camera();
-
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&camera.get_rays(pms.borrow().mappings(), true)).unwrap()
-    );
-    Ok("".into())
+    let named_rays: Vec<(String, Ray)> = pms
+        .borrow()
+        .iter_mapped_rays(camera, from_camera)
+        .enumerate()
+        .filter(|(n, pm_ray)| pms_n.contains(n))
+        .map(|(_, (pm, ray))| (pm.name().to_owned(), ray))
+        .collect();
+    Ok(serde_json::to_string_pretty(&named_rays)?)
 }
 
 //a Interrogate (show_mappings etc)
@@ -468,8 +490,8 @@ fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let camera = cmd_args.camera();
     let mappings = pms.mappings();
 
-    let te = camera.total_error(mappings);
-    let we = camera.worst_error(mappings);
+    let te = pms.total_error(camera);
+    let we = pms.find_worst_error(camera).1;
     camera.show_mappings(mappings);
     camera.show_point_set(&nps.borrow());
     println!("WE {we:.2} TE {te:.2}");
@@ -575,8 +597,8 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(reorient_cmd());
-    build.add_subcommand(create_rays_from_model_cmd());
-    build.add_subcommand(create_rays_from_camera_cmd());
+    build.add_subcommand(create_rays_cmd());
+    build.add_subcommand(show_rays_cmd());
 
     build
 }

@@ -6,7 +6,7 @@ use thunderclap::CommandBuilder;
 use ic_base::Rrc;
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
-use ic_mapping::{CameraAdjustMapping, CameraPtMapping, CameraShowMapping, ModelLineSet};
+use ic_mapping::{CameraAdjustMapping, CameraShowMapping, ModelLineSet};
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};

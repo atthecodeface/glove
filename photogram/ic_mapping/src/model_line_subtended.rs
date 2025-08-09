@@ -5,7 +5,7 @@ use geo_nd::{Vector, Vector3};
 use ic_base::{utils, Point3D};
 use serde::{Deserialize, Serialize};
 
-use crate::{CameraPtMapping, ModelLine, PointMapping};
+use crate::{ModelLine, PointMapping};
 
 //a ModelLineSubtended
 //tp ModelLineSubtended

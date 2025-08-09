@@ -5,7 +5,8 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point2D, Point3D, Result};
+use ic_base::{json, Error, Point2D, Point3D, Ray, Result};
+use ic_camera::CameraProjection;
 use ic_image::Color;
 
 use crate::{NamedPoint, NamedPointSet, PointMapping};
@@ -181,7 +182,7 @@ impl PointMappingSet {
         let mut unmapped = vec![];
         let mut remove = vec![];
         for (n, p) in self.mappings.iter_mut().enumerate() {
-            if !p.within_named_point_set(nps) {
+            if !nps.has_np(p.named_point()) {
                 unmapped.push(p.name());
                 remove.push(n);
             }
@@ -214,12 +215,14 @@ impl PointMappingSet {
 
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
-        self.mappings.iter().find(|pm| Rc::ptr_eq(np, &pm.model))
+        self.mappings
+            .iter()
+            .find(|pm| Rc::ptr_eq(np, pm.named_point()))
     }
 
     //mp get_screen_pts
     pub fn get_screen_pts(&self) -> Vec<Point2D> {
-        self.mappings.iter().map(|x| x.screen).collect()
+        self.mappings.iter().map(|x| x.screen()).collect()
     }
 }
 
@@ -284,7 +287,7 @@ impl PointMappingSet {
     pub fn get_pxy_cog(&self) -> Point2D {
         let divider = self.mappings.len().min(1) as f64;
         let cog = Point2D::default();
-        self.mappings.iter().fold(cog, |acc, m| acc + m.screen) / divider
+        self.mappings.iter().fold(cog, |acc, m| acc + m.screen()) / divider
     }
 
     //mp get_good_screen_pairs
@@ -317,5 +320,42 @@ impl PointMappingSet {
             .collect();
         eprintln!("Pairs : {:?}", dgb);
         pairs
+    }
+    //mp find_worst_error
+    //
+    // used by get_best_location
+    //
+    // worst_error returns just the error value
+    pub fn find_worst_error<C: CameraProjection>(&self, camera: &C) -> (usize, f64) {
+        let mut n = 0;
+        let mut worst_e = 0.;
+        for (i, pm) in self.mappings.iter().enumerate() {
+            let e = pm.get_mapped_dpxy_error2(camera);
+            if e > worst_e {
+                n = i;
+                worst_e = e;
+            }
+        }
+        (n, worst_e)
+    }
+
+    //fp total_error
+    // used by get_best_location
+    //
+    pub fn total_error<C: CameraProjection>(&self, camera: &C) -> f64 {
+        self.mappings
+            .iter()
+            .fold(0.0, |acc, pm| acc + pm.get_mapped_dpxy_error2(camera))
+    }
+
+    //mp iter_mapped_rays
+    pub fn iter_mapped_rays<C: CameraProjection>(
+        &self,
+        camera: &C,
+        from_camera: bool,
+    ) -> impl Iterator<Item = (&PointMapping, Ray)> {
+        self.mappings()
+            .iter()
+            .map(move |pm| (pm, pm.get_mapped_ray(camera, from_camera)))
     }
 }

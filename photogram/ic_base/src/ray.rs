@@ -87,11 +87,11 @@ use geo_nd::{matrix, Vector, Vector3};
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Ray {
     /// Starting point
-    pub start: Point3D,
+    start: Point3D,
     /// Direction (unit vector)
-    pub direction: Point3D,
+    direction: Point3D,
     /// Tan of error such that actual error radius = distance*tan_error
-    pub tan_error: f64,
+    tan_error: f64,
 }
 
 //ip Display for Ray
