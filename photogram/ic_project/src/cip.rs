@@ -4,8 +4,8 @@ use std::cell::{Ref, RefMut};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{json, PathSet, Result, Rrc};
-use ic_camera::{CameraInstance, CameraInstanceDesc};
-use ic_mapping::{CameraAdjustMapping, PointMappingSet};
+use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
+use ic_mapping::{CameraAdjustMapping, ModelLineSet, PointMapping, PointMappingSet};
 
 use crate::Project;
 
@@ -188,10 +188,28 @@ impl Cip {
     }
 
     //mp locate
-    pub fn locate(&self, max_np_error: f64) {
-        self.camera
-            .borrow_mut()
-            .locate_using_model_lines(&self.pms_ref(), max_np_error);
+    pub fn locate<F>(&self, filter: F, max_pairs: usize) -> Result<f64>
+    where
+        F: Fn(usize, &PointMapping) -> bool,
+    {
+        let mut mls = ModelLineSet::new(self.camera().borrow().clone());
+        self.pms
+            .borrow()
+            .add_good_model_lines(&mut mls, filter, max_pairs);
+
+        if mls.num_lines() < 2 {
+            return Err(format!(
+                "Required at least 2 good screen pairs, but found {}",
+                mls.num_lines()
+            )
+            .into());
+        }
+
+        eprintln!("Using {} model lines", mls.num_lines());
+
+        let (location, err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
+        self.camera_mut().set_position(location);
+        Ok(err)
     }
 
     //zz all done

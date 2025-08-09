@@ -8,7 +8,6 @@ use crate::{BestMapping, ModelLineSet, PointMapping, PointMappingSet};
 //a CameraAdjustMapping
 pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     // Used internally
-    fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64;
     fn get_location_given_direction(&self, mappings: &PointMappingSet) -> Point3D;
     fn get_best_location(&self, mappings: &PointMappingSet, steps: usize) -> BestMapping<Self>;
     fn orient_using_rays_from_model(&mut self, mappings: &PointMappingSet) -> f64;
@@ -17,19 +16,6 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
 
 //ip CameraAdjustMapping for CameraInstance
 impl CameraAdjustMapping for CameraInstance {
-    //mp locate_using_model_lines
-    fn locate_using_model_lines(&mut self, pms: &PointMappingSet, max_np_error: f64) -> f64 {
-        let f = |p: &PointMapping| p.model_error() <= max_np_error;
-        let mut mls = ModelLineSet::new(self.clone());
-        let mappings = pms.mappings();
-        for (i, j) in pms.get_good_screen_pairs(100, f) {
-            mls.add_line((&mappings[i], &mappings[j]));
-        }
-        let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);
-        self.set_position(location);
-        err
-    }
-
     //fp orient_using_rays_from_model
     #[track_caller]
     fn orient_using_rays_from_model(&mut self, mappings: &PointMappingSet) -> f64 {

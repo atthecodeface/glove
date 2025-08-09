@@ -118,50 +118,19 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         return Err(format!("Required at least 3 mapped points, but found {n}",).into());
     }
 
-    let mut mls = ModelLineSet::new(cmd_args.camera().clone());
-    let max_pairs = 200; // 125 takes about 7 seconds on the Mac
+    let max_pairs = 200;
+    // can add to filter
+    // |n, pm| pms_n.contains(&n)) && pm.model_error()<max_np_error;
+    cmd_args
+        .cip()
+        .borrow_mut()
+        .locate(|n, _pm| pms_n.contains(&n), max_pairs)?;
 
-    cmd_args.pms_map(|pms| {
-        let mappings = pms.mappings();
-        if n * (n - 1) <= max_pairs {
-            eprintln!("Using all pairs of points");
-            for i in 0..n {
-                for j in (i + 1)..n {
-                    let pms_i = pms_n[i];
-                    let pms_j = pms_n[j];
-                    mls.add_line((&mappings[pms_i], &mappings[pms_j]));
-                }
-            }
-            Ok(())
-        } else {
-            eprintln!("Using up to {max_pairs} best screen pairs");
-            let good_mappings = pms.get_good_screen_pairs(max_pairs, |_| true);
-            for (i, j) in good_mappings {
-                mls.add_line((&mappings[i], &mappings[j]));
-            }
-            Ok(())
-        }
-    })?;
-    if mls.num_lines() < 2 {
-        return Err(format!(
-            "Required at least 2 good screen pairs, but found {}",
-            mls.num_lines()
-        )
-        .into());
-    }
-
-    cmd_args.if_verbose(|| {
-        eprintln!("Using {} model lines", mls.num_lines());
-    });
-
-    // let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);
-    let (location, _err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
-
-    cmd_args.camera_mut().set_position(location);
+    let camera = cmd_args.cip().borrow().camera().borrow().clone();
+    *cmd_args.camera_mut() = camera;
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
     });
-    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }

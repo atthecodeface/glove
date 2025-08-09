@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use ic_base::{json, Error, Point2D, Ray, Result};
 use ic_camera::CameraProjection;
 
-use crate::{NamedPoint, NamedPointSet, PointMapping};
+use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
 
 //a PmsGoodScreenPair
 #[derive(Default, Debug, Clone)]
@@ -292,7 +292,7 @@ impl PointMappingSet {
     //mp get_good_screen_pairs
     pub fn get_good_screen_pairs<F>(&self, max_pairs: usize, filter: F) -> Vec<(usize, usize)>
     where
-        F: Fn(&PointMapping) -> bool,
+        F: Fn(usize, &PointMapping) -> bool,
     {
         let cog = self.get_pxy_cog();
         let mut good_screen_pairs = PmsGoodScreenPairSet::default();
@@ -301,7 +301,7 @@ impl PointMappingSet {
             .iter()
             .enumerate()
             .filter(|(_n, m)| m.is_mapped())
-            .filter(|(_n, m)| filter(m))
+            .filter(|(n, m)| filter(*n, m))
         {
             good_screen_pairs.add_pt(i, &cog, pms);
         }
@@ -317,8 +317,17 @@ impl PointMappingSet {
                 )
             })
             .collect();
-        eprintln!("Pairs : {:?}", dgb);
         pairs
+    }
+    //mp add_good_model_lines
+    pub fn add_good_model_lines<C, F>(&self, mls: &mut ModelLineSet<C>, filter: F, max_pairs: usize)
+    where
+        F: Fn(usize, &PointMapping) -> bool,
+        C: CameraProjection,
+    {
+        for (i, j) in self.get_good_screen_pairs(max_pairs, filter) {
+            mls.add_line((&self.mappings[i], &self.mappings[j]));
+        }
     }
     //mp find_worst_error
     //
@@ -358,3 +367,6 @@ impl PointMappingSet {
             .map(move |pm| (pm, pm.get_mapped_ray(camera, from_camera)))
     }
 }
+
+//ip PointMappingSet - Camera locate and orient
+impl PointMappingSet {}

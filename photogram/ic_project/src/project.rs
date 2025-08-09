@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraDatabase;
-use ic_mapping::NamedPointSet;
+use ic_mapping::{NamedPointSet, PointMapping};
 
 use crate::{Cip, CipDesc, CipFileDesc};
 
@@ -198,10 +198,15 @@ impl Project {
     }
 
     //mp locate_all
-    pub fn locate_all(&self, max_np_error: f64) {
+    pub fn locate_all<F>(&self, filter: F, max_pairs: usize) -> Result<f64>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+    {
+        let mut total_error = 0.0;
         for cip in &self.cips {
-            cip.borrow().locate(max_np_error);
+            total_error += cip.borrow().locate(filter.clone(), max_pairs)?;
         }
+        Ok(total_error)
     }
 
     //mp derive_nps_location
