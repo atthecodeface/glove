@@ -1,5 +1,5 @@
 mod mapping;
-pub use mapping::{CameraAdjustMapping, CameraShowMapping};
+pub use mapping::CameraAdjustMapping;
 
 mod best_mapping;
 pub use best_mapping::BestMapping;

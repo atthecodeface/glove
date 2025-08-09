@@ -18,7 +18,7 @@ pub fn as_json_cmd() -> CommandBuilder<CmdArgs> {
         .about("As_Json the project as a *single* JSON file")
         .long_about(LIST_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(as_json_fn)));
+    let build = CommandBuilder::new(command, Some(Box::new(as_json_fn)));
 
     build
 }
@@ -35,7 +35,7 @@ pub fn list_cmd() -> CommandBuilder<CmdArgs> {
         .about("Operate on a list as a whole")
         .long_about(LIST_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(list_fn)));
+    let build = CommandBuilder::new(command, Some(Box::new(list_fn)));
 
     build
 }

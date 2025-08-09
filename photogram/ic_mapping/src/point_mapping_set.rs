@@ -5,9 +5,8 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point2D, Point3D, Ray, Result};
+use ic_base::{json, Error, Point2D, Ray, Result};
 use ic_camera::CameraProjection;
-use ic_image::Color;
 
 use crate::{NamedPoint, NamedPointSet, PointMapping};
 

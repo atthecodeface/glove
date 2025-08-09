@@ -1,44 +1,10 @@
 //a Imports
 use geo_nd::{quat, Quaternion, Vector, Vector3};
 
-use ic_base::{utils, Point2D, Point3D, Quat, Ray};
+use ic_base::{utils, Point3D, Quat, Ray};
 use ic_camera::{CameraInstance, CameraProjection};
 
-use crate::{BestMapping, ModelLineSet, NamedPointSet, PointMapping, PointMappingSet};
-
-//a CameraShowMapping
-pub trait CameraShowMapping {
-    fn show_point_set(&self, nps: &NamedPointSet);
-    fn show_mappings(&self, mappings: &[PointMapping]);
-}
-
-//ip CameraShowMapping for CameraInstance
-impl CameraShowMapping for CameraInstance {
-    //fp show_point_set
-    fn show_point_set(&self, nps: &NamedPointSet) {
-        for (name, model) in nps.iter() {
-            if model.is_unmapped() {
-                continue;
-            }
-            let camera_scr_xy = self.world_xyz_to_px_abs_xy(model.model().0);
-            eprintln!(
-                "model {name} : {}+-{} maps to {camera_scr_xy}",
-                model.model().0,
-                model.model().1,
-            );
-        }
-    }
-
-    //fp show_mappings
-    fn show_mappings(&self, mappings: &[PointMapping]) {
-        for pm in mappings {
-            pm.show_mapped_error(self);
-        }
-    }
-
-    //zz All done
-}
-
+use crate::{BestMapping, ModelLineSet, PointMapping, PointMappingSet};
 //a CameraAdjustMapping
 pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     // Used internally

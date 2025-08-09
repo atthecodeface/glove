@@ -1,15 +1,14 @@
 //a Imports
-use std::collections::HashSet;
 use std::rc::Rc;
 
 use geo_nd::{Vector, Vector3};
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point2D, Point3D, Ray, Result};
+use ic_base::{Point2D, Point3D, Ray};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 
-use crate::{NamedPoint, NamedPointSet};
+use crate::NamedPoint;
 
 //a PointMapping
 //tp PointMapping

@@ -6,7 +6,7 @@ use thunderclap::CommandBuilder;
 use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
-use ic_mapping::{CameraAdjustMapping, CameraShowMapping, ModelLineSet};
+use ic_mapping::{CameraAdjustMapping, ModelLineSet};
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -176,7 +176,6 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
 
     CmdArgs::add_arg_named_point(&mut build, (0,));
-    CmdArgs::add_arg_pms(&mut build);
 
     CmdArgs::add_arg_write_camera(&mut build);
 
@@ -409,7 +408,7 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn show_rays_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("show_rays")
         .about("Show rays for the CIP using its camera and mappings")
-        .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
+        .long_about(SHOW_RAYS_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(show_rays_fn)));
 
@@ -431,7 +430,7 @@ fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .borrow()
         .iter_mapped_rays(camera, from_camera)
         .enumerate()
-        .filter(|(n, pms_ray)| pms_n.contains(n))
+        .filter(|(n, _pms_ray)| pms_n.contains(n))
     {
         let end = ray.start() + ray.direction() * camera.focus_distance();
         eprintln!("{} {end}", pm.name());
@@ -465,7 +464,7 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .borrow()
         .iter_mapped_rays(camera, from_camera)
         .enumerate()
-        .filter(|(n, pm_ray)| pms_n.contains(n))
+        .filter(|(n, _pm_ray)| pms_n.contains(n))
         .map(|(_, (pm, ray))| (pm.name().to_owned(), ray))
         .collect();
     Ok(serde_json::to_string_pretty(&named_rays)?)
@@ -488,12 +487,14 @@ fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms().borrow();
     let nps = cmd_args.nps();
     let camera = cmd_args.camera();
-    let mappings = pms.mappings();
+
+    for pm in pms.mappings() {
+        pm.show_mapped_error(camera);
+    }
+    nps.borrow().show_mappings(camera);
 
     let te = pms.total_error(camera);
     let we = pms.find_worst_error(camera).1;
-    camera.show_mappings(mappings);
-    camera.show_point_set(&nps.borrow());
     println!("WE {we:.2} TE {te:.2}");
 
     Ok("".into())

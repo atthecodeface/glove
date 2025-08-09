@@ -5,11 +5,10 @@ use clap::Command;
 
 use thunderclap::CommandBuilder;
 
-use ic_base::{Ray, Rrc};
+use ic_base::Ray;
 use ic_camera::CameraProjection;
 use ic_image::Color;
-use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
-use ic_project::Cip;
+use ic_mapping::{NamedPoint, NamedPointSet};
 
 use crate::cmd::{CmdArgs, CmdResult};
 

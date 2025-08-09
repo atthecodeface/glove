@@ -1,11 +1,9 @@
 //a Imports
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point3D, Result};
+use ic_base::Point3D;
 use ic_image::Color;
 
 //a NamedPoint

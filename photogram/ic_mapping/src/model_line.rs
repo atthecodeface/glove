@@ -2,10 +2,9 @@
 use std::default::Default;
 
 use geo_nd::{Vector, Vector3};
-use ic_base::{utils, Point3D};
+use ic_base::Point3D;
 use serde::{Deserialize, Serialize};
 
-use crate::PointMapping;
 
 //a ModelLine
 //tp ModelLine

@@ -7,7 +7,7 @@ use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, Project, ProjectFileDesc};
+use ic_project::{Cip, ProjectFileDesc};
 use ic_stars::StarMapping;
 
 use super::CmdArgs;

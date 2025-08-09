@@ -1,8 +1,7 @@
 //a Imports
 use std::default::Default;
 
-use geo_nd::{Vector, Vector3};
-use serde::{Deserialize, Serialize};
+use geo_nd::Vector;
 
 use ic_base::{utils, Point3D};
 use ic_camera::CameraProjection;

@@ -5,7 +5,7 @@ use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{Error, Result};
 use ic_camera::CameraInstance;
-use ic_mapping::{PointMapping, PointMappingSet};
+use ic_mapping::PointMappingSet;
 
 //a Modules
 pub mod camera;
