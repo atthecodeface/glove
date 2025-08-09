@@ -10,6 +10,88 @@ use ic_image::Color;
 
 use crate::{NamedPoint, NamedPointSet, PointMapping};
 
+//a PmsGoodScreenPair
+#[derive(Default, Debug, Clone)]
+struct PmsGoodScreenPairPt {
+    pms_index: usize,
+    use_count: usize,
+    length: f64,
+    pxy: Point2D,
+}
+
+impl PmsGoodScreenPairPt {
+    fn new(pms_index: usize, cog: &Point2D, pms: &PointMapping) -> Self {
+        let pxy = pms.screen() - *cog;
+        let length = pxy.length();
+        Self {
+            pms_index,
+            use_count: 0,
+            length,
+            pxy,
+        }
+    }
+}
+
+use std::collections::VecDeque;
+#[derive(Default)]
+struct PmsGoodScreenPairSet {
+    pts: VecDeque<PmsGoodScreenPairPt>,
+    used_dpxy: Vec<Point2D>,
+    used_pairs: HashSet<(usize, usize)>,
+}
+
+impl PmsGoodScreenPairSet {
+    fn add_pt(&mut self, pms_index: usize, cog: &Point2D, pms: &PointMapping) {
+        self.pts
+            .push_back(PmsGoodScreenPairPt::new(pms_index, cog, pms));
+    }
+
+    fn sort_pts(&mut self) -> &mut Self {
+        self.pts
+            .make_contiguous()
+            .sort_by(|a, b| b.length.partial_cmp(&a.length).unwrap());
+        self
+    }
+}
+
+impl Iterator for PmsGoodScreenPairSet {
+    type Item = (usize, usize);
+    fn next(&mut self) -> Option<(usize, usize)> {
+        let mut best_index_d = (0., 0, 0, Point2D::default());
+        let pms_0 = self.pts[0].pms_index;
+        for i in 1..self.pts.len() {
+            let pms_i = self.pts[i].pms_index;
+            if self.used_pairs.contains(&(pms_0, pms_i)) {
+                continue;
+            }
+
+            let dpxy = self.pts[0].pxy - self.pts[i].pxy;
+            let mut d = dpxy.length();
+            for used_dpxy in &self.used_dpxy {
+                d += (dpxy[0] * used_dpxy[1] - dpxy[1] * used_dpxy[0]).abs();
+            }
+            let d = d / ((self.pts[i].use_count + 1) as f64);
+            if d > best_index_d.0 {
+                best_index_d = (d, i, pms_i, dpxy);
+            }
+        }
+        let (_, n, pms_n, dpxy) = best_index_d;
+        if n == 0 {
+            return None;
+        }
+
+        self.used_dpxy.push(dpxy);
+        self.used_pairs.insert((pms_0, pms_n));
+        self.used_pairs.insert((pms_n, pms_0));
+        self.pts[0].use_count += 1;
+        self.pts[n].use_count += 1;
+
+        self.pts.rotate_left(1);
+
+        Some((pms_0, pms_n))
+    }
+}
+
 //a PointMappingSet
 //tp PointMappingSet
 #[derive(Debug, Default)]
@@ -211,60 +293,17 @@ impl PointMappingSet {
         F: Fn(&PointMapping) -> bool,
     {
         let cog = self.get_pxy_cog();
-
-        // Get a list of the *mapped* points that pass the filter
-        // sorted in order of distance from COG
-        //
-        // Store with it a use count that starts at 0
-        let mut v: Vec<(usize, usize, f64, Point2D)> = self
+        let mut good_screen_pairs = PmsGoodScreenPairSet::default();
+        for (i, pms) in self
             .mappings
             .iter()
             .enumerate()
             .filter(|(_n, m)| m.is_mapped())
             .filter(|(_n, m)| filter(m))
-            .map(|(n, m)| {
-                let pxy = m.screen - cog;
-                (n, 0, pxy.length(), pxy)
-            })
-            .collect();
-        v.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap().reverse());
-
-        let mut pairs: Vec<(usize, usize)> = vec![];
-        let mut used_pairs: HashSet<(usize, usize)> = HashSet::default();
-        for i in 0..v.len() {
-            let mut furthest_v = i;
-            let mut max_d = 0.0;
-            for j in 0..v.len() {
-                if i == j {
-                    continue;
-                }
-                if used_pairs.contains(&(i, j)) {
-                    continue;
-                }
-                let d_ij = v[i].3 - v[j].3;
-                let mut d = 0.0;
-                if pairs.is_empty() {
-                    d = d_ij.length() / ((2 + v[i].1 + v[j].1) as f64);
-                } else {
-                    for (p0, p1) in &pairs {
-                        let d_ik = self.mappings[*p0].screen - self.mappings[*p1].screen;
-                        d += (d_ij[0] * d_ik[1] - d_ij[1] * d_ik[0]).abs();
-                    }
-                }
-                if d > max_d {
-                    furthest_v = j;
-                    max_d = d;
-                }
-            }
-            if furthest_v == i {
-                continue;
-            }
-            pairs.push((v[i].0, v[furthest_v].0));
-            used_pairs.insert((i, furthest_v));
-            used_pairs.insert((furthest_v, i));
-            v[i].1 += 1;
-            v[furthest_v].1 += 1;
+        {
+            good_screen_pairs.add_pt(i, &cog, pms);
         }
+        let pairs: Vec<_> = good_screen_pairs.sort_pts().take(max_pairs).collect();
 
         // Debug
         let dgb: Vec<(String, String)> = pairs

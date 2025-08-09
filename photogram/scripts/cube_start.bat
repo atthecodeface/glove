@@ -155,7 +155,8 @@ cip orient
 cip --cip 2 locate "0cm.*" "10cm.*" "M middle" "tl text"
 cip orient
 
-named_points get_model_points --np "^M" --np ".*game" 0 1 2
+named_points get_model_points 0 1 2
+# named_points get_model_points --np "^M" --np ".*game" 0 1 2
 named_points update_model ${0}
 
 cip --cip 0 locate

@@ -17,11 +17,11 @@ pub struct PointMapping {
     /// The 3D model coordinate this point corresponds to
     ///
     /// This is known for a calibration point!
-    pub model: Rc<NamedPoint>,
+    pub(crate) model: Rc<NamedPoint>,
     /// Screen coordinate
-    pub screen: Point2D,
+    pub(crate) screen: Point2D,
     /// Error in pixels
-    pub error: f64,
+    pub(crate) error: f64,
 }
 
 //ip PartialEq for PointMapping
@@ -127,24 +127,24 @@ impl PointMapping {
         self.model.model().1
     }
 
-    //mp screen
+    //ap screen
     #[inline]
     pub fn screen(&self) -> Point2D {
         self.screen
     }
 
-    //mp error
+    //ap error
     #[inline]
     pub fn error(&self) -> f64 {
         self.error
     }
 
-    //mp name
+    //ap name
     pub fn name(&self) -> &str {
         self.model.name()
     }
 
-    //mp named_point
+    //ap named_point
     pub fn named_point(&self) -> &Rc<NamedPoint> {
         &self.model
     }

@@ -109,11 +109,11 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     let mut mls = ModelLineSet::new(cmd_args.camera().clone());
+    let max_pairs = 200; // 125 takes about 7 seconds on the Mac
 
     cmd_args.pms_map(|pms| {
         let mappings = pms.mappings();
-        if n < 10 {
-            // up to 72 pairs
+        if n * (n - 1) <= max_pairs {
             eprintln!("Using all pairs of points");
             for i in 0..n {
                 for j in (i + 1)..n {
@@ -124,8 +124,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             }
             Ok(())
         } else {
-            eprintln!("Using up to 100 best screen pairs");
-            let good_mappings = pms.get_good_screen_pairs(100, |_| true);
+            eprintln!("Using up to {max_pairs} best screen pairs");
+            let good_mappings = pms.get_good_screen_pairs(max_pairs, |_| true);
             for (i, j) in good_mappings {
                 mls.add_line((&mappings[i], &mappings[j]));
             }
@@ -287,7 +287,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let mappings = pms.mappings();
             for i in pms_n.iter() {
                 let m = &mappings[*i];
-                let c = pms_color.unwrap_or(m.model.color());
+                let c = pms_color.unwrap_or(m.named_point().color());
                 img.draw_cross(m.screen(), m.error(), c);
             }
             Ok(())
