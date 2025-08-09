@@ -45,27 +45,6 @@ an average is generated, and the camera orientation set to this.
 
 ";
 
-//hi REORIENT_LONG_HELP
-const REORIENT_LONG_HELP: &str = "\
-Iteratively reorient the camera by determining the axis and amount *each* PMS
-mapped point wants to rotate by, and rotating by the weighted
-average.
-
-The rotation desired for a PMS point is the axis/angle required to
-rotate the ray vector from the camera through the point on the frame
-to the ray of the *actual* model position of the point from the
-camera.
-
-The weighted average is biased by adding in some 'zero rotation's; the
-camera is attempted to be rotated by this weighted average
-(quaternion), and if the total error in the camera mapping is reduced
-then the new rotation is kept.
-
-The iteration stops when the new rotation produces a greater total
-error in the mapping than the current orientation of the camera.
-
-";
-
 //hi CREATE_RAYS_FROM_MODEL_LONG_HELP
 const CREATE_RAYS_FROM_MODEL_LONG_HELP: &str = "\
 This combines Named Point model positions, camera *orientation* and
@@ -135,7 +114,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a orient / reorient
+//a orient
 //fi orient_cmd
 fn orient_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("orient")
@@ -169,31 +148,6 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     });
 
     *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
-    cmd_args.write_outputs()?;
-    cmd_args.output_camera()
-}
-
-//fi reorient_cmd
-fn reorient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("reorient")
-        .about("Improve orientation for a camera to map points to model")
-        .long_about(REORIENT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(reorient_fn)));
-    CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, true); // required=true
-    build
-}
-
-//fi reorient_fn
-fn reorient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let pms = cmd_args.pms();
-    let mut camera = cmd_args.camera().clone();
-
-    camera.reorient_using_rays_from_model(&*pms.borrow());
-    *cmd_args.camera_mut() = camera;
-    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
-
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -566,7 +520,6 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(add_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
-    build.add_subcommand(reorient_cmd());
     build.add_subcommand(create_rays_cmd());
     build.add_subcommand(show_rays_cmd());
 

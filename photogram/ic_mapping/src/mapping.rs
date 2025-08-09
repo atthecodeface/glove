@@ -11,7 +11,6 @@ pub trait CameraAdjustMapping: std::fmt::Debug + std::fmt::Display + Clone {
     fn get_location_given_direction(&self, mappings: &PointMappingSet) -> Point3D;
     fn get_best_location(&self, mappings: &PointMappingSet, steps: usize) -> BestMapping<Self>;
     fn orient_using_rays_from_model(&mut self, mappings: &PointMappingSet) -> f64;
-    fn reorient_using_rays_from_model(&mut self, mappings: &PointMappingSet) -> f64;
 }
 
 //ip CameraAdjustMapping for CameraInstance
@@ -97,37 +96,6 @@ impl CameraAdjustMapping for CameraInstance {
         let te = mappings.total_error(self);
         eprintln!("Error in qr's {e} total error {te} QR: {qr}");
         te
-    }
-
-    //fp reorient_using_rays_from_model
-    fn reorient_using_rays_from_model(&mut self, mappings: &PointMappingSet) -> f64 {
-        let mut last_te = mappings.total_error(self);
-        loop {
-            // Find directions to each named point as given by camera (on frame) and by model (model point - camera location)
-            let mut qs = vec![];
-            let n = mappings.len();
-            let initial_orientation = self.orientation();
-            qs.push((10. * (n as f64), [0., 0., 0., 1.]));
-            for m in mappings.mappings() {
-                if m.is_unmapped() {
-                    continue;
-                }
-                let d_c = m.get_mapped_world_dir(self);
-                let d_m = (m.model() - self.position()).normalize();
-                let q = quat::rotation_of_vec_to_vec(&d_c.into(), &d_m.into());
-                qs.push((1., q));
-            }
-            let qr: Quat = quat::weighted_average_many(qs.into_iter()).into();
-
-            self.set_orientation(qr * initial_orientation);
-            let te = mappings.total_error(self);
-            if te > last_te {
-                self.set_orientation(initial_orientation);
-                break;
-            }
-            last_te = te;
-        }
-        last_te
     }
 
     //fp get_location_given_direction
