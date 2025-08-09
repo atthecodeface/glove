@@ -292,6 +292,7 @@ impl<C: CommandArgs> CommandSet<C> {
                     options.create(true);
                 } else {
                     options.write(true);
+                    options.truncate(true);
                     options.create(true);
                 }
                 Some(options.open(filename).map_err(|e| {

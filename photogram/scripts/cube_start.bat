@@ -4,19 +4,19 @@
 --path nac --path ../../Images --path ../..
 --camera_db camera_db.json
 
-named_points add "0cm ruler" #ff0000 0.0,0.0,0.0
-named_points add "1cm ruler" #ff0000 0.0,-10.0,0.0
-named_points add "2cm ruler" #ff0000 0.0,-20.0,0.0
-named_points add "3cm ruler" #ff0000 0.0,-30.0,0.0
-named_points add "4cm ruler" #ff0000 0.0,-40.0,0.0 5.0
-named_points add "5cm ruler" #ff0000 0.0,-50.0,0.0 5.0
-named_points add "6cm ruler" #ff0000 0.0,-60.0,0.0 5.0
-named_points add "7cm ruler" #ff0000 0.0,-70.0,0.0 5.0
-named_points add "8cm ruler" #ff0000 0.0,-80.0,0.0 5.0
-named_points add "9cm ruler" #ff0000 0.0,-90.0,0.0 5.0
-named_points add "10cm ruler" #ff0000 0.0,-100.0,0.0 5.0
+named_points add "0cm ruler" #ff0000 0.0,0.0,0.0 0.0
+named_points add "1cm ruler" #ff0000 0.0,-10.0,0.0 0.0
+named_points add "2cm ruler" #ff0000 0.0,-20.0,0.0 0.0
+named_points add "3cm ruler" #ff0000 0.0,-30.0,0.0 0.0
+named_points add "4cm ruler" #ff0000 0.0,-40.0,0.0 0.0
+named_points add "5cm ruler" #ff0000 0.0,-50.0,0.0 0.0
+named_points add "6cm ruler" #ff0000 0.0,-60.0,0.0 0.0
+named_points add "7cm ruler" #ff0000 0.0,-70.0,0.0 0.0
+named_points add "8cm ruler" #ff0000 0.0,-80.0,0.0 0.0
+named_points add "9cm ruler" #ff0000 0.0,-90.0,0.0 0.0
+named_points add "10cm ruler" #ff0000 0.0,-100.0,0.0 0.0
 
-named_points add "M middle" #ff0000  67.0,-36.7,94.0
+named_points add "M middle" #ff0000  67.0,-36.7,94.0 5.0
 named_points add "M middle 1" #ff0000
 named_points add "M middle 2" #ff0000
 named_points add "M middle 3" #ff0000
@@ -25,8 +25,8 @@ named_points add "M middle 5" #ff0000
 named_points add "M middle 6" #ff0000
 
 named_points add "0 bl game" #ff0000
-named_points add "1 tl game" #ff0000 1.0,-50.0,91.0
-named_points add "tl text" #ff0000 0,53.6,90.0
+named_points add "1 tl game" #ff0000 1.0,-50.0,91.0 5.0
+named_points add "tl text" #ff0000 0,53.6,90.0 5.0
 named_points add "2 tr game" #ff0000
 named_points add "text mensa logo middle" #ff0000
 named_points add "bl text" #ff0000 

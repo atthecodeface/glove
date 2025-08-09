@@ -26,21 +26,44 @@ Extract a triangular patch from an image as if viewed straight on
 
 ";
 
+//hi LOCATE_LONG_HELP
+const LOCATE_LONG_HELP: &str = "\
+Use the CIP's point mappings, for given mapped names points, to locate
+the camera, given its focal length, etc.
+
+Pairs of point mappings are chosen that provide good subtended viewing
+angles, and that are (from the camera's perspecfive) more orthogonal
+to each other, are generated.
+
+For each pair of mappings a surface is generated in model space, where
+if the camera were placed on that surface it would 'see' the pair of
+mappings with the angle between them the same as is on the image.
+
+The first surfaces is iterated over, to find the position where the
+sum of the distances from the surface of the *other* pairs is
+minimized. This provides the initial best location for the camera.
+
+This position is then adjusted by small amounts, to reduce the total
+error seen by *all* of the surfaces.
+
+";
+
 //hi ORIENT_LONG_HELP
 const ORIENT_LONG_HELP: &str = "\
-Use consecutive pairs of point mappings to determine a camera
-orientation, and average them.
+Use the CIP's point mappings, for given mapped names points, to orient
+the camera, given its positions etc.
 
-*An* orientation is generated to rotate the first of each pair of
-point mappings to the Z axis from its screen direction, and from its
-to-model direction; these are applied to the second points in the
-pairs, and then a rotation around the Z axis to map on onto the other
-(assumming the angle they subtend is the same!) is generated. This
-yields three quaternions which are combined to generate an orientation
-of the camera.
+Pairs of point mappings are chosen that provide good subtended viewing
+angles, and that are (from the camera's perspecfive) more orthogonal
+to each other, are generated.
 
-The orientations from each pair of point mappings should be identical;
-an average is generated, and the camera orientation set to this.
+For each pair of mappings a camera orientation is determined, which
+would (if the camera is perfectly positioned) map the two points to
+their positions on the camera sensor. This yields an array of
+orientations (as quaternions).
+
+The array of orientations is averaged, to produce the camera
+orientation.
 
 ";
 
@@ -81,10 +104,6 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
     CmdArgs::add_arg_named_point(&mut build, (None, true));
 
-    CmdArgs::add_arg_pms(&mut build);
-
-    CmdArgs::add_arg_write_camera(&mut build);
-
     build
 }
 
@@ -122,9 +141,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
 
-    CmdArgs::add_arg_named_point(&mut build, (0,));
-
-    CmdArgs::add_arg_write_camera(&mut build);
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
 
     build
 }

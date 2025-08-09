@@ -309,8 +309,13 @@ fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for (new_name, new_np) in new_nps.iter() {
         if let Some(np) = cmd_args.nps().borrow().get_pt(new_name) {
             if let Some(new_np_model) = new_np.opt_model() {
-                // if let Some() = np.opt_model()...
-                np.set_model(Some(new_np_model));
+                if let Some((_np_model, np_err)) = np.opt_model() {
+                    if np_err != 0.0 {
+                        np.set_model(Some(new_np_model));
+                    }
+                } else {
+                    np.set_model(Some(new_np_model));
+                }
             }
         } else {
             cmd_args.nps().borrow_mut().add_np(new_np);
