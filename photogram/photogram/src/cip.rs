@@ -6,7 +6,6 @@ use thunderclap::CommandBuilder;
 use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
-use ic_mapping::{CameraAdjustMapping, ModelLineSet};
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -134,20 +133,16 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
 
-    let mut camera = cmd_args.camera().clone();
+    let _total_error = cmd_args
+        .cip()
+        .borrow_mut()
+        .orient_camera_using_model_directions(|n, _pm| pms_n.contains(&n))?;
 
-    cmd_args.pms_map(|pms| {
-        camera.orient_using_rays_from_model(pms);
-        Ok(())
-    })?;
-
-    cmd_args.camera_mut().set_orientation(camera.orientation());
-
+    let camera = cmd_args.cip().borrow().camera().borrow().clone();
+    *cmd_args.camera_mut() = camera;
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
     });
-
-    *cmd_args.cip.borrow().camera_mut() = cmd_args.camera().clone();
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }

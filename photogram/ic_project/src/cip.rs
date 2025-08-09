@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{json, PathSet, Result, Rrc};
 use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
-use ic_mapping::{CameraAdjustMapping, ModelLineSet, PointMapping, PointMappingSet};
+use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
 use crate::Project;
 
@@ -210,6 +210,16 @@ impl Cip {
         let (location, err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
         self.camera_mut().set_position(location);
         Ok(err)
+    }
+
+    //fp orient_camera_using_model_directions
+    pub fn orient_camera_using_model_directions<F>(&mut self, filter: F) -> Result<f64>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+    {
+        self.pms
+            .borrow()
+            .orient_camera_using_model_directions(&mut *self.camera_mut(), filter)
     }
 
     //zz all done

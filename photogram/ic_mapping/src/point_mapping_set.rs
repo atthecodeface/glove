@@ -5,7 +5,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point2D, Ray, Result};
+use ic_base::{json, utils, Error, Point2D, Ray, Result};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
@@ -305,20 +305,9 @@ impl PointMappingSet {
         {
             good_screen_pairs.add_pt(i, &cog, pms);
         }
-        let pairs: Vec<_> = good_screen_pairs.sort_pts().take(max_pairs).collect();
-
-        // Debug
-        let dgb: Vec<(String, String)> = pairs
-            .iter()
-            .map(|(x, y)| {
-                (
-                    self.mappings[*x].name().to_owned(),
-                    self.mappings[*y].name().to_owned(),
-                )
-            })
-            .collect();
-        pairs
+        good_screen_pairs.sort_pts().take(max_pairs).collect()
     }
+
     //mp add_good_model_lines
     pub fn add_good_model_lines<C, F>(&self, mls: &mut ModelLineSet<C>, filter: F, max_pairs: usize)
     where
@@ -369,4 +358,60 @@ impl PointMappingSet {
 }
 
 //ip PointMappingSet - Camera locate and orient
-impl PointMappingSet {}
+impl PointMappingSet {
+    //fp orient_camera_using_model_directions
+    pub fn orient_camera_using_model_directions<C, F>(
+        &self,
+        camera: &mut C,
+        filter: F,
+    ) -> Result<f64>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+        C: CameraProjection,
+    {
+        let mut qs = vec![];
+
+        for (i, pm_i) in self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| filter.clone()(*n, pm))
+        {
+            let di_c = pm_i.get_mapped_unit_vector(camera);
+            let di_m = (camera.position() - pm_i.model()).normalize();
+
+            for (_, pm_j) in self
+                .mappings
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| i != *j)
+                .filter(|(_n, pm)| pm.is_mapped())
+                .filter(|(n, pm)| filter.clone()(*n, pm))
+            {
+                let dj_c = pm_j.get_mapped_unit_vector(camera);
+                let dj_m = (camera.position() - pm_j.model()).normalize();
+
+                qs.push((
+                    1.0,
+                    utils::orientation_mapping_vpair_to_ppair(
+                        di_m.as_ref(),
+                        dj_m.as_ref(),
+                        &di_c,
+                        &dj_c,
+                    )
+                    .into(),
+                ));
+            }
+        }
+        if qs.is_empty() {
+            return Err(format!("No point mappings available to orient camera").into());
+        }
+
+        let (qr, e) = utils::weighted_average_many_with_err(&qs);
+        camera.set_orientation(qr);
+        let te = self.total_error(camera);
+        eprintln!("Error in qr's {e} total error {te} QR: {qr}q");
+        Ok(te)
+    }
+}
