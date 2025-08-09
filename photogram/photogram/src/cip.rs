@@ -112,7 +112,9 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     cmd_args.pms_map(|pms| {
         let mappings = pms.mappings();
-        if n < 200 {
+        if n < 10 {
+            // up to 72 pairs
+            eprintln!("Using all pairs of points");
             for i in 0..n {
                 for j in (i + 1)..n {
                     let pms_i = pms_n[i];
@@ -122,7 +124,11 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             }
             Ok(())
         } else {
-            todo!();
+            eprintln!("Using up to 100 best screen pairs");
+            let good_mappings = pms.get_good_screen_pairs(100, |_| true);
+            for (i, j) in good_mappings {
+                mls.add_line((&mappings[i], &mappings[j]));
+            }
             Ok(())
         }
     })?;

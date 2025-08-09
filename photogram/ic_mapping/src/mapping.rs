@@ -259,7 +259,7 @@ impl CameraAdjustMapping for CameraInstance {
         let f = |p: &PointMapping| p.model_error() <= max_np_error;
         let mut mls = ModelLineSet::new(self.clone());
         let mappings = pms.mappings();
-        for (i, j) in pms.get_good_screen_pairs(&f) {
+        for (i, j) in pms.get_good_screen_pairs(100, f) {
             mls.add_line((&mappings[i], &mappings[j]));
         }
         let (location, err) = mls.find_best_min_err_location(&|p| p[0] < 0., 1000, 1000);

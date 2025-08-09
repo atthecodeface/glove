@@ -173,3 +173,4 @@ cip image -r ${cip.image} -w ${cip.image}_pm.png --pms_color #ff0000 --model_col
 --pretty_json project as_json
 echo --file cube_improved.json ${0}
 
+cip orient

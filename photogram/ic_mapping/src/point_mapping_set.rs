@@ -44,96 +44,11 @@ impl<'de> Deserialize<'de> for PointMappingSet {
     }
 }
 
-//ip PointMappingSet
+//ip PointMappingSet - constructors, add, remove
 impl PointMappingSet {
     //fp new
     pub fn new() -> Self {
         Self::default()
-    }
-
-    //ap len
-    pub fn len(&self) -> usize {
-        self.mappings.len()
-    }
-
-    //ap is_empty
-    pub fn is_empty(&self) -> bool {
-        self.mappings.is_empty()
-    }
-
-    //mp sorted_order
-    pub fn sorted_order(&self) -> Vec<usize> {
-        let mut order: Vec<usize> = (0..self.mappings.len()).collect();
-        order.sort_by(|a, b| self.mappings[*a].cmp(&self.mappings[*b]));
-        order
-    }
-
-    //mp merge
-    pub fn merge(&mut self, mut other: PointMappingSet) {
-        self.mappings.append(&mut other.mappings);
-    }
-
-    //mp read_json
-    pub fn read_json(
-        &mut self,
-        nps: &NamedPointSet,
-        toml: &str,
-        allow_not_found: bool,
-    ) -> Result<String> {
-        let (pms, nf) = Self::from_json(nps, toml)?;
-        if !allow_not_found && !nf.is_empty() {
-            Err(Error::Msg(nf))
-        } else {
-            self.merge(pms);
-            Ok(nf)
-        }
-    }
-
-    //fp from_json
-    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
-        let mut pms: Self = json::from_json("point map set", json)?;
-        let not_found = pms.rebuild_with_named_point_set(nps);
-        if not_found.is_empty() {
-            Ok((pms, "".into()))
-        } else {
-            let mut r = String::new();
-            let mut sep = "";
-            for nf in not_found {
-                r.push_str(&format!("{sep}'{nf}'"));
-                sep = ", ";
-            }
-            Ok((
-                pms,
-                format!("Failed to find points {r} to map in named point set"),
-            ))
-        }
-    }
-
-    //mp to_json
-    pub fn to_json(&self, pretty: bool) -> Result<String> {
-        if pretty {
-            Ok(serde_json::to_string_pretty(self)?)
-        } else {
-            Ok(serde_json::to_string(self)?)
-        }
-    }
-
-    //mp rebuild_with_named_point_set
-    /// This rebuilds the point mapping set by *removing* the entries
-    /// that are not in the named point set
-    pub fn rebuild_with_named_point_set(&mut self, nps: &NamedPointSet) -> Vec<String> {
-        let mut unmapped = vec![];
-        let mut remove = vec![];
-        for (n, p) in self.mappings.iter_mut().enumerate() {
-            if !p.within_named_point_set(nps) {
-                unmapped.push(p.name().into());
-                remove.push(n);
-            }
-        }
-        for i in remove.into_iter().rev() {
-            self.mappings.remove(i);
-        }
-        unmapped
     }
 
     //mp add_mappings
@@ -170,6 +85,46 @@ impl PointMappingSet {
         }
     }
 
+    //mp merge
+    pub fn merge(&mut self, mut other: PointMappingSet) {
+        self.mappings.append(&mut other.mappings);
+    }
+
+    //mp rebuild_with_named_point_set
+    /// This rebuilds the point mapping set by *removing* the entries
+    /// that are not in the named point set
+    ///
+    /// Used when rebuilding from a Json, here and by the Cip
+    pub fn rebuild_with_named_point_set(&mut self, nps: &NamedPointSet) -> Vec<PointMapping> {
+        let mut unmapped = vec![];
+        let mut remove = vec![];
+        for (n, p) in self.mappings.iter_mut().enumerate() {
+            if !p.within_named_point_set(nps) {
+                unmapped.push(p.name());
+                remove.push(n);
+            }
+        }
+
+        let mut result = vec![];
+        for i in remove.into_iter().rev() {
+            result.push(self.mappings.remove(i));
+        }
+        result
+    }
+}
+
+//ip PointMappingSet - accessors
+impl PointMappingSet {
+    //ap len
+    pub fn len(&self) -> usize {
+        self.mappings.len()
+    }
+
+    //ap is_empty
+    pub fn is_empty(&self) -> bool {
+        self.mappings.is_empty()
+    }
+
     //ap mappings
     pub fn mappings(&self) -> &[PointMapping] {
         &self.mappings
@@ -184,18 +139,83 @@ impl PointMappingSet {
     pub fn get_screen_pts(&self) -> Vec<Point2D> {
         self.mappings.iter().map(|x| x.screen).collect()
     }
+}
+
+//ip PointMappingSet - Json
+impl PointMappingSet {
+    //mp read_json
+    pub fn read_json(
+        &mut self,
+        nps: &NamedPointSet,
+        toml: &str,
+        allow_not_found: bool,
+    ) -> Result<String> {
+        let (pms, nf) = Self::from_json(nps, toml)?;
+        if !allow_not_found && !nf.is_empty() {
+            Err(Error::Msg(nf))
+        } else {
+            self.merge(pms);
+            Ok(nf)
+        }
+    }
+
+    //cp from_json
+    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
+        let mut pms: Self = json::from_json("point map set", json)?;
+        let pms_not_found = pms.rebuild_with_named_point_set(nps);
+        if pms_not_found.is_empty() {
+            Ok((pms, "".into()))
+        } else {
+            let mut r = String::new();
+            let mut sep = "";
+            for pms_nf in pms_not_found {
+                r.push_str(&format!("{sep}'{}'", pms_nf.name()));
+                sep = ", ";
+            }
+            Ok((
+                pms,
+                format!("Failed to find points {r} to map in named point set"),
+            ))
+        }
+    }
+
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
+    }
+
+    //mp sorted_order
+    pub fn sorted_order(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.mappings.len()).collect();
+        order.sort_by(|a, b| self.mappings[*a].cmp(&self.mappings[*b]));
+        order
+    }
+}
+
+//ip PointMappingSet - Operations
+impl PointMappingSet {
+    //mi get_pxy_cog
+    pub fn get_pxy_cog(&self) -> Point2D {
+        let divider = self.mappings.len().min(1) as f64;
+        let cog = Point2D::default();
+        self.mappings.iter().fold(cog, |acc, m| acc + m.screen) / divider
+    }
 
     //mp get_good_screen_pairs
-    pub fn get_good_screen_pairs<F>(&self, filter: &F) -> Vec<(usize, usize)>
+    pub fn get_good_screen_pairs<F>(&self, max_pairs: usize, filter: F) -> Vec<(usize, usize)>
     where
         F: Fn(&PointMapping) -> bool,
     {
-        let cog = self
-            .mappings
-            .iter()
-            .fold(Point2D::default(), |acc, m| acc + m.screen);
+        let cog = self.get_pxy_cog();
 
-        let cog = cog / (self.mappings.len() as f64);
+        // Get a list of the *mapped* points that pass the filter
+        // sorted in order of distance from COG
+        //
+        // Store with it a use count that starts at 0
         let mut v: Vec<(usize, usize, f64, Point2D)> = self
             .mappings
             .iter()
@@ -224,7 +244,7 @@ impl PointMappingSet {
                 let d_ij = v[i].3 - v[j].3;
                 let mut d = 0.0;
                 if pairs.is_empty() {
-                    d = d_ij.length() / ((1 + v[i].1 + v[j].1 + 1) as f64);
+                    d = d_ij.length() / ((2 + v[i].1 + v[j].1) as f64);
                 } else {
                     for (p0, p1) in &pairs {
                         let d_ik = self.mappings[*p0].screen - self.mappings[*p1].screen;
@@ -245,16 +265,18 @@ impl PointMappingSet {
             v[i].1 += 1;
             v[furthest_v].1 += 1;
         }
-        // let dgb: Vec<(String, String)> = pairs
-        //     .iter()
-        //     .map(|(x, y)| {
-        //         (
-        //             self.mappings[*x].name().to_owned(),
-        //             self.mappings[*y].name().to_owned(),
-        //         )
-        //     })
-        //     .collect();
-        // eprintln!("Pairs : {:?}", dgb);
+
+        // Debug
+        let dgb: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(x, y)| {
+                (
+                    self.mappings[*x].name().to_owned(),
+                    self.mappings[*y].name().to_owned(),
+                )
+            })
+            .collect();
+        eprintln!("Pairs : {:?}", dgb);
         pairs
     }
 }
