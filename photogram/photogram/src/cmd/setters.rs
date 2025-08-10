@@ -359,13 +359,13 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_use_deltas
+    //mi set_use_deltas
     pub(crate) fn set_use_deltas(&mut self, use_deltas: bool) -> Result<()> {
         self.use_deltas = use_deltas;
         Ok(())
     }
 
-    // mi set_use_pts
+    //mi set_use_pts
     pub(crate) fn set_use_pts(&mut self, v: usize) -> Result<()> {
         self.use_pts = thunderclap::bound(v, Some(6), None, |v, _| {
             format!("Number of points ({v}) must be at least six")
@@ -373,7 +373,25 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_yaw_min
+    //mi set_max_error
+    pub(crate) fn set_max_error(&mut self, v: f64) -> Result<()> {
+        self.max_error = v;
+        Ok(())
+    }
+
+    //mi set_max_points
+    pub(crate) fn set_max_points(&mut self, v: usize) -> Result<()> {
+        self.max_points = v;
+        Ok(())
+    }
+
+    //mi set_max_pairs
+    pub(crate) fn set_max_pairs(&mut self, v: usize) -> Result<()> {
+        self.max_pairs = v;
+        Ok(())
+    }
+
+    //mi set_yaw_min
     pub(crate) fn set_yaw_min(&mut self, v: f64) -> Result<()> {
         self.yaw_min = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
             format!("Minimum yaw {v} must be in the range 0 to 90")
@@ -381,7 +399,7 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_yaw_max
+    //mi set_yaw_max
     pub(crate) fn set_yaw_max(&mut self, v: f64) -> Result<()> {
         self.yaw_max = thunderclap::bound(v, Some(self.yaw_min), Some(90.0), |v, _| {
             format!(
@@ -392,7 +410,7 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_poly_degree
+    //mi set_poly_degree
     pub(crate) fn set_poly_degree(&mut self, v: usize) -> Result<()> {
         self.poly_degree = thunderclap::bound(v, Some(2), Some(12), |v, _| {
             format!("The polynomial degree {v} should be between 2 and 12 for reliability",)
@@ -400,19 +418,19 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_triangle_closeness
+    //mi set_triangle_closeness
     pub(crate) fn set_triangle_closeness(&mut self, closeness: f64) -> Result<()> {
         self.triangle_closeness = closeness;
         Ok(())
     }
 
-    // mi set_closeness
+    //mi set_closeness
     pub(crate) fn set_closeness(&mut self, closeness: f64) -> Result<()> {
         self.closeness = closeness;
         Ok(())
     }
 
-    // mi set_yaw_error
+    //mi set_yaw_error
     pub(crate) fn set_yaw_error(&mut self, v: f64) -> Result<()> {
         self.yaw_error = thunderclap::bound(v, Some(0.0), Some(1.0), |v, _| {
             format!("The maximum yaw error {v} must be between 0 and 1 degree",)
@@ -420,7 +438,7 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_within
+    //mi set_within
     pub(crate) fn set_within(&mut self, v: f64) -> Result<()> {
         self.within = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
             format!("The 'within' yaw {v} must be between 0 and 90 degree",)
@@ -428,7 +446,7 @@ impl CmdArgs {
         Ok(())
     }
 
-    // mi set_brightness
+    //mi set_brightness
     pub(crate) fn set_brightness(&mut self, v: f32) -> Result<()> {
         self.brightness = thunderclap::bound(v, Some(0.0), Some(16.0), |v, _| {
             format!("Brightness (magnitude of stars) {v} must be between 0 and 16",)

@@ -3,9 +3,10 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::{Ray, Rrc};
+use ic_base::{Plane, Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::{Image, Patch};
+use ic_mapping::PointMapping;
 use ic_project::Cip;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -98,11 +99,14 @@ and end points (given the focus distance of the camera) are provided.
 //fi locate_cmd
 fn locate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("locate")
-        .about("Find location and orientation for a camera to map points to model");
+        .about("Find location and orientation for a camera to map points to model")
+        .long_about(LOCATE_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
 
     CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
 
     build
 }
@@ -115,13 +119,11 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         return Err(format!("Required at least 3 mapped points, but found {n}",).into());
     }
 
-    let max_pairs = 200;
-    // can add to filter
-    // |n, pm| pms_n.contains(&n)) && pm.model_error()<max_np_error;
-    cmd_args
-        .cip()
-        .borrow_mut()
-        .locate(|n, _pm| pms_n.contains(&n), max_pairs)?;
+    let max_pairs = cmd_args.max_pairs();
+    let max_np_error = cmd_args.max_error();
+
+    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    cmd_args.cip().borrow_mut().locate(filter, max_pairs)?;
 
     let camera = cmd_args.cip().borrow().camera().borrow().clone();
     *cmd_args.camera_mut() = camera;
@@ -142,6 +144,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
 
     CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
 
     build
 }
@@ -150,6 +153,9 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
 
+    let max_np_error = cmd_args.max_error();
+
+    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
     let _total_error = cmd_args
         .cip()
         .borrow_mut()
@@ -332,7 +338,10 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let model_pts: Vec<_> = nps.iter().map(|np| np.model().0).collect();
 
-    if let Some(patch) = Patch::create(&src_img, 10.0, &model_pts, &|m| camera.map_model(m))? {
+    let _ = Plane::best_fit(model_pts.iter());
+
+    if let Some(patch) = Patch::create(&src_img, 10.0, model_pts.iter(), &|m| camera.map_model(m))?
+    {
         patch.img().write(write_filename)?;
     }
     Ok("".into())

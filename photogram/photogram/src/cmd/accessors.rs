@@ -183,6 +183,21 @@ impl CmdArgs {
         self.angle
     }
 
+    //mi max_error
+    pub fn max_error(&self) -> f64 {
+        self.max_error
+    }
+
+    //mi max_points
+    pub fn max_points(&self) -> usize {
+        self.max_points
+    }
+
+    //mi max_pairs
+    pub fn max_pairs(&self) -> usize {
+        self.max_pairs
+    }
+
     //mi yaw_min
     pub fn yaw_min(&self) -> f64 {
         self.yaw_min

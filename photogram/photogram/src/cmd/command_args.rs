@@ -161,6 +161,9 @@ impl CommandArgs for CmdArgs {
         self.write_polys = None;
         self.write_svg = None;
 
+        self.max_pairs = 0;
+        self.max_points = 0;
+        self.max_error = 0.0;
         self.use_pts = 0;
         self.use_deltas = false;
         self.flags = 0;

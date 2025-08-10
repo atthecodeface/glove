@@ -349,6 +349,51 @@ impl CmdArgs {
         );
     }
 
+    //fp add_arg_max_pairs
+    pub fn add_arg_max_pairs(
+        build: &mut CommandBuilder<Self>,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_usize(
+            "max_pairs",
+            None,
+            "Set the maximum pairs for a command",
+            ArgCount::Optional,
+            default_value,
+            CmdArgs::set_max_pairs,
+        );
+    }
+
+    //fp add_arg_max_points
+    pub fn add_arg_max_points(
+        build: &mut CommandBuilder<Self>,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_usize(
+            "max_points",
+            None,
+            "Set the maximum points for a command",
+            ArgCount::Optional,
+            default_value,
+            CmdArgs::set_max_points,
+        );
+    }
+
+    //fp add_arg_max_error
+    pub fn add_arg_max_error(
+        build: &mut CommandBuilder<Self>,
+        default_value: Option<&'static str>,
+    ) {
+        build.add_arg_f64(
+            "max_error",
+            None,
+            "Set the maximum error for a command - 0.0 means use a default",
+            ArgCount::Optional,
+            default_value,
+            CmdArgs::set_max_error,
+        );
+    }
+
     //fp add_arg_yaw_min_max
     pub fn add_arg_yaw_min_max(
         build: &mut CommandBuilder<Self>,

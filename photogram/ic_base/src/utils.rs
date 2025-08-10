@@ -1,7 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use geo_nd::{quat, Quaternion, Vector};
+use geo_nd::{quat, Quaternion, Vector, Vector3};
 use serde::{Deserialize, Serialize};
 
 use crate::{Point3D, Quat};
@@ -217,4 +217,101 @@ pub fn orientation_mapping_vpair_to_ppair(
     let q_z = Quat::of_rijk(cos_2theta, 0.0, 0.0, sin_2theta);
 
     qi_c.conjugate() * q_z * qi_m
+}
+
+//a Plane of best fit
+//tp Plane
+/// Described by point . normal = value
+///
+/// normal is a unit vector here
+pub struct Plane {
+    /// Unit normal
+    normal: Point3D,
+
+    /// Closest distance of plane to origin
+    value: f64,
+}
+
+impl Plane {
+    pub fn from_triangle(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Option<Self> {
+        let c = (*p0 + *p1 + *p2) / 3.0;
+        let dp0 = *p0 - c;
+        let dp1 = *p1 - c;
+        let normal = dp0.cross_product(&dp1);
+        if normal.length_sq() < 1E-10 {
+            None
+        } else {
+            let normal = normal.normalize();
+            let value = p0.dot(&normal);
+            Some(Self { normal, value })
+        }
+    }
+
+    pub fn best_fit<'a, I: Clone + ExactSizeIterator<Item = &'a Point3D>>(pts: I) -> Option<Self> {
+        let sum_x2 = pts.clone().fold(0., |acc, p| acc + p[0].powi(2));
+        let sum_y2 = pts.clone().fold(0., |acc, p| acc + p[1].powi(2));
+        let sum_z2 = pts.clone().fold(0., |acc, p| acc + p[2].powi(2));
+        let sum_x = pts.clone().fold(0., |acc, p| acc + p[0]);
+        let sum_y = pts.clone().fold(0., |acc, p| acc + p[1]);
+        let sum_z = pts.clone().fold(0., |acc, p| acc + p[2]);
+        let sum_xy = pts.clone().fold(0., |acc, p| acc + p[0] * p[1]);
+        let sum_yz = pts.clone().fold(0., |acc, p| acc + p[1] * p[2]);
+        let sum_zx = pts.clone().fold(0., |acc, p| acc + p[2] * p[0]);
+        use geo_nd::matrix;
+        let mut dm = nalgebra::base::DMatrix::from_element(3, 3, 2.0);
+        let n = pts.len() as f64;
+        let n2 = n * n;
+        dm.copy_from_slice(&[
+            sum_x2 / n2,
+            sum_xy / n2,
+            sum_zx / n2,
+            sum_xy / n2,
+            sum_y2 / n2,
+            sum_yz / n2,
+            sum_zx / n2,
+            sum_yz / n2,
+            sum_z2 / n2,
+        ]);
+        let midpoint: Point3D = [sum_x / n, sum_y / n, sum_z / n].into();
+        eprintln!("{dm:?}");
+        if !dm.try_inverse_mut() {
+            // Plane goes nearly through the origin - d must close to zero
+            //
+            // Could try adding (1,1,1) to all the points - then d
+            // will be about sqrt(3), dm should be invertible, and we will have
+            //
+            //   p . n' = d' - where d' is presumably sqrt(3)
+            //
+            // Adding (1,1,1) maps (x,y,z) to (x+1,y+1,z+1)
+            //
+            //  x^2 => x^+2x+1 ; xy => xy+x+y+1
+            //
+            // sum_x2' = sum_x2 + 2*sum_x + n ; sum_xy' = sum_xy + sum_x + sum_y + n; etc
+            return None;
+        }
+        eprintln!("{dm:?}");
+        let mut dm_2 = [0.; 9];
+        for i in 0..9 {
+            dm_2[i] = dm[i];
+        }
+        let r = matrix::multiply::<f64, 9, 3, 3, 3, 3, 1>(&dm_2, midpoint.as_ref());
+        eprintln!("{r:?}");
+        let r: Point3D = r.into();
+        let rl = r.length();
+        let r = r.normalize();
+
+        eprintln!("{r:?}");
+        let a = r[0];
+        let b = r[1];
+        let c = r[2];
+        let d = n / rl;
+        eprintln!("{}*x + {}*y + {}*z = {}", a, b, c, d);
+        for p in pts {
+            eprintln!("{p}, {}", a * p[0] + b * p[1] + c * p[2] - d);
+        }
+        Some(Self {
+            normal: r,
+            value: d,
+        })
+    }
 }

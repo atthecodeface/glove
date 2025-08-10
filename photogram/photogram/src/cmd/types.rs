@@ -91,4 +91,7 @@ pub struct CmdArgs {
     pub(crate) flags: usize,
     pub(crate) use_deltas: bool,
     pub(crate) use_pts: usize,
+    pub(crate) max_error: f64,
+    pub(crate) max_points: usize,
+    pub(crate) max_pairs: usize,
 }

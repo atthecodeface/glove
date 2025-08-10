@@ -307,8 +307,9 @@ impl ProjectSet {
         let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
 
         let px_per_model = pd.px_per_model.unwrap_or(10.0);
-        let Some(patch) =
-            Patch::create(src_img, px_per_model, &model_pts, &|m| camera.map_model(m))?
+        let Some(patch) = Patch::create(src_img, px_per_model, model_pts.iter(), &|m| {
+            camera.map_model(m)
+        })?
         else {
             return Err("Failled to create patch".into());
         };

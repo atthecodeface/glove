@@ -52,21 +52,24 @@ impl<I: Image> Patch<I> {
     /// is needed
     ///
     /// None is returned if the image would have been empty (no valid pixels)
-    pub fn create<F>(
+    pub fn create<'a, F, P>(
         src_img: &I,
         px_per_model: f64,
-        model_pts: &[Point3D],
+        model_pts: P,
         model_to_flat: &F,
     ) -> Result<Option<Self>, String>
     where
         F: Fn(Point3D) -> Point2D,
+        P: Clone + ExactSizeIterator<Item = &'a Point3D>,
     {
-        let model_origin = model_pts[0];
+        let mut model_pts_clone = model_pts.clone();
+        let num_model_pts = model_pts.len();
+        let model_origin = *model_pts_clone.next().unwrap();
         let flat_origin = model_to_flat(model_origin);
 
-        let model_x_axis = (model_pts[1] - model_origin).normalize();
-        let p_sum = model_pts[3..].iter().fold(model_pts[2], |acc, p| acc + *p);
-        let p_sum = p_sum - (model_origin * (model_pts.len() - 2) as f64);
+        let model_x_axis = (*model_pts_clone.next().unwrap() - model_origin).normalize();
+        let p_sum = model_pts_clone.fold(Point3D::default(), |acc, p| acc + *p);
+        let p_sum = p_sum - (model_origin * (num_model_pts - 2) as f64);
         let model_normal = model_x_axis.cross_product(&p_sum).normalize();
         let model_y_axis = model_normal.cross_product(&model_x_axis).normalize();
 
@@ -84,10 +87,8 @@ impl<I: Image> Patch<I> {
         .into();
         let flat_to_model_inv = flat_to_model.inverse();
 
-        let flat_pts: Vec<_> = model_pts
-            .iter()
-            .map(|model| model_to_flat(*model))
-            .collect();
+        let model_pts_clone = model_pts.clone();
+        let flat_pts: Vec<_> = model_pts_clone.map(|model| model_to_flat(*model)).collect();
         let (src_w, src_h) = src_img.size();
         let src_w = src_w as f64;
         let src_h = src_h as f64;
@@ -98,8 +99,8 @@ impl<I: Image> Patch<I> {
             return Ok(None);
         }
 
-        let corners: Vec<_> = model_pts
-            .iter()
+        let model_pts_clone = model_pts.clone();
+        let corners: Vec<_> = model_pts_clone
             .map(|p| flat_to_model_inv.transform(&(*p - model_origin)) * px_per_model)
             .collect();
 
@@ -136,6 +137,24 @@ impl<I: Image> Patch<I> {
                 patch_img.put(x as u32, y as u32, &c);
             }
         }
+
+        let mut xy0 = [0., 0.].into();
+        let c: I::Pixel = 125_u8.into();
+        for pxy in corners.iter() {
+            let pxy = [pxy[0] - lx, pxy[1] - by].into();
+            patch_img.draw_line(xy0, pxy, &c);
+            xy0 = pxy;
+        }
+
+        let mut xy0 = [0., 0.].into();
+        let c: I::Pixel = 255_u8.into();
+        let model_pts_clone = model_pts.clone();
+        for pxy in model_pts_clone.map(|p| model_to_flat((*p - model_origin)) * px_per_model) {
+            let pxy = [pxy[0] - lx, pxy[1] - by].into();
+            patch_img.draw_line(xy0, pxy, &c);
+            xy0 = pxy;
+        }
+
         Ok(Some(Self {
             img: patch_img,
             flat_origin,

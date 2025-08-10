@@ -141,6 +141,13 @@ impl From<[u8; 4]> for Color {
     }
 }
 
+//ip From<u8> for Color
+impl From<u8> for Color {
+    fn from(c: u8) -> Color {
+        [c, c, c, 255].into()
+    }
+}
+
 //ip TryFrom<&str> for Color
 impl TryFrom<&str> for Color {
     type Error = String;
