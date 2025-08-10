@@ -233,6 +233,19 @@ pub struct Plane {
 }
 
 impl Plane {
+    pub fn normal(&self) -> &Point3D {
+        &self.normal
+    }
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    pub fn point_projected_onto(&self, p: &Point3D) -> (Point3D, f64) {
+        let p_value = self.normal.dot(p);
+        let result = *p + (self.normal * (self.value - p_value));
+        (result, p_value - self.value)
+    }
+
     pub fn from_triangle(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Option<Self> {
         let c = (*p0 + *p1 + *p2) / 3.0;
         let dp0 = *p0 - c;

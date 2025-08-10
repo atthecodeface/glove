@@ -1,7 +1,7 @@
 //a Imports
 use geo_nd::{SqMatrix, Vector, Vector3};
 
-use ic_base::{Mat3x3, Point2D, Point3D};
+use ic_base::{Mat3x3, Plane, Point2D, Point3D};
 
 use crate::Image;
 
@@ -63,14 +63,23 @@ impl<I: Image> Patch<I> {
         P: Clone + ExactSizeIterator<Item = &'a Point3D>,
     {
         let mut model_pts_clone = model_pts.clone();
+
+        let model_plane = Plane::best_fit(model_pts.clone()).unwrap();
+        //        let model_normal = model_x_axis.cross_product(&p_sum).normalize();
+        let model_normal = *model_plane.normal();
+
         let num_model_pts = model_pts.len();
         let model_origin = *model_pts_clone.next().unwrap();
+        let model_origin = model_plane.point_projected_onto(&model_origin).0;
         let flat_origin = model_to_flat(model_origin);
 
-        let model_x_axis = (*model_pts_clone.next().unwrap() - model_origin).normalize();
+        let model_x_axis = (model_plane
+            .point_projected_onto(model_pts_clone.next().unwrap())
+            .0
+            - model_origin)
+            .normalize();
         let p_sum = model_pts_clone.fold(Point3D::default(), |acc, p| acc + *p);
         let p_sum = p_sum - (model_origin * (num_model_pts - 2) as f64);
-        let model_normal = model_x_axis.cross_product(&p_sum).normalize();
         let model_y_axis = model_normal.cross_product(&model_x_axis).normalize();
 
         let flat_to_model: Mat3x3 = [
