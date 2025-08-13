@@ -25,6 +25,13 @@ pub struct TanXTanY {
 
 //ip TanXTanY
 impl TanXTanY {
+    //cp of_tx_ty
+    pub fn of_tx_ty(tanx: f64, tany: f64) -> Self {
+        Self {
+            data: [tanx, tanx].into(),
+        }
+    }
+
     //fp to_ry
     /// Convert to a Roll/Yaww
     #[inline]

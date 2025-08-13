@@ -283,7 +283,6 @@ impl CameraProjection for CameraInstance {
     //mp px_abs_xy_to_sensor_txty
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {
         let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
-
         TanXTanY {
             data: [
                 pxy_rel[0] / self.x_px_from_tan_sc,
@@ -291,5 +290,9 @@ impl CameraProjection for CameraInstance {
             ]
             .into(),
         }
+        // TanXTanY::of_tx_ty(
+        // pxy_rel[0] / self.x_px_from_tan_sc,
+        // pxy_rel[1] / self.y_px_from_tan_sc,
+        // )
     }
 }
