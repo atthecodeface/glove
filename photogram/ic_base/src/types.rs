@@ -281,10 +281,24 @@ impl From<RollYaw> for TanXTanY {
     }
 }
 
+//ip From<&RollYaw> for TanXTanY
+impl<'a> From<&'a RollYaw> for TanXTanY {
+    fn from(ry: &'a RollYaw) -> TanXTanY {
+        ry.to_txty()
+    }
+}
+
 //ip From<TanXTanY> for RollYaw
 impl From<TanXTanY> for RollYaw {
     fn from(txty: TanXTanY) -> RollYaw {
         RollYaw::from_txty(txty)
+    }
+}
+
+//ip From<&TanXTanY> for RollYaw
+impl<'a> From<&'a TanXTanY> for RollYaw {
+    fn from(txty: &'a TanXTanY) -> RollYaw {
+        RollYaw::from_txty(*txty)
     }
 }
 
