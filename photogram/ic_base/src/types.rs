@@ -20,7 +20,7 @@ pub type Quat = geo_nd::QArray<f64>;
 #[derive(Debug, Clone, Copy)]
 pub struct TanXTanY {
     /// X and Y coordinates
-    pub data: geo_nd::FArray<f64, 2>,
+    data: geo_nd::FArray<f64, 2>,
 }
 
 //ip TanXTanY

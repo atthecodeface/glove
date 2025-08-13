@@ -13,40 +13,78 @@ use crate::{CameraInstanceDesc, CameraProjection, CameraSensor};
 //a CameraInstance
 //tp CameraInstance
 #[derive(Debug, Clone, Default, Serialize)]
+/// An instance of a camera - a body, lens, focus distance, position and orientation
+///
+/// The sensor has a pixel count (width and height), size in mm (width
+/// and height), and a center pixel
+///
+/// The lens has a focal length and a single bijective mapping from
+/// RollYaw in world space to/from RollYaw in sensor space
+///
+/// The instance has the lens focussed at a certain distance
+///
+/// The standard lens equation applies: 1/f = 1/u + 1/v
+///
+/// Here, f is the focal length of the lens, u the focus distance from
+/// the lens to the object that it is focused on.
+///
+/// v is the distance from the lens to the sensor; v = u*f/(u-f)
+///
+/// An absolute PXY position on the sensor can be mapped to one
+/// relative to the center pixel; this can be mapped to an X and Y mm.
+///
+/// Then the direction vector to the sensor pixel is (X, Y, -v)
+///
+/// A TanXTanY represents a vector (tx,ty,-1); hence tx = X/v, ty=Y/v.
+///
+/// The scaling for pixel x-to-tx is:
+///
+///   (px - center) * sensor.mm_single_pixel_width / v
 pub struct CameraInstance {
     /// Description of the camera body
     #[serde(serialize_with = "serialize_body_name")]
     body: CameraBody,
+
     /// The spherical lens mapping polynomial
     #[serde(serialize_with = "serialize_lens_name")]
     lens: CameraLens,
+
     /// The distance the lens if focussed on - make it 1E6*mm_focal_length  for infinity
     ///
-    /// Note 1/f = 1/u + 1/v; hence u = 1/(1/f - 1/v) = fv / v-f
+    /// Note the thin lens equation of 1/f = 1/u + 1/v
     ///
-    /// the polynomial is calibrated at infinity then it is set for u = f
-    ///
-    /// For an actual 'd' we have u' = fd/(f-d); the image is magnified on the sensor by u'/u,
-    /// which is u'/f or d/(d-f)
+    /// This is the 'u' in the thin lens equation
     mm_focus_distance: f64,
+
+    /// The distance from the lens to the sensor given
+    /// mm_focus_distance and the lens focal length
+    ///
+    /// This is the 'v' in the thin lens equation
+    ///
+    /// v = u*f/(u-f)
+    #[serde(default)]
+    lens_sensor_distance: f64,
+
     /// Position in world coordinates of the camera
     #[serde(default)]
     position: Point3D,
+
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
     #[serde(default)]
     orientation: Quat,
-    /// Derived magnification due to focus distance
-    #[serde(skip)]
-    maginification_of_focus: f64,
-    /// Convert from tan(angle) to x pixel
+
+    /// Convert to tan(angle) from relative x pixel
     ///
-    /// This is sensor.mm_single_pixel_width / sensor.mm_sensor_width * mm_focal_length
+    /// This is sensor.mm_single_pixel_width / lens_sensor_distance
     #[serde(skip)]
-    x_px_from_tan_sc: f64,
-    /// Convert from tan(angle) to y pixel
+    tx_from_px_sc: f64,
+
+    /// Convert to tan(angle) from relative y pixel
+    ///
+    /// This is sensor.mm_single_pixel_height / lens_sensor_distance
     #[serde(skip)]
-    y_px_from_tan_sc: f64,
+    ty_from_py_sc: f64,
 }
 
 //ip CameraInstance - Accessors
@@ -78,9 +116,9 @@ impl CameraInstance {
             mm_focus_distance,
             position,
             orientation,
-            maginification_of_focus: 1., // derived
-            x_px_from_tan_sc: 1.,        // derived
-            y_px_from_tan_sc: 1.,        // derived
+            lens_sensor_distance: 1., // derived
+            tx_from_px_sc: 1.,        // derived
+            ty_from_py_sc: 1.,        // derived
         };
         cp.derive();
         cp
@@ -156,15 +194,12 @@ impl CameraInstance {
     //mp derive
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
-        self.maginification_of_focus =
-            self.mm_focus_distance / (self.mm_focus_distance - mm_focal_length);
-        let scale = mm_focal_length * self.maginification_of_focus;
-        // mm_sensor height/width / scale is a tan
-        // We want x_px = x_px_from_tan_sc * tan
-        // But tan = x_px * mm_single_pixel_width / scale
-        // hence x_px = tan * scale / mm_single_pixel_width
-        self.x_px_from_tan_sc = scale / self.body.mm_single_pixel_width();
-        self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
+
+        self.lens_sensor_distance =
+            self.mm_focus_distance * mm_focal_length / (self.mm_focus_distance - mm_focal_length);
+
+        self.tx_from_px_sc = self.body.mm_single_pixel_width() / self.lens_sensor_distance;
+        self.ty_from_py_sc = self.body.mm_single_pixel_height() / self.lens_sensor_distance;
     }
 
     //fp xmap_model
@@ -272,11 +307,7 @@ impl CameraProjection for CameraInstance {
 
     //mp sensor_txty_to_px_abs_xy
     fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
-        let pxy_rel = [
-            txty[0] * self.x_px_from_tan_sc,
-            txty[1] * self.y_px_from_tan_sc,
-        ]
-        .into();
+        let pxy_rel = [txty[0] / self.tx_from_px_sc, txty[1] / self.ty_from_py_sc].into();
         self.body.px_rel_xy_to_px_abs_xy(&pxy_rel)
     }
 
@@ -284,8 +315,8 @@ impl CameraProjection for CameraInstance {
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {
         let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
         TanXTanY::of_tx_ty(
-            pxy_rel[0] / self.x_px_from_tan_sc,
-            pxy_rel[1] / self.y_px_from_tan_sc,
+            pxy_rel[0] * self.tx_from_px_sc,
+            pxy_rel[1] * self.ty_from_py_sc,
         )
     }
 }
