@@ -107,7 +107,7 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     //mp camera_txty_to_px_abs_xy (derived)
     /// Map a camera (projected) tan(x)/tan(y) to a sensor Point2D coordinate
     fn camera_txty_to_px_abs_xy(&self, camera_txty: &TanXTanY) -> Point2D {
-        let camera_ry = (*camera_txty).into();
+        let camera_ry = camera_txty.into();
         let sensor_ry = self.camera_ry_to_sensor_ry(&camera_ry);
         let sensor_txty = sensor_ry.into();
         self.sensor_txty_to_px_abs_xy(&sensor_txty)
