@@ -714,7 +714,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         img.draw_cross(&p, 5.0, c);
     }
     for (p, c) in &pts {
-        let mapped = camera.map_model(*p);
+        let mapped = camera.world_xyz_to_px_abs_xy(*p);
         if mapped[0] < -10000.0 || mapped[0] > 10000.0 {
             continue;
         }

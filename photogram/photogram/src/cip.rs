@@ -238,7 +238,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             for i in pms_n.iter() {
                 let m = &mappings[*i];
                 let c = pms_color.unwrap_or(m.named_point().color());
-                img.draw_cross(m.screen(), m.error(), c);
+                img.draw_cross(&m.screen(), m.error(), c);
             }
             Ok(())
         })?;

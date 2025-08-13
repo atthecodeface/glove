@@ -48,7 +48,10 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let camera = cmd_args.project().cip(0).borrow().camera().clone();
 
     eprintln!("Camera {camera:?}");
-    eprintln!("Mapping {}", camera.borrow().map_model([0., 0., 0.].into()));
+    eprintln!(
+        "Mapping {}",
+        camera.borrow().world_xyz_to_px_abs_xy(Point3D::default())
+    );
     println!(
         "{}",
         serde_json::to_string_pretty(cmd_args.project()).unwrap()

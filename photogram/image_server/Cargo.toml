@@ -20,6 +20,7 @@ clap.workspace = true
 
 ic_base.workspace = true
 ic_cache.workspace = true
+ic_camera.workspace = true
 ic_cmdline.workspace = true
 ic_http.workspace = true
 ic_image.workspace = true
