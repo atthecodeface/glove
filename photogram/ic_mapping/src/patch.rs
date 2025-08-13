@@ -179,9 +179,9 @@ impl Patch {
             let p0 = [p0[0] - lx, p0[1] - by].into();
             let p1 = [p1[0] - lx, p1[1] - by].into();
             let p2 = [p2[0] - lx, p2[1] - by].into();
-            patch_img.draw_line(p0, p1, &c);
-            patch_img.draw_line(p1, p2, &c);
-            patch_img.draw_line(p2, p0, &c);
+            patch_img.draw_line(&p0, &p1, &c);
+            patch_img.draw_line(&p1, &p2, &c);
+            patch_img.draw_line(&p2, &p0, &c);
         }
         /*
         let mut xy0 = [0., 0.].into();

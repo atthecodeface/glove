@@ -711,7 +711,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut img = cmd_args.get_image_read_or_create()?;
     let c = &[255, 0, 0, 0].into();
     for p in pxys {
-        img.draw_cross(p, 5.0, c);
+        img.draw_cross(&p, 5.0, c);
     }
     for (p, c) in &pts {
         let mapped = camera.map_model(*p);
@@ -721,7 +721,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         if mapped[1] < -10000.0 || mapped[1] > 10000.0 {
             continue;
         }
-        img.draw_cross(mapped, 5.0, c);
+        img.draw_cross(&mapped, 5.0, c);
     }
     img.write(cmd_args.write_img().unwrap())?;
 

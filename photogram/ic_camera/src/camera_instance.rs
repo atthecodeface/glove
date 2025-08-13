@@ -167,11 +167,11 @@ impl CameraInstance {
         self.y_px_from_tan_sc = scale / self.body.mm_single_pixel_height();
     }
 
-    //fp map_model
+    //fp xmap_model
     /// Map a model coordinate to an absolute XY camera coordinate
     #[inline]
-    pub fn map_model(&self, model: Point3D) -> Point2D {
-        self.world_xyz_to_px_abs_xy(model)
+    pub fn map_model(&self, model: &Point3D) -> Point2D {
+        self.world_xyz_to_px_abs_xy(*model)
     }
 
     //zz All done

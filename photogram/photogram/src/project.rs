@@ -4,6 +4,9 @@ use clap::Command;
 
 use thunderclap::CommandBuilder;
 
+use ic_base::Point3D;
+use ic_camera::CameraProjection;
+
 use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help

@@ -324,7 +324,7 @@ fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
 
         for (c, (px, py)) in &cogs {
-            img.draw_cross([(*px), (*py)].into(), 5.0, c);
+            img.draw_cross(&[(*px), (*py)].into(), 5.0, c);
         }
         img.write(write_filename)?;
     }
@@ -397,7 +397,7 @@ fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
         let c = &[255, 0, 0, 255].into();
         for (_gx, _gy, px, py) in &mappings {
-            img.draw_cross([*px as f64, *py as f64].into(), 5.0, c);
+            img.draw_cross(&[*px as f64, *py as f64].into(), 5.0, c);
         }
         img.write(write_filename)?;
     }
