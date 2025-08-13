@@ -41,20 +41,6 @@ impl TanXTanY {
     }
 }
 
-//ip AsRef<[f64; 2]> for TanXTanY
-impl std::convert::AsRef<[f64; 2]> for TanXTanY {
-    fn as_ref(&self) -> &[f64; 2] {
-        self.data.as_ref()
-    }
-}
-
-//ip std::convert::AsMut<[f64; 2]> for TanXTanY
-impl std::convert::AsMut<[f64; 2]> for TanXTanY {
-    fn as_mut(&mut self) -> &mut [f64; 2] {
-        self.data.as_mut()
-    }
-}
-
 //ip std::ops::Index<usize> for TanXTanY
 impl std::ops::Index<usize> for TanXTanY {
     type Output = f64;
