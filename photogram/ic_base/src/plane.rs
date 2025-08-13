@@ -29,13 +29,13 @@ pub struct Plane {
 
 impl From<(Point3D, f64)> for Plane {
     fn from((normal, value): (Point3D, f64)) -> Self {
-        Self::of_normal_value(normal, value)
+        Self::of_normal_value(&normal, value)
     }
 }
 impl Plane {
     //cp of_normal_value
-    pub fn of_normal_value(mut normal: Point3D, value: f64) -> Self {
-        normal.normalize();
+    pub fn of_normal_value(normal: &Point3D, value: f64) -> Self {
+        let normal = normal.normalize();
         let mut s = Self {
             normal,
             value,
