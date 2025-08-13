@@ -221,7 +221,7 @@ impl PointMappingSet {
 
     //mp get_screen_pts
     pub fn get_screen_pts(&self) -> Vec<Point2D> {
-        self.mappings.iter().map(|x| x.screen()).collect()
+        self.mappings.iter().map(|x| *x.screen()).collect()
     }
 }
 

@@ -122,8 +122,8 @@ impl PointMapping {
 
     //ap screen
     #[inline]
-    pub fn screen(&self) -> Point2D {
-        self.screen
+    pub fn screen(&self) -> &Point2D {
+        &self.screen
     }
 
     //ap error
