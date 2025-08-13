@@ -289,7 +289,7 @@ impl ProjectSet {
         for name in &pd.nps {
             if let Some(n) = nps.get_pt(name) {
                 let model = n.model().0;
-                model_pts.push((name, model, camera.world_xyz_to_px_abs_xy(model)))
+                model_pts.push((name, model, camera.world_xyz_to_px_abs_xy(&model)))
             } else {
                 return Err(format!("Could not find NP {name} in the project").into());
             }
@@ -309,7 +309,7 @@ impl ProjectSet {
 
         let px_per_model = pd.px_per_model.unwrap_or(10.0);
         let Some(patch) = Patch::create(src_img, px_per_model, model_pts.iter(), &|m| {
-            camera.world_xyz_to_px_abs_xy(m)
+            camera.world_xyz_to_px_abs_xy(&m)
         })?
         else {
             return Err("Failled to create patch".into());

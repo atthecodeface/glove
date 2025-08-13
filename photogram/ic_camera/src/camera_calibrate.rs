@@ -86,9 +86,9 @@ impl CalibrationMapping {
         let mut result = vec![];
         for (kx, ky, kz, vx, vy) in &self.mappings {
             let grid_world: Point3D = [*kx, *ky, *kz].into();
-            let grid_camera = camera.world_xyz_to_camera_xyz(grid_world);
+            let grid_camera = camera.world_xyz_to_camera_xyz(&grid_world);
             let pxy_abs: Point2D = [*vx as f64, *vy as f64].into();
-            let sensor_txty = camera.px_abs_xy_to_sensor_txty(pxy_abs);
+            let sensor_txty = camera.px_abs_xy_to_sensor_txty(&pxy_abs);
             result.push((grid_world, grid_camera, sensor_txty));
         }
         result

@@ -150,7 +150,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     )?;
     let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
     for (i, (x, q)) in angle_orientations.iter().enumerate() {
-        cmd_args.camera_mut().set_orientation(*q);
+        cmd_args.camera_mut().set_orientation(q);
         let _ = cmd_args.update_star_mappings();
         let Ok(orientation) = cmd_args
             .star_mapping()
@@ -162,7 +162,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         else {
             continue;
         };
-        cmd_args.camera_mut().set_orientation(orientation);
+        cmd_args.camera_mut().set_orientation(&orientation);
         let (num_unmapped, total_error) = cmd_args.update_star_mappings();
         if num_unmapped < best_match.2 {
             best_match = (orientation, *x, num_unmapped);
@@ -179,7 +179,7 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         cmd_args.star_mapping().mappings().len()
     );
 
-    cmd_args.camera_mut().set_orientation(best_match.0);
+    cmd_args.camera_mut().set_orientation(&best_match.0);
     let _ = cmd_args.update_star_mappings();
 
     cmd_args.write_outputs()?;
@@ -207,7 +207,7 @@ fn star_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             cmd_args.camera(),
             brightness,
         )?;
-    cmd_args.camera_mut().set_orientation(orientation);
+    cmd_args.camera_mut().set_orientation(&orientation);
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -308,9 +308,9 @@ fn star_show_mapping_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let s = angle.sin();
             let c = angle.cos();
             let world_ry = RollYaw::from_roll_yaw(s, c, yaw);
-            let sensor_ry = camera.camera_ry_to_sensor_ry(world_ry);
+            let sensor_ry = camera.camera_ry_to_sensor_ry(&world_ry);
             let sensor_txty = sensor_ry.into();
-            let pxy = camera.sensor_txty_to_px_abs_xy(sensor_txty);
+            let pxy = camera.sensor_txty_to_px_abs_xy(&sensor_txty);
             mapped_pts.push((pxy, 3).into());
         }
     }

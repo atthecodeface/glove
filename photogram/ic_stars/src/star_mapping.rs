@@ -145,8 +145,8 @@ impl StarMapping {
     /// Maps the absolute pixel px,py to world direction
     pub fn star_direction(&self, camera: &CameraInstance, index: usize) -> Point3D {
         let (px, py, _, _) = self.mappings[index];
-        let txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
-        camera.camera_xyz_to_world_dir(-txty.to_unit_vector()) // possibly -ve
+        let txty = camera.px_abs_xy_to_camera_txty(&[px as f64, py as f64].into());
+        camera.camera_xyz_to_world_dir(&-txty.to_unit_vector()) // possibly -ve
     }
 
     //mp mapped_camera_direction
@@ -155,7 +155,7 @@ impl StarMapping {
     /// It *does* apply the lens mapping of the camera
     pub fn mapped_camera_direction(&self, camera: &CameraInstance, index: usize) -> Point3D {
         let (px, py, _, _) = self.mappings[index];
-        let txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+        let txty = camera.px_abs_xy_to_camera_txty(&([px as f64, py as f64].into()));
         -txty.to_unit_vector()
     }
 }
@@ -208,7 +208,7 @@ impl StarMapping {
         let mut total_error = 0.;
         for i in 0..self.mappings.len() {
             let (px, py, _, _) = self.mappings[i];
-            let cam_txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+            let cam_txty = camera.px_abs_xy_to_camera_txty(&([px as f64, py as f64].into()));
             let cam_ry: RollYaw = cam_txty.into();
             let star_m = self.star_direction(camera, i);
             let mut okay = false;
@@ -218,8 +218,8 @@ impl StarMapping {
                 if let Some((err, id)) = catalog.closest_to_dir(subcube_iter, star_m.as_ref()) {
                     let star = &catalog[id];
                     let sv: Point3D = (*star.vector()).into();
-                    let model_pxy = camera.world_xyz_to_px_abs_xy(sv);
-                    let model_txty = camera.world_xyz_to_camera_txty(sv);
+                    let model_pxy = camera.world_xyz_to_px_abs_xy(&sv);
+                    let model_txty = camera.world_xyz_to_camera_txty(&sv);
                     let model_ry: RollYaw = model_txty.into();
                     let mut close_enough = false;
                     let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
@@ -261,16 +261,17 @@ impl StarMapping {
                     let star = &catalog[c];
                     let sv: Point3D = (*star.vector()).into();
                     let (px, py, _, _) = self.mappings[i];
-                    let cam_txty = camera.px_abs_xy_to_camera_txty([px as f64, py as f64].into());
+                    let cam_txty =
+                        camera.px_abs_xy_to_camera_txty(&([px as f64, py as f64].into()));
                     let cam_ry: RollYaw = cam_txty.into();
-                    let model_txty = camera.world_xyz_to_camera_txty(sv);
+                    let model_txty = camera.world_xyz_to_camera_txty(&sv);
                     let model_ry: RollYaw = model_txty.into();
                     let yaw_error = model_ry.yaw() - cam_ry.yaw();
                     let roll_error = model_ry.roll() - cam_ry.roll();
                     let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
 
                     let err = sv.dot(&star_m).acos().to_degrees();
-                    let star_pxy = camera.world_xyz_to_px_abs_xy(sv);
+                    let star_pxy = camera.world_xyz_to_px_abs_xy(&sv);
                     total_error += (1.0 - err).powi(2);
                     num_mapped += 1;
                     println!(
@@ -324,8 +325,8 @@ impl StarMapping {
                     continue;
                 }
                 let star = &catalog[id];
-                let sv: &[f64; 3] = star.vector();
-                let star_pxy = camera.world_xyz_to_px_abs_xy((*sv).into());
+                let sv: Point3D = star.vector().into();
+                let star_pxy = camera.world_xyz_to_px_abs_xy(&sv);
                 pts.push(star_pxy);
             }
         }
@@ -579,13 +580,13 @@ impl StarMapping {
                 if !catalog.is_filtered(&catalog[*index], 0) {
                     continue;
                 }
-                let pt: &[f64; 3] = catalog[*index].vector();
-                let mapped = camera.world_xyz_to_camera_xyz((*pt).into());
+                let pt: Point3D = catalog[*index].vector().into();
+                let mapped = camera.world_xyz_to_camera_xyz(&pt);
                 if mapped[2] < -0.02 {
                     let camera_txty: TanXTanY = mapped.into();
                     let ry: RollYaw = camera_txty.into();
                     if ry.yaw() < within {
-                        let pxy = camera.world_xyz_to_px_abs_xy((*pt).into());
+                        let pxy = camera.world_xyz_to_px_abs_xy(&pt);
                         mapped_pts.push((pxy, style).into());
                     }
                 }
@@ -605,8 +606,8 @@ impl StarMapping {
         //cb Add (in blue) the Calibration stars that map to a Catalog star
         for mapping in &self.mappings {
             if let Some(c) = catalog.find_sorted(mapping.3) {
-                let pt: &[f64; 3] = catalog[c].vector();
-                let mapped = camera.world_xyz_to_px_abs_xy((*pt).into());
+                let pt: Point3D = catalog[c].vector().into();
+                let mapped = camera.world_xyz_to_px_abs_xy(&pt);
                 mapped_pts.push((mapped, style).into());
             }
         }

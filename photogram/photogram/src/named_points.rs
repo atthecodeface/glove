@@ -107,7 +107,7 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     eprintln!("Total dsq {tot_d_sq}");
 
-    cmd_args.camera_mut().set_position(position);
+    cmd_args.camera_mut().set_position(&position);
     let camera = cmd_args.camera();
     println!("{}", serde_json::to_string_pretty(&camera).unwrap());
     Ok("".into())

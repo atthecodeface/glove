@@ -82,8 +82,8 @@ impl Patch {
         // Find the points on the sensor for all of the mesh points
         self.model_pts_projected
             .iter()
-            .map(|p| self.plane.point_in_space(p))
-            .map(|p| camera.world_xyz_to_px_abs_xy(p))
+            .map(|p| self.plane.point_in_space(&p))
+            .map(|p| camera.world_xyz_to_px_abs_xy(&p))
             .collect()
     }
 
@@ -99,22 +99,22 @@ impl Patch {
         let cx = (lx + rx) / 2.0;
         let cy = (by + ty) / 2.0;
         let model_pt = self.plane.point_in_space(&[cx, cy].into());
-        let sensor_pt = camera.world_xyz_to_px_abs_xy(model_pt);
+        let sensor_pt = camera.world_xyz_to_px_abs_xy(&model_pt);
         let p = self.plane.point_in_space(&[cx + 1.0, cy].into());
         let d0 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(p))).abs();
+            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx - 1.0, cy].into());
         let d1 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(p))).abs();
+            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx, cy + 1.0].into());
         let d2 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(p))).abs();
+            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx, cy - 1.0].into());
         let d3 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(p))).abs();
+            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         (d0.min(d1).min(d2).min(d3), d0.max(d1).max(d2).max(d3))
     }
@@ -162,7 +162,7 @@ impl Patch {
             for y in 0..height {
                 let plane_y = (((y as isize + iby) as f64) / px_per_model);
                 let model_pt = self.plane.point_in_space(&[plane_x, plane_y].into());
-                let pxy = camera.world_xyz_to_px_abs_xy(model_pt);
+                let pxy = camera.world_xyz_to_px_abs_xy(&model_pt);
                 if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
                     continue;
                 }

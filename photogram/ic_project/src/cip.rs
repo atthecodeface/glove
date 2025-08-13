@@ -208,7 +208,7 @@ impl Cip {
         eprintln!("Using {} model lines", mls.num_lines());
 
         let (location, err) = mls.find_best_min_err_location(&|_| true, 1000, 1000);
-        self.camera_mut().set_position(location);
+        self.camera_mut().set_position(&location);
         Ok(err)
     }
 

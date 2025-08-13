@@ -164,8 +164,8 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
 
     //cb Reset the camera position and orientation, defensively
-    cmd_args.camera_mut().set_position([0., 0., 0.].into());
-    cmd_args.camera_mut().set_orientation(Quat::default());
+    cmd_args.camera_mut().set_position(&Point3D::default());
+    cmd_args.camera_mut().set_orientation(&Quat::default());
 
     //cb Set up HashMaps and collections
     let n = cmd_args.use_pts(pms.len());
@@ -225,7 +225,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         eprintln!("{best_cam_pos} {e}",);
     });
 
-    cmd_args.camera_mut().set_position(best_cam_pos);
+    cmd_args.camera_mut().set_position(&best_cam_pos);
     cmd_args.write_outputs()?;
     cmd_args.output_camera()
 }
@@ -251,7 +251,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     //cb Set up 'cam' as the camera; use its position (unless otherwise told?)
     let mut camera = cmd_args.camera().clone();
-    camera.set_orientation(Quat::default());
+    camera.set_orientation(&Quat::default());
 
     //cb Set up HashMaps and collections
     let n = cmd_args.use_pts(pms.len());
@@ -332,7 +332,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     cmd_args.show_step("Calculate average orientation");
     let qr: Quat = quat::weighted_average_many(qs.iter().copied()).into();
-    camera.set_orientation(qr);
+    camera.set_orientation(&qr);
     cmd_args.if_verbose(|| {
         eprintln!("{camera}");
     });
@@ -376,7 +376,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut sensor_yaws = vec![];
     let mut world_yaws = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
+        let world_txty = camera_linear.world_xyz_to_camera_txty(&pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
         let world_ry: RollYaw = world_txty.into();
@@ -463,7 +463,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut pts = [vec![], vec![], vec![], vec![]];
     let mut ws_yaws = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let world_txty = camera_linear.world_xyz_to_camera_txty(pm.model());
+        let world_txty = camera_linear.world_xyz_to_camera_txty(&pm.model());
         let sensor_txty = camera_linear.px_abs_xy_to_camera_txty(pm.screen());
 
         let world_ry: RollYaw = world_txty.into();
@@ -503,7 +503,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for i in 0..=100 {
         let model_yaw = (i as f64) / 100.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
         let model_ry = RollYaw::of_yaw(model_yaw);
-        let sensor_ry = camera.camera_ry_to_sensor_ry(model_ry);
+        let sensor_ry = camera.camera_ry_to_sensor_ry(&model_ry);
         if sensor_ry.yaw() > yaw_range_min && sensor_ry.yaw() < yaw_range_max {
             wts_poly_pts.push(plot_f(model_yaw, sensor_ry.yaw()));
         }
@@ -513,7 +513,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for i in 0..=400 {
         let sensor_yaw = (i as f64) / 400.0 * (yaw_range_max - yaw_range_min) + yaw_range_min;
         let sensor_ry = RollYaw::of_yaw(sensor_yaw);
-        let model_ry = camera.sensor_ry_to_camera_ry(sensor_ry);
+        let model_ry = camera.sensor_ry_to_camera_ry(&sensor_ry);
         if model_ry.yaw() > yaw_range_min && model_ry.yaw() < yaw_range_max {
             stw_poly_pts.push(plot_f(model_ry.yaw(), sensor_yaw));
         }
@@ -619,7 +619,7 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     //cb Calculate Roll/Yaw for each point given camera
     let mut pts = vec![];
     for pm in pms.mappings().iter().take(num_pts) {
-        let model_txty = camera.world_xyz_to_camera_txty(pm.model());
+        let model_txty = camera.world_xyz_to_camera_txty(&pm.model());
         let cam_txty = camera.px_abs_xy_to_camera_txty(pm.screen());
 
         let model_ry: RollYaw = model_txty.into();
@@ -714,7 +714,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         img.draw_cross(&p, 5.0, c);
     }
     for (p, c) in &pts {
-        let mapped = camera.world_xyz_to_px_abs_xy(*p);
+        let mapped = camera.world_xyz_to_px_abs_xy(p);
         if mapped[0] < -10000.0 || mapped[0] > 10000.0 {
             continue;
         }

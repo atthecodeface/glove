@@ -166,7 +166,7 @@ impl NamedPointSet {
             }
 
             let (model, error) = np.model();
-            let camera_pxy = camera.world_xyz_to_px_abs_xy(model);
+            let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
 
             println!("{name} : {model}+-{error} maps to {camera_pxy}",);
         }

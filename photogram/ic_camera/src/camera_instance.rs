@@ -171,7 +171,7 @@ impl CameraInstance {
     /// Map a model coordinate to an absolute XY camera coordinate
     #[inline]
     pub fn map_model(&self, model: &Point3D) -> Point2D {
-        self.world_xyz_to_px_abs_xy(*model)
+        self.world_xyz_to_px_abs_xy(model)
     }
 
     //zz All done
@@ -229,13 +229,13 @@ impl CameraProjection for CameraInstance {
     }
 
     //mp set_position
-    fn set_position(&mut self, p: Point3D) {
-        self.position = p;
+    fn set_position(&mut self, p: &Point3D) {
+        self.position = *p;
     }
 
     //mp set_orientation
-    fn set_orientation(&mut self, q: Quat) {
-        self.orientation = q;
+    fn set_orientation(&mut self, q: &Quat) {
+        self.orientation = *q;
     }
 
     //mp set_focus_distance
@@ -257,7 +257,7 @@ impl CameraProjection for CameraInstance {
     //mp sensor_ry_to_camera_ry
     /// Apply the lens projection
     #[inline]
-    fn sensor_ry_to_camera_ry(&self, ry: RollYaw) -> RollYaw {
+    fn sensor_ry_to_camera_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_sensor_to_tan_world(tan_yaw))
     }
@@ -265,23 +265,23 @@ impl CameraProjection for CameraInstance {
     //mp camera_ry_to_sensor_ry
     /// Apply the lens projection
     #[inline]
-    fn camera_ry_to_sensor_ry(&self, ry: RollYaw) -> RollYaw {
+    fn camera_ry_to_sensor_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_world_to_tan_sensor(tan_yaw))
     }
 
     //mp sensor_txty_to_px_abs_xy
-    fn sensor_txty_to_px_abs_xy(&self, txty: TanXTanY) -> Point2D {
+    fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
         let pxy_rel = [
             txty[0] * self.x_px_from_tan_sc,
             txty[1] * self.y_px_from_tan_sc,
         ]
         .into();
-        self.body.px_rel_xy_to_px_abs_xy(pxy_rel)
+        self.body.px_rel_xy_to_px_abs_xy(&pxy_rel)
     }
 
     //mp px_abs_xy_to_sensor_txty
-    fn px_abs_xy_to_sensor_txty(&self, pxy_abs: Point2D) -> TanXTanY {
+    fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {
         let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
         [
             pxy_rel[0] / self.x_px_from_tan_sc,

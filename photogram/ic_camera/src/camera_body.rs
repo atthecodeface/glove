@@ -283,7 +283,7 @@ impl CameraSensor for CameraBody {
 
     //fp px_abs_xy_to_px_rel_xy
     #[inline]
-    fn px_abs_xy_to_px_rel_xy(&self, xy: Point2D) -> Point2D {
+    fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
         if self.flip_y {
             [xy[0] - self.px_centre[0], -xy[1] + self.px_centre[1]].into()
         } else {
@@ -293,7 +293,7 @@ impl CameraSensor for CameraBody {
 
     //fp px_rel_xy_to_px_abs_xy
     #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+    fn px_rel_xy_to_px_abs_xy(&self, xy: &Point2D) -> Point2D {
         if self.flip_y {
             [xy[0] + self.px_centre[0], -xy[1] + self.px_centre[1]].into()
         } else {

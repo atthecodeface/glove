@@ -157,7 +157,7 @@ impl PointMapping {
     /// used by model line set
     pub fn get_mapped_unit_vector<C: CameraProjection>(&self, camera: &C) -> Point3D {
         camera
-            .px_abs_xy_to_camera_txty(self.screen)
+            .px_abs_xy_to_camera_txty(&self.screen)
             .to_unit_vector()
     }
 
@@ -169,7 +169,7 @@ impl PointMapping {
     /// Get the direction vector for the frame point of a mapping in
     /// the world (post-orientation of camera)
     pub fn get_mapped_world_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
-        -camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(self.screen))
+        -camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(&self.screen))
     }
 
     //mp get_mapped_ray
@@ -194,7 +194,7 @@ impl PointMapping {
             let e: Point2D = e.into();
             let err_s_xy = self.screen + e;
 
-            let err_c_txty = camera.px_abs_xy_to_camera_txty(err_s_xy);
+            let err_c_txty = camera.px_abs_xy_to_camera_txty(&err_s_xy);
             let world_err_vec = -camera.camera_txty_to_world_dir(&err_c_txty);
 
             let dot = world_pm_direction_vec.dot(&world_err_vec);
@@ -227,7 +227,7 @@ impl PointMapping {
         if self.is_unmapped() {
             return None;
         }
-        Some(self.screen - camera.world_xyz_to_px_abs_xy(self.model()))
+        Some(self.screen - camera.world_xyz_to_px_abs_xy(&self.model()))
     }
 
     //fp get_mapped_dpxy_error2
@@ -249,15 +249,15 @@ impl PointMapping {
         &self,
         camera: &C,
     ) -> (f64, Point3D, f64, Point3D) {
-        let model_rel_xyz = camera.world_xyz_to_camera_xyz(self.model());
+        let model_rel_xyz = camera.world_xyz_to_camera_xyz(&self.model());
         let model_dist = model_rel_xyz.length();
         let model_vec = camera
-            .world_xyz_to_camera_txty(self.model())
+            .world_xyz_to_camera_txty(&self.model())
             .to_unit_vector();
         let screen_vec = camera
             .px_abs_xy_to_camera_txty(self.screen())
             .to_unit_vector();
-        let dxdy = camera.camera_xyz_to_world_xyz((-screen_vec) * model_dist) - self.model();
+        let dxdy = camera.camera_xyz_to_world_xyz(&((-screen_vec) * model_dist)) - self.model();
         let axis = model_vec.cross_product(&screen_vec);
         let sin_sep = axis.length();
         let error = sin_sep * model_dist;
@@ -275,7 +275,7 @@ impl PointMapping {
         if self.is_unmapped() {
             return;
         }
-        let camera_scr_xy = camera.world_xyz_to_px_abs_xy(self.model());
+        let camera_scr_xy = camera.world_xyz_to_px_abs_xy(&self.model());
         let (model_error, model_dxdy, model_angle, model_axis) =
             self.get_mapped_model_error(camera);
         let dxdy = self.get_mapped_dpxy(camera).unwrap();

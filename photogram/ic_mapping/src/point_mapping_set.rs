@@ -409,7 +409,7 @@ impl PointMappingSet {
         }
 
         let (qr, e) = utils::weighted_average_many_with_err(&qs);
-        camera.set_orientation(qr);
+        camera.set_orientation(&qr);
         let te = self.total_error(camera);
         eprintln!("Error in qr's {e} total error {te} QR: {qr}q");
         Ok(te)

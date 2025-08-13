@@ -50,7 +50,7 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     eprintln!("Camera {camera:?}");
     eprintln!(
         "Mapping {}",
-        camera.borrow().world_xyz_to_px_abs_xy(Point3D::default())
+        camera.borrow().world_xyz_to_px_abs_xy(&Point3D::default())
     );
     println!(
         "{}",
