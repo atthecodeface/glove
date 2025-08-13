@@ -28,7 +28,7 @@ impl TanXTanY {
     //cp of_tx_ty
     pub fn of_tx_ty(tanx: f64, tany: f64) -> Self {
         Self {
-            data: [tanx, tanx].into(),
+            data: [tanx, tany].into(),
         }
     }
 
