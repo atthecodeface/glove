@@ -70,7 +70,7 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if !cmd_args
         .pms()
         .borrow_mut()
-        .add_mapping(&*cmd_args.nps().borrow(), name, &pxy, error)
+        .add_mapping(&cmd_args.nps().borrow(), name, &pxy, error)
     {
         Err(format!("Failed to add mapping for '{name}' to the point mapping set; it is probably not in the named point set").into())
     } else {

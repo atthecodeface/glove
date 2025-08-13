@@ -69,7 +69,7 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {
             let cv: &[f64; 3] = catalog[*index].vector();
-            let c = v.dot(&(*cv).into());
+            let c = v.dot(cv);
             if let Some((cc, _)) = closest {
                 if c > cc {
                     closest = Some((c, *index));

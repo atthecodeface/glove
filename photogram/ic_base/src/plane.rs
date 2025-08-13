@@ -1,11 +1,8 @@
 //a Imports
-use std::cell::{Ref, RefCell, RefMut};
-use std::rc::Rc;
 
-use geo_nd::{quat, Quaternion, Vector};
-use serde::{Deserialize, Serialize};
+use geo_nd::{Quaternion, Vector};
 
-use crate::{Point2D, Point3D, Quat};
+use crate::{Point2D, Point3D};
 
 //a Plane of best fit
 //tp Plane
@@ -167,7 +164,7 @@ impl Plane {
         let b = r[1];
         let c = r[2];
         let d = n / rl;
-        eprintln!("{}*x + {}*y + {}*z = {}", a, b, c, d);
+        eprintln!("{a}*x + {b}*y + {c}*z = {d}");
         for p in pts {
             eprintln!("{p}, {}", a * p[0] + b * p[1] + c * p[2] - d);
         }

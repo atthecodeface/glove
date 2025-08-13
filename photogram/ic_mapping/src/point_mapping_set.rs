@@ -405,7 +405,7 @@ impl PointMappingSet {
             }
         }
         if qs.is_empty() {
-            return Err(format!("No point mappings available to orient camera").into());
+            return Err("No point mappings available to orient camera".to_string().into());
         }
 
         let (qr, e) = utils::weighted_average_many_with_err(&qs);

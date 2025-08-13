@@ -274,7 +274,7 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             cmd_args.get_f64_arg(0).unwrap_or(0.0),
         ));
     }
-    if cmd_args.project().nps_ref().get_pt(&name).is_some() {
+    if cmd_args.project().nps_ref().get_pt(name).is_some() {
         return Err(format!("Named point {name} already exists in the set").into());
     }
 

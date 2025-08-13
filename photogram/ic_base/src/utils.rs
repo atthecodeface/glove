@@ -4,7 +4,7 @@ use std::rc::Rc;
 use geo_nd::{quat, Quaternion, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::{Point2D, Point3D, Quat};
+use crate::{Point3D, Quat};
 
 //a run_to_completion
 pub mod rtc {

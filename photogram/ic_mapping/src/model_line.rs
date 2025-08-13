@@ -39,7 +39,7 @@ impl ModelLine {
             return k / l;
         }
         for v in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] {
-            let perp = direction.cross_product(&v.into());
+            let perp = direction.cross_product(&v);
             let l = perp.length();
             if l > 0.001 {
                 return perp / l;

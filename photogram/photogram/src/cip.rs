@@ -3,9 +3,9 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::{Plane, Ray, Rrc};
+use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
-use ic_image::{Image, Patch};
+use ic_image::Image;
 use ic_mapping::PointMapping;
 use ic_project::Cip;
 
@@ -238,7 +238,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             for i in pms_n.iter() {
                 let m = &mappings[*i];
                 let c = pms_color.unwrap_or(m.named_point().color());
-                img.draw_cross(&m.screen(), m.error(), c);
+                img.draw_cross(m.screen(), m.error(), c);
             }
             Ok(())
         })?;

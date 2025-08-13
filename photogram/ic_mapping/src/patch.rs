@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use geo_nd::Vector;
 
-use ic_base::{Plane, Point2D, Point3D, Quat};
+use ic_base::{Plane, Point2D, Point3D};
 use ic_camera::CameraProjection;
-use ic_image::{Image, ImageRgb8};
+use ic_image::Image;
 use ic_mesh::Mesh;
 
 use crate::NamedPoint;
@@ -82,7 +82,7 @@ impl Patch {
         // Find the points on the sensor for all of the mesh points
         self.model_pts_projected
             .iter()
-            .map(|p| self.plane.point_in_space(&p))
+            .map(|p| self.plane.point_in_space(p))
             .map(|p| camera.world_xyz_to_px_abs_xy(&p))
             .collect()
     }
@@ -158,9 +158,9 @@ impl Patch {
         let mut patch_img = I::new(width, height);
 
         for x in 0..width {
-            let plane_x = (((x as isize + ilx) as f64) / px_per_model);
+            let plane_x = ((x as isize + ilx) as f64) / px_per_model;
             for y in 0..height {
-                let plane_y = (((y as isize + iby) as f64) / px_per_model);
+                let plane_y = ((y as isize + iby) as f64) / px_per_model;
                 let model_pt = self.plane.point_in_space(&[plane_x, plane_y].into());
                 let pxy = camera.world_xyz_to_px_abs_xy(&model_pt);
                 if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {

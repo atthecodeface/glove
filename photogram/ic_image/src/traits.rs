@@ -47,10 +47,10 @@ impl LineIter {
                     Self {
                         posn: x0,
                         other: y0,
-                        end: x1.abs() as u32,
+                        end: x1.unsigned_abs(),
                         error: 1 << 24,
-                        add_error: dy.abs() as u32,
-                        sub_error: dx.abs() as u32,
+                        add_error: dy.unsigned_abs(),
+                        sub_error: dx.unsigned_abs(),
                         incr_other: dy > 0,
                         posn_is_x: true,
                     }
@@ -58,37 +58,35 @@ impl LineIter {
                     Self {
                         posn: x1,
                         other: y1,
-                        end: x0.abs() as u32,
+                        end: x0.unsigned_abs(),
                         error: 1 << 24,
-                        add_error: dy.abs() as u32,
-                        sub_error: dx.abs() as u32,
+                        add_error: dy.unsigned_abs(),
+                        sub_error: dx.unsigned_abs(),
                         incr_other: dy < 0,
                         posn_is_x: true,
                     }
                 }
+            } else if y0 <= y1 {
+                Self {
+                    posn: y0,
+                    other: x0,
+                    end: y1.unsigned_abs(),
+                    error: 1 << 24,
+                    add_error: dx.unsigned_abs(),
+                    sub_error: dy.unsigned_abs(),
+                    incr_other: dx > 0,
+                    posn_is_x: false,
+                }
             } else {
-                if y0 <= y1 {
-                    Self {
-                        posn: y0,
-                        other: x0,
-                        end: y1.abs() as u32,
-                        error: 1 << 24,
-                        add_error: dx.abs() as u32,
-                        sub_error: dy.abs() as u32,
-                        incr_other: dx > 0,
-                        posn_is_x: false,
-                    }
-                } else {
-                    Self {
-                        posn: y1,
-                        other: x1,
-                        end: y0.abs() as u32,
-                        error: 1 << 24,
-                        add_error: dx.abs() as u32,
-                        sub_error: dy.abs() as u32,
-                        incr_other: dx < 0,
-                        posn_is_x: false,
-                    }
+                Self {
+                    posn: y1,
+                    other: x1,
+                    end: y0.unsigned_abs(),
+                    error: 1 << 24,
+                    add_error: dx.unsigned_abs(),
+                    sub_error: dy.unsigned_abs(),
+                    incr_other: dx < 0,
+                    posn_is_x: false,
                 }
             }
         };
