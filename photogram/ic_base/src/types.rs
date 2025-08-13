@@ -45,8 +45,7 @@ impl TanXTanY {
 impl std::ops::Index<usize> for TanXTanY {
     type Output = f64;
     fn index(&self, index: usize) -> &f64 {
-        let slice: &[_] = self.as_ref();
-        &slice[index]
+        &self.data[index]
     }
 }
 
