@@ -63,14 +63,6 @@ impl From<&[f64; 3]> for TanXTanY {
     }
 }
 
-//ip From<[f64; 3]> for TanXTanY
-// impl From<[f64; 3]> for TanXTanY {
-//     #[inline]
-//     fn from(p: [f64; 3]) -> TanXTanY {
-//         TanXTanY::from(&p)
-//     }
-// }
-
 //ip From<&Point3D> for TanXTanY
 impl From<&Point3D> for TanXTanY {
     #[inline]
@@ -86,39 +78,6 @@ impl From<Point3D> for TanXTanY {
     fn from(p: Point3D) -> TanXTanY {
         let p: &[f64; 3] = p.as_ref();
         TanXTanY::from(p)
-    }
-}
-
-//ip From<[f64; 2]> for TanXTanY
-impl From<[f64; 2]> for TanXTanY {
-    #[inline]
-    fn from(p: [f64; 2]) -> Self {
-        TanXTanY { data: p.into() }
-    }
-}
-
-//ip From<&[f64; 2]> for TanXTanY
-impl From<&[f64; 2]> for TanXTanY {
-    #[inline]
-    fn from(p: &[f64; 2]) -> TanXTanY {
-        TanXTanY::from(*p)
-    }
-}
-
-//ip From<&Point2D> for TanXTanY
-impl From<&Point2D> for TanXTanY {
-    #[inline]
-    fn from(p: &Point2D) -> TanXTanY {
-        let p: &[f64; 2] = p.as_ref();
-        TanXTanY::from(p)
-    }
-}
-
-//ip From<TanXTanY> for Point2D
-impl From<TanXTanY> for Point2D {
-    #[inline]
-    fn from(p: TanXTanY) -> Point2D {
-        p.data
     }
 }
 
@@ -176,7 +135,9 @@ impl RollYaw {
         let r = self.tan_yaw;
         let c = self.roll.1;
         let s = self.roll.0;
-        [r * c, r * s].into()
+        TanXTanY {
+            data: [r * c, r * s].into(),
+        }
     }
 
     //fp from_txty
