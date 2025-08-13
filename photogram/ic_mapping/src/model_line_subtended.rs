@@ -1,7 +1,7 @@
 //a Imports
 use std::default::Default;
 
-use geo_nd::{Vector, Vector3};
+use geo_nd::Vector;
 use ic_base::Point3D;
 use serde::{Deserialize, Serialize};
 

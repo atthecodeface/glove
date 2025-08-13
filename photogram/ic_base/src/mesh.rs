@@ -610,8 +610,8 @@ impl Mesh {
                 let (c_p0, c_p1) = (self[ln_i].p0, self[ln_i].p1);
                 let cd = self[c_p1] - self[c_p0];
                 let od = self[o_p1] - self[o_p0];
-                let cn = [cd[1], -cd[0]].into();
-                let on = [od[1], -od[0]].into();
+                let cn = [cd[1], -cd[0]];
+                let on = [od[1], -od[0]];
                 let c_p0_side_of_od = (self[c_p0] - self[o_p0]).dot(&on);
                 let c_p1_side_of_od = (self[c_p1] - self[o_p0]).dot(&on);
                 let o_p0_side_of_od = (self[o_p0] - self[c_p0]).dot(&cn);

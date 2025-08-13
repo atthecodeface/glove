@@ -1,7 +1,7 @@
 //a Imports
 use std::rc::Rc;
 
-use geo_nd::{Vector, Vector3};
+use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{Point2D, Point3D, Ray};

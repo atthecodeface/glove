@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_project", "ic_stars", "ic_threads", "image_server", "ic_play", "thunderclap"]
+members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_stars", "ic_threads", "image_server", "ic_play", "thunderclap"]
 
 [workspace.package]
 edition = "2024"
@@ -22,6 +22,7 @@ ic_http = { version = "0.1.0", path = "./ic_http" }
 ic_image = { version = "0.1.0", path = "./ic_image" }
 ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
 ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
+ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
 ic_project = { version = "0.1.0", path = "./ic_project" }
 ic_stars = { version = "0.1.0", path = "./ic_stars" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
@@ -45,9 +46,9 @@ version = "1.0"
 features = ["alloc"]
 
 [workspace.dependencies.star-catalog]
-version = "0.0.9"
+version = "0.1"
 features = ["postcard", "hipp_bright", "image"]
-path = "../../star-catalog-rs"
+# path = "../../star-catalog-rs"
 
 [workspace.dependencies.bytemuck]
 version = ">=1.15.0"
@@ -74,8 +75,8 @@ features = ["derive", "rc"]
 version = "1.0.91"
 
 [workspace.dependencies.geo-nd]
-version = ">0.5.0"
-path = "../../geo-nd-rs"
+version = "0.6"
+# path = "../../geo-nd-rs"
 
 [workspace.dependencies.clap]
 version = "4.5.2"

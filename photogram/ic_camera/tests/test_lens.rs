@@ -23,7 +23,7 @@ where
 
     let sensor_yaws: Vec<_> = yaws.clone().map(&fwd_fn).collect();
     let world_yaws: Vec<_> = yaws.clone().collect();
-    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0);
+    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0)?;
     let mut num_errors = 0;
     for world in yaws.clone() {
         let lens_sensor = lens_poly.wts(world);
@@ -43,7 +43,7 @@ where
     }
 
     eprintln!("pub const LP_{name}: ([f64; {degree}], [f64; {degree}]) = (");
-    eprintln!("{}", lens_poly.to_json()?);
+    eprintln!("{}", lens_poly.to_json(true)?);
     eprintln!(");");
 
     let ytm = yaws.clone().map(|y| (y, fwd_fn(y)));
@@ -52,19 +52,18 @@ where
     for (a, b) in ytm.clone().take(10) {
         eprintln!("{a} {b}");
     }
-    let mut wts = polynomial::min_squares_dyn(degree, ytm);
-    let mut stw = polynomial::min_squares_dyn(degree, mty);
+    let mut wts = polynomial::min_squares_dyn(degree, ytm)?;
+    let mut stw = polynomial::min_squares_dyn(degree, mty)?;
     eprintln!("{wts:?}");
     wts[0] = 0.0;
     stw[0] = 0.0;
     for world in yaws.clone() {
         let sensor = wts.calc(world);
         let tab = stw.calc(sensor);
-        if !ignore_tab
-            && (world - tab).abs() > 0.001 {
-                eprintln!("world {world:0.4} there and back {tab:0.4}");
-                num_out_of_range += 1;
-            }
+        if !ignore_tab && (world - tab).abs() > 0.001 {
+            eprintln!("world {world:0.4} there and back {tab:0.4}");
+            num_out_of_range += 1;
+        }
         if (sensor - fwd_fn(world)).abs() > 0.001 {
             eprintln!("sensor {sensor:0.4} fwd {:0.4}", fwd_fn(world));
             num_out_of_range += 1;
@@ -72,11 +71,10 @@ where
 
         let lens_sensor = lens.wts(world);
         let lens_tab = lens.stw(sensor);
-        if !ignore_tab
-            && (world - lens_tab).abs() > 0.001 {
-                eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
-                num_out_of_range += 1;
-            }
+        if !ignore_tab && (world - lens_tab).abs() > 0.001 {
+            eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
+            num_out_of_range += 1;
+        }
         if (lens_sensor - fwd_fn(world)).abs() > 0.001 {
             eprintln!(
                 "lens_sensor {lens_sensor:0.4} fwd {:0.4} world {world:0.4}",

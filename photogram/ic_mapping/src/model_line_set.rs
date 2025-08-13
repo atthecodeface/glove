@@ -33,7 +33,7 @@ where
     pub fn new(camera: C) -> Self {
         Self {
             camera,
-            model_cog: Point3D::zero(),
+            model_cog: Point3D::default(),
             lines: vec![],
         }
     }
@@ -41,7 +41,7 @@ where
     //mi derive_model_cog
     pub fn derive_model_cog(&mut self) {
         if self.model_cog.is_zero() {
-            let mut sum = Point3D::zero();
+            let mut sum = Point3D::default();
             let n = self.lines.len();
             for l in &self.lines {
                 sum += l.model_line().mid_point();
@@ -71,7 +71,7 @@ where
         let n = self.lines.len();
         // eprintln!("push {mls:?}");
         self.lines.push(mls);
-        self.model_cog = Point3D::zero();
+        self.model_cog = Point3D::default();
         Some(n)
     }
 
@@ -86,7 +86,7 @@ where
         let mls = ModelLineSubtended::new(&model_line, angle);
         let n = self.lines.len();
         self.lines.push(mls);
-        self.model_cog = Point3D::zero();
+        self.model_cog = Point3D::default();
         n
     }
 

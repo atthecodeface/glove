@@ -22,3 +22,5 @@ geo-nd.workspace = true
 ic_base.workspace = true
 ic_camera.workspace = true
 ic_image.workspace = true
+ic_mesh.workspace = true
+

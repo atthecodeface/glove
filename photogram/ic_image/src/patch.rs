@@ -1,5 +1,5 @@
 //a Imports
-use geo_nd::{SqMatrix, Vector, Vector3};
+use geo_nd::{SqMatrix, Vector};
 
 use ic_base::{Mat3x3, Plane, Point2D, Point3D};
 
@@ -158,7 +158,7 @@ impl<I: Image> Patch<I> {
         let mut xy0 = [0., 0.].into();
         let c: I::Pixel = 255_u8.into();
         let model_pts_clone = model_pts.clone();
-        for pxy in model_pts_clone.map(|p| model_to_flat((*p - model_origin)) * px_per_model) {
+        for pxy in model_pts_clone.map(|p| model_to_flat(*p - model_origin) * px_per_model) {
             let pxy = [pxy[0] - lx, pxy[1] - by].into();
             patch_img.draw_line(xy0, pxy, &c);
             xy0 = pxy;

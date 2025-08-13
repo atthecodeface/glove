@@ -92,6 +92,10 @@ impl NamedPoint {
         self.model.borrow().is_none()
     }
     #[inline]
+    pub fn is_mapped(&self) -> bool {
+        self.model.borrow().is_some()
+    }
+    #[inline]
     pub fn model(&self) -> (Point3D, f64) {
         (*self.model.borrow()).unwrap_or_default()
     }

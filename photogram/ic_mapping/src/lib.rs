@@ -9,6 +9,10 @@ mod named_point_set;
 mod point_mapping;
 mod point_mapping_set;
 
+mod patch;
+
+pub use patch::Patch;
+
 pub use model_line::ModelLine;
 pub use model_line_set::ModelLineSet;
 pub(crate) use model_line_subtended::ModelLineSubtended;

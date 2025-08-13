@@ -64,7 +64,7 @@ fn orientation_mapping(di_m: &[f64; 3], dj_m: &[f64; 3], di_c: Point3D, dj_c: Po
 
 //fp closest_star
 fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
-    let s = Subcube::of_vector(&v.into_array());
+    let s = Subcube::of_vector(&v);
     let mut closest = None;
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {
@@ -512,11 +512,8 @@ impl StarMapping {
                 if x2 < max_angle_delta * max_angle_delta {
                     // 3.1E-5 {
                     // x = 0.2 degrees
-                    let qs = [
-                        (1.0, mag1_q_m_to_c.into_array()),
-                        (1.0, mag2_q_m_to_c.into_array()),
-                    ];
-                    let q_r: Quat = quat::weighted_average_many(qs.into_iter()).into();
+                    let qs = [(1.0, mag1_q_m_to_c), (1.0, mag2_q_m_to_c)];
+                    let q_r = Quat::weighted_average_many(qs.into_iter());
                     mag1_mag2_pairs.push((x2.sqrt(), q_r, *mag1_tri, *mag2_tri));
                     printed += 1;
                     match printed.cmp(&10) {

@@ -80,7 +80,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Point3D;
 
-use geo_nd::{matrix, Vector, Vector3};
+use geo_nd::{matrix, Vector};
 
 //a Ray
 //tp Ray

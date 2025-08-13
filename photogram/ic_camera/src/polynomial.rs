@@ -236,7 +236,7 @@ pub fn find_outliers<I: Iterator<Item = (f64, f64)>>(
 
 //a Tests
 #[test]
-fn test_poly() -> Result<(), String> {
+fn test_poly() -> Result<()> {
     let f = |x: f64| (x / 10.).sin().atan();
     let err = |x0: f64, x1: f64| {
         if x0.abs() < 0.000001 {
@@ -250,8 +250,8 @@ fn test_poly() -> Result<(), String> {
     let xys = (0..100).map(|x| (x as f64) / 70.0).map(|x| (x, f(x)));
     let yxs = xys.clone().map(|(x, y)| (y, x));
 
-    let poly = min_squares_dyn(7, xys.clone());
-    let rev_poly = min_squares_dyn(7, yxs.clone());
+    let poly = min_squares_dyn(7, xys.clone())?;
+    let rev_poly = min_squares_dyn(7, yxs.clone())?;
 
     eprintln!("{poly:?}");
     let mut num_errors = 0;
@@ -268,7 +268,7 @@ fn test_poly() -> Result<(), String> {
         }
     }
     if num_errors > 0 {
-        Err(format!("Number of errors {num_errors}"))
+        Err(format!("Number of errors {num_errors}").into())
     } else {
         Ok(())
     }

@@ -336,14 +336,20 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let src_img = cmd_args.get_image_read_or_create()?;
     let write_filename = cmd_args.write_img().unwrap();
 
-    let model_pts: Vec<_> = nps.iter().map(|np| np.model().0).collect();
+    let patch = ic_mapping::Patch::create(nps.iter().cloned()).unwrap();
+    let patch_img = patch.create_img(&*camera, &src_img, 25.0).unwrap();
+    patch_img.write(write_filename)?;
 
-    let _ = Plane::best_fit(model_pts.iter());
+    /*
+        let model_pts: Vec<_> = nps.iter().map(|np| np.model().0).collect();
 
-    if let Some(patch) = Patch::create(&src_img, 10.0, model_pts.iter(), &|m| camera.map_model(m))?
-    {
-        patch.img().write(write_filename)?;
+        let _ = Plane::best_fit(model_pts.iter());
+
+        if let Some(patch) = Patch::create(&src_img, 10.0, model_pts.iter(), &|m| camera.map_model(m))?
+        {
+            patch.img().write(write_filename)?;
     }
+        */
     Ok("".into())
 }
 
