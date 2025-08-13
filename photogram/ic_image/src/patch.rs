@@ -151,7 +151,7 @@ impl<I: Image> Patch<I> {
         let c: I::Pixel = 125_u8.into();
         for pxy in corners.iter() {
             let pxy = [pxy[0] - lx, pxy[1] - by].into();
-            patch_img.draw_line(xy0, pxy, &c);
+            patch_img.draw_line(&xy0, &pxy, &c);
             xy0 = pxy;
         }
 
@@ -160,7 +160,7 @@ impl<I: Image> Patch<I> {
         let model_pts_clone = model_pts.clone();
         for pxy in model_pts_clone.map(|p| model_to_flat(*p - model_origin) * px_per_model) {
             let pxy = [pxy[0] - lx, pxy[1] - by].into();
-            patch_img.draw_line(xy0, pxy, &c);
+            patch_img.draw_line(&xy0, &pxy, &c);
             xy0 = pxy;
         }
 

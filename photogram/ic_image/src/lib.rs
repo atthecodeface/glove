@@ -65,15 +65,15 @@ impl ImagePt {
             }
             0 => {
                 let color = [255, 0, 255, 255].into();
-                img.draw_cross([self.px as f64, self.py as f64].into(), 10.0, &color);
+                img.draw_cross(&[self.px as f64, self.py as f64].into(), 10.0, &color);
             }
             1 => {
                 let color = [0, 255, 255, 255].into();
-                img.draw_cross([self.px as f64, self.py as f64].into(), 20.0, &color);
+                img.draw_cross(&[self.px as f64, self.py as f64].into(), 20.0, &color);
             }
             _ => {
                 let color = [255, 255, 125, 255].into();
-                img.draw_x([self.px as f64, self.py as f64].into(), 20.0, &color);
+                img.draw_x(&[self.px as f64, self.py as f64].into(), 20.0, &color);
             }
         };
     }

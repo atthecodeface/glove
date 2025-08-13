@@ -167,7 +167,7 @@ pub trait Image {
     fn get(&self, x: u32, y: u32) -> Self::Pixel;
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel);
     fn size(&self) -> (u32, u32);
-    fn draw_cross(&mut self, p: Point2D, size: f64, color: &Self::Pixel) {
+    fn draw_cross(&mut self, p: &Point2D, size: f64, color: &Self::Pixel) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
         let cy = p[1] as u32;
@@ -180,7 +180,7 @@ pub trait Image {
             self.put(cx, cy - s + i, color);
         }
     }
-    fn draw_x(&mut self, p: Point2D, size: f64, color: &Self::Pixel) {
+    fn draw_x(&mut self, p: &Point2D, size: f64, color: &Self::Pixel) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
         let cy = p[1] as u32;
@@ -193,7 +193,7 @@ pub trait Image {
             self.put(cx + s - i, cy - s + i, color);
         }
     }
-    fn draw_line(&mut self, p0: Point2D, p1: Point2D, color: &Self::Pixel) {
+    fn draw_line(&mut self, p0: &Point2D, p1: &Point2D, color: &Self::Pixel) {
         let x0 = p0[0] as i32;
         let y0 = p0[1] as i32;
         let x1 = p1[0] as i32;
