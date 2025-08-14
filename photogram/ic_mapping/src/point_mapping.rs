@@ -92,6 +92,11 @@ impl PointMapping {
             error,
         }
     }
+
+    //mp set_np
+    pub fn set_np(&mut self, named_point: Rc<NamedPoint>) {
+        self.named_point = named_point;
+    }
 }
 
 //ip PointMapping accessors

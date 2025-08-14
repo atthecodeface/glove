@@ -336,20 +336,22 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let src_img = cmd_args.get_image_read_or_create()?;
     let write_filename = cmd_args.write_img().unwrap();
 
-    let patch = ic_mapping::Patch::create(nps.iter().cloned()).unwrap();
-    let patch_img = patch.create_img(&*camera, &src_img, 25.0).unwrap();
+    let mut patch = ic_mapping::Patch::create(nps.iter().cloned()).unwrap();
+    patch.set_render_px_per_model(25.0);
+    patch.set_expansion_factor(1.1);
+
+    let patch_img = patch.create_img(&*camera, &src_img).unwrap();
     patch_img.write(write_filename)?;
-
-    /*
-        let model_pts: Vec<_> = nps.iter().map(|np| np.model().0).collect();
-
-        let _ = Plane::best_fit(model_pts.iter());
-
-        if let Some(patch) = Patch::create(&src_img, 10.0, model_pts.iter(), &|m| camera.map_model(m))?
-        {
-            patch.img().write(write_filename)?;
+    for np in nps.iter() {
+        eprintln!("{np}");
+        if let Some(pm) = cip.pms_ref().mapping_of_np(np) {
+            let mapped_pxy = camera.world_xyz_to_px_abs_xy(
+                &patch.plane().unwrap().point_projected_onto(&pm.model()).0,
+            );
+            eprintln!("{pm:?}, {mapped_pxy}");
+        }
     }
-        */
+
     Ok("".into())
 }
 

@@ -181,7 +181,9 @@ impl PointMappingSet {
         let mut unmapped = vec![];
         let mut remove = vec![];
         for (n, p) in self.mappings.iter_mut().enumerate() {
-            if !nps.has_np(p.named_point()) {
+            if let Some(np) = nps.get_pt(p.name()) {
+                p.set_np(np.clone());
+            } else {
                 unmapped.push(p.name());
                 remove.push(n);
             }
@@ -214,9 +216,11 @@ impl PointMappingSet {
 
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
-        self.mappings
+        let s = self
+            .mappings
             .iter()
-            .find(|pm| Rc::ptr_eq(np, pm.named_point()))
+            .find(|pm| Rc::ptr_eq(np, pm.named_point()));
+        s
     }
 
     //mp get_screen_pts
@@ -405,7 +409,9 @@ impl PointMappingSet {
             }
         }
         if qs.is_empty() {
-            return Err("No point mappings available to orient camera".to_string().into());
+            return Err("No point mappings available to orient camera"
+                .to_string()
+                .into());
         }
 
         let (qr, e) = utils::weighted_average_many_with_err(&qs);

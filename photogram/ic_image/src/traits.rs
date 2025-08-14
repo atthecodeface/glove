@@ -32,7 +32,7 @@ struct LineIter {
 //ii LineIter
 impl LineIter {
     fn new(x0: i32, y0: i32, x1: i32, y1: i32) -> Option<Self> {
-        eprintln!("{x0} {y0}   {x1} {y1}");
+        // eprintln!("{x0} {y0}   {x1} {y1}");
         if x0 < 0 && x1 < 0 {
             return None;
         }
@@ -93,7 +93,7 @@ impl LineIter {
         if s.posn < -1000 {
             return None;
         }
-        eprintln!("{s:?}");
+        // eprintln!("{s:?}");
         s.tick_until_posn_nonneg();
         if s.has_finished() {
             None

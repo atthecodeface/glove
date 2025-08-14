@@ -1,0 +1,18 @@
+[package]
+name = "ic_mesh"
+edition.workspace = true
+version.workspace = true
+description.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ic_base.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+geo-nd.workspace = true

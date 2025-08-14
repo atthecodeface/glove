@@ -9,7 +9,9 @@ use ic_image::Color;
 //a NamedPoint
 //tp NamedPoint
 /// A point in model space, with a name
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// This does not support Clone, as it should always be used as an Rc
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NamedPoint {
     /// Name of the point
     name: String,

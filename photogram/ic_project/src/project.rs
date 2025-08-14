@@ -106,8 +106,11 @@ impl<'de> Deserialize<'de> for Project {
         };
         for cip_desc in cips {
             use serde::de::Error;
-            let (cip, _warnings) = Cip::from_desc(&project, cip_desc)
+            let (cip, warnings) = Cip::from_desc(&project, cip_desc)
                 .map_err(|e| DE::Error::custom(format!("bad CIP desc: {e}")))?;
+            if !warnings.is_empty() {
+                eprintln!("Warning loading project: {warnings}");
+            }
             project.cips.push(cip.into());
         }
         Ok(project)
