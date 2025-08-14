@@ -90,6 +90,145 @@ impl Mesh {
         mesh
     }
 
+    //ap triangles
+    pub fn triangles(&self) -> impl std::iter::Iterator<Item = (TriangleIndex)> + '_ {
+        let n = self.triangles.len();
+        (0..n).map(|p| p.into())
+    }
+
+    //ap triangle_pts
+    pub fn triangle_pts(
+        &self,
+    ) -> impl std::iter::Iterator<Item = (PointIndex, PointIndex, PointIndex)> + '_ {
+        self.triangles.iter().map(|t| t.pts())
+    }
+
+    //ap points
+    pub fn points(&self) -> impl std::iter::Iterator<Item = PointIndex> + '_ {
+        (0..self.pxy.len()).map(|p| p.into())
+    }
+
+    //ap lines
+    pub fn lines(&self) -> impl std::iter::Iterator<Item = LineIndex> + '_ {
+        (0..self.lines.len()).map(|p| p.into())
+    }
+
+    //mp validate
+    #[track_caller]
+    pub fn validate(&self) {
+        for (n, l) in self.lines.iter().enumerate() {
+            let (p0, p1) = l.pts();
+            let (t0, t1) = l.triangles();
+            assert_eq!(
+                t0 == t1,
+                l.has_one_triangle(),
+                "line {n} {l} Line has only one triangle"
+            );
+
+            let t0 = &self[t0]; // if t0!=t1 then this is left of the line, i,e, has pts p0,p1,p2, p1,p2,p0, or p2,p0,p1
+            let t1 = &self[t1];
+            assert!(
+                t0.contains_pt(p0),
+                "line {n} {l} {t0} t0 must contain line point p0"
+            );
+            assert!(
+                t0.contains_pt(p1),
+                "line {n} {l} {t0} t0 must contain line point p1"
+            );
+            assert!(
+                t1.contains_pt(p0),
+                "line {n} {l} {t1} t1 must contain line point p0"
+            );
+            assert!(
+                t1.contains_pt(p1),
+                "line {n} {l} {t1} t1 must contain line point p1"
+            );
+
+            let (tp0, tp1, tp2) = t0.pts();
+            let t0_is_left_side =
+                (tp0 == p0 && tp1 == p1) || (tp1 == p0 && tp2 == p1) || (tp2 == p0 && tp0 == p1);
+            let (tp0, tp1, tp2) = t1.pts();
+            let t1_is_left_side =
+                (tp0 == p0 && tp1 == p1) || (tp1 == p0 && tp2 == p1) || (tp2 == p0 && tp0 == p1);
+
+            assert_eq!(
+                t0_is_left_side,
+                l.t0_is_on_left(&self.triangles),
+                "T0 is on left correctly asserted"
+            );
+            if !l.has_one_triangle() {
+                assert!(
+                    t0_is_left_side,
+                    "line {n} {l} has two triangles, but t0 is not on the left"
+                );
+                assert!(
+                    !t1_is_left_side,
+                    "line {n} {l} has two triangles, but t1 is not on the right"
+                );
+            }
+        }
+        for (n, t) in self.triangles.iter().enumerate() {
+            let (p0, p1, p2) = t.pts();
+            let (l0, l1, l2) = t.lines();
+
+            let l0 = &self[l0];
+            let l1 = &self[l1];
+            let l2 = &self[l2];
+            assert!(
+                l0.contains_pt(p0),
+                "tri {n} {t} Triangle line 0 must contain p0"
+            );
+            assert!(
+                l0.contains_pt(p1),
+                "tri {n} {t} Triangle line 0 must contain p1"
+            );
+
+            assert!(
+                l1.contains_pt(p1),
+                "tri {n} {t} Triangle line 1 must contain p1"
+            );
+            assert!(
+                l1.contains_pt(p2),
+                "tri {n} {t} Triangle line 1 must contain p2"
+            );
+
+            assert!(
+                l2.contains_pt(p2),
+                "tri {n} {t} Triangle line 2 must contain p2"
+            );
+            assert!(
+                l2.contains_pt(p0),
+                "tri {n} {t} Triangle line 2 must contain p0"
+            );
+
+            assert!(
+                l0.triangles().0 == n || l0.triangles().1 == n,
+                "tri {n} {t} Triangle line 0 must contain t"
+            );
+            assert!(
+                l1.triangles().0 == n || l1.triangles().1 == n,
+                "tri {n} {t} Triangle line 1 must contain t"
+            );
+            assert!(
+                l2.triangles().0 == n || l2.triangles().1 == n,
+                "tri {n} {t} Triangle line 2 must contain t"
+            );
+
+            assert!(
+                t.contains_pt(p0),
+                "tri {n} {t} Triangle must contain p0 {p0}"
+            );
+            assert!(
+                t.contains_pt(p1),
+                "tri {n} {t} Triangle must contain p1 {p1}"
+            );
+            assert!(
+                t.contains_pt(p2),
+                "tri {n} {t} Triangle must contain p2 {p2}"
+            );
+        }
+    }
+
     //mp find_duplicates
     pub fn find_duplicates(&self, min_dist: f64) -> Vec<(PointIndex, PointIndex)> {
         let mut result = vec![];
@@ -264,6 +403,161 @@ impl Mesh {
         tn
     }
 
+    //mp split_edge
+    /// Split a line that has only *one* triangle (an edge)
+    ///
+    /// The line is AB, and the triangle it is part of is T0 = ABC or
+    /// ACB. It is ABC if T0 is on the leftthand side ofAB, ACB if T0
+    /// is on the righthand side of AB.
+    ///
+    /// AB is split in two to become AM, MB; the two triangles will be T0 (
+    ///
+    /// If T0 is on the left of AB then T0 becomes AMC, and T1 becomes
+    /// BCM - and BC swaps T0 with T1; MC has T0 on the left
+    ///
+    /// If T0 is on the right of AB then T0 becomes ACM, and T1 becomes
+    /// BMC - and BC still swaps T0 with T1; MC as T1 on the left
+    pub fn split_edge(&mut self, ab: LineIndex) -> bool {
+        // eprintln!("Split {}", self[ab]);
+        if !self[ab].has_one_triangle() {
+            return false;
+        }
+
+        // self.validate();
+
+        let (a, b) = self[ab].pts();
+        let (t0, _) = self[ab].triangles();
+        let (l0, l1, l2) = self[t0].lines();
+        let c = self[t0].other_pt(a, b);
+        let t0_is_on_left_side = self[ab].t0_is_on_left(&self.triangles);
+
+        // eprintln!("{a} {b} {c}");
+        // eprintln!("{l0} {l1} {l2}");
+        // eprintln!("{t0} {t0_is_on_left_side}");
+
+        let pa = &self[a];
+        let pb = &self[b];
+
+        let t1: TriangleIndex = self.triangles.len().into();
+        let (bc, ca) = {
+            if ab == l0 {
+                (l1, l2)
+            } else if ab == l1 {
+                (l2, l0)
+            } else {
+                (l0, l1)
+            }
+        };
+        let (bc, ca) = {
+            if t0_is_on_left_side {
+                (bc, ca)
+            } else {
+                (ca, bc)
+            }
+        };
+
+        let m = self.add_pt((pa + pb) / 2.0);
+        let mc = self.add_line(m, c, t0);
+        if !t0_is_on_left_side {
+            self[mc].t0 = t1;
+            self[mc].t1 = t0;
+        } else {
+            self[mc].t0 = t0;
+            self[mc].t1 = t1;
+        }
+        self[ab].change_pt(b, m);
+        let am = ab;
+        let bm = self.add_line(b, m, t1);
+
+        // bc and ca start with t0 as a triangle
+        // bc gets t1, ca keeps t0
+        self[bc].change_triangle(t0, t1);
+
+        // Actually create/update the triangles
+        if !t0_is_on_left_side {
+            self[t0] = IndexTriangle::new(a, c, m, ca, mc, am);
+            self.triangles.push(IndexTriangle::new(b, m, c, bm, mc, bc));
+        } else {
+            self[t0] = IndexTriangle::new(a, m, c, am, mc, ca);
+            self.triangles.push(IndexTriangle::new(b, c, m, bc, mc, bm));
+        }
+
+        // eprintln!("a c b m : {a} {c} {b} {m}");
+        // eprintln!("acm bmc {t0} {t1} {} {}", self[t0], self[t1]);
+        // eprintln!(
+        // "mc {mc} mc ca am bm bc {} {} {} {} {}",
+        // self[mc], self[ca], self[am], self[bm], self[bc]
+        // );
+
+        // self.validate();
+        true
+    }
+
+    //mp split_edges
+    /// Split just the mesh edges
+    pub fn split_edges(&mut self, max_len: f64) -> usize {
+        let mut edges_split = 0;
+        let n = self.lines.len();
+        for l in 0..n {
+            let l = l.into();
+            if self.line_length(l) > max_len {
+                if self.split_edge(l) {
+                    edges_split += 1;
+                }
+            }
+        }
+        edges_split
+    }
+
+    //mp split_triangle
+    pub fn split_triangle(&mut self, t: TriangleIndex) {
+        let t0 = &self[t];
+        let (a, b, c) = t0.pts();
+        let (ab, bc, ca) = t0.lines();
+        let pa = &self[a];
+        let pb = &self[b];
+        let pc = &self[c];
+        let m = self.add_pt((pa + pb + pc) / 3.0);
+
+        // Add two new triangles - without pushing them
+        let t1: TriangleIndex = self.triangles.len().into();
+        let t2: TriangleIndex = (self.triangles.len() + 1).into();
+
+        // Add the new lines
+        let ma = self.add_line(m, a, t);
+        self[ma].t1 = t2;
+        let mb = self.add_line(m, b, t1);
+        self[mb].t1 = t;
+        let mc = self.add_line(m, c, t2);
+        self[mc].t1 = t1;
+
+        // Change the triangles on 't' side of the line to the new triangles
+        // t0 will become a,b,m,  ab,bm,ma
+        // self[ab].change_triangle(t, t);
+        self[bc].change_triangle(t, t1);
+        self[ca].change_triangle(t, t2);
+
+        // Add the actual triangles
+        self[t] = IndexTriangle::new(a, b, m, ab, mb, ma);
+        self.triangles.push(IndexTriangle::new(b, c, m, bc, mc, mb));
+        self.triangles.push(IndexTriangle::new(c, a, m, ca, ma, mc));
+    }
+
+    //mp split_triangles
+    /// Split just the mesh triangles
+    pub fn split_triangles(&mut self, max_area: f64) -> usize {
+        let mut triangles_split = 0;
+        let n = self.triangles.len();
+        for t in 0..n {
+            let t = t.into();
+            if self.triangle_area(t) > max_area {
+                self.split_triangle(t);
+                triangles_split += 1;
+            }
+        }
+        triangles_split
+    }
+
     //mp create_mesh_triangles
     pub fn create_mesh_triangles(&mut self) {
         self.clear();
@@ -282,15 +576,14 @@ impl Mesh {
             // );
             self.add_triangle(lbx, sweep[n], sweep[n + 1]);
         }
-        let mut hull = sweep;
+        let mut hull = sweep.clone();
         let mut p0 = 0;
-        let mut p1 = 1;
-        let mut p2 = 2;
-        let hull_len = hull.len();
-        while p2 <= hull_len {
+        while p0 < hull.len() - 1 {
+            let p1 = (p0 + 1) % hull.len();
+            let p2 = (p0 + 2) % hull.len();
             let ph0 = hull[p0];
             let ph1 = hull[p1];
-            let ph2 = hull[p2 % hull_len];
+            let ph2 = hull[p2];
             // eprintln!("Check {:4} {ph0}, {ph1}, {ph2} ({p0}, {p1}, {p2})", self.triangles.len());
             let pt0 = self[ph0];
             let pt1 = self[ph1];
@@ -303,33 +596,12 @@ impl Mesh {
                 // self.triangles.len()
                 // );
                 self.add_triangle(ph0, ph2, ph1);
-                hull[p1] = hull[p0];
-                while hull[p0] == hull[p1] {
-                    if p0 == 0 {
-                        p1 += 1;
-                    } else {
-                        p0 -= 1;
-                    }
-                }
-                if p1 >= p2 {
-                    p2 = p1 + 1;
+                hull.remove(p1);
+                if p0 > 0 {
+                    p0 -= 1;
                 }
             } else {
-                p0 = p1;
-                p1 = p2;
-                p2 = p1 + 1;
-            }
-            if p1 == hull.len() {
-                break;
-            }
-            loop {
-                if p2 == hull.len() {
-                    break;
-                }
-                if hull[p2] != hull[p1] {
-                    break;
-                }
-                p2 += 1;
+                p0 += 1;
             }
         }
     }
@@ -398,6 +670,12 @@ impl Mesh {
         };
         let (c_p0, c_p1) = line.pts();
         self.quad_swap_diagonals_unless_it_makes_zero_area(l, c_p0, c_p1, o_p0, o_p1)
+    }
+
+    //mp line_length
+    pub fn line_length(&self, l: LineIndex) -> f64 {
+        let (p0, p1) = self[l].pts();
+        self[p0].distance(&self[p1])
     }
 
     //mp triangle_area
@@ -525,23 +803,6 @@ impl Mesh {
             }
         }
         changed
-    }
-
-    //ap triangles
-    pub fn triangles(
-        &self,
-    ) -> impl std::iter::Iterator<Item = (PointIndex, PointIndex, PointIndex)> + '_ {
-        self.triangles.iter().map(|t| t.pts())
-    }
-
-    //ap points
-    pub fn points(&self) -> impl std::iter::Iterator<Item = PointIndex> + '_ {
-        (0..self.pxy.len()).map(|p| p.into())
-    }
-
-    //ap lines
-    pub fn lines(&self) -> impl std::iter::Iterator<Item = LineIndex> + '_ {
-        (0..self.lines.len()).map(|p| p.into())
     }
 
     //zz All done

@@ -45,6 +45,15 @@ impl IndexLine {
         self.t0 == self.t1
     }
 
+    //ap t0_is_on_left
+    pub fn t0_is_on_left(&self, triangles: &[IndexTriangle]) -> bool {
+        let t0 = &triangles[self.t0.as_usize()];
+        let (tp0, tp1, tp2) = t0.pts();
+        (tp0 == self.p0 && tp1 == self.p1)
+            || (tp1 == self.p0 && tp2 == self.p1)
+            || (tp2 == self.p0 && tp0 == self.p1)
+    }
+
     //mi opposite_diagonal
     pub fn opposite_diagonal(
         &self,
@@ -86,6 +95,11 @@ impl IndexLine {
     //ap pts
     pub fn pts(&self) -> (PointIndex, PointIndex) {
         (self.p0, self.p1)
+    }
+
+    //ap triangles
+    pub fn triangles(&self) -> (TriangleIndex, TriangleIndex) {
+        (self.t0, self.t1)
     }
 
     //zz All done

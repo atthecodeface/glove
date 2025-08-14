@@ -339,6 +339,7 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut patch = ic_mapping::Patch::create(nps.iter().cloned()).unwrap();
     patch.set_render_px_per_model(25.0);
     patch.set_expansion_factor(1.1);
+    patch.update_data();
 
     let patch_img = patch.create_img(&*camera, &src_img).unwrap();
     patch_img.write(write_filename)?;
@@ -348,7 +349,7 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let mapped_pxy = camera.world_xyz_to_px_abs_xy(
                 &patch.plane().unwrap().point_projected_onto(&pm.model()).0,
             );
-            eprintln!("{pm:?}, {mapped_pxy}");
+            // eprintln!("{pm:?}, {mapped_pxy}");
         }
     }
 

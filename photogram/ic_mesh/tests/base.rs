@@ -26,7 +26,7 @@ fn assert_mesh_triangle(mesh: &Mesh, t: usize, p012: (usize, usize, usize)) {
 #[cfg(test)]
 #[track_caller]
 fn assert_mesh_has_triangle(mesh: &Mesh, (p0, p1, p2): (usize, usize, usize)) {
-    for (tp0, tp1, tp2) in mesh.triangles() {
+    for (tp0, tp1, tp2) in mesh.triangle_pts() {
         if tp0 == p0 {
             if (tp1 == p1 && tp2 == p2) {
                 return;
@@ -180,7 +180,7 @@ fn test_hull3() -> Result<(), String> {
 
     while mesh.optimize_mesh_quads() {}
 
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
 
@@ -211,7 +211,7 @@ fn test_hull4() -> Result<(), String> {
     mesh.create_mesh_triangles();
 
     eprintln!("{:?}", mesh);
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
     for (i, p) in mesh.points().enumerate() {
@@ -232,7 +232,7 @@ fn test_hull4() -> Result<(), String> {
     mesh.remove_zero_area_triangles();
 
     eprintln!("{:?}", mesh);
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
     for (i, p) in mesh.points().enumerate() {
@@ -253,7 +253,7 @@ fn test_hull4() -> Result<(), String> {
     while mesh.optimize_mesh_quads() {}
 
     eprintln!("{:?}", mesh);
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
     for (i, p) in mesh.points().enumerate() {
@@ -291,7 +291,7 @@ fn test_hull5() -> Result<(), String> {
     mesh.create_mesh_triangles();
 
     eprintln!("{:?}", mesh);
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
     for (i, p) in mesh.points().enumerate() {
@@ -309,7 +309,7 @@ fn test_hull5() -> Result<(), String> {
     while mesh.optimize_mesh_quads() {}
 
     eprintln!("{:?}", mesh);
-    for (i, t) in mesh.triangles().enumerate() {
+    for (i, t) in mesh.triangle_pts().enumerate() {
         eprintln!("Triangle {i}, {t:?}");
     }
     for (i, p) in mesh.points().enumerate() {

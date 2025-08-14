@@ -41,7 +41,7 @@ impl PatchMesh {
             self.mesh = Mesh::new(self.model_pts_projected.iter().copied());
             while self
                 .mesh
-                .remove_duplicates(&self.mesh.find_duplicates(1E-2))
+                .remove_duplicates(&self.mesh.find_duplicates(1E-6))
             {}
             self.mesh.create_mesh_triangles();
         }
@@ -66,27 +66,54 @@ impl PatchMesh {
         &self.mesh
     }
 
-    //mp split_triangles
-    pub fn split_triangles(&mut self, max_area: f64, optimize: bool) -> usize {
+    //mp split_triangles_to_max_area
+    pub fn split_triangles_to_max_area(&mut self, max_area: f64, optimize: bool) -> usize {
         let mut triangles_split = 0;
         let mut centroids: Vec<_> = self.model_pts_projected().iter().cloned().collect();
-        for (p0, p1, p2) in self.mesh.triangles() {
+        for (p0, p1, p2) in self.mesh.triangle_pts() {
             let p01 = self.mesh[p0] - self.mesh[p1];
             let p02 = self.mesh[p0] - self.mesh[p2];
             let area_mmsq = (p01[0] * p02[1] - p01[1] * p02[0]) / 2.0;
-            if area_mmsq.sqrt() > max_area {
-                centroids.push((self.mesh[p0] + self.mesh[p1] + self.mesh[p2]) / 3.0);
-                triangles_split += 1;
+            let num_triangles = area_mmsq / max_area;
+            let side_split = num_triangles.sqrt();
+            if side_split < 2.0 {
+                break;
+            }
+            let side_split = side_split.round() as usize;
+            for i in 0..side_split {
+                let di = (i as f64) / (side_split as f64);
+                for j in 0..(side_split - i) {
+                    let dj = (j as f64) / (side_split as f64);
+                    let dk = 1.0 - (di + dj);
+                    centroids.push((self.mesh[p0] * di + self.mesh[p1] * dj + self.mesh[p2] * dk));
+                }
             }
         }
-        for l in self.mesh.lines() {
-            let (p0, p1) = self.mesh[l].pts();
-            let l = (self.mesh[p0] - self.mesh[p1]).length_sq();
-            if l > max_area {
-                centroids.push((self.mesh[p0] + self.mesh[p1]) / 2.0);
+        self.update_data(centroids, false); // optimize);
+        triangles_split
+    }
+
+    //mp split_mesh_edges
+    /// Split just the mesh edges
+    pub fn split_mesh_edges(&mut self, max_len: f64, optimize: bool) -> usize {
+        let edges_split = self.mesh.split_edges(max_len);
+        if edges_split > 0 {
+            if optimize {
+                while self.mesh.optimize_mesh_quads() {}
             }
         }
-        self.update_data(centroids, optimize);
+        edges_split
+    }
+
+    //mp split_mesh_triangles
+    /// Split just the mesh triangles
+    pub fn split_mesh_triangles(&mut self, max_area: f64, optimize: bool) -> usize {
+        let triangles_split = self.mesh.split_triangles(max_area);
+        if triangles_split > 0 {
+            if optimize {
+                while self.mesh.optimize_mesh_quads() {}
+            }
+        }
         triangles_split
     }
 }
@@ -187,15 +214,14 @@ impl Patch {
             .collect();
         self.patch_mesh.update_data(model_pts_projected, true);
 
-        let n = self.patch_mesh.split_triangles(10.0, true);
-        eprintln!("Split {n} triangles");
-        let n = self.patch_mesh.split_triangles(10.0, true);
-        eprintln!("Split {n} triangles");
-        let n = self.patch_mesh.split_triangles(10.0, true);
-        eprintln!("Split {n} triangles");
-        let n = self.patch_mesh.split_triangles(10.0, false);
-        eprintln!("Split {n} triangles");
-
+        loop {
+            let n_edge = self.patch_mesh.split_mesh_edges(10.0, true);
+            let n_triangles = self.patch_mesh.split_mesh_triangles(10.0, true);
+            eprintln!("Split {n_edge} edges, {n_triangles} triangles");
+            if n_edge == 0 && n_triangles == 0 {
+                break;
+            }
+        }
         true
     }
 
@@ -312,7 +338,7 @@ impl Patch {
 
         let mesh = self.patch_mesh.mesh();
         let c: I::Pixel = 192_u8.into();
-        for (p0, p1, p2) in mesh.triangles() {
+        for (p0, p1, p2) in mesh.triangle_pts() {
             let p0 = mesh[p0] * self.render_px_per_model;
             let p1 = mesh[p1] * self.render_px_per_model;
             let p2 = mesh[p2] * self.render_px_per_model;
