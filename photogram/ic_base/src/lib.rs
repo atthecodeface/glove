@@ -11,6 +11,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod json;
 pub use json::PathSet;
 pub mod plane;
+pub mod quadtree;
 pub mod types;
 pub mod utils;
 
