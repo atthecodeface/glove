@@ -5,7 +5,7 @@ use geo_nd::Vector;
 
 use crate::Point2D;
 
-//a Quadtree
+//a QtNode, QtPathEntry, QtPath
 //ci NodesPerQt
 /// A representation of an rectangular area of a plane to permit searching
 const NodesPerQt: usize = 8; // max of 12
@@ -13,6 +13,7 @@ const NodesPerQt: usize = 8; // max of 12
 //tt QtNode
 pub trait QtNode: std::fmt::Debug + Clone + Sized + Default {}
 
+//it QtNode for T
 impl<T> QtNode for T where T: std::fmt::Debug + Clone + Sized + Default {}
 
 //tp QtPathEntry
@@ -494,14 +495,23 @@ fn test_quadtree_1() -> Result<(), String> {
     assert!(!paths[440].is_none());
     assert!(!paths[440].is_local());
 
+    let mut paths_in_circle = std::collections::HashSet::new();
     let center = [13., 14.].into();
-    let radius = 1.1;
+    let radius = 5.1;
     for qtpp in qt.iter_within_radius_of(center, radius) {
         eprintln!("{qtpp:?}");
         let d = center.distance(qtpp.pt());
         assert!(d <= radius);
+        paths_in_circle.insert(qtpp.qtp());
     }
-    assert!(false);
+    let mut count = 0;
+    for qtpp in qt.iter() {
+        eprintln!("{qtpp:?}");
+        let d = center.distance(qtpp.pt());
+        assert_eq!(paths_in_circle.contains(&qtpp.qtp()), d <= radius);
+        count += 1;
+    }
+    assert_eq!(count, 441);
 
     Ok(())
 }

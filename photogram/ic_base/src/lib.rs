@@ -24,3 +24,5 @@ pub use ray::Ray;
 mod mesh;
 pub use mesh::Mesh;
 pub use utils::Rrc;
+
+pub use quadtree::{QtPath, Quadtree};

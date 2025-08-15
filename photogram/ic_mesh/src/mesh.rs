@@ -6,7 +6,7 @@ use std::default::Default;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::Point2D;
+use ic_base::{Point2D, Quadtree};
 
 use crate::{IndexLine, IndexTriangle, LineIndex, PointIndex, TriangleIndex};
 
@@ -18,6 +18,8 @@ pub struct Mesh {
     lines: Vec<IndexLine>,
     triangles: Vec<IndexTriangle>,
     line_set: HashMap<(PointIndex, PointIndex), LineIndex>,
+    #[serde(skip)]
+    quadtree: Quadtree<PointIndex>,
 }
 
 //ip Index<PointIndex>
@@ -73,11 +75,13 @@ impl Mesh {
         let lines = vec![];
         let triangles = vec![];
         let line_set = HashMap::new();
+        let quadtree = Quadtree::default();
         Self {
             pxy,
             lines,
             triangles,
             line_set,
+            quadtree,
         }
     }
 
@@ -111,6 +115,17 @@ impl Mesh {
     //ap lines
     pub fn lines(&self) -> impl std::iter::Iterator<Item = LineIndex> + '_ {
         (0..self.lines.len()).map(|p| p.into())
+    }
+
+    //mp create_quadtree
+    pub fn create_quadtree<I>(&mut self, iter: I)
+    where
+        I: Iterator<Item = PointIndex>,
+    {
+        self.quadtree = Quadtree::default();
+        for p in iter {
+            self.quadtree.add_node(p, self[p]);
+        }
     }
 
     //mp validate
@@ -268,6 +283,7 @@ impl Mesh {
     pub fn clear(&mut self) {
         self.lines.clear();
         self.triangles.clear();
+        self.quadtree = Quadtree::default();
     }
 
     //mi find_lbx_pt
