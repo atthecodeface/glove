@@ -229,7 +229,7 @@ impl ProjectSet {
         }
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
-        let path = self.image_root.as_path().join(cip_r.image());
+        let path = self.image_root.as_path().join(cip_r.image_filename());
         server.verbose().then(|| eprintln!("Open image {path:?}"));
 
         let src_img_ref = self.image_cache.src_image(&path)?;
@@ -276,7 +276,7 @@ impl ProjectSet {
         }
         let cip = p.cip(cip).clone();
         let cip_r = cip.borrow();
-        let path = self.image_root.as_path().join(cip_r.image());
+        let path = self.image_root.as_path().join(cip_r.image_filename());
 
         let src_img_ref = self.image_cache.src_image(&path)?;
         let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);

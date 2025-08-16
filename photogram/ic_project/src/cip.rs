@@ -37,8 +37,9 @@ impl CipFileDesc {
     //mp load_cip
     pub fn load_cip(&self, path_set: &PathSet, project: &Project) -> Result<Cip> {
         let mut cip = Cip {
-            camera_file: self.camera_file.clone(),
-            pms_file: self.pms_file.clone(),
+            camera_filename: self.camera_file.clone(),
+            pms_filename: self.pms_file.clone(),
+            image_filename: self.image.clone(),
             image: self.image.clone(),
             ..Default::default()
         };
@@ -63,8 +64,9 @@ impl CipFileDesc {
 //tp CipDesc
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CipDesc {
-    camera_file: String,
-    pms_file: String,
+    camera_filename: String,
+    pms_filename: String,
+    image_filename: String,
     camera: CameraInstanceDesc,
     image: String,
     pms: PointMappingSet,
@@ -73,8 +75,9 @@ pub struct CipDesc {
 //tp Cip
 #[derive(Debug, Default, Serialize)]
 pub struct Cip {
-    camera_file: String,
-    pms_file: String,
+    camera_filename: String,
+    pms_filename: String,
+    image_filename: String,
     camera: Rrc<CameraInstance>,
     pms: Rrc<PointMappingSet>,
     image: String,
@@ -82,34 +85,44 @@ pub struct Cip {
 
 //ip Cip
 impl Cip {
-    //ap camera_file
-    pub fn camera_file(&self) -> &str {
-        &self.camera_file
-    }
-
-    //ap image
-    pub fn image(&self) -> &str {
+    //ap image_name
+    pub fn image_name(&self) -> &str {
         &self.image
     }
 
-    //ap pms_file
-    pub fn pms_file(&self) -> &str {
-        &self.pms_file
+    //mp set_image_name
+    pub fn set_image<I: Into<String>>(&mut self, s: I) {
+        self.image = s.into();
     }
 
-    //mp set_camera_file
-    pub fn set_camera_file<I: Into<String>>(&mut self, cam_file: I) {
-        self.camera_file = cam_file.into();
+    //ap camera_filename
+    pub fn camera_filename(&self) -> &str {
+        &self.camera_filename
     }
 
-    //mp set_image
-    pub fn set_image<I: Into<String>>(&mut self, image: I) {
-        self.image = image.into();
+    //ap image_filename
+    pub fn image_filename(&self) -> &str {
+        &self.image_filename
     }
 
-    //mp set_pms_file
-    pub fn set_pms_file<I: Into<String>>(&mut self, pms_file: I) {
-        self.pms_file = pms_file.into();
+    //ap pms_filename
+    pub fn pms_filename(&self) -> &str {
+        &self.pms_filename
+    }
+
+    //mp set_camera_filename
+    pub fn set_camera_filename<I: Into<String>>(&mut self, s: I) {
+        self.camera_filename = s.into();
+    }
+
+    //mp set_image_filename
+    pub fn set_image_filename<I: Into<String>>(&mut self, s: I) {
+        self.image_filename = s.into();
+    }
+
+    //mp set_pms_filename
+    pub fn set_pms_filename<I: Into<String>>(&mut self, s: I) {
+        self.pms_filename = s.into();
     }
 
     //cp read_json
@@ -134,12 +147,14 @@ impl Cip {
         let _warnings = pms
             .borrow_mut()
             .rebuild_with_named_point_set(&project.nps_ref());
-        let camera_file = cip_desc.camera_file.clone();
-        let pms_file = cip_desc.pms_file.clone();
+        let camera_filename = cip_desc.camera_filename;
+        let pms_filename = cip_desc.pms_filename;
+        let image_filename = cip_desc.image_filename;
         Ok((
             Self {
-                camera_file,
-                pms_file,
+                camera_filename,
+                pms_filename,
+                image_filename,
                 camera,
                 pms,
                 image,

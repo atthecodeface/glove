@@ -521,9 +521,10 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let camera_filename = cmd_args.get_string_arg(0).unwrap();
     let image_filename = cmd_args.get_string_arg(1).unwrap();
     let pms_filename = cmd_args.get_string_arg(2).unwrap();
-    cip.set_camera_file(camera_filename);
+    cip.set_camera_filename(camera_filename);
     cip.set_image(image_filename);
-    cip.set_pms_file(pms_filename);
+    cip.set_image_filename(image_filename);
+    cip.set_pms_filename(pms_filename);
     cip.set_camera(cmd_args.camera().clone().into());
 
     let cip: Rrc<Cip> = cip.into();

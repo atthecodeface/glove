@@ -20,7 +20,7 @@ const KEY_FNS: &[KeyFn] = &[
     ),
     KeyFn(
         "cip.image",
-        &|cmd_args| Some(cmd_args.cip.borrow().image().to_owned()),
+        &|cmd_args| Some(cmd_args.cip.borrow().image_name().to_owned()),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.image' to '{s}'").into()),
     ),
     KeyFn(
@@ -30,7 +30,7 @@ const KEY_FNS: &[KeyFn] = &[
     ),
     KeyFn(
         "cip.point_mapping_set",
-        &|cmd_args| Some(cmd_args.cip.borrow().pms_file().to_owned()),
+        &|cmd_args| Some(cmd_args.cip.borrow().pms_filename().to_owned()),
         &|mut _cmd_args, s| {
             Err(format!("Failed to set key 'cip.point_mapping_set' to '{s}'").into())
         },
