@@ -46,12 +46,14 @@ impl ProjectFileDesc {
     //mp load_project
     pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
         let mut project = Project::default();
-        let (_cdb_filename, mut cdb): (String, CameraDatabase) =
+        let (cdb_filename, mut cdb): (String, CameraDatabase) =
             path_set.load_from_json_file("camera database", &self.cdb)?;
         cdb.derive();
         project.set_cdb(cdb);
-        let (_nps_filename, nps) = path_set.load_from_json_file("named point set", &self.nps)?;
+        project.set_cdb_filename(cdb_filename);
+        let (nps_filename, nps) = path_set.load_from_json_file("named point set", &self.nps)?;
         project.set_nps(Rrc::new(nps));
+        project.set_nps_filename(nps_filename);
         for cip in &self.cips {
             let cip = Rrc::new(cip.load_cip(path_set, &project)?);
             project.add_cip(cip);
@@ -73,6 +75,10 @@ struct ProjectDesc {
     nps: Rrc<NamedPointSet>,
     /// A list of CameraInstanceDesc and PointMappingSet, and an image name
     cips: Vec<CipDesc>,
+    #[serde(default)]
+    cdb_filename: String,
+    #[serde(default)]
+    nps_filename: String,
 }
 
 //a Project
@@ -95,6 +101,10 @@ pub struct Project {
     cdb: Rrc<CameraDatabase>,
     nps: Rrc<NamedPointSet>,
     cips: Vec<Rrc<Cip>>,
+    #[serde(default)]
+    cdb_filename: String,
+    #[serde(default)]
+    nps_filename: String,
 }
 
 //ip Deserialize for Project
@@ -108,10 +118,14 @@ impl<'de> Deserialize<'de> for Project {
         let cdb = project_desc.cdb.into();
         let nps = project_desc.nps;
         let cips = project_desc.cips;
+        let cdb_filename = project_desc.cdb_filename;
+        let nps_filename = project_desc.nps_filename;
         let mut project = Self {
             cdb,
             nps,
             cips: vec![],
+            cdb_filename,
+            nps_filename,
         };
         for cip_desc in cips {
             use serde::de::Error;
@@ -133,9 +147,29 @@ impl Project {
         &self.cdb
     }
 
+    //ap cdb_filename
+    pub fn cdb_filename(&self) -> &str {
+        &self.cdb_filename
+    }
+
     //ap nps
     pub fn nps(&self) -> &Rrc<NamedPointSet> {
         &self.nps
+    }
+
+    //ap nps_filename
+    pub fn nps_filename(&self) -> &str {
+        &self.nps_filename
+    }
+
+    //mp set_cdb_filename
+    pub fn set_cdb_filename<S: Into<String>>(&mut self, cdb_filename: S) {
+        self.cdb_filename = cdb_filename.into();
+    }
+
+    //mp set_nps_filename
+    pub fn set_nps_filename<S: Into<String>>(&mut self, nps_filename: S) {
+        self.nps_filename = nps_filename.into();
     }
 
     //ap cdb_ref
