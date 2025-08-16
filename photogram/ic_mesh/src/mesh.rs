@@ -20,6 +20,8 @@ pub struct Mesh {
     line_set: HashMap<(PointIndex, PointIndex), LineIndex>,
     #[serde(skip)]
     quadtree: Quadtree<PointIndex>,
+    #[serde(skip)]
+    validate: bool,
 }
 
 //ip Index<PointIndex>
@@ -82,6 +84,7 @@ impl Mesh {
             triangles,
             line_set,
             quadtree,
+            validate: false,
         }
     }
 
@@ -131,33 +134,43 @@ impl Mesh {
     //mp validate
     #[track_caller]
     pub fn validate(&self) {
+        if !self.validate {
+            return;
+        }
+        let mut errors = vec![];
+
         for (n, l) in self.lines.iter().enumerate() {
             let (p0, p1) = l.pts();
+
+            if let Some(ls_l) = self.line_set.get(&(p0, p1)) {
+                if n != ls_l.as_usize() {
+                    errors.push(format!(
+                        "line {n} {l} is not the line in line_set for {p0} {p1}"
+                    ));
+                }
+            } else {
+                errors.push(format!("line {n} {l} not in line_set"));
+            }
+
             let (t0, t1) = l.triangles();
-            assert_eq!(
-                t0 == t1,
-                l.has_one_triangle(),
-                "line {n} {l} Line has only one triangle"
-            );
+            if ((t0 == t1) != l.has_one_triangle()) {
+                errors.push(format!("line {n} {l} Line has only one triangle"));
+            }
 
             let t0 = &self[t0]; // if t0!=t1 then this is left of the line, i,e, has pts p0,p1,p2, p1,p2,p0, or p2,p0,p1
             let t1 = &self[t1];
-            assert!(
-                t0.contains_pt(p0),
-                "line {n} {l} {t0} t0 must contain line point p0"
-            );
-            assert!(
-                t0.contains_pt(p1),
-                "line {n} {l} {t0} t0 must contain line point p1"
-            );
-            assert!(
-                t1.contains_pt(p0),
-                "line {n} {l} {t1} t1 must contain line point p0"
-            );
-            assert!(
-                t1.contains_pt(p1),
-                "line {n} {l} {t1} t1 must contain line point p1"
-            );
+            if !t0.contains_pt(p0) {
+                errors.push(format!("line {n} {l} {t0} t0 must contain line point p0"));
+            }
+            if !t0.contains_pt(p1) {
+                errors.push(format!("line {n} {l} {t0} t0 must contain line point p1"));
+            }
+            if !t1.contains_pt(p0) {
+                errors.push(format!("line {n} {l} {t1} t1 must contain line point p0"));
+            }
+            if !t1.contains_pt(p1) {
+                errors.push(format!("line {n} {l} {t1} t1 must contain line point p1"));
+            }
 
             let (tp0, tp1, tp2) = t0.pts();
             let t0_is_left_side =
@@ -166,22 +179,23 @@ impl Mesh {
             let t1_is_left_side =
                 (tp0 == p0 && tp1 == p1) || (tp1 == p0 && tp2 == p1) || (tp2 == p0 && tp0 == p1);
 
-            assert_eq!(
-                t0_is_left_side,
-                l.t0_is_on_left(&self.triangles),
-                "T0 is on left correctly asserted"
-            );
+            if t0_is_left_side != l.t0_is_on_left(&self.triangles) {
+                errors.push(format!("T0 is on left correctly asserted"));
+            }
             if !l.has_one_triangle() {
-                assert!(
-                    t0_is_left_side,
-                    "line {n} {l} has two triangles, but t0 is not on the left"
-                );
-                assert!(
-                    !t1_is_left_side,
-                    "line {n} {l} has two triangles, but t1 is not on the right"
-                );
+                if !t0_is_left_side {
+                    errors.push(format!(
+                        "line {n} {l} has two triangles, but t0 is not on the left"
+                    ));
+                }
+                if t1_is_left_side {
+                    errors.push(format!(
+                        "line {n} {l} has two triangles, but t1 is not on the right"
+                    ));
+                }
             }
         }
+
         for (n, t) in self.triangles.iter().enumerate() {
             let (p0, p1, p2) = t.pts();
             let (l0, l1, l2) = t.lines();
@@ -189,59 +203,51 @@ impl Mesh {
             let l0 = &self[l0];
             let l1 = &self[l1];
             let l2 = &self[l2];
-            assert!(
-                l0.contains_pt(p0),
-                "tri {n} {t} Triangle line 0 must contain p0"
-            );
-            assert!(
-                l0.contains_pt(p1),
-                "tri {n} {t} Triangle line 0 must contain p1"
-            );
+            if !l0.contains_pt(p0) {
+                errors.push(format!("tri {n} {t} Triangle line 0 must contain p0"));
+            }
+            if !l0.contains_pt(p1) {
+                errors.push(format!("tri {n} {t} Triangle line 0 must contain p1"));
+            }
 
-            assert!(
-                l1.contains_pt(p1),
-                "tri {n} {t} Triangle line 1 must contain p1"
-            );
-            assert!(
-                l1.contains_pt(p2),
-                "tri {n} {t} Triangle line 1 must contain p2"
-            );
+            if !l1.contains_pt(p1) {
+                errors.push(format!("tri {n} {t} Triangle line 1 must contain p1"));
+            }
+            if !l1.contains_pt(p2) {
+                errors.push(format!("tri {n} {t} Triangle line 1 must contain p2"));
+            }
 
-            assert!(
-                l2.contains_pt(p2),
-                "tri {n} {t} Triangle line 2 must contain p2"
-            );
-            assert!(
-                l2.contains_pt(p0),
-                "tri {n} {t} Triangle line 2 must contain p0"
-            );
+            if !l2.contains_pt(p2) {
+                errors.push(format!("tri {n} {t} Triangle line 2 must contain p2"));
+            }
+            if !l2.contains_pt(p0) {
+                errors.push(format!("tri {n} {t} Triangle line 2 must contain p0"));
+            }
 
-            assert!(
-                l0.triangles().0 == n || l0.triangles().1 == n,
-                "tri {n} {t} Triangle line 0 must contain t"
-            );
-            assert!(
-                l1.triangles().0 == n || l1.triangles().1 == n,
-                "tri {n} {t} Triangle line 1 must contain t"
-            );
-            assert!(
-                l2.triangles().0 == n || l2.triangles().1 == n,
-                "tri {n} {t} Triangle line 2 must contain t"
-            );
+            if !(l0.triangles().0 == n || l0.triangles().1 == n) {
+                errors.push(format!("tri {n} {t} Triangle line 0 must contain t"));
+            }
+            if !(l1.triangles().0 == n || l1.triangles().1 == n) {
+                errors.push(format!("tri {n} {t} Triangle line 1 must contain t"));
+            }
+            if !(l2.triangles().0 == n || l2.triangles().1 == n) {
+                errors.push(format!("tri {n} {t} Triangle line 2 must contain t"));
+            }
 
-            assert!(
-                t.contains_pt(p0),
-                "tri {n} {t} Triangle must contain p0 {p0}"
-            );
-            assert!(
-                t.contains_pt(p1),
-                "tri {n} {t} Triangle must contain p1 {p1}"
-            );
-            assert!(
-                t.contains_pt(p2),
-                "tri {n} {t} Triangle must contain p2 {p2}"
-            );
+            if !t.contains_pt(p0) {
+                errors.push(format!("tri {n} {t} Triangle must contain p0 {p0}"));
+            }
+            if !t.contains_pt(p1) {
+                errors.push(format!("tri {n} {t} Triangle must contain p1 {p1}"));
+            }
+            if !t.contains_pt(p2) {
+                errors.push(format!("tri {n} {t} Triangle must contain p2 {p2}"));
+            }
         }
+        for e in &errors {
+            eprintln!("{e}");
+        }
+        assert!(errors.is_empty());
     }
 
     //mp find_duplicates
@@ -439,7 +445,7 @@ impl Mesh {
             return false;
         }
 
-        // self.validate();
+        self.validate();
 
         let (a, b) = self[ab].pts();
         let (t0, _) = self[ab].triangles();
@@ -481,8 +487,11 @@ impl Mesh {
             self[mc].t0 = t0;
             self[mc].t1 = t1;
         }
+
         self[ab].change_pt(b, m);
+        self.line_set.remove(&(a, b));
         let am = ab;
+        self.line_set.insert((a, m), am);
         let bm = self.add_line(b, m, t1);
 
         // bc and ca start with t0 as a triangle
@@ -505,7 +514,7 @@ impl Mesh {
         // self[mc], self[ca], self[am], self[bm], self[bc]
         // );
 
-        // self.validate();
+        self.validate();
         true
     }
 
@@ -580,6 +589,9 @@ impl Mesh {
         if self.pxy.is_empty() {
             return;
         }
+
+        self.validate();
+
         let (lbx, sweep) = self.find_sweep();
         let num_triangles = sweep.len() - 1;
         for n in 1..num_triangles {
@@ -592,6 +604,9 @@ impl Mesh {
             // );
             self.add_triangle(lbx, sweep[n], sweep[n + 1]);
         }
+
+        self.validate();
+
         let mut hull = sweep.clone();
         let mut p0 = 0;
         while p0 < hull.len() - 1 {
@@ -620,6 +635,8 @@ impl Mesh {
                 p0 += 1;
             }
         }
+
+        self.validate();
     }
 
     //mp remove_zero_area_triangles
@@ -776,8 +793,10 @@ impl Mesh {
         self[t1].change_pt(c_p1, o_p0);
         self[t1].change_ln(ln_i, ln_b);
         self[t1].change_ln(ln_d, ln_i);
+        self.line_set.remove(&(c_p0, c_p1));
         self[ln_i].change_pt(c_p0, o_p0);
         self[ln_i].change_pt(c_p1, o_p1);
+        self.line_set.insert((o_p0, o_p1), ln_i);
         self[ln_b].change_triangle(t0, t1);
         self[ln_d].change_triangle(t1, t0);
 
@@ -793,9 +812,11 @@ impl Mesh {
 
     //mp optimize_mesh_quads
     pub fn optimize_mesh_quads(&mut self) -> bool {
+        self.validate();
         if self.remove_zero_area_triangles() {
             return true;
         }
+        self.validate();
         let mut changed = false;
         for i in 0..self.lines.len() {
             let ln_i: LineIndex = i.into();
@@ -818,6 +839,7 @@ impl Mesh {
                     .quad_swap_diagonals_unless_it_makes_zero_area(ln_i, c_p0, c_p1, o_p0, o_p1);
             }
         }
+        self.validate();
         changed
     }
 

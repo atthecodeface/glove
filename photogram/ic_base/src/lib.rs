@@ -9,11 +9,14 @@ pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub mod json;
-pub use json::PathSet;
-pub mod plane;
-pub mod quadtree;
+mod path_set;
+pub use path_set::PathSet;
+mod plane;
+mod quadtree;
 pub mod types;
 pub mod utils;
+mod word_xy;
+pub use word_xy::WordXy;
 
 pub use plane::Plane;
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};

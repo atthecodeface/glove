@@ -1,5 +1,4 @@
 //a Imports
-use std::marker::PhantomData;
 
 use geo_nd::Vector;
 
@@ -151,7 +150,7 @@ impl QtPath {
         assert_eq!((self.value >> 60) & 0xf, 0, "Overflow in quadtree depth");
         let mut mask = 0xf;
         let mut subvalue = sub_qtp.value;
-        while (self.value & mask != 0) {
+        while self.value & mask != 0 {
             mask <<= 4;
             subvalue <<= 4;
         }
@@ -419,7 +418,7 @@ where
             let n = top.1 as usize;
             let qtp = top.2.append_child_path(QtPath::of_node(top.1));
             top.1 += 1;
-            Some((QtNodePtPath::new(&top.0.nodes[n], &top.0.node_pts[n], qtp)))
+            Some(QtNodePtPath::new(&top.0.nodes[n], &top.0.node_pts[n], qtp))
         } else if top.3 == 0 {
             self.stack.pop();
             self.next()
