@@ -43,10 +43,13 @@ impl PathSet {
     }
 
     //fp read_json_file
-    pub fn read_json_file<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<String> {
+    pub fn read_json_file<P: AsRef<Path> + std::fmt::Display>(
+        &self,
+        path: P,
+    ) -> Result<(String, String)> {
         if let Some(path) = self.find_file(&path) {
             let file_text = std::fs::read_to_string(&path)?;
-            Ok(remove_comments(&file_text))
+            Ok((path.display().to_string(), remove_comments(&file_text)))
         } else {
             Err(format!("Failed to find '{path}' on the search path").into())
         }
@@ -57,10 +60,14 @@ impl PathSet {
         &self,
         reason: &str,
         path: P,
-    ) -> Result<T> {
-        let json = self
+    ) -> Result<(String, T)> {
+        let (pathname, json) = self
             .read_json_file(&path)
             .map_err(|e| (e, reason.to_owned()))?;
-        serde_json::from_str(&json).map_err(|e| json_error(&format!("{reason} '{path}'"), &json, e))
+        Ok((
+            pathname,
+            serde_json::from_str(&json)
+                .map_err(|e| json_error(&format!("{reason} '{path}'"), &json, e))?,
+        ))
     }
 }

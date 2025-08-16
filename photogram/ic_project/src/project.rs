@@ -19,6 +19,12 @@ pub struct ProjectFileDesc {
     nps: String,
     /// A list of (camera filename, image filename, point mapping set filename)
     cips: Vec<CipFileDesc>,
+    /// File containing the patch sets
+    #[serde(default)]
+    patches: String,
+    /// Files containing image squares
+    #[serde(default)]
+    squares: Vec<String>,
 }
 
 //ip ProjectFileDesc
@@ -40,16 +46,19 @@ impl ProjectFileDesc {
     //mp load_project
     pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
         let mut project = Project::default();
-        let mut cdb: CameraDatabase = path_set.load_from_json_file("camera database", &self.cdb)?;
+        let (_cdb_filename, mut cdb): (String, CameraDatabase) =
+            path_set.load_from_json_file("camera database", &self.cdb)?;
         cdb.derive();
         project.set_cdb(cdb);
-        project.set_nps(Rrc::new(
-            path_set.load_from_json_file("named point set", &self.nps)?,
-        ));
+        let (_nps_filename, nps) = path_set.load_from_json_file("named point set", &self.nps)?;
+        project.set_nps(Rrc::new(nps));
         for cip in &self.cips {
             let cip = Rrc::new(cip.load_cip(path_set, &project)?);
             project.add_cip(cip);
         }
+        // project.set_patches(Rrc::new(path_set.load_from_json_file("patches", &self.patches)?,
+        //));
+        for s in &self.squares {}
         Ok(project)
     }
 }

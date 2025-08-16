@@ -42,10 +42,10 @@ impl CipFileDesc {
             image: self.image.clone(),
             ..Default::default()
         };
-        let camera_desc: CameraInstanceDesc =
+        let (_camera_filename, camera_desc): (String, CameraInstanceDesc) =
             path_set.load_from_json_file("camera", &self.camera_file)?;
         cip.camera = CameraInstance::from_desc(&project.cdb_ref(), camera_desc)?.into();
-        let pms_json = path_set
+        let (_pms_filename, pms_json) = path_set
             .read_json_file(&self.pms_file)
             .map_err(|e| (e, "point mapping set".to_owned()))?;
         let (pms, warnings) = PointMappingSet::from_json(&project.nps_ref(), &pms_json)?;

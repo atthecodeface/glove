@@ -1,9 +1,9 @@
 # PROJECT=cube_improved.json ./target/release/photogram --batch scripts/cube_image.bat
 
 --path nac --path ../../Images --path ../..
---project_file ${PROJECT} 
+-v --project_file ${PROJECT} 
 
-named_points list
+# named_points list
 
 named_points get_model_points  0 1 2
 named_points update_model ${0}

@@ -151,7 +151,7 @@ impl Plane {
             sum_z2 / n2,
         ]);
         let midpoint: Point3D = [sum_x / n, sum_y / n, sum_z / n].into();
-        eprintln!("{dm:?}");
+        // eprintln!("{dm:?}");
         if !dm.try_inverse_mut() {
             // Plane goes nearly through the origin - d must close to zero
             //
@@ -167,7 +167,7 @@ impl Plane {
             // sum_x2' = sum_x2 + 2*sum_x + n ; sum_xy' = sum_xy + sum_x + sum_y + n; etc
             return None;
         }
-        eprintln!("{dm:?}");
+        // eprintln!("{dm:?}");
         let mut dm_2 = [0.; 9];
         for i in 0..9 {
             dm_2[i] = dm[i];

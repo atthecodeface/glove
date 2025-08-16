@@ -29,9 +29,10 @@ impl CmdArgs {
 
     //mi set_camera_db
     pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
-        let mut camera_db: CameraDatabase = self
+        let (cdb_filename, mut camera_db): (String, CameraDatabase) = self
             .path_set
             .load_from_json_file("camera database", filename)?;
+        self.if_verbose(|| eprintln!("Loaded camera database from '{cdb_filename}'"));
         camera_db.derive();
         self.project.set_cdb(camera_db);
         self.cdb = self.project.cdb().clone();
@@ -40,7 +41,10 @@ impl CmdArgs {
 
     //mi set_project_file
     pub(crate) fn set_project_file(&mut self, filename: &str) -> Result<()> {
-        self.project = self.path_set.load_from_json_file("project", filename)?;
+        let project_filename;
+        (project_filename, self.project) =
+            self.path_set.load_from_json_file("project", filename)?;
+        self.if_verbose(|| eprintln!("Loaded project from '{project_filename}'"));
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
         self.cip_number = 0;
@@ -49,10 +53,11 @@ impl CmdArgs {
     }
 
     //mi set_project_desc
-    pub(crate) fn set_project_desc(&mut self, project_filename: &str) -> Result<()> {
-        let project_file_desc: ProjectFileDesc = self
-            .path_set
-            .load_from_json_file("project descriptor", project_filename)?;
+    pub(crate) fn set_project_desc(&mut self, filename: &str) -> Result<()> {
+        let (project_desc_filename, project_file_desc): (String, ProjectFileDesc) =
+            self.path_set
+                .load_from_json_file("project descriptor", filename)?;
+        self.if_verbose(|| eprintln!("Loaded project desc from '{project_desc_filename}'"));
         self.project = project_file_desc.load_project(&self.path_set)?;
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
