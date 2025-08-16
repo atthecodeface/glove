@@ -68,8 +68,8 @@ impl PatchMesh {
 
     //mp split_triangles_to_max_area
     pub fn split_triangles_to_max_area(&mut self, max_area: f64, optimize: bool) -> usize {
-        let mut triangles_split = 0;
-        let mut centroids: Vec<_> = self.model_pts_projected().iter().cloned().collect();
+        let triangles_split = 0;
+        let mut centroids: Vec<_> = self.model_pts_projected().to_vec();
         for (p0, p1, p2) in self.mesh.triangle_pts() {
             let p01 = self.mesh[p0] - self.mesh[p1];
             let p02 = self.mesh[p0] - self.mesh[p2];
@@ -85,7 +85,7 @@ impl PatchMesh {
                 for j in 0..(side_split - i) {
                     let dj = (j as f64) / (side_split as f64);
                     let dk = 1.0 - (di + dj);
-                    centroids.push((self.mesh[p0] * di + self.mesh[p1] * dj + self.mesh[p2] * dk));
+                    centroids.push(self.mesh[p0] * di + self.mesh[p1] * dj + self.mesh[p2] * dk);
                 }
             }
         }
@@ -97,11 +97,10 @@ impl PatchMesh {
     /// Split just the mesh edges
     pub fn split_mesh_edges(&mut self, max_len: f64, optimize: bool) -> usize {
         let edges_split = self.mesh.split_edges(max_len);
-        if edges_split > 0 {
-            if optimize {
+        if edges_split > 0
+            && optimize {
                 while self.mesh.optimize_mesh_quads() {}
             }
-        }
         edges_split
     }
 
@@ -109,11 +108,10 @@ impl PatchMesh {
     /// Split just the mesh triangles
     pub fn split_mesh_triangles(&mut self, max_area: f64, optimize: bool) -> usize {
         let triangles_split = self.mesh.split_triangles(max_area);
-        if triangles_split > 0 {
-            if optimize {
+        if triangles_split > 0
+            && optimize {
                 while self.mesh.optimize_mesh_quads() {}
             }
-        }
         triangles_split
     }
 }
@@ -301,10 +299,10 @@ impl Patch {
         let dx = (rx - lx) / 2.0 * self.expansion_factor;
         let dy = (ty - by) / 2.0 * self.expansion_factor;
 
-        let lx = (cx - dx);
-        let rx = (cx + dx);
-        let by = (cy - dy);
-        let ty = (cy + dy);
+        let lx = cx - dx;
+        let rx = cx + dx;
+        let by = cy - dy;
+        let ty = cy + dy;
 
         let lx = lx * self.render_px_per_model;
         let rx = rx * self.render_px_per_model;

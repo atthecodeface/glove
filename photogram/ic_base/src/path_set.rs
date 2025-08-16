@@ -2,11 +2,10 @@
 use std::path::{Path, PathBuf};
 
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
 
 use crate::json::json_error;
 use crate::json::remove_comments;
-use crate::{Error, Result};
+use crate::Result;
 
 //a PathSet
 //tp PathSet

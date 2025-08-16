@@ -192,10 +192,10 @@ where
         Self { node, pt, qtp }
     }
     pub fn node(&self) -> &N {
-        &self.node
+        self.node
     }
     pub fn pt(&self) -> &Point2D {
-        &self.pt
+        self.pt
     }
     pub fn qtp(&self) -> QtPath {
         self.qtp

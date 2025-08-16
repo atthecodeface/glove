@@ -98,7 +98,7 @@ impl Mesh {
     }
 
     //ap triangles
-    pub fn triangles(&self) -> impl std::iter::Iterator<Item = (TriangleIndex)> + '_ {
+    pub fn triangles(&self) -> impl std::iter::Iterator<Item = TriangleIndex> + '_ {
         let n = self.triangles.len();
         (0..n).map(|p| p.into())
     }
@@ -153,7 +153,7 @@ impl Mesh {
             }
 
             let (t0, t1) = l.triangles();
-            if ((t0 == t1) != l.has_one_triangle()) {
+            if (t0 == t1) != l.has_one_triangle() {
                 errors.push(format!("line {n} {l} Line has only one triangle"));
             }
 
@@ -180,7 +180,7 @@ impl Mesh {
                 (tp0 == p0 && tp1 == p1) || (tp1 == p0 && tp2 == p1) || (tp2 == p0 && tp0 == p1);
 
             if t0_is_left_side != l.t0_is_on_left(&self.triangles) {
-                errors.push(format!("T0 is on left correctly asserted"));
+                errors.push("T0 is on left correctly asserted".to_string());
             }
             if !l.has_one_triangle() {
                 if !t0_is_left_side {
@@ -339,8 +339,8 @@ impl Mesh {
             Ordering::Greater
         } else {
             // Note theta increases as the points move anticlockwise
-            match theta_0.partial_cmp(&theta_1).unwrap() {
-                Ordering::Equal => r2_0.partial_cmp(&r2_1).unwrap(),
+            match theta_0.partial_cmp(theta_1).unwrap() {
+                Ordering::Equal => r2_0.partial_cmp(r2_1).unwrap(),
                 x => x,
             }
         }
@@ -525,11 +525,10 @@ impl Mesh {
         let n = self.lines.len();
         for l in 0..n {
             let l = l.into();
-            if self.line_length(l) > max_len {
-                if self.split_edge(l) {
+            if self.line_length(l) > max_len
+                && self.split_edge(l) {
                     edges_split += 1;
                 }
-            }
         }
         edges_split
     }
@@ -628,9 +627,7 @@ impl Mesh {
                 // );
                 self.add_triangle(ph0, ph2, ph1);
                 hull.remove(p1);
-                if p0 > 0 {
-                    p0 -= 1;
-                }
+                p0 = p0.saturating_sub(1);
             } else {
                 p0 += 1;
             }
@@ -643,7 +640,7 @@ impl Mesh {
     pub fn remove_zero_area_triangles(&mut self) -> bool {
         let mut changed = false;
         let mut zero_area_triangles = self.find_zero_area_triangles();
-        zero_area_triangles.sort_by(|(_, a_l2), (_, b_l2)| b_l2.partial_cmp(&a_l2).unwrap());
+        zero_area_triangles.sort_by(|(_, a_l2), (_, b_l2)| b_l2.partial_cmp(a_l2).unwrap());
         for (t, _) in zero_area_triangles {
             if self.triangle_area(t) < 1E-12 {
                 let (p0, p1, p2) = self[t].pts();
@@ -807,7 +804,7 @@ impl Mesh {
         // eprintln!(" L_b: {}", self[ln_b]);
         // eprintln!(" L_d: {}", self[ln_d]);
 
-        return true;
+        true
     }
 
     //mp optimize_mesh_quads

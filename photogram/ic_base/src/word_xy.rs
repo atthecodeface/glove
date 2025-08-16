@@ -155,7 +155,7 @@ where
 }
 
 //ip TryFrom for WordXy
-impl<'a, const N: u8> std::convert::TryFrom<&'a str> for WordXy<N>
+impl<const N: u8> std::convert::TryFrom<&str> for WordXy<N>
 where
     MaybeWordXy<N>: IsWordXy,
 {
@@ -215,14 +215,14 @@ where
         }
         let mut lc_s = [0_u8; 10];
         for (n, b) in s.as_bytes().iter().enumerate() {
-            if (b'A'..=b'Z').contains(&b) {
+            if b.is_ascii_uppercase() {
                 lc_s[n] = *b | 0x20;
             } else {
                 lc_s[n] = *b;
             }
         }
         let sel_lc_s = &lc_s[0..MaybeWordXy::<N>::SLEN];
-        let f = |x_word: &&str| x_word.as_bytes().cmp(&sel_lc_s);
+        let f = |x_word: &&str| x_word.as_bytes().cmp(sel_lc_s);
         match pile.binary_search_by(f) {
             Ok(n) => Some(n as u8),
             _ => None,
@@ -231,12 +231,12 @@ where
 
     //fi find_x
     fn find_x<A: AsRef<str>>(s: A) -> Option<u8> {
-        Self::find_s(s, &MaybeWordXy::<N>::WORDS_X)
+        Self::find_s(s, MaybeWordXy::<N>::WORDS_X)
     }
 
     //fi find_y
     fn find_y<A: AsRef<str>>(s: A) -> Option<u8> {
-        Self::find_s(s, &MaybeWordXy::<N>::WORDS_Y)
+        Self::find_s(s, MaybeWordXy::<N>::WORDS_Y)
     }
 
     //zz All done

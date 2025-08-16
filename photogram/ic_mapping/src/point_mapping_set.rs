@@ -216,11 +216,11 @@ impl PointMappingSet {
 
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
-        let s = self
+        
+        self
             .mappings
             .iter()
-            .find(|pm| Rc::ptr_eq(np, pm.named_point()));
-        s
+            .find(|pm| Rc::ptr_eq(np, pm.named_point()))
     }
 
     //mp get_screen_pts

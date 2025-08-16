@@ -1,7 +1,6 @@
 //a Imports
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use crate::{Error, Result};

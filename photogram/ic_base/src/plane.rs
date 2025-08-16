@@ -198,7 +198,7 @@ fn test_plane() -> Result<(), String> {
     assert_eq!(p.normal(), &normal);
 
     let x: Point3D = [5.0, 6.0, 4.0].into();
-    eprintln!("x: {}", x);
+    eprintln!("x: {x}");
     eprintln!("x in plane: {}", p.within_plane(&x));
     eprintln!("point in space: {}", p.point_in_space(&p.within_plane(&x)));
     eprintln!(
@@ -246,7 +246,7 @@ fn test_plane2() -> Result<(), String> {
         [1., 2., 5.].into(),
     ];
     for x in pts.iter() {
-        eprintln!("\n{}", x);
+        eprintln!("\n{x}");
         eprintln!("  {}", p.within_plane(x));
         eprintln!("  {}", p.point_in_space(&p.within_plane(x)));
         eprintln!(
