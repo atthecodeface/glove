@@ -79,7 +79,7 @@ impl<I: Image> Patch<I> {
             - model_origin)
             .normalize();
         let p_sum = model_pts_clone.fold(Point3D::default(), |acc, p| acc + *p);
-        let p_sum = p_sum - (model_origin * (num_model_pts - 2) as f64);
+        let _p_sum = p_sum - (model_origin * (num_model_pts - 2) as f64);
         let model_y_axis = model_normal.cross_product(&model_x_axis).normalize();
 
         let flat_to_model: Mat3x3 = [

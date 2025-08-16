@@ -17,7 +17,7 @@ pub enum WordError {
 
 //a IsWordXy, MaybeWordXy, WORDS constatns
 //tt IsWordXy
-trait IsWordXy {
+pub trait IsWordXy {
     const MAX_N: u8;
     const SLEN: usize;
     const WORDS_X: &'static [&'static str];
@@ -25,7 +25,7 @@ trait IsWordXy {
 }
 
 //ti MaybeWordXy
-struct MaybeWordXy<const N: u8>;
+pub struct MaybeWordXy<const N: u8>;
 
 //ii IsWordXy for MaybeWordXy<50>
 impl IsWordXy for MaybeWordXy<50> {

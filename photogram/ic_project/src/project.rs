@@ -1,3 +1,13 @@
+//a To do
+//
+// Add tag set
+//
+// Add image squares
+//
+// Add named patches
+//
+// Use tags in named points
+
 //a Imports
 use std::cell::{Ref, RefMut};
 

@@ -5,9 +5,9 @@ use geo_nd::Vector;
 use crate::Point2D;
 
 //a QtNode, QtPathEntry, QtPath
-//ci NodesPerQt
+//ci NODES_PER_QT
 /// A representation of an rectangular area of a plane to permit searching
-const NodesPerQt: usize = 8; // max of 12
+const NODES_PER_QT: usize = 8; // max of 12
 
 //tt QtNode
 pub trait QtNode: std::fmt::Debug + Clone + Sized + Default {}
@@ -18,6 +18,7 @@ impl<T> QtNode for T where T: std::fmt::Debug + Clone + Sized + Default {}
 //tp QtPathEntry
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum QtPathEntry {
     ChildLL,
     ChildGL,
@@ -103,7 +104,7 @@ impl QtPath {
     //ap is_local
     /// Returns true if self refers to a local node
     pub fn is_local(self) -> bool {
-        self.value >= 4 && ((self.value - 4) < (NodesPerQt as u64))
+        self.value >= 4 && ((self.value - 4) < (NODES_PER_QT as u64))
     }
 
     //ap node
@@ -207,8 +208,8 @@ where
 #[derive(Debug, Default)]
 pub struct Quadtree<N: QtNode> {
     num_valid: u8,
-    nodes: [N; NodesPerQt],
-    node_pts: [Point2D; NodesPerQt],
+    nodes: [N; NODES_PER_QT],
+    node_pts: [Point2D; NODES_PER_QT],
     pivot: Point2D,
     children: [Option<Box<Quadtree<N>>>; 4],
 }
@@ -258,13 +259,13 @@ where
     //mp add_node
     pub fn add_node(&mut self, node: N, pt: Point2D) -> QtPath {
         let n = self.num_valid as usize;
-        if n < NodesPerQt {
+        if n < NODES_PER_QT {
             self.nodes[n] = node;
             self.node_pts[n] = pt;
             self.num_valid += 1;
-            if n + 1 == NodesPerQt {
+            if n + 1 == NODES_PER_QT {
                 self.pivot = self.node_pts.iter().fold(Point2D::default(), |a, p| a + p)
-                    / (NodesPerQt as f64);
+                    / (NODES_PER_QT as f64);
             }
             QtPath::of_node(n as u8)
         } else {
@@ -321,7 +322,7 @@ where
                 return Some(f(&self.nodes[i], pt, qtp));
             }
         }
-        if self.num_valid > (NodesPerQt as u8) {
+        if self.num_valid > (NODES_PER_QT as u8) {
             let (idx, sub_qtp) = self.idx_qtp_of_pt(pt);
             if let Some(child) = self.children[idx].as_ref() {
                 let qtp = qtp.append_child_path(sub_qtp);
@@ -367,8 +368,7 @@ where
     where
         F: Fn(&Point2D) -> u8 + 'a,
     {
-        let mut stack = vec![];
-        stack.push((self, 0, QtPath::default(), 0));
+        let stack = vec![(self, 0, QtPath::default(), 0)];
         QuadtreeIter {
             pivot_filter,
             stack,
@@ -398,7 +398,7 @@ where
             return None;
         }
         let top = self.stack.last_mut().unwrap();
-        if top.1 == 0 && top.0.num_valid >= NodesPerQt as u8 {
+        if top.1 == 0 && top.0.num_valid >= NODES_PER_QT as u8 {
             let mut child_mask = (self.pivot_filter)(&top.0.pivot) & 0xf;
             if top.0.children[0].is_none() {
                 child_mask &= 0xe;

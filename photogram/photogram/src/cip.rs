@@ -159,7 +159,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let _total_error = cmd_args
         .cip()
         .borrow_mut()
-        .orient_camera_using_model_directions(|n, _pm| pms_n.contains(&n))?;
+        .orient_camera_using_model_directions(filter)?;
 
     let camera = cmd_args.cip().borrow().camera().borrow().clone();
     *cmd_args.camera_mut() = camera;
@@ -343,15 +343,6 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let patch_img = patch.create_img(&*camera, &src_img).unwrap();
     patch_img.write(write_filename)?;
-    for np in nps.iter() {
-        eprintln!("{np}");
-        if let Some(pm) = cip.pms_ref().mapping_of_np(np) {
-            let mapped_pxy = camera.world_xyz_to_px_abs_xy(
-                &patch.plane().unwrap().point_projected_onto(&pm.model()).0,
-            );
-            // eprintln!("{pm:?}, {mapped_pxy}");
-        }
-    }
 
     Ok("".into())
 }

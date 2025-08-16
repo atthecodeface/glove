@@ -89,7 +89,7 @@ impl PatchMesh {
                 }
             }
         }
-        self.update_data(centroids, false); // optimize);
+        self.update_data(centroids, optimize);
         triangles_split
     }
 
@@ -97,10 +97,9 @@ impl PatchMesh {
     /// Split just the mesh edges
     pub fn split_mesh_edges(&mut self, max_len: f64, optimize: bool) -> usize {
         let edges_split = self.mesh.split_edges(max_len);
-        if edges_split > 0
-            && optimize {
-                while self.mesh.optimize_mesh_quads() {}
-            }
+        if edges_split > 0 && optimize {
+            while self.mesh.optimize_mesh_quads() {}
+        }
         edges_split
     }
 
@@ -108,10 +107,9 @@ impl PatchMesh {
     /// Split just the mesh triangles
     pub fn split_mesh_triangles(&mut self, max_area: f64, optimize: bool) -> usize {
         let triangles_split = self.mesh.split_triangles(max_area);
-        if triangles_split > 0
-            && optimize {
-                while self.mesh.optimize_mesh_quads() {}
-            }
+        if triangles_split > 0 && optimize {
+            while self.mesh.optimize_mesh_quads() {}
+        }
         triangles_split
     }
 }
@@ -176,7 +174,6 @@ impl Patch {
         let named_points: Vec<_> = pts.filter(|np| np.is_mapped()).collect();
         let model_pts = vec![];
         let plane = Plane::default();
-        let mesh = Mesh::default();
         let mut patch = Self {
             named_points,
             model_pts,

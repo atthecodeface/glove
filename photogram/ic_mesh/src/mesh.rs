@@ -525,10 +525,9 @@ impl Mesh {
         let n = self.lines.len();
         for l in 0..n {
             let l = l.into();
-            if self.line_length(l) > max_len
-                && self.split_edge(l) {
-                    edges_split += 1;
-                }
+            if self.line_length(l) > max_len && self.split_edge(l) {
+                edges_split += 1;
+            }
         }
         edges_split
     }
@@ -671,7 +670,7 @@ impl Mesh {
         for t in (0..self.triangles.len()).map(|t| t.into()) {
             if self.triangle_area(t) < 1E-12 {
                 let (p0, p1, p2) = self[t].pts();
-                let (l01, l12, l20) = self[t].lines();
+                // let (l01, l12, l20) = self[t].lines();
                 let p01 = self[p0] - self[p1];
                 let p02 = self[p0] - self[p2];
                 let p12 = self[p1] - self[p2];

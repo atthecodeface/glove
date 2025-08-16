@@ -1,6 +1,5 @@
 //a Imports
-
-use geo_nd::{Quaternion, Vector};
+use geo_nd::Vector;
 
 use crate::{Point2D, Point3D};
 
@@ -177,13 +176,7 @@ impl Plane {
         let r: Point3D = r.into();
         let rl = r.length();
         let r = r.normalize();
-
-        let a = r[0];
-        let b = r[1];
-        let c = r[2];
-        let d = n / rl;
-
-        Some((r, d).into())
+        Some((r, n / rl).into())
     }
 }
 
