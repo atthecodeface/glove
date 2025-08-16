@@ -1,6 +1,11 @@
 pub use image::{Luma, Rgba};
 use serde::{Deserialize, Serialize};
 
+use crate::ImageColor;
+
+//a ImageColor for u16
+impl ImageColor for u16 {}
+
 //a Gray16
 //tp Gray16
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,7 +116,14 @@ impl<'de> Deserialize<'de> for Gray16 {
 }
 
 //a Color
-//tp Color
+//ip ImageColor for Color
+impl ImageColor for Color {
+    fn rgb(r: u8, g: u8, b: u8) -> Self {
+        [r, g, b, 255].into()
+    }
+}
+
+//tp Color - Rgba<u8>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color(pub Rgba<u8>);
 impl std::default::Default for Color {

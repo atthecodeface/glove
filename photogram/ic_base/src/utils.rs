@@ -70,9 +70,10 @@ where
         T::default().into()
     }
 }
+
 impl<T> std::ops::Deref for Rrc<T> {
-    type Target = RefCell<T>;
-    fn deref(&self) -> &RefCell<T> {
+    type Target = Rc<RefCell<T>>;
+    fn deref(&self) -> &Rc<RefCell<T>> {
         &self.0
     }
 }

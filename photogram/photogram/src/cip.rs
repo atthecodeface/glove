@@ -5,7 +5,7 @@ use thunderclap::CommandBuilder;
 
 use ic_base::{Ray, Rrc};
 use ic_camera::CameraProjection;
-use ic_image::Image;
+use ic_image::{Image, ImageDrawable};
 use ic_mapping::PointMapping;
 use ic_project::Cip;
 

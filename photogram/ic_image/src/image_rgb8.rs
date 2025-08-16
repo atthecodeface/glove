@@ -8,13 +8,28 @@ use image::ImageReader;
 
 use ic_base::Result;
 
-use crate::{Color, Image, ImageGray16};
+use crate::{Color, Image, ImageDrawable, ImageGray16};
 
 //a ImageRbg8
 #[derive(Debug, Clone)]
 pub struct ImageRgb8(DynamicImage);
 
-//a Public functions
+//ip Deref for ImageRgb8
+impl std::ops::Deref for ImageRgb8 {
+    type Target = DynamicImage;
+    fn deref(&self) -> &DynamicImage {
+        &self.0
+    }
+}
+
+//ip DerefMut for ImageRgb8
+impl std::ops::DerefMut for ImageRgb8 {
+    fn deref_mut(&mut self) -> &mut DynamicImage {
+        &mut self.0
+    }
+}
+
+//ip ImageRgb8
 impl ImageRgb8 {
     //cp read_image
     pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -82,10 +97,23 @@ impl ImageRgb8 {
     }
 }
 
-//ip Image for ImageRgb8
-impl Image for ImageRgb8 {
+//ip ImageDrawable for ImageRgb8
+impl ImageDrawable for ImageRgb8 {
     type Pixel = Color;
 
+    fn put(&mut self, x: u32, y: u32, color: &Color) {
+        image::GenericImage::put_pixel(&mut self.0, x, y, color.0);
+    }
+    fn get(&self, x: u32, y: u32) -> Color {
+        Color(self.0.get_pixel(x, y))
+    }
+    fn size(&self) -> (u32, u32) {
+        (self.0.width(), self.0.height())
+    }
+}
+
+//ip Image for ImageRgb8
+impl Image for ImageRgb8 {
     fn new(width: usize, height: usize) -> Self {
         Self(DynamicImage::new_rgb8(width as u32, height as u32))
     }
@@ -110,14 +138,5 @@ impl Image for ImageRgb8 {
             .write_to(&mut Cursor::new(&mut bytes), format)
             .map_err(|e| format!("Failed to encode image {e}"))?;
         Ok(bytes)
-    }
-    fn put(&mut self, x: u32, y: u32, color: &Color) {
-        image::GenericImage::put_pixel(&mut self.0, x, y, color.0);
-    }
-    fn get(&self, x: u32, y: u32) -> Color {
-        Color(self.0.get_pixel(x, y))
-    }
-    fn size(&self) -> (u32, u32) {
-        (self.0.width(), self.0.height())
     }
 }

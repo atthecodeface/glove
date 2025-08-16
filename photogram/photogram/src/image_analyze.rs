@@ -7,7 +7,7 @@ use thunderclap::CommandBuilder;
 use ic_base::Result;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_image::{Color, Image, Region};
+use ic_image::{Color, Image, ImageDrawable, Region};
 use ic_mapping::PointMappingSet;
 
 use crate::cmd::{CmdArgs, CmdResult};

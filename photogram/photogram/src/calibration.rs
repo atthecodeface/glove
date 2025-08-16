@@ -8,7 +8,7 @@ use thunderclap::CommandBuilder;
 use ic_base::{Point3D, Quat, RollYaw};
 use ic_camera::polynomial;
 use ic_camera::{CameraProjection, LensPolys};
-use ic_image::{Color, Image};
+use ic_image::{Color, Image, ImageDrawable};
 use ic_mapping::ModelLineSet;
 
 use crate::cmd::{cmd_ok, CmdArgs, CmdResult};

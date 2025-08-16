@@ -3,7 +3,7 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_image::{Image, ImageGray16};
+use ic_image::{Image, ImageDrawable, ImageGray16};
 use ic_kernel::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};

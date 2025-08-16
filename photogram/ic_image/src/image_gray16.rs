@@ -8,13 +8,29 @@ use image::{GenericImageView, ImageBuffer, Luma};
 
 use ic_base::Result;
 
-use crate::{Image, ImageRgb8};
+use crate::{Image, ImageDrawable, ImageRgb8};
 
 //a ImageGray16
+//tp ImageGray16
 #[derive(Debug, Clone)]
 pub struct ImageGray16(DynamicImage);
 
-//a ip ImageGray16
+//ip Deref for ImageGray16
+impl std::ops::Deref for ImageGray16 {
+    type Target = DynamicImage;
+    fn deref(&self) -> &DynamicImage {
+        &self.0
+    }
+}
+
+//ip DerefMut for ImageGray16
+impl std::ops::DerefMut for ImageGray16 {
+    fn deref_mut(&mut self) -> &mut DynamicImage {
+        &mut self.0
+    }
+}
+
+//ip ImageGray16
 impl ImageGray16 {
     //cp read_image
     pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -107,9 +123,24 @@ impl ImageGray16 {
     //zz All done
 }
 
+//ip ImageDrawable for ImageGray16
+impl ImageDrawable for ImageGray16 {
+    type Pixel = u16;
+    fn put(&mut self, x: u32, y: u32, color: &Self::Pixel) {
+        let img = self.0.as_mut_luma16().unwrap();
+        image::GenericImage::put_pixel(img, x, y, [*color].into());
+    }
+    fn get(&self, x: u32, y: u32) -> Self::Pixel {
+        let img = self.0.as_luma16().unwrap();
+        img.get_pixel(x, y).0[0]
+    }
+    fn size(&self) -> (u32, u32) {
+        (self.0.width(), self.0.height())
+    }
+}
+
 //ip Image for ImageGray16
 impl Image for ImageGray16 {
-    type Pixel = u16;
     fn new(width: usize, height: usize) -> Self {
         Self(DynamicImage::new_luma16(width as u32, height as u32))
     }
@@ -134,16 +165,5 @@ impl Image for ImageGray16 {
             .write_to(&mut Cursor::new(&mut bytes), format)
             .map_err(|e| format!("Failed to encode image {e}"))?;
         Ok(bytes)
-    }
-    fn put(&mut self, x: u32, y: u32, color: &Self::Pixel) {
-        let img = self.0.as_mut_luma16().unwrap();
-        image::GenericImage::put_pixel(img, x, y, [*color].into());
-    }
-    fn get(&self, x: u32, y: u32) -> Self::Pixel {
-        let img = self.0.as_luma16().unwrap();
-        img.get_pixel(x, y).0[0]
-    }
-    fn size(&self) -> (u32, u32) {
-        (self.0.width(), self.0.height())
     }
 }

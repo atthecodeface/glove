@@ -13,7 +13,7 @@ use ic_cmdline as cmdline_args;
 use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_image::{Image, ImageGray16, ImageRgb8, Patch};
+use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8, Patch};
 use ic_kernel::{KernelArgs, Kernels};
 use ic_threads::ThreadPool;
 
