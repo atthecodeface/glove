@@ -13,8 +13,10 @@ mod path_set;
 pub use path_set::PathSet;
 mod plane;
 mod quadtree;
+mod tag;
 pub mod types;
 pub mod utils;
+pub use tag::{Tag, TagSet};
 mod word_xy;
 pub use word_xy::WordXy;
 

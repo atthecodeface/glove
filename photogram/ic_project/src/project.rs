@@ -2,8 +2,6 @@
 //
 // Add tag set
 //
-// Add image squares
-//
 // Add named patches
 //
 // Use tags in named points
@@ -17,7 +15,7 @@ use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraDatabase;
 use ic_mapping::{NamedPointSet, PointMapping};
 
-use crate::{Cip, CipDesc, CipFileDesc};
+use crate::{Cip, CipDesc, CipFileDesc, ImageSquareSets, ImageSquareSetsDesc};
 
 //a ProjectFileDesc
 //tp ProjectFileDesc
@@ -34,7 +32,7 @@ pub struct ProjectFileDesc {
     patches: String,
     /// Files containing image squares
     #[serde(default)]
-    squares: Vec<String>,
+    image_squares: ImageSquareSetsDesc,
 }
 
 //ip ProjectFileDesc
@@ -70,7 +68,6 @@ impl ProjectFileDesc {
         }
         // project.set_patches(Rrc::new(path_set.load_from_json_file("patches", &self.patches)?,
         //));
-        for s in &self.squares {}
         Ok(project)
     }
 }
@@ -89,6 +86,9 @@ struct ProjectDesc {
     cdb_filename: String,
     #[serde(default)]
     nps_filename: String,
+    /// Files containing image squares
+    #[serde(default)]
+    image_squares: ImageSquareSetsDesc,
 }
 
 //a Project
@@ -115,6 +115,7 @@ pub struct Project {
     cdb_filename: String,
     #[serde(default)]
     nps_filename: String,
+    image_squares: Rrc<ImageSquareSets>,
 }
 
 //ip Deserialize for Project
@@ -130,12 +131,15 @@ impl<'de> Deserialize<'de> for Project {
         let cips = project_desc.cips;
         let cdb_filename = project_desc.cdb_filename;
         let nps_filename = project_desc.nps_filename;
+        let image_squares = ImageSquareSets::from_desc(project_desc.image_squares);
+        let image_squares = image_squares.into();
         let mut project = Self {
             cdb,
             nps,
             cips: vec![],
             cdb_filename,
             nps_filename,
+            image_squares,
         };
         for cip_desc in cips {
             use serde::de::Error;
@@ -197,6 +201,18 @@ impl Project {
     /// Get a mutable borrowed reference to the NamedPointSet
     pub fn nps_mut(&self) -> RefMut<NamedPointSet> {
         self.nps.borrow_mut()
+    }
+
+    //ap isqs_ref
+    /// Get a borrowed reference to the ImageSquareSets
+    pub fn isqs_ref(&self) -> Ref<ImageSquareSets> {
+        self.image_squares.borrow()
+    }
+
+    //ap isqs_mut
+    /// Get a mutable borrowed reference to the ImageSquareSets
+    pub fn isqs_mut(&self) -> RefMut<ImageSquareSets> {
+        self.image_squares.borrow_mut()
     }
 
     //ap ncips

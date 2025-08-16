@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use image::{GenericImage, GenericImageView};
 
-use ic_base::Rrc;
+use ic_base::{Result, Rrc};
 
 use crate::{Image, ImageDrawable};
 
@@ -41,24 +41,33 @@ where
         self.image_filename = s.into();
     }
 
+    //ap square_size
+    pub fn square_size() -> u32 {
+        SQUARE_SIZE
+    }
+
     //cp create
-    pub fn create(width_sq: u32, height_sq: u32) -> Self {
-        let image = I::new(
-            (width_sq * SQUARE_SIZE) as usize,
-            (height_sq * SQUARE_SIZE) as usize,
-        )
-        .into();
+    pub fn create(image: I) -> Result<Self> {
+        let (w, h) = image.size();
+        if !w.is_multiple_of(SQUARE_SIZE) || !h.is_multiple_of(SQUARE_SIZE) {
+            return Err(
+                format!("Image was not a multiple of the square size {SQUARE_SIZE}").into(),
+            );
+        }
+        let width_sq = w / SQUARE_SIZE;
+        let height_sq = h / SQUARE_SIZE;
         let used_squares_size = (width_sq * height_sq + 63) / 64;
         let used_squares = vec![0_u64; used_squares_size as usize];
         let used_squares = used_squares.into_boxed_slice();
         let image_filename = String::new();
-        Self {
+        let image = image.into();
+        Ok(Self {
             image_filename,
             width_sq,
             height_sq,
             used_squares,
             image,
-        }
+        })
     }
 
     //mp alloc_set_bit
@@ -272,6 +281,11 @@ where
         }
     }
 
+    //ap size
+    pub fn size(&self) -> (u32, u32) {
+        (self.w * SQUARE_SIZE, self.h * SQUARE_SIZE)
+    }
+
     //mp copy_from_image
     #[track_caller]
     pub fn copy_from_image(&self, image: &I, x: u32, y: u32)
@@ -405,7 +419,9 @@ fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_image_square_2() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut set = ImageSquareSet::<crate::ImageRgb8>::create(10, 20);
+    let image = DynamicImage::new_rgb8(80, 160);
+
+    let mut set = ImageSquareSet::<crate::ImageRgb8>::create();
     let first = set.allocate_squares(16, 16).unwrap();
     for _ in 0..49 {
         let _x = set.allocate_squares(16, 16);

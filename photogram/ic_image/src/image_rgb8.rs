@@ -2,9 +2,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::DynamicImage;
-use image::GenericImageView;
-use image::ImageReader;
+use image::{DynamicImage, GenericImageView, ImageReader};
 
 use ic_base::Result;
 
@@ -94,6 +92,19 @@ impl ImageRgb8 {
     pub fn of_gray(image: &ImageGray16) -> Self {
         let image = image.buffer().to_rgb8();
         Self(image.into())
+    }
+
+    //cp from_image
+    pub fn from_image(image: &image::DynamicImage) -> Self {
+        let image = image.to_rgb8();
+        Self(image.into())
+    }
+    pub fn of_image(i: DynamicImage) -> std::result::Result<Self, DynamicImage> {
+        if i.as_rgba8().is_some() {
+            Ok(Self(i))
+        } else {
+            Err(i)
+        }
     }
 }
 

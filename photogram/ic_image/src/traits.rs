@@ -1,6 +1,8 @@
 //a Imports
 use std::path::Path;
 
+use image::DynamicImage;
+
 use ic_base::{Point2D, Result};
 
 use crate::LineIter;

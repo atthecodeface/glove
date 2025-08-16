@@ -2,9 +2,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::DynamicImage;
-use image::ImageReader;
-use image::{GenericImageView, ImageBuffer, Luma};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Luma};
 
 use ic_base::Result;
 
@@ -118,6 +116,15 @@ impl ImageGray16 {
             ImageBuffer::<Luma<u16>, Vec<u16>>::from_raw(width as u32, height as u32, data_u16)
                 .unwrap();
         Self(img.into())
+    }
+
+    //cp of_image
+    pub fn of_image(i: DynamicImage) -> std::result::Result<Self, DynamicImage> {
+        if i.as_luma16().is_some() {
+            Ok(Self(i))
+        } else {
+            Err(i)
+        }
     }
 
     //zz All done
