@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// A Tag (de)serializes to a string; it has to Deserialize to Owned. A
 #[derive(Debug)]
 pub enum Tag {
-    Owned(String),
+    Owned(Rc<String>),
     Shared(Rc<String>),
 }
 
@@ -84,21 +84,21 @@ impl Hash for Tag {
 //ip From<String> for Tag
 impl std::convert::From<String> for Tag {
     fn from(s: String) -> Self {
-        Tag::Owned(s)
+        Tag::Owned(Rc::new(s))
     }
 }
 
 //ip From<&str> for Tag
 impl std::convert::From<&str> for Tag {
     fn from(s: &str) -> Self {
-        Tag::Owned(s.to_owned())
+        Tag::Owned(s.to_owned().into())
     }
 }
 
 //ip From<&String> for Tag
 impl std::convert::From<&String> for Tag {
     fn from(s: &String) -> Self {
-        Tag::Owned(s.clone())
+        Tag::Owned(s.clone().into())
     }
 }
 
@@ -116,7 +116,7 @@ impl<'de> Deserialize<'de> for Tag {
         DE: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(Tag::Owned(s))
+        Ok(Tag::Owned(s.into()))
     }
 }
 
@@ -168,8 +168,8 @@ impl std::cmp::PartialEq for Tag {
     fn eq(&self, other: &Tag) -> bool {
         match (self, other) {
             (Tag::Owned(s), Tag::Owned(o)) => s == o,
-            (Tag::Owned(s), Tag::Shared(o)) => s == &**o,
-            (Tag::Shared(s), Tag::Owned(o)) => &**s == o,
+            (Tag::Owned(s), Tag::Shared(o)) => &**s == &**o,
+            (Tag::Shared(s), Tag::Owned(o)) => &**s == &**o,
             (Tag::Shared(s), Tag::Shared(o)) => Rc::ptr_eq(s, o),
         }
     }
@@ -180,10 +180,6 @@ impl std::cmp::Eq for Tag {}
 
 //ip Tag
 impl Tag {
-    pub fn xas_str(&self) -> &str {
-        use std::borrow::Borrow;
-        self.borrow()
-    }
     pub fn is_resolved(&self) -> bool {
         match self {
             Tag::Shared(_) => true,
@@ -192,7 +188,7 @@ impl Tag {
     }
     pub fn take_name(self) -> Option<String> {
         match self {
-            Tag::Owned(s) => Some(s),
+            Tag::Owned(s) => Rc::into_inner(s),
             _ => None,
         }
     }
@@ -213,31 +209,31 @@ pub struct TagSet {
     /// The *shared* names
     tags: RefCell<Vec<Rc<String>>>,
     /// Mapping from text to index into tags
-    index: RefCell<HashMap<String, usize>>,
+    index: RefCell<HashMap<Tag, usize>>,
 }
 
 //ip TagSet
 impl TagSet {
     //mi insert_name
-    fn insert_name(&self, name: String) -> Tag {
-        let shared_name = Rc::new(name.clone());
+    fn insert_name(&self, name: Rc<String>) -> Tag {
         let n = self.tags.borrow().len();
-        self.tags.borrow_mut().push(shared_name.clone());
-        self.index.borrow_mut().insert(name, n);
-        Tag::Shared(shared_name)
+        self.tags.borrow_mut().push(name.clone());
+        let tag = Tag::Shared(name);
+        self.index.borrow_mut().insert(tag.clone(), n);
+        tag
     }
 
     //mp resolve_tag
     pub fn resolve_tag(&self, tag: Tag) -> Tag {
-        if tag.is_resolved() {
-            tag
-        } else {
-            let name = tag.take_name().unwrap();
-            if let Some(index) = self.index.borrow().get(&name) {
-                Tag::Shared(self.tags.borrow()[*index].clone())
-            } else {
-                self.insert_name(name)
+        match tag {
+            Tag::Owned(name) => {
+                if let Some(index) = self.index.borrow().get(&name) {
+                    Tag::Shared(self.tags.borrow()[*index].clone())
+                } else {
+                    self.insert_name(name)
+                }
             }
+            tag => tag,
         }
     }
 
@@ -246,11 +242,12 @@ impl TagSet {
         if let Some(index) = self.index.borrow().get(name) {
             Tag::Shared(self.tags.borrow()[*index].clone())
         } else {
-            self.insert_name(name.to_owned())
+            self.insert_name(name.to_owned().into())
         }
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = Rc<String>> + 'a {
+    //mi xiter
+    fn xiter<'a>(&'a self) -> impl Iterator<Item = Rc<String>> + 'a {
         Blah {
             tags: self,
             index: 0,
