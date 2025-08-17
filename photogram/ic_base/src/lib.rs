@@ -16,7 +16,7 @@ mod quadtree;
 mod tag;
 pub mod types;
 pub mod utils;
-pub use tag::{Tag, TagMap, TagSet};
+pub use tag::{Tag, TagData, TagMap, TagSet};
 mod word_xy;
 pub use word_xy::WordXy;
 

@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Point3D, Tag, TagSet};
+use ic_base::{Point3D, Tag, TagData, TagSet};
 use ic_image::Color;
 
 //a NamedPoint
@@ -24,6 +24,16 @@ pub struct NamedPoint {
     /// The units are mm (as that is what cameras focal lengths are in)
     // #[serde(deserialize_with = "deserialize_model")]
     model: RefCell<Option<(Point3D, f64)>>,
+}
+
+//ip TagData for NamedPoint {
+impl TagData for NamedPoint {
+    fn tag(&self) -> &Tag {
+        &self.name
+    }
+    fn tag_mut(&mut self) -> &mut Tag {
+        &mut self.name
+    }
 }
 
 //fi deserialize_model
