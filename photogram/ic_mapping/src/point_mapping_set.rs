@@ -216,9 +216,7 @@ impl PointMappingSet {
 
     //ap mapping_of_np
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
-        
-        self
-            .mappings
+        self.mappings
             .iter()
             .find(|pm| Rc::ptr_eq(np, pm.named_point()))
     }
@@ -279,7 +277,7 @@ impl PointMappingSet {
     //mp sorted_order
     pub fn sorted_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.mappings.len()).collect();
-        order.sort_by(|a, b| self.mappings[*a].cmp(&self.mappings[*b]));
+        order.sort_by(|a, b| self.mappings[*a].name().cmp(self.mappings[*b].name()));
         order
     }
 }

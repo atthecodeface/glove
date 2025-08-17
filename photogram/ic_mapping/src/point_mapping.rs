@@ -24,33 +24,6 @@ pub struct PointMapping {
     error: f64,
 }
 
-//ip PartialEq for PointMapping
-impl PartialEq for PointMapping {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.named_point, &other.named_point)
-    }
-}
-
-//ip Eq for PointMapping
-impl Eq for PointMapping {}
-
-//ip Ord for PointMapping
-impl Ord for PointMapping {
-    #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.named_point.name().cmp(other.named_point.name())
-    }
-}
-
-//ip PartialOrd for PointMapping
-impl PartialOrd for PointMapping {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 //ip Serialize for PointMapping
 impl Serialize for PointMapping {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
