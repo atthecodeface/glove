@@ -120,7 +120,8 @@ impl NamedPointSet {
     //mp add_np
     /// Requires np to not be in the name set already
     pub fn add_np(&mut self, mut np: NamedPoint) {
-        np.resolve_name(&self.tags);
+        use ic_base::TagData;
+        np.tag_mut().resolve_in(&self.tags);
         let name = np.name().clone();
         assert!(self.points.insert(name, Rc::new(np)).is_none());
     }

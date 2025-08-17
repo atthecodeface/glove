@@ -65,42 +65,12 @@ impl std::fmt::Display for NamedPoint {
     }
 }
 
-//ip PartialEq for NamedPoint
-impl PartialEq for NamedPoint {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
-}
-
-//ip Eq for NamedPoint
-impl Eq for NamedPoint {}
-
-//ip Ord for NamedPoint
-impl Ord for NamedPoint {
-    #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.name.cmp(&other.name)
-    }
-}
-
-//ip PartialOrd for NamedPoint
-impl PartialOrd for NamedPoint {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 //ip NamedPoint
 impl NamedPoint {
     pub fn new<S: Into<Tag>>(name: S, color: Color, model: Option<(Point3D, f64)>) -> Self {
         let name = name.into();
         let model = model.into();
         Self { name, color, model }
-    }
-    pub fn resolve_name(&mut self, tags: &TagSet) {
-        self.name.resolve_in(tags);
     }
     #[inline]
     pub fn is_unmapped(&self) -> bool {

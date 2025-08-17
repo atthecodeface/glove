@@ -39,7 +39,7 @@ impl Eq for PointMapping {}
 impl Ord for PointMapping {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.named_point.cmp(&other.named_point)
+        self.named_point.name().cmp(other.named_point.name())
     }
 }
 
