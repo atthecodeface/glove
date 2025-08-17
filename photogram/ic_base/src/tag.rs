@@ -171,7 +171,7 @@ impl std::cmp::Eq for Tag {}
 
 //ip Tag
 impl Tag {
-    pub fn as_str(&self) -> &str {
+    pub fn xas_str(&self) -> &str {
         use std::borrow::Borrow;
         self.borrow()
     }
@@ -267,5 +267,80 @@ impl<'a> std::iter::Iterator for Blah<'a> {
             self.index += 1;
             Some(r)
         }
+    }
+}
+
+//a TagMap
+//tp TagMap
+pub trait TagData {
+    fn tag(&self) -> &Tag;
+    fn tag_mut(&mut self) -> &mut Tag;
+}
+#[derive(Debug, Default)]
+pub struct TagMap<V: TagData> {
+    data: HashMap<Tag, Rc<V>>,
+    tags: Rc<TagSet>,
+}
+
+//ip TagMap
+impl<V> TagMap<V>
+where
+    V: TagData,
+{
+    //mp set_tag_set
+    /// Set the TagSet for this TagMap
+    ///
+    /// This turns all the Owned tags into Shared tags
+    pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
+        self.tags = tags;
+        let old_data = std::mem::take(&mut self.data);
+        for (t, v) in old_data.into_iter() {
+            assert!(!t.is_resolved());
+            let t = self.tags.resolve_tag(t);
+            self.data.insert(t, v);
+        }
+    }
+
+    //mp map_sorted_tags
+    pub fn map_sorted_tags<F, T>(&self, map: F) -> T
+    where
+        F: FnOnce(Vec<Tag>) -> T,
+    {
+        let mut order: Vec<_> = self.data.keys().map(|s| s.clone()).collect();
+        order.sort_by(|a, b| a.cmp(&b));
+        map(order)
+    }
+
+    //mp has_tag
+    pub fn has_tag(&self, t: &Tag) -> bool {
+        self.data.contains_key(t)
+    }
+
+    //mp contains_data
+    pub fn contains_data<A: AsRef<V>>(&self, v: A) -> bool {
+        self.data.contains_key(v.as_ref().tag())
+    }
+
+    //mp add_data
+    /// Requires np to not be in the name set already
+    pub fn add_data(&mut self, mut data: V) -> Option<Rc<V>> {
+        data.tag_mut().resolve_in(&self.tags);
+        let tag = data.tag().clone();
+        self.data.insert(tag, Rc::new(data))
+    }
+
+    //mp get_data
+    pub fn get_data(&self, name: &str) -> Option<Rc<V>> {
+        self.data.get(name).cloned()
+    }
+
+    //mp iter
+    pub fn iter(&self) -> impl Iterator<Item = &Rc<V>> {
+        self.data.values()
+    }
+
+    //dp into_iter
+    pub fn into_iter(self) -> impl Iterator<Item = Option<V>> {
+        self.data.into_values().map(|v| Rc::into_inner(v))
     }
 }
