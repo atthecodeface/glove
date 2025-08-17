@@ -8,6 +8,15 @@ use serde::{Deserialize, Serialize};
 
 //a Tag
 //tp Tag
+/// A [Tag] is a [String] that is either Owned or Shared
+///
+/// When created from Json or similar it is Owned; when it is resolved
+/// into a TagSet it becomes Shared, and Shared references are used by
+/// different data sets to refer to the same name. Owned tags should
+/// not be part of the data structures after initialization has
+/// completed.
+///
+/// A Tag (de)serializes to a string; it has to Deserialize to Owned. A
 #[derive(Debug)]
 pub enum Tag {
     Owned(String),
@@ -251,11 +260,16 @@ impl TagSet {
 
     //zz All done
 }
+
+//a Blah
+//tp Blah
 pub struct Blah<'a> {
     tags: &'a TagSet,
     index: usize,
     length: usize,
 }
+
+//ip Iterator for  Blah
 impl<'a> std::iter::Iterator for Blah<'a> {
     type Item = Rc<String>;
     fn next(&mut self) -> Option<Rc<String>> {
@@ -271,15 +285,67 @@ impl<'a> std::iter::Iterator for Blah<'a> {
 }
 
 //a TagMap
-//tp TagMap
+//tp TagData
 pub trait TagData {
     fn tag(&self) -> &Tag;
     fn tag_mut(&mut self) -> &mut Tag;
 }
-#[derive(Debug, Default)]
+
+//tp TagMap
+#[derive(Debug)]
 pub struct TagMap<V: TagData> {
     data: HashMap<Tag, Rc<V>>,
     tags: Rc<TagSet>,
+}
+
+//ip Default for TagMap
+impl<V> std::default::Default for TagMap<V>
+where
+    V: TagData,
+{
+    fn default() -> Self {
+        let data = HashMap::new();
+        let tags = Rc::new(TagSet::default());
+        Self { data, tags }
+    }
+}
+
+//ip Serialize for TagMap
+impl<V> Serialize for TagMap<V>
+where
+    V: TagData,
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.data.len()))?;
+        for tag in self.map_sorted_tags(|v| v) {
+            seq.serialize_element(self.data.get(&tag).unwrap())?;
+        }
+        seq.end()
+    }
+}
+
+//ip Deserialize for TagMap
+impl<'de, V> Deserialize<'de> for TagMap<V>
+where
+    V: TagData,
+    V: Deserialize<'de>,
+{
+    fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
+    where
+        DE: serde::Deserializer<'de>,
+    {
+        let mut tag_map = TagMap::default();
+        let array = Vec::<V>::deserialize(deserializer)?;
+        for data in array {
+            tag_map.add_data_unresolved(data);
+        }
+        Ok(tag_map)
+    }
 }
 
 //ip TagMap
@@ -319,6 +385,13 @@ where
     //mp contains_data
     pub fn contains_data<A: AsRef<V>>(&self, v: A) -> bool {
         self.data.contains_key(v.as_ref().tag())
+    }
+
+    //mp add_data_unresolved
+    /// Requires np to not be in the name set already
+    pub fn add_data_unresolved(&mut self, mut data: V) -> Option<Rc<V>> {
+        let tag = data.tag().clone();
+        self.data.insert(tag, Rc::new(data))
     }
 
     //mp add_data
