@@ -1,17 +1,16 @@
 //a To do
 //
-// Add tag set
-//
 // Add named patches
 //
-// Use tags in named points
+// Use tags in pms
 
 //a Imports
 use std::cell::{Ref, RefMut};
+use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc};
+use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc, TagSet};
 use ic_camera::CameraDatabase;
 use ic_mapping::{NamedPointSet, PointMapping};
 
@@ -116,6 +115,8 @@ pub struct Project {
     #[serde(default)]
     nps_filename: String,
     image_squares: Rrc<ImageSquareSets>,
+    #[serde(skip)]
+    np_tag_set: Rc<TagSet>,
 }
 
 //ip Deserialize for Project
@@ -126,29 +127,26 @@ impl<'de> Deserialize<'de> for Project {
     {
         let mut project_desc = <ProjectDesc>::deserialize(deserializer)?;
         project_desc.cdb.derive();
+
+        let mut project = Self::default();
         let cdb = project_desc.cdb.into();
+        project.set_cdb_filename(project_desc.cdb_filename);
+        project.set_cdb(cdb);
         let nps = project_desc.nps;
-        let cips = project_desc.cips;
-        let cdb_filename = project_desc.cdb_filename;
-        let nps_filename = project_desc.nps_filename;
+        project.set_nps(nps);
+        project.set_nps_filename(project_desc.nps_filename);
+
         let image_squares = ImageSquareSets::from_desc(project_desc.image_squares);
-        let image_squares = image_squares.into();
-        let mut project = Self {
-            cdb,
-            nps,
-            cips: vec![],
-            cdb_filename,
-            nps_filename,
-            image_squares,
-        };
-        for cip_desc in cips {
+        project.image_squares = image_squares.into();
+
+        for cip_desc in project_desc.cips {
             use serde::de::Error;
             let (cip, warnings) = Cip::from_desc(&project, cip_desc)
                 .map_err(|e| DE::Error::custom(format!("bad CIP desc: {e}")))?;
             if !warnings.is_empty() {
                 eprintln!("Warning loading project: {warnings}");
             }
-            project.cips.push(cip.into());
+            project.add_cip(cip.into());
         }
         Ok(project)
     }
@@ -250,6 +248,7 @@ impl Project {
             0,
             "Project must have no CIPS to *set* the NPS"
         );
+        nps.borrow_mut().set_tag_set(self.np_tag_set.clone());
         self.nps = nps;
     }
 

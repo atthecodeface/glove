@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point3D, Result, Tag, TagSet};
+use ic_base::{json, Error, Point3D, Result, Tag, TagMap, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 
@@ -14,14 +14,7 @@ use crate::NamedPoint;
 //tp NamedPointSet
 #[derive(Debug, Default)]
 pub struct NamedPointSet {
-    points: HashMap<Tag, Rc<NamedPoint>>,
-    /// The tags, so that tags can be resolved to Shared without
-    /// resorting to any other struct
-    ///
-    /// This is an Rc so the same TagSet can be shared
-    ///
-    /// It is immutable as the TagSet has interior mutability
-    tags: Rc<TagSet>,
+    points: TagMap<NamedPoint>,
 }
 
 //ip Serialize for NamedPointSet
@@ -30,16 +23,7 @@ impl Serialize for NamedPointSet {
     where
         S: serde::Serializer,
     {
-        use serde::ser::SerializeSeq;
-        let sorted_order = self.sorted_order();
-        let mut seq = serializer.serialize_seq(Some(sorted_order.len()))?;
-        for name in sorted_order {
-            let np = self.points.get(&name).unwrap();
-            let color = np.color();
-            let model = np.opt_model();
-            seq.serialize_element(&(name, color, model))?;
-        }
-        seq.end()
+        self.points.serialize(serializer)
     }
 }
 
@@ -49,12 +33,8 @@ impl<'de> Deserialize<'de> for NamedPointSet {
     where
         DE: serde::Deserializer<'de>,
     {
-        let mut nps = NamedPointSet::default();
-        let array = Vec::<NamedPoint>::deserialize(deserializer)?;
-        for np in array {
-            nps.add_np(np);
-        }
-        Ok(nps)
+        let points = TagMap::deserialize(deserializer)?;
+        Ok(Self { points })
     }
 }
 
@@ -62,20 +42,7 @@ impl<'de> Deserialize<'de> for NamedPointSet {
 impl NamedPointSet {
     //fp set_tag_set
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
-        self.tags = tags;
-        let old_points = std::mem::take(&mut self.points);
-        for (t, np) in old_points.into_iter() {
-            assert!(!t.is_resolved());
-            let t = self.tags.resolve_tag(t);
-            self.points.insert(t, np);
-        }
-    }
-
-    //mp sorted_order
-    pub fn sorted_order(&self) -> Vec<Tag> {
-        let mut order: Vec<_> = self.points.keys().map(|s| s.clone()).collect();
-        order.sort_by(|a, b| a.cmp(&b));
-        order
+        self.points.set_tag_set(tags)
     }
 
     //fp from_json
@@ -97,33 +64,31 @@ impl NamedPointSet {
     ///
     /// The other NPS cannot be in use
     pub fn merge(&mut self, other: Self) {
-        for np in other.points.into_values() {
-            let np_name = np.name();
-            if self.points.contains_key(np_name) {
-                if !np.is_unmapped() && self.points.get_mut(np_name).unwrap().is_unmapped() {
-                    self.points
-                        .get_mut(np_name)
-                        .unwrap()
-                        .set_model(Some(np.model()));
+        for other_np in other.points.into_values() {
+            if let Some(self_np) = self.points.get_data(other_np.name()) {
+                let other_np_is_unmapped = other_np.is_unmapped();
+                let self_np_is_unmapped = self_np.is_unmapped();
+                if self_np_is_unmapped && !other_np_is_unmapped {
+                    self_np.set_model(Some(other_np.model()));
                 }
+            } else if let Some(other_np) = Rc::into_inner(other_np) {
+                // This will return None as the other is not in the named point set
+                let _ = self.add_np(other_np);
             } else {
-                self.add_np(Rc::into_inner(np).unwrap()); // This will fail if the named point is in use in a PMS
+                panic!("Named point is being merged but is in use elsewhere");
             }
         }
     }
 
     //fp has_np
     pub fn has_np(&self, np: &NamedPoint) -> bool {
-        self.points.contains_key(np.name())
+        self.points.has_tag(np.name())
     }
 
     //mp add_np
     /// Requires np to not be in the name set already
-    pub fn add_np(&mut self, mut np: NamedPoint) {
-        use ic_base::TagData;
-        np.tag_mut().resolve_in(&self.tags);
-        let name = np.name().clone();
-        assert!(self.points.insert(name, Rc::new(np)).is_none());
+    pub fn add_np(&mut self, np: NamedPoint) -> Option<Rc<NamedPoint>> {
+        self.points.add_data(np)
     }
 
     //fp add_pt
@@ -133,15 +98,15 @@ impl NamedPointSet {
         color: Color,
         model: Option<Point3D>,
         err: f64,
-    ) {
+    ) -> Option<Rc<NamedPoint>> {
         let model = model.map(|m| (m, err));
-        self.add_np(NamedPoint::new(name.into(), color, model));
+        self.add_np(NamedPoint::new(name.into(), color, model))
     }
 
     //fp of_color
     pub fn of_color(&self, color: &Color) -> Vec<Rc<NamedPoint>> {
         self.points
-            .values()
+            .iter()
             .filter(|v| color.color_eq(v.color()))
             .cloned()
             .collect()
@@ -149,18 +114,21 @@ impl NamedPointSet {
 
     //fp get_pt
     pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
-        self.points.get(name).cloned()
+        self.points.get_data(name).cloned()
     }
 
     //fp get_pt_err
     pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>> {
-        self.get_pt(name).ok_or_else(|| {
-            Error::Database(format!("Named point set does not contain name '{name}'"))
-        })
+        self.points
+            .get_data(name)
+            .ok_or_else(|| {
+                Error::Database(format!("Named point set does not contain name '{name}'"))
+            })
+            .cloned()
     }
 
     //fp iter
-    pub fn iter(&self) -> std::collections::hash_map::Iter<Tag, Rc<NamedPoint>> {
+    pub fn iter(&self) -> impl Iterator<Item = &Rc<NamedPoint>> {
         self.points.iter()
     }
 
@@ -174,11 +142,12 @@ impl NamedPointSet {
 impl NamedPointSet {
     //fp show_mappings
     pub fn show_mappings<C: CameraProjection>(&self, camera: &C) {
-        for (name, np) in &self.points {
+        for np in self.points.iter() {
             if np.is_unmapped() {
                 continue;
             }
 
+            let name = np.name();
             let (model, error) = np.model();
             let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
 

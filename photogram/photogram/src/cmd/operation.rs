@@ -22,13 +22,7 @@ impl CmdArgs {
     pub fn get_nps(&self) -> Result<Vec<Rc<NamedPoint>>> {
         let mut r = vec![];
         if self.np.is_empty() {
-            return Ok(self
-                .nps
-                .borrow()
-                .iter()
-                .map(|(_, np)| np)
-                .cloned()
-                .collect());
+            return Ok(self.nps.borrow().iter().cloned().collect());
         }
         for np in &self.np {
             if np.is_empty() {
@@ -50,8 +44,8 @@ impl CmdArgs {
                     // .case_insensitive(true)
                     .build()
                     .map_err(|e| format!("failed to compile regex '{np}': {e}"))?;
-                for (name, np) in self.nps.borrow().iter() {
-                    if regex.is_match(name) && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
+                for np in self.nps.borrow().iter() {
+                    if regex.is_match(np.name()) && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
                         r.push(np.clone());
                     }
                 }

@@ -45,10 +45,11 @@ impl std::borrow::Borrow<String> for Tag {
 
 //ip Borrow<Rc<String>> for Tag
 impl std::borrow::Borrow<Rc<String>> for Tag {
+    #[track_caller]
     fn borrow(&self) -> &Rc<String> {
         match self {
             Tag::Owned(s) => {
-                panic!("Should not be borrowing a tag which is onwed");
+                panic!("Should not be borrowing a tag which is owned");
             }
             Tag::Shared(s) => s,
         }
@@ -57,10 +58,11 @@ impl std::borrow::Borrow<Rc<String>> for Tag {
 
 //ip Clone for Tag
 impl std::clone::Clone for Tag {
+    #[track_caller]
     fn clone(&self) -> Self {
         match self {
             Tag::Owned(s) => {
-                panic!("Should not be cloning a tag which is onwed");
+                panic!("Should not be cloning a tag which is owned");
             }
             Tag::Shared(s) => Tag::Shared(s.clone()),
         }
@@ -180,6 +182,14 @@ impl std::cmp::Eq for Tag {}
 
 //ip Tag
 impl Tag {
+    // Must only be used by TagSet
+    fn clone_allow_owned(&self) -> Self {
+        match self {
+            Tag::Owned(s) => Tag::Owned(s.clone()),
+            Tag::Shared(s) => Tag::Shared(s.clone()),
+        }
+    }
+
     pub fn is_resolved(&self) -> bool {
         match self {
             Tag::Shared(_) => true,
@@ -357,9 +367,10 @@ where
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
         self.tags = tags;
         let old_data = std::mem::take(&mut self.data);
-        for (t, v) in old_data.into_iter() {
+        for (t, mut v) in old_data.into_iter() {
             assert!(!t.is_resolved());
             let t = self.tags.resolve_tag(t);
+            *Rc::get_mut(&mut v).unwrap().tag_mut() = t.clone();
             self.data.insert(t, v);
         }
     }
@@ -379,15 +390,16 @@ where
         self.data.contains_key(t)
     }
 
-    //mp contains_data
-    pub fn contains_data<A: AsRef<V>>(&self, v: A) -> bool {
-        self.data.contains_key(v.as_ref().tag())
+    //mp has_name
+    pub fn has_name(&self, s: &str) -> bool {
+        self.data.contains_key(s)
     }
 
     //mp add_data_unresolved
     /// Requires np to not be in the name set already
+    #[track_caller]
     pub fn add_data_unresolved(&mut self, mut data: V) -> Option<Rc<V>> {
-        let tag = data.tag().clone();
+        let tag = data.tag().clone_allow_owned();
         self.data.insert(tag, Rc::new(data))
     }
 
@@ -399,9 +411,14 @@ where
         self.data.insert(tag, Rc::new(data))
     }
 
+    //mp get_tag
+    pub fn get_tag(&self, t: &Tag) -> Option<&Rc<V>> {
+        self.data.get(t)
+    }
+
     //mp get_data
-    pub fn get_data(&self, name: &str) -> Option<Rc<V>> {
-        self.data.get(name).cloned()
+    pub fn get_data(&self, name: &str) -> Option<&Rc<V>> {
+        self.data.get(name)
     }
 
     //mp iter
@@ -409,8 +426,8 @@ where
         self.data.values()
     }
 
-    //dp into_iter
-    pub fn into_iter(self) -> impl Iterator<Item = Option<V>> {
-        self.data.into_values().map(|v| Rc::into_inner(v))
+    //dp into_values
+    pub fn into_values(self) -> impl Iterator<Item = Rc<V>> {
+        self.data.into_values()
     }
 }
