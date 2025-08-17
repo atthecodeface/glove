@@ -93,7 +93,7 @@ impl CmdArgs {
         for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
             let name = n.to_string();
             let color = [255, 255, 255, 255].into();
-            nps.add_pt(name.clone(), color, Some(model_xyz), 0.);
+            nps.add_pt(&name, color, Some(model_xyz), 0.);
             pms.add_mapping(&nps, &name, &pxy_abs, 0.);
         }
         pms

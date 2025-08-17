@@ -91,16 +91,20 @@ impl NamedPointSet {
         self.points.add_data(np)
     }
 
-    //fp add_pt
-    pub fn add_pt<S: Into<Tag>>(
+    //mp add_pt
+    /// Add a point to the named point set
+    ///
+    /// This must happen only after the TagSet is defined
+    pub fn add_pt(
         &mut self,
-        name: S,
+        name: &str,
         color: Color,
         model: Option<Point3D>,
         err: f64,
     ) -> Option<Rc<NamedPoint>> {
+        let tag = Tag::owned(name);
         let model = model.map(|m| (m, err));
-        self.add_np(NamedPoint::new(name.into(), color, model))
+        self.add_np(NamedPoint::new(tag, color, model))
     }
 
     //fp of_color

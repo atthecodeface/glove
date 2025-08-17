@@ -20,7 +20,7 @@ const KEY_FNS: &[KeyFn] = &[
     ),
     KeyFn(
         "cip.image",
-        &|cmd_args| Some(cmd_args.cip.borrow().image_name().to_owned()),
+        &|cmd_args| Some(cmd_args.cip.borrow().image().to_string()),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.image' to '{s}'").into()),
     ),
     KeyFn(

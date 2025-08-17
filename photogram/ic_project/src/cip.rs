@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, PathSet, Result, Rrc};
+use ic_base::{json, PathSet, Result, Rrc, Tag};
 use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
@@ -13,8 +13,11 @@ use crate::Project;
 //tp CipFileDesc
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CipFileDesc {
+    /// Filename of camera+lens orientation etc Json
     camera_file: String,
+    /// Filename of captured image
     image: String,
+    /// Filename of point mapping set Json
     pms_file: String,
 }
 
@@ -36,11 +39,13 @@ impl CipFileDesc {
 
     //mp load_cip
     pub fn load_cip(&self, path_set: &PathSet, project: &Project) -> Result<Cip> {
+        let image = Tag::reference(ic_base::image_name(&self.image));
+
         let mut cip = Cip {
             camera_filename: self.camera_file.clone(),
             pms_filename: self.pms_file.clone(),
             image_filename: self.image.clone(),
-            image: self.image.clone(),
+            image,
             ..Default::default()
         };
         let (_camera_filename, camera_desc): (String, CameraInstanceDesc) =
@@ -68,7 +73,7 @@ pub struct CipDesc {
     pms_filename: String,
     image_filename: String,
     camera: CameraInstanceDesc,
-    image: String,
+    image: Tag,
     pms: PointMappingSet,
 }
 
@@ -80,18 +85,18 @@ pub struct Cip {
     image_filename: String,
     camera: Rrc<CameraInstance>,
     pms: Rrc<PointMappingSet>,
-    image: String,
+    image: Tag,
 }
 
 //ip Cip
 impl Cip {
-    //ap image_name
-    pub fn image_name(&self) -> &str {
+    //ap image
+    pub fn image(&self) -> &Tag {
         &self.image
     }
 
     //mp set_image_name
-    pub fn set_image<I: Into<String>>(&mut self, s: I) {
+    pub fn set_image<I: Into<Tag>>(&mut self, s: I) {
         self.image = s.into();
     }
 

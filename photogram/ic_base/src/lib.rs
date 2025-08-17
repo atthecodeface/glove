@@ -31,3 +31,13 @@ pub use mesh::Mesh;
 pub use utils::Rrc;
 
 pub use quadtree::{QtPath, Quadtree};
+
+use std::path::Path;
+pub fn image_name<S: AsRef<str>>(image_filename: S) -> String {
+    let path: &Path = image_filename.as_ref().as_ref();
+    if let Some(image) = path.file_stem() {
+        image.to_string_lossy().into_owned()
+    } else {
+        image_filename.as_ref().into()
+    }
+}

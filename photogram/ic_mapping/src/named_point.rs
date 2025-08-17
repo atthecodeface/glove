@@ -67,8 +67,11 @@ impl std::fmt::Display for NamedPoint {
 
 //ip NamedPoint
 impl NamedPoint {
-    pub fn new<S: Into<Tag>>(name: S, color: Color, model: Option<(Point3D, f64)>) -> Self {
-        let name = name.into();
+    //cp new
+    /// Create a new NamedPoint, within a NamedPointSet
+    ///
+    /// The Tag must thus be Owned or Shared
+    pub fn new(name: Tag, color: Color, model: Option<(Point3D, f64)>) -> Self {
         let model = model.into();
         Self { name, color, model }
     }

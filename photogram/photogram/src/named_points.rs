@@ -271,18 +271,16 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let name = cmd_args.get_string_arg(0).unwrap();
     let color: Color = cmd_args.get_string_arg(1).unwrap().try_into()?;
     let mut model = None;
+    let mut err = 0.0;
     if cmd_args.arg_strings.len() > 2 {
-        model = Some((
-            cmd_args.arg_as_point3d(2)?,
-            cmd_args.get_f64_arg(0).unwrap_or(0.0),
-        ));
+        model = Some(cmd_args.arg_as_point3d(2)?);
+        err = cmd_args.get_f64_arg(0).unwrap_or(0.0);
     }
     if cmd_args.project().nps_ref().get_pt(name).is_some() {
         return Err(format!("Named point {name} already exists in the set").into());
     }
 
-    let np = NamedPoint::new(name, color, model);
-    cmd_args.project().nps_mut().add_np(np);
+    cmd_args.project().nps_mut().add_pt(name, color, model, err);
     Ok("".into())
 }
 

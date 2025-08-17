@@ -110,27 +110,6 @@ impl Hash for Tag {
     }
 }
 
-//ip From<String> for Tag
-impl std::convert::From<String> for Tag {
-    fn from(s: String) -> Self {
-        Tag::Owned(Rc::new(s))
-    }
-}
-
-//ip From<&str> for Tag
-impl std::convert::From<&str> for Tag {
-    fn from(s: &str) -> Self {
-        Tag::Owned(s.to_owned().into())
-    }
-}
-
-//ip From<&String> for Tag
-impl std::convert::From<&String> for Tag {
-    fn from(s: &String) -> Self {
-        Tag::Owned(s.clone().into())
-    }
-}
-
 //ip Display for Tag
 impl std::fmt::Display for Tag {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -202,6 +181,13 @@ impl std::cmp::PartialEq for Tag {
 //ip Eq for Tag
 impl std::cmp::Eq for Tag {}
 
+//ip Default for Tag
+impl std::default::Default for Tag {
+    fn default() -> Self {
+        Tag::Unresolved("".into())
+    }
+}
+
 //ip Tag
 impl Tag {
     // Must only be used by TagSet
@@ -219,6 +205,11 @@ impl Tag {
     pub fn reference<S: Into<String>>(name: S) -> Self {
         Tag::Unresolved(name.into())
     }
+
+    pub fn owned<S: Into<String>>(name: S) -> Self {
+        Tag::Owned(Rc::new(name.into()))
+    }
+
     pub fn is_resolved(&self) -> bool {
         match self {
             Tag::Shared(_) => true,

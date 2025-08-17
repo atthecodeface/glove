@@ -117,6 +117,8 @@ pub struct Project {
     image_squares: Rrc<ImageSquareSets>,
     #[serde(skip)]
     np_tag_set: Rc<TagSet>,
+    #[serde(skip)]
+    image_tag_set: Rc<TagSet>,
 }
 
 //ip Deserialize for Project
