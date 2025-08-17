@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for PointMapping {
         DE: serde::Deserializer<'de>,
     {
         let (model_name, screen, error) = <(String, Point2D, f64)>::deserialize(deserializer)?;
-        let named_point = Rc::new(NamedPoint::new(model_name, Color::black(), None));
+        let named_point = Rc::new(NamedPoint::reference(model_name));
         Ok(Self {
             named_point,
             screen,

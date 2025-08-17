@@ -1,4 +1,5 @@
 //a Imports
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -16,40 +17,60 @@ use serde::{Deserialize, Serialize};
 /// not be part of the data structures after initialization has
 /// completed.
 ///
-/// A Tag (de)serializes to a string; it has to Deserialize to Owned. A
+/// A Tag (de)serializes to a string; it has to Deserialize to Unresolved.
 #[derive(Debug)]
 pub enum Tag {
+    /// Owned name, but not in the official TagSet as yet
+    ///
+    /// This state should only be valid for the tags in use by the
+    /// eventual owner of the TagSet, prior to that being provided.
+    ///
+    /// This may be borrowed as a &String or &str, but not as an Rc;
+    /// for this it should have been added to a TagSet
     Owned(Rc<String>),
+    /// Name in a TagSet
     Shared(Rc<String>),
+    /// An unresolved reference, from a type that does not own the TagSet
+    ///
+    /// This will resolved into a Shared when the type is provided
+    /// with the TagSet to resolve it with
+    ///
+    /// An Unresolved can *only* be resolved; no other operations are permitted
+    Unresolved(String),
 }
 
 //ip Borrow<str> for Tag
-impl std::borrow::Borrow<str> for Tag {
+impl Borrow<str> for Tag {
     fn borrow(&self) -> &str {
         match self {
             Tag::Owned(s) => &s,
             Tag::Shared(s) => &s,
+            Tag::Unresolved(s) => &s,
         }
     }
 }
 
 //ip Borrow<String> for Tag
-impl std::borrow::Borrow<String> for Tag {
+impl Borrow<String> for Tag {
     fn borrow(&self) -> &String {
         match self {
             Tag::Owned(s) => s,
             Tag::Shared(s) => s,
+            Tag::Unresolved(s) => s,
         }
     }
 }
 
 //ip Borrow<Rc<String>> for Tag
-impl std::borrow::Borrow<Rc<String>> for Tag {
+impl Borrow<Rc<String>> for Tag {
     #[track_caller]
     fn borrow(&self) -> &Rc<String> {
         match self {
             Tag::Owned(s) => {
                 panic!("Should not be borrowing a tag which is owned");
+            }
+            Tag::Unresolved(s) => {
+                panic!("Must not be borrow an unresolved tag");
             }
             Tag::Shared(s) => s,
         }
@@ -63,6 +84,9 @@ impl std::clone::Clone for Tag {
         match self {
             Tag::Owned(s) => {
                 panic!("Should not be cloning a tag which is owned");
+            }
+            Tag::Unresolved(s) => {
+                panic!("Must not be cloning a tag which is unresolved");
             }
             Tag::Shared(s) => Tag::Shared(s.clone()),
         }
@@ -78,6 +102,9 @@ impl Hash for Tag {
             }
             Tag::Shared(s) => {
                 (**s).hash(state);
+            }
+            Tag::Unresolved(s) => {
+                panic!("Must not hash an unresolved tag");
             }
         }
     }
@@ -131,6 +158,7 @@ impl Serialize for Tag {
         match self {
             Tag::Owned(s) => s.serialize(serializer),
             Tag::Shared(s) => s.serialize(serializer),
+            Tag::Unresolved(s) => s.serialize(serializer),
         }
     }
 }
@@ -142,6 +170,7 @@ impl std::ops::Deref for Tag {
         match self {
             Tag::Owned(s) => s,
             Tag::Shared(s) => s,
+            Tag::Unresolved(s) => s,
         }
     }
 }
@@ -149,12 +178,7 @@ impl std::ops::Deref for Tag {
 //ip PartialOrd for Tag
 impl std::cmp::PartialOrd for Tag {
     fn partial_cmp(&self, other: &Tag) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (Tag::Owned(s), Tag::Owned(o)) => (*s).partial_cmp(o),
-            (Tag::Owned(s), Tag::Shared(o)) => s.partial_cmp(o),
-            (Tag::Shared(s), Tag::Owned(o)) => (**s).partial_cmp(o),
-            (Tag::Shared(s), Tag::Shared(o)) => s.partial_cmp(o),
-        }
+        Borrow::<str>::borrow(self).partial_cmp(Borrow::<str>::borrow(other))
     }
 }
 
@@ -169,10 +193,8 @@ impl std::cmp::Ord for Tag {
 impl std::cmp::PartialEq for Tag {
     fn eq(&self, other: &Tag) -> bool {
         match (self, other) {
-            (Tag::Owned(s), Tag::Owned(o)) => s == o,
-            (Tag::Owned(s), Tag::Shared(o)) => &**s == &**o,
-            (Tag::Shared(s), Tag::Owned(o)) => &**s == &**o,
             (Tag::Shared(s), Tag::Shared(o)) => Rc::ptr_eq(s, o),
+            (s, o) => Borrow::<str>::borrow(s) == Borrow::<str>::borrow(o),
         }
     }
 }
@@ -183,13 +205,20 @@ impl std::cmp::Eq for Tag {}
 //ip Tag
 impl Tag {
     // Must only be used by TagSet
+    #[track_caller]
     fn clone_allow_owned(&self) -> Self {
         match self {
+            Tag::Unresolved(s) => {
+                panic!("Attempt to clone an Unresolved tag for the TagSet which should only see Owned/Shared");
+            }
             Tag::Owned(s) => Tag::Owned(s.clone()),
             Tag::Shared(s) => Tag::Shared(s.clone()),
         }
     }
 
+    pub fn reference<S: Into<String>>(name: S) -> Self {
+        Tag::Unresolved(name.into())
+    }
     pub fn is_resolved(&self) -> bool {
         match self {
             Tag::Shared(_) => true,
@@ -234,16 +263,23 @@ impl TagSet {
     }
 
     //mp resolve_tag
-    pub fn resolve_tag(&self, tag: Tag) -> Tag {
+    pub fn resolve_tag(&self, tag: Tag) -> Option<Tag> {
         match tag {
-            Tag::Owned(name) => {
+            Tag::Unresolved(name) => {
                 if let Some(index) = self.index.borrow().get(&name) {
-                    Tag::Shared(self.tags.borrow()[*index].clone())
+                    Some(Tag::Shared(self.tags.borrow()[*index].clone()))
                 } else {
-                    self.insert_name(name)
+                    None
                 }
             }
-            tag => tag,
+            Tag::Owned(name) => {
+                if let Some(index) = self.index.borrow().get(&name) {
+                    Some(Tag::Shared(self.tags.borrow()[*index].clone()))
+                } else {
+                    Some(self.insert_name(name))
+                }
+            }
+            tag => Some(tag),
         }
     }
 
@@ -256,39 +292,7 @@ impl TagSet {
         }
     }
 
-    //mi xiter
-    fn xiter<'a>(&'a self) -> impl Iterator<Item = Rc<String>> + 'a {
-        Blah {
-            tags: self,
-            index: 0,
-            length: self.tags.borrow().len(),
-        }
-    }
-
     //zz All done
-}
-
-//a Blah
-//tp Blah
-pub struct Blah<'a> {
-    tags: &'a TagSet,
-    index: usize,
-    length: usize,
-}
-
-//ip Iterator for  Blah
-impl<'a> std::iter::Iterator for Blah<'a> {
-    type Item = Rc<String>;
-    fn next(&mut self) -> Option<Rc<String>> {
-        if self.index >= self.length {
-            None
-        } else {
-            let n = self.index;
-            let r = self.tags.tags.borrow()[n].clone();
-            self.index += 1;
-            Some(r)
-        }
-    }
 }
 
 //a TagMap
@@ -369,7 +373,9 @@ where
         let old_data = std::mem::take(&mut self.data);
         for (t, mut v) in old_data.into_iter() {
             assert!(!t.is_resolved());
-            let t = self.tags.resolve_tag(t);
+            let Some(t) = self.tags.resolve_tag(t) else {
+                panic!("Attempt to set TagSet for a TagMap that has *Unresolved* tags; as these are tags in the TagMap, these tags should either be owned or shared");
+            };
             *Rc::get_mut(&mut v).unwrap().tag_mut() = t.clone();
             self.data.insert(t, v);
         }

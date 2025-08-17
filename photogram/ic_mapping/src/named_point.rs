@@ -72,6 +72,14 @@ impl NamedPoint {
         let model = model.into();
         Self { name, color, model }
     }
+
+    pub fn reference<S: Into<String>>(name: S) -> Self {
+        let name = Tag::reference(name);
+        let color = Color::black();
+        let model = None.into();
+        Self { name, color, model }
+    }
+
     #[inline]
     pub fn is_unmapped(&self) -> bool {
         self.model.borrow().is_none()
