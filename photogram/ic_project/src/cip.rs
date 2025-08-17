@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, PathSet, Result, Rrc, Tag};
+use ic_base::{JsonParsable, JsonSrc, PathSet, Result, Rrc, Tag};
 use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
@@ -21,13 +21,20 @@ pub struct CipFileDesc {
     pms_file: String,
 }
 
+//ip JsonParsable for CipFileDesc
+impl JsonParsable for CipFileDesc {
+    fn reason() -> &'static str {
+        "CIP file descriptor"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        Ok(self)
+    }
+}
+
 //ip CipFileDesc
 impl CipFileDesc {
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("cip", json)
-    }
-
     //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
@@ -48,16 +55,17 @@ impl CipFileDesc {
             image,
             ..Default::default()
         };
-        let (_camera_filename, camera_desc): (String, CameraInstanceDesc) =
-            path_set.load_from_json_file("camera", &self.camera_file)?;
-        cip.camera = CameraInstance::from_desc(&project.cdb_ref(), camera_desc)?.into();
-        let (_pms_filename, pms_json) = path_set
-            .read_json_file(&self.pms_file)
-            .map_err(|e| (e, "point mapping set".to_owned()))?;
-        let (pms, warnings) = PointMappingSet::from_json(&project.nps_ref(), &pms_json)?;
-        if !warnings.is_empty() {
+
+        let (_, camera) =
+            CameraInstanceDesc::load_json_file(path_set, &self.camera_file, &project.cdb_ref())?;
+        cip.camera = camera.into();
+
+        let (_, (pms, pms_not_found)) =
+            PointMappingSet::load_json_file(path_set, &self.pms_file, &project.nps_ref())?;
+
+        if !pms_not_found.is_empty() {
             eprintln!(
-                "Warning load point mapping set '{}': {warnings}",
+                "Warning load point mapping set '{}': {pms_not_found:?}",
                 &self.pms_file
             );
         }
@@ -131,19 +139,19 @@ impl Cip {
     }
 
     //cp read_json
-    pub fn read_json(
-        &mut self,
-        project: &Project,
-        camera_json: &str,
-        pms_json: &str,
-    ) -> Result<String> {
-        let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?;
-        let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
-        self.camera = camera.into();
-        self.pms = pms.into();
-        Ok(warnings)
-    }
-
+    /*    pub fn read_json(
+            &mut self,
+            project: &Project,
+            camera_json: &str,
+            pms_json: &str,
+        ) -> Result<String> {
+            let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?;
+            let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
+            self.camera = camera.into();
+            self.pms = pms.into();
+            Ok(warnings)
+        }
+    */
     //cp from_desc
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
         let image = cip_desc.image;

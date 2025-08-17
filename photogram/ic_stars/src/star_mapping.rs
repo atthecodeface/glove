@@ -3,8 +3,7 @@ use geo_nd::{quat, Quaternion, Vector};
 use serde::{Deserialize, Serialize};
 use star_catalog::{Catalog, CatalogIndex, Subcube};
 
-use ic_base::json;
-use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
+use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::CameraProjection;
 use ic_camera::{CalibrationMapping, CameraInstance};
 use ic_image::ImagePt;
@@ -91,6 +90,18 @@ pub struct StarMapping {
     mappings: Vec<(isize, isize, usize, usize)>,
 }
 
+//ip JsonParsable for StarMapping
+impl JsonParsable for StarMapping {
+    fn reason() -> &'static str {
+        "star mapping"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        Ok(self)
+    }
+}
+
 //ip Serialize for StarMapping
 impl Serialize for StarMapping {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -119,11 +130,6 @@ impl<'de> Deserialize<'de> for StarMapping {
 
 //ip StarMapping - Constructors and Destructors
 impl StarMapping {
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("star mapping", json)
-    }
-
     //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {

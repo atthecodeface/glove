@@ -1,7 +1,7 @@
 //a Modules
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::{json, Result, Rrc};
+use ic_base::{JsonParsable, PathSet, Result, Rrc};
 use ic_project::{Cip, Project};
 
 use crate::{camera, mapping};
@@ -22,8 +22,8 @@ pub fn add_project_arg(cmd: Command, required: bool) -> Command {
 //fp get_project
 pub fn get_project(matches: &ArgMatches) -> Result<Project> {
     if let Some(project_filename) = matches.get_one::<String>("project") {
-        let project_json = json::read_file(project_filename)?;
-        let project: Project = json::from_json("project", &project_json)?;
+        let (_, project) = Project::load_json_file(&PathSet::default(), project_filename, &())?;
+
         Ok(project)
     } else {
         let mut project = Project::default();

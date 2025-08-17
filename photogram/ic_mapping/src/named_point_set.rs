@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point3D, Result, Tag, TagMap, TagSet};
+use ic_base::{Error, JsonParsable, Point3D, Result, Tag, TagMap, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 
@@ -15,6 +15,18 @@ use crate::NamedPoint;
 #[derive(Debug, Default)]
 pub struct NamedPointSet {
     points: TagMap<NamedPoint>,
+}
+
+//ip JsonParsable for NamedPointSet
+impl JsonParsable for NamedPointSet {
+    fn reason() -> &'static str {
+        "named point set"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        Ok(self)
+    }
 }
 
 //ip Serialize for NamedPointSet
@@ -43,11 +55,6 @@ impl NamedPointSet {
     //fp set_tag_set
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
         self.points.set_tag_set(tags)
-    }
-
-    //fp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("named point set", json)
     }
 
     //mp to_json

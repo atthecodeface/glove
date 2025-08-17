@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use ic_base::{json, Result};
-use ic_camera::{CameraDatabase, CameraInstance};
+use ic_base::{JsonParsable, PathSet, Result};
+use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc};
 use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
 //a NamedPointSet / NamedPoint
@@ -25,8 +25,8 @@ pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
 pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet> {
     let mut nps = NamedPointSet::default();
     for nps_filename in matches.get_many::<String>("nps").unwrap() {
-        let nps_json = json::read_file(nps_filename)?;
-        nps.merge(NamedPointSet::from_json(&nps_json)?);
+        let (_, new_nps) = NamedPointSet::load_json_file(&PathSet::default(), nps_filename, &())?;
+        nps.merge(new_nps);
     }
     Ok(nps)
 }
@@ -65,13 +65,12 @@ pub fn add_pms_arg(cmd: Command, required: bool) -> Command {
 
 //fp get_pms
 pub fn get_pms(matches: &ArgMatches, nps: &NamedPointSet) -> Result<PointMappingSet> {
-    let mut pms = PointMappingSet::new();
-    for pms_filename in matches.get_many::<String>("pms").unwrap() {
-        let pms_json = json::read_file(pms_filename)?;
-        let nf = pms.read_json(nps, &pms_json, true)?;
-        if !nf.is_empty() {
-            eprintln!("Warning: {nf}");
-        }
+    let pms_filename = matches.get_one::<String>("pms").unwrap();
+
+    let (_, (pms, pms_not_found)) =
+        PointMappingSet::load_json_file(&PathSet::default(), pms_filename, nps)?;
+    if !pms_not_found.is_empty() {
+        eprintln!("Warning: {pms_not_found:?}");
     }
     Ok(pms)
 }
@@ -97,14 +96,17 @@ pub fn get_camera_pms(
     let mut cam = None;
     for filename in matches.get_many::<String>("camera_pms").unwrap() {
         if cam.is_none() {
-            let camera_json = json::read_file(filename)?;
-            cam = Some(CameraInstance::from_json(cdb, &camera_json)?);
+            cam = {
+                let (_, camera) =
+                    CameraInstanceDesc::load_json_file(&PathSet::default(), filename, cdb)?;
+                Some(camera)
+            };
         } else {
-            let mut pms = PointMappingSet::new();
-            let pms_json = json::read_file(filename)?;
-            let nf = pms.read_json(nps, &pms_json, true)?;
-            if !nf.is_empty() {
-                eprintln!("Warning: {nf}");
+            let (_, (pms, pms_not_found)) =
+                PointMappingSet::load_json_file(&PathSet::default(), filename, nps)?;
+
+            if !pms_not_found.is_empty() {
+                eprintln!("Warning: {pms_not_found:?}");
             }
             result.push((cam.unwrap(), pms));
             cam = None;

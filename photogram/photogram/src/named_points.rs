@@ -6,7 +6,7 @@ use clap::Command;
 
 use thunderclap::CommandBuilder;
 
-use ic_base::{Ray, TagSet};
+use ic_base::{JsonParsable, Ray, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 use ic_mapping::{NamedPoint, NamedPointSet};
@@ -305,8 +305,7 @@ fn update_model_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi update_model_fn
 fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let json = cmd_args.get_string_arg(0).unwrap();
-    let new_nps = NamedPointSet::from_json(json)?;
+    let new_nps = NamedPointSet::load_json(cmd_args.get_string_arg(0).unwrap(), &())?;
     for opt_new_np in new_nps.into_iter() {
         // All of the named points are unshared, so we can unwrap
         let new_np = opt_new_np.unwrap();

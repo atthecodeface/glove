@@ -1,7 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Result};
+use ic_base::{Error, JsonParsable, Result};
 
 use crate::{CameraBody, CameraLens, CameraSensor};
 
@@ -12,6 +12,19 @@ use crate::{CameraBody, CameraLens, CameraSensor};
 pub struct CameraDatabase {
     bodies: Vec<CameraBody>,
     lenses: Vec<CameraLens>,
+}
+
+//ip JsonParsable for CameraDatabase
+impl JsonParsable for CameraDatabase {
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn reason() -> &'static str {
+        "camera_database"
+    }
+    fn post_parse(mut self, _args: &Self::PostParseArg) -> Result<Self> {
+        self.derive();
+        Ok(self)
+    }
 }
 
 //ip Display for CameraDatabase
@@ -31,13 +44,6 @@ impl std::fmt::Display for CameraDatabase {
 
 //ip CameraDatabase
 impl CameraDatabase {
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        let mut cdb: Self = json::from_json("camera database", json)?;
-        cdb.derive();
-        Ok(cdb)
-    }
-
     //mp to_json
     pub fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(self)?)

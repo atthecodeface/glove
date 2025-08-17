@@ -4,8 +4,10 @@ use std::rc::Rc;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use thunderclap::{CommandArgs, CommandBuilder};
 
-use ic_base::{json, Error, Point3D, Quat, Result};
-use ic_camera::{CalibrationMapping, CameraDatabase, CameraInstance, LensPolys};
+use ic_base::{Error, JsonParsable, PathSet, Point3D, Quat, Result};
+use ic_camera::{
+    CalibrationMapping, CameraDatabase, CameraInstance, CameraInstanceDesc, LensPolys,
+};
 use ic_project::Project;
 
 //a CameraProjection
@@ -176,8 +178,8 @@ pub fn add_arg_camera<C, F, G, H>(
         use_polys_arg(),
         Box::new(move |args, matches| {
             let polys = matches.get_one::<String>("use_polys").unwrap();
-            let json = json::read_file(polys)?;
-            let lens_polys: LensPolys = json::from_json("lens polynomials", &json)?;
+
+            let (_, lens_polys) = LensPolys::load_json_file(&PathSet::default(), polys, &())?;
             let camera = borrow_mut(args);
             let mut lens = camera.lens().clone();
             lens.set_polys(lens_polys);
@@ -203,9 +205,10 @@ where
 //fp get_camera_database
 pub fn get_camera_database(matches: &ArgMatches) -> Result<CameraDatabase> {
     let camera_db_filename = matches.get_one::<String>("camera_db").unwrap();
-    let camera_db_json = json::read_file(camera_db_filename)?;
-    let mut camera_db: CameraDatabase = json::from_json("camera database", &camera_db_json)?;
-    camera_db.derive();
+
+    let (_, camera_db) =
+        CameraDatabase::load_json_file(&PathSet::default(), camera_db_filename, &())?;
+
     Ok(camera_db)
 }
 
@@ -215,31 +218,36 @@ pub fn set_opt_camera_database(
     cdb: &mut Option<CameraDatabase>,
 ) -> Result<()> {
     let filename = matches.get_one::<String>("camera_db").unwrap();
-    let json = json::read_file(filename)?;
-    *cdb = Some(CameraDatabase::from_json(&json)?);
+
+    let (_, camera_db) = CameraDatabase::load_json_file(&PathSet::default(), filename, &())?;
+
+    *cdb = Some(camera_db);
     Ok(())
 }
 
 //fi get_camera_of_db
 fn get_camera_of_db(matches: &ArgMatches, cdb: &CameraDatabase) -> Result<CameraInstance> {
     let camera_filename = matches.get_one::<String>("camera").unwrap();
-    let camera_json = json::read_file(camera_filename)?;
-    CameraInstance::from_json(cdb, &camera_json)
+
+    let (_, camera) =
+        CameraInstanceDesc::load_json_file(&PathSet::default(), camera_filename, cdb)?;
+
+    Ok(camera)
 }
 
 //fp get_camera
 pub fn get_camera(matches: &ArgMatches, project: &Project) -> Result<CameraInstance> {
-    let camera_filename = matches.get_one::<String>("camera").unwrap();
-    let camera_json = json::read_file(camera_filename)?;
-    CameraInstance::from_json(&project.cdb_ref(), &camera_json)
+    get_camera_of_db(matches, &project.cdb_ref())
 }
 
 //a CameraCalibrate
 //fi get_calibration_mapping
 fn get_calibration_mapping(matches: &ArgMatches) -> Result<CalibrationMapping> {
     let filename = matches.get_one::<String>("calibration_mapping").unwrap();
-    let json = json::read_file(filename)?;
-    CalibrationMapping::from_json(&json)
+
+    let (_, mapping) = CalibrationMapping::load_json_file(&PathSet::default(), filename, &())?;
+
+    Ok(mapping)
 }
 
 //mp add_arg_calibration_mapping

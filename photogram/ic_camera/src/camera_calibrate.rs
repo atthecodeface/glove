@@ -1,8 +1,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::json;
-use ic_base::{Point2D, Point3D, Result, TanXTanY};
+use ic_base::{JsonParsable, Point2D, Point3D, Result, TanXTanY};
 
 use crate::{CameraInstance, CameraProjection};
 
@@ -13,6 +12,18 @@ use crate::{CameraInstance, CameraProjection};
 pub struct CalibrationMapping {
     /// Mappings from world coordinates to absolute camera pixel values
     mappings: Vec<(f64, f64, f64, usize, usize)>,
+}
+
+//ip JsonParsable for CalibrationMapping
+impl JsonParsable for CalibrationMapping {
+    fn reason() -> &'static str {
+        "calibration mapping"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _args: &Self::PostParseArg) -> Result<Self> {
+        Ok(self)
+    }
 }
 
 //ip Serialize for CalibrationMapping
@@ -52,11 +63,6 @@ impl CalibrationMapping {
             .map(|(w, s)| (w[0], w[1], w[2], s[0] as usize, s[1] as usize))
             .collect();
         Self { mappings }
-    }
-
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("calibration mapping", json)
     }
 
     //mp to_json

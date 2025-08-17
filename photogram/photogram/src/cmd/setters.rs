@@ -2,12 +2,12 @@
 use star_catalog::Catalog;
 
 use ic_base::Result;
-use ic_base::{json, Ray, Rrc};
-use ic_camera::CameraInstance;
+use ic_base::{JsonParsable, JsonSrc, Ray, Rrc};
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
+use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, ProjectFileDesc};
+use ic_project::{Cip, Project, ProjectFileDesc};
 use ic_stars::StarMapping;
 
 use super::CmdArgs;
@@ -29,11 +29,9 @@ impl CmdArgs {
 
     //mi set_camera_db
     pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
-        let (cdb_filename, mut camera_db): (String, CameraDatabase) = self
-            .path_set
-            .load_from_json_file("camera database", filename)?;
+        let (cdb_filename, camera_db) =
+            CameraDatabase::load_json_file(&self.path_set, filename, &())?;
         self.if_verbose(|| eprintln!("Loaded camera database from '{cdb_filename}'"));
-        camera_db.derive();
         self.project.set_cdb(camera_db);
         self.cdb = self.project.cdb().clone();
         Ok(())
@@ -42,8 +40,7 @@ impl CmdArgs {
     //mi set_project_file
     pub(crate) fn set_project_file(&mut self, filename: &str) -> Result<()> {
         let project_filename;
-        (project_filename, self.project) =
-            self.path_set.load_from_json_file("project", filename)?;
+        (project_filename, self.project) = Project::load_json_file(&self.path_set, filename, &())?;
         self.if_verbose(|| eprintln!("Loaded project from '{project_filename}'"));
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
@@ -54,9 +51,8 @@ impl CmdArgs {
 
     //mi set_project_desc
     pub(crate) fn set_project_desc(&mut self, filename: &str) -> Result<()> {
-        let (project_desc_filename, project_file_desc): (String, ProjectFileDesc) =
-            self.path_set
-                .load_from_json_file("project descriptor", filename)?;
+        let (project_desc_filename, project_file_desc) =
+            ProjectFileDesc::load_json_file(&self.path_set, filename, &())?;
         self.if_verbose(|| eprintln!("Loaded project desc from '{project_desc_filename}'"));
         self.project = project_file_desc.load_project(&self.path_set)?;
         self.nps = self.project.nps().clone();
@@ -66,8 +62,8 @@ impl CmdArgs {
 
     //mi set_calibration_mapping_file
     pub fn set_calibration_mapping_file(&mut self, filename: &str) -> Result<()> {
-        let json = json::read_file(filename)?;
-        self.calibration_mapping = CalibrationMapping::from_json(&json)?;
+        self.calibration_mapping =
+            CalibrationMapping::load_json_file(&self.path_set, filename, &())?.1;
         Ok(())
     }
 
@@ -78,15 +74,18 @@ impl CmdArgs {
 
     //mi set_camera_json
     pub(crate) fn set_camera_json(&mut self, camera_json: &str) -> Result<()> {
-        let camera = CameraInstance::from_json(&self.cdb.borrow(), camera_json)?;
+        let camera = CameraInstanceDesc::load_json(camera_json, &self.cdb.borrow())?;
         self.set_camera(camera);
         Ok(())
     }
 
     //mi set_camera_file
     pub(crate) fn set_camera_file(&mut self, camera_filename: &str) -> Result<()> {
-        let camera_json = json::read_file(camera_filename)?;
-        let camera = CameraInstance::from_json(&self.cdb.borrow(), &camera_json)?;
+        let (_, camera) = CameraInstanceDesc::load_json_file(
+            &self.path_set,
+            camera_filename,
+            &self.cdb.borrow(),
+        )?;
         self.set_camera(camera);
         Ok(())
     }
@@ -113,8 +112,7 @@ impl CmdArgs {
 
     //mi set_camera_polys
     pub(crate) fn set_camera_polys(&mut self, polys: &str) -> Result<()> {
-        let json = json::read_file(polys)?;
-        let lens_polys: LensPolys = json::from_json("lens polynomials", &json)?;
+        let (_, lens_polys) = LensPolys::load_json_file(&self.path_set, polys, &())?;
         let mut lens = self.camera.lens().clone();
         lens.set_polys(lens_polys);
         self.camera.set_lens(lens);
@@ -135,22 +133,21 @@ impl CmdArgs {
     ///
     /// Could perhaps do with a way to reset the nps for batch mode
     pub(crate) fn add_nps(&mut self, nps_filename: &str) -> Result<()> {
-        let nps_json = json::read_file(nps_filename)?;
-        self.project
-            .nps_mut()
-            .merge(NamedPointSet::from_json(&nps_json)?);
+        let (_, nps) = NamedPointSet::load_json_file(&self.path_set, nps_filename, &())?;
+        self.project.nps_mut().merge(nps);
         Ok(())
     }
 
     //mi add_pms
     /// Adds a point mapping set
     pub(crate) fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
-        let mut pms = PointMappingSet::new();
-        let pms_json = json::read_file(pms_filename)?;
-        let nf = pms.read_json(&self.project.nps_ref(), &pms_json, true)?;
-        if !nf.is_empty() {
-            eprintln!("Warning: {nf}");
+        let (_, (pms, pms_not_found)) =
+            PointMappingSet::load_json_file(&self.path_set, pms_filename, &self.project.nps_ref())?;
+
+        if !pms_not_found.is_empty() {
+            eprintln!("Warning: {pms_not_found:?}");
         }
+
         if self.project.ncips() == 0 {
             let cip: Rrc<Cip> = Cip::default().into();
             self.cip = cip.clone();
@@ -173,8 +170,7 @@ impl CmdArgs {
 
     //mp set_star_mapping_file
     pub(crate) fn set_star_mapping_file(&mut self, filename: &str) -> Result<()> {
-        let json = json::read_file(filename)?;
-        self.star_mapping = StarMapping::from_json(&json)?;
+        self.star_mapping = StarMapping::load_json_file(&self.path_set, filename, &())?.1;
         Ok(())
     }
 
@@ -223,8 +219,8 @@ impl CmdArgs {
 
     //mi set_ray_file
     pub(crate) fn set_ray_file(&mut self, ray_filename: &str) -> Result<()> {
-        let r_json = json::read_file(ray_filename)?;
-        let mut named_rays: Vec<(String, Ray)> = json::from_json("ray list", &r_json)?;
+        let r_json = JsonSrc::<()>::read_json_file(&self.path_set, ray_filename)?;
+        let (_, mut named_rays): (_, Vec<(String, Ray)>) = r_json.deserialize_as("ray list")?;
         self.named_rays.append(&mut named_rays);
         Ok(())
     }

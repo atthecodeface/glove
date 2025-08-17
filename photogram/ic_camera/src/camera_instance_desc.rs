@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use geo_nd::quat;
 
-use ic_base::json;
-use ic_base::{Point3D, Quat, Result};
+use ic_base::{JsonParsable, Point3D, Quat, Result};
+
+use crate::{CameraDatabase, CameraInstance};
 
 use crate::utils;
 
@@ -23,6 +24,18 @@ pub struct CameraInstanceDesc {
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
     orientation: Quat,
+}
+
+//ip JsonParsable for CameraInstanceDesc
+impl JsonParsable for CameraInstanceDesc {
+    fn reason() -> &'static str {
+        "camera instance descriptor"
+    }
+    type PostParseArg = CameraDatabase;
+    type PostParseResult = CameraInstance;
+    fn post_parse(self, cdb: &CameraDatabase) -> Result<CameraInstance> {
+        CameraInstance::from_desc(cdb, self)
+    }
 }
 
 //ip Display for CameraInstanceDesc
@@ -95,11 +108,6 @@ impl CameraInstanceDesc {
             position,
             orientation,
         }
-    }
-
-    //cp from_json`
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("camera instance descriptor", json)
     }
 
     //dp to_json

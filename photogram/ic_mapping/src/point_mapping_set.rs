@@ -5,7 +5,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, utils, Error, Point2D, Ray, Result};
+use ic_base::{utils, Error, JsonParsable, Point2D, Ray, Result};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
@@ -97,6 +97,19 @@ impl Iterator for PmsGoodScreenPairSet {
 #[derive(Debug, Default)]
 pub struct PointMappingSet {
     mappings: Vec<PointMapping>,
+}
+
+//ip JsonParsable for PointMappingSet
+impl JsonParsable for PointMappingSet {
+    fn reason() -> &'static str {
+        "point mapping set"
+    }
+    type PostParseArg = NamedPointSet;
+    type PostParseResult = (Self, Vec<PointMapping>);
+    fn post_parse(mut self, nps: &NamedPointSet) -> Result<(Self, Vec<PointMapping>)> {
+        let warnings = self.rebuild_with_named_point_set(nps);
+        Ok((self, warnings))
+    }
 }
 
 //ip Serialize for PointMappingSet
@@ -229,6 +242,7 @@ impl PointMappingSet {
 
 //ip PointMappingSet - Json
 impl PointMappingSet {
+    /*
     //mp read_json
     pub fn read_json(
         &mut self,
@@ -246,24 +260,26 @@ impl PointMappingSet {
     }
 
     //cp from_json
-    pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
-        let mut pms: Self = json::from_json("point map set", json)?;
-        let pms_not_found = pms.rebuild_with_named_point_set(nps);
-        if pms_not_found.is_empty() {
-            Ok((pms, "".into()))
-        } else {
-            let mut r = String::new();
-            let mut sep = "";
-            for pms_nf in pms_not_found {
-                r.push_str(&format!("{sep}'{}'", pms_nf.name()));
-                sep = ", ";
-            }
-            Ok((
-                pms,
-                format!("Failed to find points {r} to map in named point set"),
-            ))
-        }
+            pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
+                let mut pms: Self = json::from_json("point map set", json)?;
+                let pms_not_found = pms.rebuild_with_named_point_set(nps);
+                if pms_not_found.is_empty() {
+                    Ok((pms, "".into()))
+                } else {
+                    let mut r = String::new();
+                    let mut sep = "";
+                    for pms_nf in pms_not_found {
+                        r.push_str(&format!("{sep}'{}'", pms_nf.name()));
+                        sep = ", ";
+                    }
+                    Ok((
+                        pms,
+                        format!("Failed to find points {r} to map in named point set"),
+                    ))
+                }
     }
+
+         */
 
     //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {

@@ -3,8 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::de::DeserializeOwned;
 
-use crate::json::json_error;
-use crate::json::remove_comments;
+use crate::JsonSrc;
 use crate::Result;
 
 //a PathSet
@@ -41,32 +40,12 @@ impl PathSet {
         }
     }
 
-    //fp read_json_file
-    pub fn read_json_file<P: AsRef<Path> + std::fmt::Display>(
-        &self,
-        path: P,
-    ) -> Result<(String, String)> {
+    //mp find_file_err
+    pub fn find_file_err<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<PathBuf> {
         if let Some(path) = self.find_file(&path) {
-            let file_text = std::fs::read_to_string(&path)?;
-            Ok((path.display().to_string(), remove_comments(&file_text)))
+            Ok(path)
         } else {
             Err(format!("Failed to find '{path}' on the search path").into())
         }
-    }
-
-    //mp load_from_json_file
-    pub fn load_from_json_file<P: AsRef<Path> + std::fmt::Display, T: DeserializeOwned>(
-        &self,
-        reason: &str,
-        path: P,
-    ) -> Result<(String, T)> {
-        let (pathname, json) = self
-            .read_json_file(&path)
-            .map_err(|e| (e, reason.to_owned()))?;
-        Ok((
-            pathname,
-            serde_json::from_str(&json)
-                .map_err(|e| json_error(&format!("{reason} '{path}'"), &json, e))?,
-        ))
     }
 }

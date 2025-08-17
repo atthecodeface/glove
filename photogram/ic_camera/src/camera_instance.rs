@@ -3,8 +3,7 @@ use serde::Serialize;
 
 use geo_nd::quat;
 
-use ic_base::json;
-use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
+use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
 use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens};
@@ -137,12 +136,6 @@ impl CameraInstance {
         );
         camera.derive();
         Ok(camera)
-    }
-
-    //cp from_json`
-    pub fn from_json(cdb: &CameraDatabase, json: &str) -> Result<Self> {
-        let desc: CameraInstanceDesc = json::from_json("camera instance descriptor", json)?;
-        Self::from_desc(cdb, desc)
     }
 
     //dp to_desc

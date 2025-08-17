@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, PathSet, Point3D, Ray, Result, Rrc, TagSet};
+use ic_base::{JsonParsable, JsonSrc, PathSet, Point3D, Ray, Result, Rrc, TagSet};
 use ic_camera::CameraDatabase;
 use ic_mapping::{NamedPointSet, PointMapping};
 
@@ -36,11 +36,6 @@ pub struct ProjectFileDesc {
 
 //ip ProjectFileDesc
 impl ProjectFileDesc {
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("project", json)
-    }
-
     //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
@@ -53,12 +48,14 @@ impl ProjectFileDesc {
     //mp load_project
     pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
         let mut project = Project::default();
-        let (cdb_filename, mut cdb): (String, CameraDatabase) =
-            path_set.load_from_json_file("camera database", &self.cdb)?;
-        cdb.derive();
+
+        let (cdb_filename, cdb) = CameraDatabase::load_json_file(path_set, &self.cdb, &())?;
+
         project.set_cdb(cdb);
         project.set_cdb_filename(cdb_filename);
-        let (nps_filename, nps) = path_set.load_from_json_file("named point set", &self.nps)?;
+
+        let (nps_filename, nps) = NamedPointSet::load_json_file(path_set, &self.nps, &())?;
+
         project.set_nps(Rrc::new(nps));
         project.set_nps_filename(nps_filename);
         for cip in &self.cips {
@@ -68,6 +65,18 @@ impl ProjectFileDesc {
         // project.set_patches(Rrc::new(path_set.load_from_json_file("patches", &self.patches)?,
         //));
         Ok(project)
+    }
+}
+
+//ip JsonParsable for ProjectFileDesc
+impl JsonParsable for ProjectFileDesc {
+    fn reason() -> &'static str {
+        "project file descriptor"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        Ok(self)
     }
 }
 
@@ -119,6 +128,19 @@ pub struct Project {
     np_tag_set: Rc<TagSet>,
     #[serde(skip)]
     image_tag_set: Rc<TagSet>,
+}
+
+//ip JsonParsable for Project
+impl JsonParsable for Project {
+    fn reason() -> &'static str {
+        "project"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        // All the hard work is in deserialize
+        Ok(self)
+    }
 }
 
 //ip Deserialize for Project
@@ -223,11 +245,6 @@ impl Project {
     //ap cip
     pub fn cip(&self, n: usize) -> &Rrc<Cip> {
         &self.cips[n]
-    }
-
-    //cp from_json
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("project", json)
     }
 
     //mp set_cdb

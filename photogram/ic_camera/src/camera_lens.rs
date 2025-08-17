@@ -106,8 +106,7 @@
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::json;
-use ic_base::{Error, Result};
+use ic_base::{Error, JsonParsable, Result};
 
 use crate::polynomial;
 use crate::polynomial::CalcPoly;
@@ -291,6 +290,18 @@ impl std::fmt::Display for LensPolys {
     }
 }
 
+//ip JsonParsable for LensPolys
+impl JsonParsable for LensPolys {
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn reason() -> &'static str {
+        "lens polynomials"
+    }
+    fn post_parse(self, _args: &Self::PostParseArg) -> Result<Self> {
+        Ok(self)
+    }
+}
+
 //ip LensPolys
 impl LensPolys {
     //cp stereographic
@@ -324,11 +335,6 @@ impl LensPolys {
     //cp new
     pub fn new(stw_poly: Vec<f64>, wts_poly: Vec<f64>) -> Self {
         Self { stw_poly, wts_poly }
-    }
-
-    //cp from_json`
-    pub fn from_json(json: &str) -> Result<Self> {
-        json::from_json("lens polynomials", json)
     }
 
     //mp to_json

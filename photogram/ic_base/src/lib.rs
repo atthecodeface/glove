@@ -8,7 +8,9 @@ mod error;
 pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub mod json;
+mod json;
+pub use json::{JsonParsable, JsonSrc};
+
 mod path_set;
 pub use path_set::PathSet;
 mod plane;

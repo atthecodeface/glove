@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use ic_base::{json, Result};
+use ic_base::{JsonParsable, PathSet, Result};
 use ic_project::Project;
 
 //a ProjectPath
@@ -45,15 +45,15 @@ impl ProjectWrap {
     //mp of_json
     /// Set to be a project from some Json
     fn of_json(&mut self, project_json: &str) -> Result<()> {
-        self.0 = json::from_json("project", project_json)?;
+        self.0 = Project::load_json(project_json, &())?;
         Ok(())
     }
 
     //mp load
     /// Load the project from a path - it drops the old project
     fn load<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<()> {
-        let project_json = json::read_file(path)?;
-        self.of_json(&project_json)
+        self.0 = Project::load_json_file(&PathSet::default(), path, &())?.1;
+        Ok(())
     }
 
     //mp save
