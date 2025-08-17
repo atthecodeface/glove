@@ -23,10 +23,10 @@ pub fn add_nps_arg(cmd: Command, required: bool) -> Command {
 
 //fp get_nps
 pub fn get_nps(matches: &ArgMatches) -> Result<NamedPointSet> {
-    let mut nps = NamedPointSet::new();
+    let mut nps = NamedPointSet::default();
     for nps_filename in matches.get_many::<String>("nps").unwrap() {
         let nps_json = json::read_file(nps_filename)?;
-        nps.merge(&NamedPointSet::from_json(&nps_json)?);
+        nps.merge(NamedPointSet::from_json(&nps_json)?);
     }
     Ok(nps)
 }

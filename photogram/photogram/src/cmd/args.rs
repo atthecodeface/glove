@@ -32,7 +32,7 @@ impl CmdArgs {
     pub fn add_arg_pretty_json(build: &mut CommandBuilder<Self>) {
         build.add_flag(
             "pretty_json",
-            Some('v'),
+            None,
             "Enable pretty_json output",
             CmdArgs::set_pretty_json,
         );

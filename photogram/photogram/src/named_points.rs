@@ -1,11 +1,12 @@
 //a Imports
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use clap::Command;
 
 use thunderclap::CommandBuilder;
 
-use ic_base::Ray;
+use ic_base::{Ray, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 use ic_mapping::{NamedPoint, NamedPointSet};
@@ -193,6 +194,8 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .collect();
 
     let mut result_nps = NamedPointSet::default();
+    // Don't really need a TagSet as  the named points are single use, but it is good practice
+    result_nps.set_tag_set(Rc::new(TagSet::default()));
     for np in nps {
         let mut ray_list = Vec::new();
         for (pms, camera) in &cips {
@@ -206,7 +209,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                 let e_sq = ray_list
                     .iter()
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
-                result_nps.add_pt(np.name(), *np.color(), Some(pt), e_sq.sqrt());
+                result_nps.add_pt(np.name().as_str(), *np.color(), Some(pt), e_sq.sqrt());
                 cmd_args.if_verbose(|| {
                     for r in ray_list {
                         eprintln!("Ray to {} {:?}", np.name(), r.distances(&pt));
@@ -279,7 +282,7 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     let np = NamedPoint::new(name, color, model);
-    cmd_args.project().nps_mut().add_np(&np);
+    cmd_args.project().nps_mut().add_np(np);
     Ok("".into())
 }
 
@@ -306,8 +309,10 @@ fn update_model_cmd() -> CommandBuilder<CmdArgs> {
 fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let json = cmd_args.get_string_arg(0).unwrap();
     let new_nps = NamedPointSet::from_json(json)?;
-    for (new_name, new_np) in new_nps.iter() {
-        if let Some(np) = cmd_args.nps().borrow().get_pt(new_name) {
+    for opt_new_np in new_nps.into_iter() {
+        // All of the named points are unshared, so we can unwrap
+        let new_np = opt_new_np.unwrap();
+        if let Some(np) = cmd_args.nps().borrow().get_pt(new_np.name().as_str()) {
             if let Some(new_np_model) = new_np.opt_model() {
                 if let Some((_np_model, np_err)) = np.opt_model() {
                     if np_err != 0.0 {

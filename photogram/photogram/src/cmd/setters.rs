@@ -138,7 +138,7 @@ impl CmdArgs {
         let nps_json = json::read_file(nps_filename)?;
         self.project
             .nps_mut()
-            .merge(&NamedPointSet::from_json(&nps_json)?);
+            .merge(NamedPointSet::from_json(&nps_json)?);
         Ok(())
     }
 

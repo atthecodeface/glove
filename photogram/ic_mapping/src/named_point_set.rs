@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{json, Error, Point3D, Result};
+use ic_base::{json, Error, Point3D, Result, Tag, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 
@@ -14,8 +14,14 @@ use crate::NamedPoint;
 //tp NamedPointSet
 #[derive(Debug, Default)]
 pub struct NamedPointSet {
-    points: HashMap<String, Rc<NamedPoint>>,
-    names: Vec<String>,
+    points: HashMap<Tag, Rc<NamedPoint>>,
+    /// The tags, so that tags can be resolved to Shared without
+    /// resorting to any other struct
+    ///
+    /// This is an Rc so the same TagSet can be shared
+    ///
+    /// It is immutable as the TagSet has interior mutability
+    tags: Rc<TagSet>,
 }
 
 //ip Serialize for NamedPointSet
@@ -25,11 +31,10 @@ impl Serialize for NamedPointSet {
         S: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        let mut seq = serializer.serialize_seq(Some(self.names.len()))?;
         let sorted_order = self.sorted_order();
-        for i in sorted_order {
-            let name = &self.names[i];
-            let np = self.points.get(name).unwrap();
+        let mut seq = serializer.serialize_seq(Some(sorted_order.len()))?;
+        for name in sorted_order {
+            let np = self.points.get(&name).unwrap();
             let color = np.color();
             let model = np.opt_model();
             seq.serialize_element(&(name, color, model))?;
@@ -47,7 +52,7 @@ impl<'de> Deserialize<'de> for NamedPointSet {
         let mut nps = NamedPointSet::default();
         let array = Vec::<NamedPoint>::deserialize(deserializer)?;
         for np in array {
-            nps.add_np(&np);
+            nps.add_np(np);
         }
         Ok(nps)
     }
@@ -55,15 +60,21 @@ impl<'de> Deserialize<'de> for NamedPointSet {
 
 //ip NamedPointSet
 impl NamedPointSet {
-    //fp new
-    pub fn new() -> Self {
-        Self::default()
+    //fp set_tag_set
+    pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
+        self.tags = tags;
+        let old_points = std::mem::take(&mut self.points);
+        for (t, np) in old_points.into_iter() {
+            assert!(!t.is_resolved());
+            let t = self.tags.resolve_tag(t);
+            self.points.insert(t, np);
+        }
     }
 
     //mp sorted_order
-    pub fn sorted_order(&self) -> Vec<usize> {
-        let mut order: Vec<usize> = (0..self.names.len()).collect();
-        order.sort_by(|a, b| self.names[*a].cmp(&self.names[*b]));
+    pub fn sorted_order(&self) -> Vec<Tag> {
+        let mut order: Vec<_> = self.points.keys().map(|s| s.clone()).collect();
+        order.sort_by(|a, b| a.cmp(&b));
         order
     }
 
@@ -83,8 +94,10 @@ impl NamedPointSet {
 
     //mp merge
     /// Merge another NPS into this one
-    pub fn merge(&mut self, other: &Self) {
-        for np in other.points.values() {
+    ///
+    /// The other NPS cannot be in use
+    pub fn merge(&mut self, other: Self) {
+        for np in other.points.into_values() {
             let np_name = np.name();
             if self.points.contains_key(np_name) {
                 if !np.is_unmapped() && self.points.get_mut(np_name).unwrap().is_unmapped() {
@@ -94,7 +107,7 @@ impl NamedPointSet {
                         .set_model(Some(np.model()));
                 }
             } else {
-                self.add_np(np);
+                self.add_np(Rc::into_inner(np).unwrap()); // This will fail if the named point is in use in a PMS
             }
         }
     }
@@ -106,27 +119,22 @@ impl NamedPointSet {
 
     //mp add_np
     /// Requires np to not be in the name set already
-    pub fn add_np(&mut self, np: &NamedPoint) {
-        let opt_model = np.opt_model();
-        let err = opt_model.map_or(0.0, |m| m.1);
-        let opt_model = opt_model.map(|m| m.0);
-        self.add_pt(np.name(), *np.color(), opt_model, err);
+    pub fn add_np(&mut self, mut np: NamedPoint) {
+        np.resolve_name(&self.tags);
+        let name = np.name().clone();
+        assert!(self.points.insert(name, Rc::new(np)).is_none());
     }
 
     //fp add_pt
-    pub fn add_pt<S: Into<String>>(
+    pub fn add_pt<S: Into<Tag>>(
         &mut self,
         name: S,
         color: Color,
         model: Option<Point3D>,
         err: f64,
     ) {
-        let name = name.into();
         let model = model.map(|m| (m, err));
-        let pt = Rc::new(NamedPoint::new(name.clone(), color, model));
-        if self.points.insert(name.clone(), pt).is_none() {
-            self.names.push(name);
-        }
+        self.add_np(NamedPoint::new(name.into(), color, model));
     }
 
     //fp of_color
@@ -151,8 +159,13 @@ impl NamedPointSet {
     }
 
     //fp iter
-    pub fn iter(&self) -> std::collections::hash_map::Iter<String, Rc<NamedPoint>> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<Tag, Rc<NamedPoint>> {
         self.points.iter()
+    }
+
+    //dp into_iter
+    pub fn into_iter(self) -> impl Iterator<Item = Option<NamedPoint>> {
+        self.points.into_values().map(|p| Rc::into_inner(p))
     }
 }
 

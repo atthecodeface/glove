@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::Point3D;
+use ic_base::{Point3D, Tag, TagSet};
 use ic_image::Color;
 
 //a NamedPoint
@@ -14,7 +14,7 @@ use ic_image::Color;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NamedPoint {
     /// Name of the point
-    name: String,
+    name: Tag,
     /// Color of the point in calibration images
     color: Color,
     /// The 3D model coordinate this point corresponds to and the radius of uncertainty
@@ -84,10 +84,13 @@ impl PartialOrd for NamedPoint {
 
 //ip NamedPoint
 impl NamedPoint {
-    pub fn new<S: Into<String>>(name: S, color: Color, model: Option<(Point3D, f64)>) -> Self {
+    pub fn new<S: Into<Tag>>(name: S, color: Color, model: Option<(Point3D, f64)>) -> Self {
         let name = name.into();
         let model = model.into();
         Self { name, color, model }
+    }
+    pub fn resolve_name(&mut self, tags: &TagSet) {
+        self.name.resolve_in(tags);
     }
     #[inline]
     pub fn is_unmapped(&self) -> bool {
@@ -114,7 +117,7 @@ impl NamedPoint {
         *self.model.borrow_mut() = model;
     }
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &Tag {
         &self.name
     }
 }
