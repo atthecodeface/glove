@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_cmdline", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_stars", "ic_threads", "image_server", "ic_play", "thunderclap"]
+members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_stars", "ic_threads", "image_server", "ic_play", "thunderclap"]
 
 [workspace.package]
 edition = "2024"
@@ -17,7 +17,6 @@ repository = "https://github.com/atthecodeface/image_calibrate"
 ic_base = { version = "0.1.0", path = "./ic_base" }
 ic_cache = { version = "0.1.0", path = "./ic_cache" }
 ic_camera = { version = "0.1.0", path = "./ic_camera" }
-ic_cmdline = { version = "0.1.0", path = "./ic_cmdline" }
 ic_http = { version = "0.1.0", path = "./ic_http" }
 ic_image = { version = "0.1.0", path = "./ic_image" }
 ic_kernel = { version = "0.1.0", path = "./ic_kernel" }

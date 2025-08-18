@@ -16,7 +16,6 @@ ic_stars.workspace = true
 ic_image.workspace = true
 ic_camera.workspace = true
 ic_mapping.workspace = true
-ic_cmdline.workspace = true
 geo-nd.workspace = true
 poloto.workspace = true
 serde.workspace = true
