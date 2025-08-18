@@ -161,15 +161,15 @@ named_points update_model ${0}
 
 cip --cip 0 locate
 cip orient
-cip image -r ${cip.image} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
 
 cip --cip 1 locate
 cip orient
-cip image -r ${cip.image} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
 
 cip --cip 2 locate
 cip orient
-cip image -r ${cip.image} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
 
 --pretty_json project as_json
 echo --file cube_improved.json ${0}

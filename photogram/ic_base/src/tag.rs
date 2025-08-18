@@ -66,10 +66,10 @@ impl Borrow<Rc<String>> for Tag {
     #[track_caller]
     fn borrow(&self) -> &Rc<String> {
         match self {
-            Tag::Owned(s) => {
+            Tag::Owned(_s) => {
                 panic!("Should not be borrowing a tag which is owned");
             }
-            Tag::Unresolved(s) => {
+            Tag::Unresolved(_s) => {
                 panic!("Must not be borrow an unresolved tag");
             }
             Tag::Shared(s) => s,
@@ -82,10 +82,10 @@ impl std::clone::Clone for Tag {
     #[track_caller]
     fn clone(&self) -> Self {
         match self {
-            Tag::Owned(s) => {
+            Tag::Owned(_s) => {
                 panic!("Should not be cloning a tag which is owned");
             }
-            Tag::Unresolved(s) => {
+            Tag::Unresolved(_s) => {
                 panic!("Must not be cloning a tag which is unresolved");
             }
             Tag::Shared(s) => Tag::Shared(s.clone()),
@@ -103,7 +103,7 @@ impl Hash for Tag {
             Tag::Shared(s) => {
                 (**s).hash(state);
             }
-            Tag::Unresolved(s) => {
+            Tag::Unresolved(_s) => {
                 panic!("Must not hash an unresolved tag");
             }
         }
@@ -194,7 +194,7 @@ impl Tag {
     #[track_caller]
     fn clone_allow_owned(&self) -> Self {
         match self {
-            Tag::Unresolved(s) => {
+            Tag::Unresolved(_s) => {
                 panic!("Attempt to clone an Unresolved tag for the TagSet which should only see Owned/Shared");
             }
             Tag::Owned(s) => Tag::Owned(s.clone()),
@@ -395,7 +395,7 @@ where
     //mp add_data_unresolved
     /// Requires np to not be in the name set already
     #[track_caller]
-    pub fn add_data_unresolved(&mut self, mut data: V) -> Option<Rc<V>> {
+    pub fn add_data_unresolved(&mut self, data: V) -> Option<Rc<V>> {
         let tag = data.tag().clone_allow_owned();
         self.data.insert(tag, Rc::new(data))
     }

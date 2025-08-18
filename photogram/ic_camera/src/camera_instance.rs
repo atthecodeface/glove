@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use geo_nd::quat;
 
-use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
+use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
 use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens};

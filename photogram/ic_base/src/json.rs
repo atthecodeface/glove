@@ -2,7 +2,7 @@
 use std::marker::PhantomData;
 use std::path::Path;
 
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::de::DeserializeOwned;
 
 use crate::{Error, PathSet, Result};
 

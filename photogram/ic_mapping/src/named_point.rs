@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Point3D, Tag, TagData, TagSet};
+use ic_base::{Point3D, Tag, TagData};
 use ic_image::Color;
 
 //a NamedPoint

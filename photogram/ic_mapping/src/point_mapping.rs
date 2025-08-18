@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{Point2D, Point3D, Ray};
 use ic_camera::CameraProjection;
-use ic_image::Color;
 
 use crate::NamedPoint;
 

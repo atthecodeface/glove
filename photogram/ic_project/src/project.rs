@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, JsonSrc, PathSet, Point3D, Ray, Result, Rrc, TagSet};
+use ic_base::{JsonParsable, PathSet, Point3D, Ray, Result, Rrc, TagSet};
 use ic_camera::CameraDatabase;
 use ic_mapping::{NamedPointSet, PointMapping};
 

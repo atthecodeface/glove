@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
-use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use ic_image::{ImageDrawable, ImageGray16, ImageRgb8};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 enum KeyType {

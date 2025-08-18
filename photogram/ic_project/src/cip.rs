@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, JsonSrc, PathSet, Result, Rrc, Tag};
+use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag};
 use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
@@ -139,19 +139,27 @@ impl Cip {
     }
 
     //cp read_json
-    /*    pub fn read_json(
-            &mut self,
-            project: &Project,
-            camera_json: &str,
-            pms_json: &str,
-        ) -> Result<String> {
-            let camera = CameraInstance::from_json(&project.cdb().borrow(), camera_json)?;
-            let (pms, warnings) = PointMappingSet::from_json(&project.nps().borrow(), pms_json)?;
-            self.camera = camera.into();
-            self.pms = pms.into();
-            Ok(warnings)
+    /// Used by Wasm
+    pub fn read_json(
+        &mut self,
+        project: &Project,
+        camera_json: &str,
+        pms_json: &str,
+    ) -> Result<String> {
+        let camera = CameraInstanceDesc::load_json(camera_json, &project.cdb().borrow())?;
+
+        let (pms, pms_not_found) = PointMappingSet::load_json(pms_json, &project.nps_ref())?;
+
+        let mut warnings = "".into();
+        if !pms_not_found.is_empty() {
+            warnings = format!("Warning: {pms_not_found:?}");
         }
-    */
+
+        self.camera = camera.into();
+        self.pms = pms.into();
+        Ok(warnings)
+    }
+
     //cp from_desc
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
         let image = cip_desc.image;

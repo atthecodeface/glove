@@ -31,7 +31,7 @@ impl std::ops::DerefMut for ImageRgb8 {
 impl ImageRgb8 {
     //cp read_image
     pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let img = ImageReader::open(path)?.decode()?.into_rgb8();
+        let img = ImageReader::open(&path)?.decode()?.into_rgb8();
         Ok(Self(img.into()))
     }
 
@@ -44,7 +44,7 @@ impl ImageRgb8 {
         let width = width as u32;
         let height = height as u32;
         if let Some(filename) = opt_filename {
-            let img = Self::read_image(filename)?;
+            let img = Self::read_image(&filename)?;
             let (w, h) = img.size();
             if w != width || h != height {
                 Err(format!(

@@ -24,6 +24,11 @@ const KEY_FNS: &[KeyFn] = &[
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.image' to '{s}'").into()),
     ),
     KeyFn(
+        "cip.image_filename",
+        &|cmd_args| Some(cmd_args.cip.borrow().image_filename().to_string()),
+        &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.image_filename' to '{s}'").into()),
+    ),
+    KeyFn(
         "cip.camera",
         &|cmd_args| cmd_args.cip.borrow().camera().borrow().to_json(false).ok(),
         &|mut _cmd_args, s| Err(format!("Failed to set key 'cip.camera' to '{s}'").into()),

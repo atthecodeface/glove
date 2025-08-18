@@ -9,7 +9,7 @@ use thunderclap::CommandBuilder;
 use ic_base::{JsonParsable, Ray, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
-use ic_mapping::{NamedPoint, NamedPointSet};
+use ic_mapping::NamedPointSet;
 
 use crate::cmd::{CmdArgs, CmdResult};
 

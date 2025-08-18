@@ -41,6 +41,17 @@ impl<T> Rrc<T> {
     pub fn new(t: T) -> Self {
         t.into()
     }
+    pub fn take(self) -> Option<T>
+    where
+        T: Sized + Default,
+    {
+        let rrc = self.0;
+        if let Some(t) = Rc::into_inner(rrc) {
+            Some(t.take())
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> From<T> for Rrc<T> {
