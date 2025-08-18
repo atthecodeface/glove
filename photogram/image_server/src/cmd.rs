@@ -101,7 +101,7 @@ impl CmdArgs {
     }
 
     //mi map_mut
-    pub fn map_mut<F, T>(&self, f: F) -> T
+    fn map_mut<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&mut CmdArgsInner) -> T,
     {
@@ -109,7 +109,7 @@ impl CmdArgs {
         f(&mut *inner)
     }
     //mi map
-    pub fn map<F, T>(&self, f: F) -> T
+    fn map<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&CmdArgsInner) -> T,
     {
@@ -432,6 +432,14 @@ impl CmdArgs {
     //mi find_project_file
     pub fn find_project_file<P: AsRef<Path>>(&self, path: P) -> Option<PathBuf> {
         self.map(|inner| inner.project_path_set.find_file(path))
+    }
+
+    //mi map_project_path
+    pub fn map_project_path<F, T>(&self, f: F) -> T
+    where
+        F: Fn(&PathSet) -> T,
+    {
+        self.map(|inner| f(&inner.project_path_set))
     }
 
     //mp if_verbose

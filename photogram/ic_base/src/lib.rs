@@ -12,7 +12,7 @@ mod json;
 pub use json::{JsonParsable, JsonSrc};
 
 mod path_set;
-pub use path_set::PathSet;
+pub use path_set::{PathGlob, PathSet};
 mod plane;
 mod quadtree;
 mod tag;

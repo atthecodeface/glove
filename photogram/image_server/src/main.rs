@@ -26,6 +26,7 @@ fn serve_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, Some(Box::new(serve_fn)));
     CmdArgs::add_arg_num_threads(&mut build);
     CmdArgs::add_arg_port(&mut build);
+    CmdArgs::add_arg_background(&mut build);
 
     build
 }
@@ -70,10 +71,12 @@ fn serve_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
 fn ensure_http_server(cmd_args: &CmdArgs) {
     HTTP_SRV.get_or_init(|| {
-        let project_set = ProjectSet::new(cmd_args.clone());
+        let mut project_set = ProjectSet::new(cmd_args.clone());
+        project_set.fill_from_project_path();
         HttpServer::new(cmd_args.verbose(), project_set)
     });
 }
+
 //fp main
 fn main() -> Result<()> {
     let command = Command::new("image_server")
@@ -94,11 +97,6 @@ fn main() -> Result<()> {
     let slave = ThreadPool::new(1);
 
     let mut cmd_args = CmdArgs::default();
-    let project_set = ProjectSet::new(cmd_args.clone());
-    HTTP_SRV
-        .set(HttpServer::new(true, project_set))
-        .map_err(|_| "Bug - failed to config server".to_string())?;
-
     let mut command = build.main(true, true);
     command.execute_env(&mut cmd_args)?;
 

@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use ic_base::{Mesh, Result};
+use ic_base::{Mesh, PathGlob, Result};
 // use ic_cache::{Cache, CacheEntry, Cacheable};
 use ic_camera::CameraProjection;
 use ic_http::{
@@ -50,35 +50,19 @@ impl ProjectSet {
         }
     }
 
-    //mp fill_from_project_dir
-    pub fn fill_from_project_dir<P: AsRef<Path> + std::fmt::Display>(
-        &mut self,
-        path: P,
-    ) -> Result<()> {
-        for d in path
-            .as_ref()
-            .read_dir()
-            .map_err(|e| format!("Failed to read directory {path}: {e}"))?
-        {
-            if d.is_err() {
-                continue;
-            }
-            let d = d.unwrap();
-            let Ok(ft) = d.file_type() else {
-                continue;
-            };
-            if !ft.is_file() {
-                continue;
-            }
-            let pb = d.path();
-            if pb.extension().is_some_and(|x| x == "json")
-                && pb
-                    .file_stem()
-                    .and_then(|x| x.to_str())
-                    .is_some_and(|x| x.ends_with("_proj"))
-            {
-                self.add_project(pb.into_boxed_path())?;
-            }
+    //mp fill_from_project_path
+    pub fn fill_from_project_path(&mut self) -> Result<()> {
+        let paths = self.cmd_args.map_project_path(|ps| {
+            ps.glob(100, 20, &|_| PathGlob::Push, &|f| {
+                f.extension().is_some_and(|x| x == "json")
+                    && f.file_stem()
+                        .and_then(|x| x.to_str())
+                        .is_some_and(|x| x.ends_with("_proj"))
+            })
+        });
+        for p in paths {
+            eprintln!("Adding project JSON {p:?}");
+            self.add_project(p.into_boxed_path())?;
         }
         Ok(())
     }
