@@ -30,7 +30,7 @@ pub struct ProjectDecode {
 impl ProjectDecode {
     //cp decode_request
     pub fn decode_request(request: &HttpRequest) -> Option<Self> {
-        let path = request.uri.path()?;
+        let path = request.uri().path()?;
         if !path.starts_with("project") {
             return None;
         }

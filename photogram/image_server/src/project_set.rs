@@ -391,25 +391,29 @@ impl HttpServerExt for ProjectSet {
         });
         let result = {
             if pd.is_root() {
-                if request.action_is("list") && request.req_type == HttpRequestType::Get {
+                if request.action_is("list") && request.req_type() == HttpRequestType::Get {
                     self.http_list_projects(server, request, content, response)
                 } else {
                     Err("Unknown project action".into())
                 }
             } else if let Some(idx) = pd.project_idx() {
-                if request.action_is("load") && request.req_type == HttpRequestType::Get {
-                    self.http_load_project(server, request, content, response, idx)
-                } else if request.action_is("save") && request.req_type == HttpRequestType::Put {
-                    self.http_save_project(server, request, content, response, idx)
-                } else if request.action_is("mesh") && request.req_type == HttpRequestType::Get {
-                    self.http_cip_pms_mesh(server, request, content, response, &pd)
-                } else if request.action_is("thumbnail") && request.req_type == HttpRequestType::Get
-                {
-                    self.http_cip_thumbnail(server, request, content, response, &pd)
-                } else if request.action_is("patch") && request.req_type == HttpRequestType::Get {
-                    self.http_cip_patch(server, request, content, response, &pd)
-                } else {
-                    Err("Bad request type".into())
+                match (request.req_type(), request.action()) {
+                    (HttpRequestType::Get, Some("load")) => {
+                        self.http_load_project(server, request, content, response, idx)
+                    }
+                    (HttpRequestType::Put, Some("save")) => {
+                        self.http_save_project(server, request, content, response, idx)
+                    }
+                    (HttpRequestType::Get, Some("mesh")) => {
+                        self.http_cip_pms_mesh(server, request, content, response, &pd)
+                    }
+                    (HttpRequestType::Get, Some("thumbnail")) => {
+                        self.http_cip_thumbnail(server, request, content, response, &pd)
+                    }
+                    (HttpRequestType::Get, Some("patch")) => {
+                        self.http_cip_patch(server, request, content, response, &pd)
+                    }
+                    _ => Err("Bad request type".into()),
                 }
             } else {
                 Err(format!("Failed to find project {}", pd.project().unwrap()).into())
