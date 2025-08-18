@@ -18,6 +18,7 @@ serde_json.workspace = true
 geo-nd.workspace = true
 clap.workspace = true
 thunderclap.workspace = true
+star-catalog.workspace = true
 
 ic_base.workspace = true
 ic_cache.workspace = true

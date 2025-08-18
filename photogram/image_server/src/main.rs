@@ -1,23 +1,16 @@
 //a Imports
-use std::collections::HashMap;
 use std::net::TcpListener;
-use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use clap::Command;
+use thunderclap::CommandBuilder;
 
-use image_server::ProjectSet;
+use image_server::{cmd_ok, CmdArgs, CmdResult, ProjectSet};
 
-use ic_base::{Mesh, Result};
+use ic_base::Result;
 // use ic_cache::{Cache, CacheEntry, Cacheable};
-use ic_camera::CameraProjection;
-use ic_http::{
-    HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
-};
-use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8, Patch};
-use ic_kernel::{KernelArgs, Kernels};
+use ic_http::HttpServer;
 use ic_threads::ThreadPool;
-use image_server::ic_cmdline as cmdline_args;
 
 //a Main
 //si HTTP_SRV
@@ -26,45 +19,26 @@ use image_server::ic_cmdline as cmdline_args;
 /// One instance of this is created with a [OnceLock]
 static HTTP_SRV: OnceLock<HttpServer<ProjectSet>> = OnceLock::new();
 
-//fp main
-fn main() -> Result<()> {
-    let cmd = Command::new("image_server")
-        .about("Image calibration/correlation server")
-        .version("0.1.0");
-    let cmd = cmdline_args::add_verbose_arg(cmd);
-    let cmd = cmdline_args::threads::add_threads_arg(cmd);
-    let cmd = cmdline_args::threads::add_port_arg(cmd);
-    let cmd = cmdline_args::file_system::add_file_root_arg(cmd, true);
-    let cmd = cmdline_args::file_system::add_image_root_arg(cmd, true);
-    let cmd = cmdline_args::file_system::add_project_root_arg(cmd, true);
+//fp serve_cmd
+fn serve_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("serve").about("Start an HTTP server");
 
-    let matches = cmd.get_matches();
-    let verbose = cmdline_args::get_verbose(&matches);
-    let num_threads = cmdline_args::threads::get_threads(&matches)?;
-    let port = cmdline_args::threads::get_port(&matches)?;
-    let file_root = cmdline_args::file_system::get_file_root(&matches)?;
-    let image_root = cmdline_args::file_system::get_image_root(&matches)?;
-    let project_root = cmdline_args::file_system::get_project_root(&matches)?;
-    if num_threads == 0 || num_threads > 20 {
-        return Err(format!(
-            "Number of threads {num_threads} must be non-zero and no more than 20"
-        )
-        .into());
-    }
-    if !(1024..=60000).contains(&port) {
-        return Err(format!("Port {port} must be in the range 1024..60000").into());
-    }
+    let mut build = CommandBuilder::new(command, Some(Box::new(serve_fn)));
+    CmdArgs::add_arg_num_threads(&mut build);
+    CmdArgs::add_arg_port(&mut build);
 
-    let mut project_set = ProjectSet::new();
-    project_set.set_image_root(image_root);
-    project_set.fill_from_project_dir(project_root)?;
-    HTTP_SRV
-        .set(HttpServer::new(verbose, file_root, project_set))
-        .map_err(|_| "Bug - faiiled to config server".to_string())?;
+    build
+}
 
-    let pool = ThreadPool::new(4);
-    let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
-        .map_err(|_a| (format!("Failed to bind to port {port}")))?;
+fn run_server(cmd_args: CmdArgs) {
+    let verbose = cmd_args.verbose();
+    let num_threads = cmd_args.num_threads();
+    let port = cmd_args.port();
+    let pool = ThreadPool::new(num_threads);
+    let Ok(listener) = TcpListener::bind(format!("127.0.0.1:{port}")) else {
+        eprintln!("Failed to bind to port {port}");
+        return;
+    };
     for stream in listener.incoming() {
         let stream = stream.unwrap();
 
@@ -73,5 +47,60 @@ fn main() -> Result<()> {
             http_srv.handle_connection(stream);
         });
     }
+}
+
+//fi serve_fn
+fn serve_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    ensure_http_server(cmd_args);
+    if cmd_args.server_running() {}
+    let cmd_args_clone = cmd_args.clone();
+    cmd_args.server_run(|| run_server(cmd_args_clone));
+    if !cmd_args.background() {
+        eprintln!("*******************************************************************");
+        eprintln!("*** Running server in foreground - interrupt to stop the server ***");
+        eprintln!("*******************************************************************");
+        loop {}
+    } else {
+        eprintln!("************************************");
+        eprintln!("*** Running server in background ***");
+        eprintln!("************************************");
+    }
+    cmd_ok()
+}
+
+fn ensure_http_server(cmd_args: &CmdArgs) {
+    HTTP_SRV.get_or_init(|| {
+        let project_set = ProjectSet::new(cmd_args.clone());
+        HttpServer::new(cmd_args.verbose(), project_set)
+    });
+}
+//fp main
+fn main() -> Result<()> {
+    let command = Command::new("image_server")
+        .about("Image calibration/correlation server")
+        .version("0.1.0");
+
+    let mut build = CommandBuilder::new(command, None);
+
+    CmdArgs::add_arg_verbose(&mut build);
+    CmdArgs::add_arg_pretty_json(&mut build);
+    CmdArgs::add_arg_file_path(&mut build);
+    CmdArgs::add_arg_image_path(&mut build);
+    CmdArgs::add_arg_project_path(&mut build);
+
+    build.add_subcommand(serve_cmd());
+
+    // Need to put slave into CmdArgs ... ? or make it static
+    let slave = ThreadPool::new(1);
+
+    let mut cmd_args = CmdArgs::default();
+    let project_set = ProjectSet::new(cmd_args.clone());
+    HTTP_SRV
+        .set(HttpServer::new(true, project_set))
+        .map_err(|_| "Bug - failed to config server".to_string())?;
+
+    let mut command = build.main(true, true);
+    command.execute_env(&mut cmd_args)?;
+
     Ok(())
 }

@@ -1,7 +1,6 @@
 //a Imports
 use std::path::{Path, PathBuf};
 
-
 use crate::Result;
 
 //a PathSet
@@ -24,7 +23,7 @@ impl PathSet {
     }
 
     //mp find_file
-    pub fn find_file<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Option<PathBuf> {
+    pub fn find_file<P: AsRef<Path>>(&self, path: P) -> Option<PathBuf> {
         if path.as_ref().exists() {
             Some(path.as_ref().into())
         } else {
@@ -39,10 +38,11 @@ impl PathSet {
     }
 
     //mp find_file_err
-    pub fn find_file_err<P: AsRef<Path> + std::fmt::Display>(&self, path: P) -> Result<PathBuf> {
+    pub fn find_file_err<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
         if let Some(path) = self.find_file(&path) {
             Ok(path)
         } else {
+            let path = path.as_ref().to_string_lossy();
             Err(format!("Failed to find '{path}' on the search path").into())
         }
     }

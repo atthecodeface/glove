@@ -53,11 +53,11 @@ all:
 #a Image server
 .PHONY: image_server
 image_server:
-	cargo run --release --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/photogram/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
+	cargo run --release --bin image_server -- --file_path ~/Git/image-calibrate-wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 16
 
 .PHONY: image_server_debug
 image_server_debug:
-	cargo run --bin image_server -- --file_root ~/Git/image_calibrate_wasm/ --threads 16 --project_root ~/Git/glove/photogram/nac --image_root ~/Git/image_calibrate_wasm/http --verbose 1
+	cargo run --debug --bin image_server -- --file_path ~/Git/image-calibrate-wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 1
 
 #a Camera calibration
 .PHONY: cal_img_4924

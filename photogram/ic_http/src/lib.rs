@@ -361,6 +361,9 @@ impl HttpRequest {
 ///
 /// One instance of this is created with a [OnceLock]
 pub trait HttpServerExt: Sized {
+    fn find_file<A: AsRef<Path>>(&self, _file: A) -> Option<PathBuf> {
+        None
+    }
     fn set_http_response(
         &self,
         _server: &HttpServer<Self>,
@@ -378,22 +381,24 @@ impl HttpServerExt for () {}
 //tp HttpServer
 pub struct HttpServer<T: HttpServerExt> {
     verbose: bool,
-    file_root: PathBuf,
     mime_types: HashMap<&'static str, &'static str>,
     data: T,
 }
 //ip HttpServer
 impl<T: HttpServerExt> HttpServer<T> {
     //cp new
-    pub fn new<I: Into<PathBuf>>(verbose: bool, file_root: I, data: T) -> Self {
+    pub fn new(verbose: bool, data: T) -> Self {
         let mime_types: HashMap<&'static str, &'static str> = MIME_TYPES.iter().copied().collect();
-        let file_root = file_root.into();
         HttpServer {
             verbose,
             mime_types,
-            file_root,
             data,
         }
+    }
+
+    //ap data
+    pub fn data(&self) -> &T {
+        &self.data
     }
 
     //ap verbose
@@ -418,7 +423,11 @@ impl<T: HttpServerExt> HttpServer<T> {
             response.resp_type = HttpResponseType::MalformedRequest;
             return false;
         };
-        let mut path = Path::join(&self.file_root, path);
+        let Some(mut path) = self.data.find_file(path) else {
+            response.resp_type = HttpResponseType::FileNotFound;
+            eprintln!("Failed to find {path:?}");
+            return false;
+        };
         if path.is_dir() {
             path.push("index.html");
         }
