@@ -184,6 +184,15 @@ impl Cip {
         ))
     }
 
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
+    }
+
     //ap camera
     pub fn camera(&self) -> &Rrc<CameraInstance> {
         &self.camera

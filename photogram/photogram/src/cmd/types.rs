@@ -2,7 +2,7 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{PathSet, Ray, Rrc};
+use ic_base::{NamedRayList, PathSet, Ray, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;
@@ -83,12 +83,13 @@ pub struct CmdArgs {
     pub(crate) pms_color: Option<Color>,
     pub(crate) model_color: Option<Color>,
 
-    pub(crate) named_rays: Vec<(String, Ray)>,
+    pub(crate) named_rays: NamedRayList,
 
     pub(crate) kernel_size: usize,
     pub(crate) scale: f64,
     pub(crate) angle: f64,
     pub(crate) flags: usize,
+    pub(crate) from_camera: bool,
     pub(crate) use_deltas: bool,
     pub(crate) use_pts: usize,
     pub(crate) max_error: f64,

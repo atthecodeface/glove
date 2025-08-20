@@ -2,7 +2,7 @@
 use star_catalog::Catalog;
 
 use ic_base::Result;
-use ic_base::{JsonParsable, JsonSrc, Ray, Rrc};
+use ic_base::{JsonParsable, JsonSrc, NamedRayList, Ray, Rrc};
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_image::Color;
@@ -94,6 +94,7 @@ impl CmdArgs {
     pub(crate) fn set_camera_body(&mut self, body: &str) -> Result<()> {
         let body = self.cdb.borrow().get_body_err(body)?.clone();
         self.camera.set_body(body);
+        self.set_camera(self.camera.clone());
         Ok(())
     }
 
@@ -101,12 +102,14 @@ impl CmdArgs {
     pub(crate) fn set_camera_lens(&mut self, lens: &str) -> Result<()> {
         let lens = self.cdb.borrow().get_lens_err(lens)?.clone();
         self.camera.set_lens(lens);
+        self.set_camera(self.camera.clone());
         Ok(())
     }
 
     //mi set_camera_focus_distance
     pub(crate) fn set_camera_focus_distance(&mut self, focus_distance: f64) -> Result<()> {
         self.camera.set_mm_focus_distance(focus_distance);
+        self.set_camera(self.camera.clone());
         Ok(())
     }
 
@@ -217,11 +220,10 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_ray_file
-    pub(crate) fn set_ray_file(&mut self, ray_filename: &str) -> Result<()> {
-        let r_json = JsonSrc::<()>::read_json_file(&self.path_set, ray_filename)?;
-        let (_, mut named_rays): (_, Vec<(String, Ray)>) = r_json.deserialize_as("ray list")?;
-        self.named_rays.append(&mut named_rays);
+    //mi add_named_ray_file
+    pub(crate) fn add_named_ray_file(&mut self, ray_filename: &str) -> Result<()> {
+        let (_, new_rays) = NamedRayList::load_json_file(&self.path_set, ray_filename, &())?;
+        self.named_rays.append(new_rays);
         Ok(())
     }
 
@@ -363,6 +365,12 @@ impl CmdArgs {
     //mi set_use_deltas
     pub(crate) fn set_use_deltas(&mut self, use_deltas: bool) -> Result<()> {
         self.use_deltas = use_deltas;
+        Ok(())
+    }
+
+    //mi set_from_camera
+    pub(crate) fn set_from_camera(&mut self, from_camera: bool) -> Result<()> {
+        self.from_camera = from_camera;
         Ok(())
     }
 

@@ -2,7 +2,7 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{Point2D, Point3D, Ray, Result, Rrc};
+use ic_base::{NamedRayList, Point2D, Point3D, Ray, Result, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;
@@ -149,7 +149,7 @@ impl CmdArgs {
     }
 
     //mi named_rays
-    pub fn named_rays(&self) -> &[(String, Ray)] {
+    pub fn named_rays(&self) -> &NamedRayList {
         &self.named_rays
     }
 
@@ -236,6 +236,11 @@ impl CmdArgs {
     //mi use_deltas
     pub fn use_deltas(&self) -> bool {
         self.use_deltas
+    }
+
+    //mi from_camera
+    pub fn from_camera(&self) -> bool {
+        self.from_camera
     }
 
     //mi poly_degree

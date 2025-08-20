@@ -26,7 +26,7 @@ pub use plane::Plane;
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod ray;
-pub use ray::Ray;
+pub use ray::{NamedRayList, Ray};
 
 mod mesh;
 pub use mesh::Mesh;

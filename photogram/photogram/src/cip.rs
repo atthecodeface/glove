@@ -3,7 +3,7 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::{Ray, Rrc};
+use ic_base::{NamedRayList, Ray, Rrc};
 use ic_camera::CameraProjection;
 use ic_image::{Image, ImageDrawable};
 use ic_mapping::PointMapping;
@@ -68,8 +68,8 @@ orientation.
 
 ";
 
-//hi CREATE_RAYS_FROM_MODEL_LONG_HELP
-const CREATE_RAYS_FROM_MODEL_LONG_HELP: &str = "\
+//hi CREATE_RAYS_LONG_HELP
+const CREATE_RAYS_LONG_HELP: &str = "\
 This combines Named Point model positions, camera *orientation* and
 PMS files, to determine rays from those model positions.
 
@@ -384,14 +384,13 @@ fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
 //fi create_rays_cmd
 fn create_rays_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("create_rays_from_model")
+    let command = Command::new("create_rays")
         .about("Create rays for a given located camera and its mappings")
-        .long_about(CREATE_RAYS_FROM_MODEL_LONG_HELP);
+        .long_about(CREATE_RAYS_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_fn)));
     CmdArgs::add_arg_named_point(&mut build, (None, true));
-
-    // from_camera
+    CmdArgs::add_arg_from_camera(&mut build);
 
     build
 }
@@ -401,8 +400,7 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
-
-    let from_camera = false;
+    let from_camera = cmd_args.from_camera();
 
     let named_rays: Vec<(String, Ray)> = pms
         .borrow()
@@ -411,10 +409,24 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .filter(|(n, _pm_ray)| pms_n.contains(n))
         .map(|(_, (pm, ray))| (pm.name().to_owned(), ray))
         .collect();
-    Ok(serde_json::to_string_pretty(&named_rays)?)
+    let named_rays: NamedRayList = named_rays.into();
+    named_rays.to_json(cmd_args.pretty_json())
 }
 
 //a Interrogate (show_mappings etc)
+//fi as_json_cmd
+fn as_json_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("as_json").about("Generate the JSON for the CIP");
+
+    let build = CommandBuilder::new(command, Some(Box::new(as_json_fn)));
+    build
+}
+
+//fi as_json_fn
+fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    cmd_args.cip().borrow().to_json(cmd_args.pretty_json())
+}
+
 //fi show_mappings_cmd
 fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("show_mappings")
@@ -535,6 +547,7 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     let mut build = CommandBuilder::new(command, None);
     CmdArgs::add_arg_cip(&mut build, false);
 
+    build.add_subcommand(as_json_cmd());
     build.add_subcommand(image_cmd());
     build.add_subcommand(image_patch_cmd());
     build.add_subcommand(show_mappings_cmd());

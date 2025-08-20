@@ -171,15 +171,18 @@ impl CmdArgs {
         );
     }
 
-    //fp add_arg_ray_file
-    pub fn add_arg_ray_file<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
+    //fp add_arg_named_ray_file
+    pub fn add_arg_named_ray_file<I: Into<ArgCount>>(
+        build: &mut CommandBuilder<Self>,
+        arg_count: I,
+    ) {
         build.add_arg_string(
             "rays",
             None,
-            "Model ray Json files (list of name, ray)",
+            "Add named ray Json files (list of name, ray)",
             arg_count.into(),
             None,
-            CmdArgs::set_ray_file,
+            CmdArgs::add_named_ray_file,
         );
     }
 
@@ -334,6 +337,16 @@ impl CmdArgs {
             None,
             "Use deltas for plotting rather than absolute values",
             CmdArgs::set_use_deltas,
+        );
+    }
+
+    //fp add_arg_from_camera
+    pub fn add_arg_from_camera(build: &mut CommandBuilder<Self>) {
+        build.add_flag(
+            "from_camera",
+            None,
+            "Operate from the camera to the model, rather than the other way round",
+            CmdArgs::set_from_camera,
         );
     }
 

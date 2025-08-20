@@ -78,9 +78,56 @@ The meeting line is then P0 to P1, with:
 //a Imports
 use serde::{Deserialize, Serialize};
 
-use crate::Point3D;
+use crate::{JsonParsable, Point3D, Result};
 
 use geo_nd::{matrix, Vector};
+
+//a NamedRayList
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NamedRayList {
+    named_rays: Vec<(String, Ray)>,
+}
+impl std::convert::From<Vec<(String, Ray)>> for NamedRayList {
+    fn from(named_rays: Vec<(String, Ray)>) -> Self {
+        Self { named_rays }
+    }
+}
+impl NamedRayList {
+    pub fn is_empty(&self) -> bool {
+        self.named_rays.is_empty()
+    }
+    pub fn len(&self) -> usize {
+        self.named_rays.len()
+    }
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a (String, Ray)> {
+        self.named_rays.iter()
+    }
+    pub fn add_ray<S: Into<String>>(&mut self, name: S, ray: Ray) {
+        self.named_rays.push((name.into(), ray))
+    }
+    pub fn append(&mut self, mut other: Self) {
+        self.named_rays.append(&mut other.named_rays)
+    }
+    //mp to_json
+    pub fn to_json(&self, pretty: bool) -> Result<String> {
+        if pretty {
+            Ok(serde_json::to_string_pretty(self)?)
+        } else {
+            Ok(serde_json::to_string(self)?)
+        }
+    }
+}
+
+impl JsonParsable for NamedRayList {
+    type PostParseArg = ();
+    type PostParseResult = NamedRayList;
+    fn reason() -> &'static str {
+        "named ray list"
+    }
+    fn post_parse(self, _args: &()) -> Result<Self> {
+        Ok(self)
+    }
+}
 
 //a Ray
 //tp Ray
@@ -96,7 +143,7 @@ pub struct Ray {
 
 //ip Display for Ray
 impl std::fmt::Display for Ray {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(
             fmt,
             "[Ray {}+k*{} @ {}]",
@@ -212,7 +259,10 @@ impl Ray {
     /// ray at an approximate solution can be found, and to weight
     /// each ray by some inversely proportional function of this
     /// *distance* error (such as 1/(base + distance^2)).
-    pub fn closest_point<F: Fn(&Self) -> f64>(rays: &[Self], weight_fn: &F) -> Option<Point3D> {
+    pub fn closest_point<'a, F: Fn(&Self) -> f64>(
+        rays: impl Iterator<Item = &'a Self> + 'a,
+        weight_fn: &F,
+    ) -> Option<Point3D> {
         let mut m = [0.; 9];
         let mut v = [0.; 3];
         for r in rays {
@@ -327,7 +377,7 @@ impl Ray {
 //a Tests
 //ft test_ray
 #[test]
-fn test_ray() -> crate::Result<()> {
+fn test_ray() -> Result<()> {
     let r0 = Ray::default()
         .set_start([1., 0., 0.].into())
         .set_direction([-1., 0., 0.].into())
@@ -343,7 +393,7 @@ fn test_ray() -> crate::Result<()> {
 
 //ft test_ray2
 #[test]
-fn test_ray2() -> crate::Result<()> {
+fn test_ray2() -> Result<()> {
     use crate::json;
     let ray_4060: Ray = json::from_json(
         "Ray 1",
@@ -387,7 +437,7 @@ fn test_ray2() -> crate::Result<()> {
 
 //ft test_ray3
 #[test]
-fn test_ray3() -> crate::Result<()> {
+fn test_ray3() -> Result<()> {
     use crate::json;
     let ray_4060: Ray = json::from_json(
         "Ray 1",

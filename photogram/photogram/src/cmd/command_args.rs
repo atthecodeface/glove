@@ -2,7 +2,7 @@
 
 use thunderclap::CommandArgs;
 
-use ic_base::Error;
+use ic_base::{Error, NamedRayList};
 
 use crate::{CmdArgs, CmdResult};
 
@@ -17,6 +17,11 @@ const KEY_FNS: &[KeyFn] = &[
         "camera",
         &|cmd_args| cmd_args.camera.to_json(false).ok(),
         &|cmd_args, s| cmd_args.set_camera_json(s).map(|_| true),
+    ),
+    KeyFn(
+        "cip",
+        &|cmd_args| Some(cmd_args.cip_number.to_string()),
+        &|mut _cmd_args, s| Err(format!("Failed to set key 'cip' to '{s}'").into()),
     ),
     KeyFn(
         "cip.image",
@@ -155,6 +160,7 @@ impl CommandArgs for CmdArgs {
         self.arg_strings = vec![];
         self.arg_f64s = vec![];
         self.arg_usizes = vec![];
+        self.named_rays = NamedRayList::default();
 
         self.write_project = None;
         self.write_named_points = None;
@@ -171,6 +177,7 @@ impl CommandArgs for CmdArgs {
         self.max_error = 0.0;
         self.use_pts = 0;
         self.use_deltas = false;
+        self.from_camera = false;
         self.flags = 0;
         self.scale = 1.0;
         self.angle = 0.0;

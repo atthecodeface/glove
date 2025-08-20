@@ -182,7 +182,17 @@ impl PointMappingSet {
 
     //mp merge
     pub fn merge(&mut self, mut other: PointMappingSet) {
-        self.mappings.append(&mut other.mappings);
+        for other_pm in other.mappings.into_iter() {
+            if let Some(pm) = self
+                .mappings
+                .iter_mut()
+                .find(|pm| pm.named_point().name() == other_pm.named_point().name())
+            {
+                *pm = other_pm;
+            } else {
+                self.mappings.push(other_pm);
+            }
+        }
     }
 
     //mp rebuild_with_named_point_set

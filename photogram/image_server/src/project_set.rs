@@ -188,6 +188,39 @@ impl ProjectSet {
         Ok(())
     }
 
+    //mi http_cip_image
+    fn http_cip_image(
+        &self,
+        server: &HttpServer<Self>,
+        _request: &HttpRequest,
+        _content: &[u8],
+        response: &mut HttpResponse,
+        pd: &ProjectDecode,
+    ) -> Result<()> {
+        let cip = pd.cip().unwrap_or_default();
+        let up = self.projects[pd.idx].ensure_loaded()?;
+        let p = up.as_ref();
+        if cip >= p.ncips() {
+            return Err("Cip out of range".into());
+        }
+        let cip = p.cip(cip).clone();
+        let cip_r = cip.borrow();
+
+        let Some(path) = self.cmd_args.find_image_file(cip_r.image_filename()) else {
+            return Err(format!("Could not find image file {}", cip_r.image_filename()).into());
+        };
+        server.verbose().then(|| eprintln!("Open image {path:?}"));
+
+        let src_img_ref = self.image_cache.src_image(&path)?;
+        let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
+
+        let img_bytes = src_img.encode("jpeg")?;
+        response.content = img_bytes;
+        response.mime_type = server.mime_type("jpeg");
+        response.resp_type = HttpResponseType::FileRead;
+        Ok(())
+    }
+
     //mi http_cip_thumbnail
     fn http_cip_thumbnail(
         &self,
@@ -406,6 +439,9 @@ impl HttpServerExt for ProjectSet {
                     }
                     (HttpRequestType::Get, Some("mesh")) => {
                         self.http_cip_pms_mesh(server, request, content, response, &pd)
+                    }
+                    (HttpRequestType::Get, Some("image")) => {
+                        self.http_cip_image(server, request, content, response, &pd)
                     }
                     (HttpRequestType::Get, Some("thumbnail")) => {
                         self.http_cip_thumbnail(server, request, content, response, &pd)

@@ -311,7 +311,7 @@ impl Project {
             }
         }
         if rays.len() > 1 {
-            if let Some(pt) = Ray::closest_point(&rays, &|_r| 1.0) {
+            if let Some(pt) = Ray::closest_point(rays.iter(), &|_r| 1.0) {
                 let e_sq = rays
                     .iter()
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
