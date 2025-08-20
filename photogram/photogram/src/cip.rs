@@ -353,7 +353,9 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let src_img = cmd_args.get_image_read_or_create()?;
     let write_filename = cmd_args.write_img().unwrap();
 
-    let mut patch = ic_mapping::Patch::create(nps.iter().cloned()).unwrap();
+    let Some(mut patch) = ic_mapping::Patch::create(nps.iter().cloned()) else {
+        return Err(format!("Failed to create patch for nps with {} points", nps.len()).into());
+    };
     patch.set_render_px_per_model(25.0);
     patch.set_expansion_factor(1.1);
     patch.update_data();
@@ -501,14 +503,24 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     for i in pms_n {
         let m = &mappings[i];
-        println!(
-            "{} : {} -> [{:.1}, {:.1}] @ {:.1}",
-            m.name(),
-            m.model(),
-            m.screen()[0],
-            m.screen()[1],
-            m.error()
-        );
+        if m.named_point().is_unmapped() {
+            println!(
+                "{} : <unmapped> -> [{:.1}, {:.1}] @ {:.1}",
+                m.name(),
+                m.screen()[0],
+                m.screen()[1],
+                m.error()
+            );
+        } else {
+            println!(
+                "{} : {} -> [{:.1}, {:.1}] @ {:.1}",
+                m.name(),
+                m.model(),
+                m.screen()[0],
+                m.screen()[1],
+                m.error()
+            );
+        }
     }
     Ok("".into())
 }

@@ -633,7 +633,17 @@ impl<C: CommandArgs> CommandSet<C> {
                         self.cmd_stack.pop();
                     }
                 }
-                let result = self.handler_set.handle_cmd(cmd_args, &matches)?;
+                let result = self
+                    .handler_set
+                    .handle_cmd(cmd_args, &matches)
+                    .map_err(|e| {
+                        format!(
+                            "{}:{} {e}",
+                            self.cmd_stack.last().unwrap().0,
+                            self.cmd_stack.last().unwrap().1.unwrap_or_default(),
+                        )
+                        .into()
+                    })?;
                 self.executed_result(result);
                 Ok(())
             }

@@ -143,7 +143,7 @@ point_mappings add "text dimension d" 2714,3217 2.0
 point_mappings add "top mensa e tip" 1759,1497 2.0
 
 
-project as_json
+--pretty_json project as_json
 echo --file cube.json ${0}
 
 cip --cip 4V3A6040.JPG locate "0cm.*" "10cm.*" "M middle" "tl text"
