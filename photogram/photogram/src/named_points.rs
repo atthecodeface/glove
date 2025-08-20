@@ -252,8 +252,8 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn as_json_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("as_json").about("Generate the JSON for the NPS");
 
-    let build = CommandBuilder::new(command, Some(Box::new(as_json_fn)));
-    build
+    
+    CommandBuilder::new(command, Some(Box::new(as_json_fn)))
 }
 
 //fi as_json_fn

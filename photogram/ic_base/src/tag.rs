@@ -43,9 +43,9 @@ pub enum Tag {
 impl Borrow<str> for Tag {
     fn borrow(&self) -> &str {
         match self {
-            Tag::Owned(s) => &s,
-            Tag::Shared(s) => &s,
-            Tag::Unresolved(s) => &s,
+            Tag::Owned(s) => s,
+            Tag::Shared(s) => s,
+            Tag::Unresolved(s) => s,
         }
     }
 }
@@ -223,11 +223,8 @@ impl Tag {
         }
     }
     pub fn resolve_in(&mut self, tag_set: &TagSet) {
-        match self {
-            Tag::Owned(s) => {
-                *self = tag_set.get_tag(&s);
-            }
-            _ => {}
+        if let Tag::Owned(s) = self {
+            *self = tag_set.get_tag(s);
         }
     }
 }
@@ -257,11 +254,7 @@ impl TagSet {
     pub fn resolve_tag(&self, tag: Tag) -> Option<Tag> {
         match tag {
             Tag::Unresolved(name) => {
-                if let Some(index) = self.index.borrow().get(&name) {
-                    Some(Tag::Shared(self.tags.borrow()[*index].clone()))
-                } else {
-                    None
-                }
+                self.index.borrow().get(&name).map(|index| Tag::Shared(self.tags.borrow()[*index].clone()))
             }
             Tag::Owned(name) => {
                 if let Some(index) = self.index.borrow().get(&name) {
@@ -377,8 +370,8 @@ where
     where
         F: FnOnce(Vec<Tag>) -> T,
     {
-        let mut order: Vec<_> = self.data.keys().map(|s| s.clone()).collect();
-        order.sort_by(|a, b| a.cmp(&b));
+        let mut order: Vec<_> = self.data.keys().cloned().collect();
+        order.sort();
         map(order)
     }
 

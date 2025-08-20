@@ -52,7 +52,7 @@ fn run_server(cmd_args: CmdArgs) {
 //fi serve_fn
 fn serve_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     ensure_http_server(cmd_args);
-    if cmd_args.server_running() {}
+    cmd_args.server_running();
     let cmd_args_clone = cmd_args.clone();
     cmd_args.server_run(|| run_server(cmd_args_clone));
     if !cmd_args.background() {

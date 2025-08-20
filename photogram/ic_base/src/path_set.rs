@@ -77,26 +77,22 @@ impl PathSet {
                     return paths;
                 };
                 for p in contents {
-                    match p {
-                        Ok(p) => {
-                            paths = self.glob_path(
-                                paths,
-                                max,
-                                max_depth - 1,
-                                dir_filter,
-                                file_filter,
-                                &p.path(),
-                            );
-                        }
-                        _ => (),
+                    if let Ok(p) = p {
+                        paths = self.glob_path(
+                            paths,
+                            max,
+                            max_depth - 1,
+                            dir_filter,
+                            file_filter,
+                            &p.path(),
+                        );
                     }
                 }
             }
-        } else if path.is_file() {
-            if file_filter(path) {
+        } else if path.is_file()
+            && file_filter(path) {
                 paths.push(path.into());
             }
-        }
         paths
     }
 

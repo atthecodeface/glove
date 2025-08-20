@@ -642,7 +642,6 @@ impl<C: CommandArgs> CommandSet<C> {
                             self.cmd_stack.last().unwrap().0,
                             self.cmd_stack.last().unwrap().1.unwrap_or_default(),
                         )
-                        .into()
                     })?;
                 self.executed_result(result);
                 Ok(())

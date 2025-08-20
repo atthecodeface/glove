@@ -106,7 +106,7 @@ impl CmdArgs {
         F: FnOnce(&mut CmdArgsInner) -> T,
     {
         let mut inner = self.arw.write().unwrap();
-        f(&mut *inner)
+        f(&mut inner)
     }
     //mi map
     fn map<F, T>(&self, f: F) -> T
@@ -114,7 +114,7 @@ impl CmdArgs {
         F: FnOnce(&CmdArgsInner) -> T,
     {
         let inner = self.arw.read().unwrap();
-        f(&*inner)
+        f(&inner)
     }
 }
 

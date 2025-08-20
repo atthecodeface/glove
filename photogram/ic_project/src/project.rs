@@ -153,7 +153,7 @@ impl<'de> Deserialize<'de> for Project {
         project_desc.cdb.derive();
 
         let mut project = Self::default();
-        let cdb = project_desc.cdb.into();
+        let cdb = project_desc.cdb;
         project.set_cdb_filename(project_desc.cdb_filename);
         project.set_cdb(cdb);
         let nps = project_desc.nps;
@@ -244,12 +244,7 @@ impl Project {
 
     //ap cip
     pub fn cip<A: AsRef<str>>(&self, name: A) -> Option<&Rrc<Cip>> {
-        for c in &self.cips {
-            if c.borrow().image().as_str() == name.as_ref() {
-                return Some(c);
-            }
-        }
-        None
+        self.cips.iter().find(|&c| c.borrow().image().as_str() == name.as_ref())
     }
 
     //mp set_cdb

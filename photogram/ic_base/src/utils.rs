@@ -46,11 +46,7 @@ impl<T> Rrc<T> {
         T: Sized + Default,
     {
         let rrc = self.0;
-        if let Some(t) = Rc::into_inner(rrc) {
-            Some(t.take())
-        } else {
-            None
-        }
+        Rc::into_inner(rrc).map(|t| t.take())
     }
 }
 

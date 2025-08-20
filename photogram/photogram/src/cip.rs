@@ -114,7 +114,7 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
-        return Err(format!("No CIP selected",).into());
+        return Err("No CIP selected".to_string().into());
     }
 
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
@@ -160,7 +160,7 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
-        return Err(format!("No CIP selected",).into());
+        return Err("No CIP selected".to_string().into());
     }
 
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
@@ -338,7 +338,7 @@ fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
 //fi image_patch_fn
 fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
-        return Err(format!("No CIP selected",).into());
+        return Err("No CIP selected".to_string().into());
     }
 
     let nps = cmd_args.get_nps()?;
@@ -437,14 +437,14 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn as_json_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("as_json").about("Generate the JSON for the CIP");
 
-    let build = CommandBuilder::new(command, Some(Box::new(as_json_fn)));
-    build
+    
+    CommandBuilder::new(command, Some(Box::new(as_json_fn)))
 }
 
 //fi as_json_fn
 fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
-        return Err(format!("No CIP selected",).into());
+        return Err("No CIP selected".to_string().into());
     }
 
     cmd_args

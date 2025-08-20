@@ -56,7 +56,7 @@ where
         }
         let width_sq = w / SQUARE_SIZE;
         let height_sq = h / SQUARE_SIZE;
-        let used_squares_size = (width_sq * height_sq + 63) / 64;
+        let used_squares_size = (width_sq * height_sq).div_ceil(64);
         let used_squares = vec![0_u64; used_squares_size as usize];
         let used_squares = used_squares.into_boxed_slice();
         let image_filename = String::new();
@@ -149,11 +149,7 @@ where
     //mi find_free_region
     fn find_free_region(&self, w_sq: u32, h_sq: u32) -> Option<(u32, u32)> {
         if w_sq * h_sq == 1 {
-            if let Some(sq) = self.find_first_free_square_from(0) {
-                Some((sq % self.width_sq, sq / self.width_sq))
-            } else {
-                None
-            }
+            self.find_first_free_square_from(0).map(|sq| (sq % self.width_sq, sq / self.width_sq))
         } else {
             let mut i = 0;
             while let Some(sq) = self.find_first_free_square_from(i) {

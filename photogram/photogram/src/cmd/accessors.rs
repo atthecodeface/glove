@@ -107,7 +107,7 @@ impl CmdArgs {
     }
 
     //mi arg_strings
-    pub fn arg_strings<'a>(&'a self) -> impl Iterator<Item = &'a str> {
+    pub fn arg_strings(&self) -> impl Iterator<Item = &str> {
         self.arg_strings.iter().map(|s| s.as_str())
     }
 

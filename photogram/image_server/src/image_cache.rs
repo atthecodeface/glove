@@ -93,6 +93,12 @@ impl ImageCacheEntry {
 pub struct ImageCache {
     m_cache: Mutex<Cache<ImageCacheKey>>,
 }
+impl Default for ImageCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ImageCache {
     pub fn new() -> Self {
         let m_cache = Mutex::new(Cache::default());

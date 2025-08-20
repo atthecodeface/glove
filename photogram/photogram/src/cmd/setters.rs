@@ -144,7 +144,7 @@ impl CmdArgs {
     /// Adds a point mapping set
     pub(crate) fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
         if self.cip.is_none() {
-            return Err(format!("No CIP selected when adding PMS",).into());
+            return Err("No CIP selected when adding PMS".to_string().into());
         }
         let (_, (pms, pms_not_found)) =
             PointMappingSet::load_json_file(&self.path_set, pms_filename, &self.project.nps_ref())?;

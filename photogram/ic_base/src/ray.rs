@@ -99,7 +99,7 @@ impl NamedRayList {
     pub fn len(&self) -> usize {
         self.named_rays.len()
     }
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a (String, Ray)> {
+    pub fn iter(&self) -> impl Iterator<Item = &(String, Ray)> {
         self.named_rays.iter()
     }
     pub fn add_ray<S: Into<String>>(&mut self, name: S, ray: Ray) {

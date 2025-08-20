@@ -112,7 +112,7 @@ impl ProjectDecode {
     }
     //ap cip
     pub fn cip(&self) -> Option<&str> {
-        self.cip.as_ref().map(|x| x.as_str())
+        self.cip.as_deref()
     }
 
     //zz All done
