@@ -137,7 +137,9 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
 //fi combine_rays_from_camera_cmd
 fn combine_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("combine_rays_from_camera").about("Combine rays from a camera");
+    let command = Command::new("combine_rays_from_camera")
+        .about("Combine rays from a camera")
+        .long_about(COMBINE_RAYS_FROM_CAMERA_LONG_HELP);
 
     let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_camera_fn)));
     CmdArgs::add_arg_named_ray_file(&mut build, (1,));

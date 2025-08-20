@@ -566,9 +566,9 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let image_filename2 = image_filename.to_owned();
 
     cip.set_camera_filename(camera_filename);
-    let image = Tag::owned(image_filename.clone());
+    let image = Tag::owned(image_filename);
     cip.set_image(image);
-    cip.set_image_filename(image_filename.clone());
+    cip.set_image_filename(image_filename);
     cip.set_pms_filename(pms_filename);
     cip.set_camera(cmd_args.camera().clone().into());
 

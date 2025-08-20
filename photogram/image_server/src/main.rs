@@ -32,7 +32,6 @@ fn serve_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 fn run_server(cmd_args: CmdArgs) {
-    let verbose = cmd_args.verbose();
     let num_threads = cmd_args.num_threads();
     let port = cmd_args.port();
     let pool = ThreadPool::new(num_threads);
@@ -72,7 +71,7 @@ fn serve_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn ensure_http_server(cmd_args: &CmdArgs) {
     HTTP_SRV.get_or_init(|| {
         let mut project_set = ProjectSet::new(cmd_args.clone());
-        project_set.fill_from_project_path();
+        project_set.fill_from_project_path().unwrap();
         HttpServer::new(cmd_args.verbose(), project_set)
     });
 }
@@ -92,9 +91,6 @@ fn main() -> Result<()> {
     CmdArgs::add_arg_project_path(&mut build);
 
     build.add_subcommand(serve_cmd());
-
-    // Need to put slave into CmdArgs ... ? or make it static
-    let slave = ThreadPool::new(1);
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);

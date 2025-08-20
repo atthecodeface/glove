@@ -14,14 +14,28 @@ pub enum PathGlob {
     PushAdd,
 }
 impl PathGlob {
-    fn push(self) -> bool {
+    pub fn is_push(self) -> bool {
         matches!(self, PathGlob::Push | PathGlob::PushAdd)
     }
-    fn add(self) -> bool {
+    pub fn is_add(self) -> bool {
         matches!(self, PathGlob::Add | PathGlob::PushAdd)
     }
-    fn skip(self) -> bool {
+    pub fn is_skip(self) -> bool {
         matches!(self, PathGlob::Skip)
+    }
+    pub fn push(self) -> Self {
+        match self {
+            PathGlob::Skip => PathGlob::Push,
+            PathGlob::Add => PathGlob::PushAdd,
+            _ => panic!("Cannot add 'push' to a PathGlob that already has push"),
+        }
+    }
+    pub fn add(self) -> Self {
+        match self {
+            PathGlob::Skip => PathGlob::Add,
+            PathGlob::Push => PathGlob::PushAdd,
+            _ => panic!("Cannot add 'add' to a PathGlob that already has add"),
+        }
     }
 }
 
@@ -52,13 +66,13 @@ impl PathSet {
         }
         if path.is_dir() {
             let d_ops = dir_filter(path);
-            if d_ops.add() {
+            if d_ops.is_add() {
                 paths.push(path.into());
             }
             if max_depth == 0 || paths.len() >= max {
                 return paths;
             }
-            if d_ops.push() {
+            if d_ops.is_push() {
                 let Ok(contents) = std::fs::read_dir(path) else {
                     return paths;
                 };

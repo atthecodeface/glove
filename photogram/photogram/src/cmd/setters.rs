@@ -2,12 +2,12 @@
 use star_catalog::Catalog;
 
 use ic_base::Result;
-use ic_base::{JsonParsable, JsonSrc, NamedRayList, Ray, Rrc};
+use ic_base::{JsonParsable, NamedRayList};
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, Project, ProjectFileDesc};
+use ic_project::{Project, ProjectFileDesc};
 use ic_stars::StarMapping;
 
 use super::CmdArgs;

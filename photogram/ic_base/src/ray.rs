@@ -141,6 +141,17 @@ pub struct Ray {
     tan_error: f64,
 }
 
+impl JsonParsable for Ray {
+    type PostParseArg = ();
+    type PostParseResult = Ray;
+    fn reason() -> &'static str {
+        "ray"
+    }
+    fn post_parse(self, _args: &()) -> Result<Self> {
+        Ok(self)
+    }
+}
+
 //ip Display for Ray
 impl std::fmt::Display for Ray {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
@@ -394,9 +405,8 @@ fn test_ray() -> Result<()> {
 //ft test_ray2
 #[test]
 fn test_ray2() -> Result<()> {
-    use crate::json;
-    let ray_4060: Ray = json::from_json(
-        "Ray 1",
+    
+    let ray_4060 = Ray::load_json(
         r#"
 {
       "start": [
@@ -411,10 +421,10 @@ fn test_ray2() -> Result<()> {
       ],
       "tan_error": 0.1
     }"#,
+        &(),
     )?;
 
-    let ray_4062: Ray = json::from_json(
-        "Ray 2",
+    let ray_4062 = Ray::load_json(
         r#"
 {
       "start": [
@@ -429,6 +439,7 @@ fn test_ray2() -> Result<()> {
       ],
       "tan_error": 0.1
     }"#,
+        &(),
     )?;
     ray_4060.intersect(&ray_4062);
     //    assert!(false);
@@ -438,9 +449,8 @@ fn test_ray2() -> Result<()> {
 //ft test_ray3
 #[test]
 fn test_ray3() -> Result<()> {
-    use crate::json;
-    let ray_4060: Ray = json::from_json(
-        "Ray 1",
+    
+    let ray_4060 = Ray::load_json(
         r#"
 {
       "start": [
@@ -455,10 +465,10 @@ fn test_ray3() -> Result<()> {
       ],
       "tan_error": 0.1
     }"#,
+        &(),
     )?;
 
-    let ray_4062: Ray = json::from_json(
-        "Ray 2",
+    let ray_4062 = Ray::load_json(
         r#"
 {
       "start": [
@@ -473,9 +483,10 @@ fn test_ray3() -> Result<()> {
       ],
       "tan_error": 0.2
     }"#,
+        &(),
     )?;
 
-    let p = Ray::closest_point(&[ray_4060, ray_4062], &|_| 1.0).unwrap();
+    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|_| 1.0).unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);
@@ -484,7 +495,7 @@ fn test_ray3() -> Result<()> {
         "Distance between the closest point and each of the rays should be about the same"
     );
 
-    let p = Ray::closest_point(&[ray_4060, ray_4062], &|r| 1.0 / r.tan_error()).unwrap();
+    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|r| 1.0 / r.tan_error()).unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);

@@ -181,7 +181,7 @@ impl PointMappingSet {
     }
 
     //mp merge
-    pub fn merge(&mut self, mut other: PointMappingSet) {
+    pub fn merge(&mut self, other: PointMappingSet) {
         for other_pm in other.mappings.into_iter() {
             if let Some(pm) = self
                 .mappings

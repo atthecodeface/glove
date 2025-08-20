@@ -2,7 +2,7 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{NamedRayList, PathSet, Ray, Rrc};
+use ic_base::{NamedRayList, PathSet, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color;

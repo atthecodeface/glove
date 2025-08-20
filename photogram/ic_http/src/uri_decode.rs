@@ -1,10 +1,5 @@
 //a Imports
-use std::collections::HashMap;
-use std::fs;
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::path::{Component, Path, PathBuf};
-use std::time::Duration;
+use std::path::{Component, PathBuf};
 
 //a UriDecode
 //tp UriDecode

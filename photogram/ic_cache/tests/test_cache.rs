@@ -1,6 +1,6 @@
 //a Imports
 
-use ic_cache::{Cache, Cacheable};
+use ic_cache::Cache;
 
 //a Cache
 use std::any::Any;

@@ -1,7 +1,7 @@
 //a Imports
 use std::rc::Rc;
 
-use image::{GenericImage, GenericImageView};
+use image::{DynamicImage, GenericImage, GenericImageView};
 
 use ic_base::{Result, Rrc};
 
@@ -290,7 +290,7 @@ where
     #[track_caller]
     pub fn copy_from_image(&self, image: &I, x: u32, y: u32)
     where
-        I: std::ops::Deref<Target = image::DynamicImage>,
+        I: std::ops::Deref<Target = DynamicImage>,
         I: std::ops::DerefMut,
     {
         self.image
@@ -307,7 +307,7 @@ where
     #[track_caller]
     pub fn copy_to_image(&self, image: &mut I, x: u32, y: u32)
     where
-        I: std::ops::Deref<Target = image::DynamicImage>,
+        I: std::ops::Deref<Target = DynamicImage>,
         I: std::ops::DerefMut,
     {
         image
@@ -328,7 +328,7 @@ where
     #[track_caller]
     pub fn copy_squares(&self, from: &Self)
     where
-        I: std::ops::Deref<Target = image::DynamicImage>,
+        I: std::ops::Deref<Target = DynamicImage>,
         I: std::ops::DerefMut,
     {
         assert_eq!(self.w, from.w);
@@ -380,7 +380,8 @@ where
 //a Tests
 #[test]
 fn test_image_square_0() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut set = ImageSquareSet::<crate::ImageRgb8>::create(10, 20);
+    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
+    let mut set = ImageSquareSet::create(image)?;
     for _ in 0..199 {
         let x = set.allocate_squares(8, 8);
         assert!(x.is_some());
@@ -401,7 +402,8 @@ fn test_image_square_0() -> std::result::Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut set = ImageSquareSet::<crate::ImageRgb8>::create(10, 20);
+    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
+    let mut set = ImageSquareSet::create(image)?;
     for _ in 0..50 {
         let x = set.allocate_squares(16, 16);
         assert!(x.is_some());
@@ -419,9 +421,9 @@ fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_image_square_2() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let image = DynamicImage::new_rgb8(80, 160);
+    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
 
-    let mut set = ImageSquareSet::<crate::ImageRgb8>::create();
+    let mut set = ImageSquareSet::create(image)?;
     let first = set.allocate_squares(16, 16).unwrap();
     for _ in 0..49 {
         let _x = set.allocate_squares(16, 16);

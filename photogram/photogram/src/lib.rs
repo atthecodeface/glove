@@ -12,7 +12,10 @@ pub use ic_camera::{
     CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraLens, LensPolys,
 };
 
-pub use ic_image::*;
+pub use ic_image::{
+    read_image, Color, Gray16, Image, ImageColor, ImageDrawable, ImageGray16, ImagePt, ImageRgb8,
+    ImageSquareSet, Patch, Region,
+};
 pub use ic_kernel::*;
 pub use ic_mapping::*;
 pub use ic_project::*;
