@@ -551,15 +551,18 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let image_filename = cmd_args.get_string_arg(1).unwrap();
     let pms_filename = cmd_args.get_string_arg(2).unwrap();
 
+    let image_filename2 = image_filename.to_owned();
+
     cip.set_camera_filename(camera_filename);
-    cip.set_image(Tag::owned(image_filename));
-    cip.set_image_filename(image_filename);
+    let image = Tag::owned(image_filename.clone());
+    cip.set_image(image);
+    cip.set_image_filename(image_filename.clone());
     cip.set_pms_filename(pms_filename);
     cip.set_camera(cmd_args.camera().clone().into());
 
     let cip: Rrc<Cip> = cip.into();
     cmd_args.project_mut().add_cip(cip.clone());
-    cmd_args.cip = Some(cip);
+    let _ = cmd_args.set_cip(&image_filename2);
     Ok("".into())
 }
 

@@ -146,30 +146,30 @@ point_mappings add "top mensa e tip" 1759,1497 2.0
 project as_json
 echo --file cube.json ${0}
 
-cip --cip 0 locate "0cm.*" "10cm.*" "M middle" "tl text"
+cip --cip 4V3A6040.JPG locate "0cm.*" "10cm.*" "M middle" "tl text"
 cip orient
 
-cip --cip 1 locate "0cm.*" "7cm.*" "M middle" "tl text"
+cip --cip 4V3A6041.JPG locate "0cm.*" "7cm.*" "M middle" "tl text"
 cip orient
 
-cip --cip 2 locate "0cm.*" "10cm.*" "M middle" "tl text"
+cip --cip 4V3A6042.JPG locate "0cm.*" "10cm.*" "M middle" "tl text"
 cip orient
 
-named_points get_model_points 0 1 2
+named_points get_model_points 4V3A6040.JPG 4V3A6041.JPG 4V3A6042.JPG
 # named_points get_model_points --np "^M" --np ".*game" 0 1 2
 named_points update_model ${0}
 
-cip --cip 0 locate
+cip --cip 4V3A6040.JPG locate
 cip orient
-cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip}_pm.png --pms_color #ff0000 --model_color #00ff00
 
-cip --cip 1 locate
+cip --cip 4V3A6041.JPG locate
 cip orient
-cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip}_pm.png --pms_color #ff0000 --model_color #00ff00
 
-cip --cip 2 locate
+cip --cip 4V3A6042.JPG locate
 cip orient
-cip image -r ${cip.image_filename} -w ${cip.image}_pm.png --pms_color #ff0000 --model_color #00ff00
+cip image -r ${cip.image_filename} -w ${cip}_pm.png --pms_color #ff0000 --model_color #00ff00
 
 --pretty_json project as_json
 echo --file cube_improved.json ${0}
