@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use ic_base::{Mesh, PathGlob, Result};
-// use ic_cache::{Cache, CacheEntry, Cacheable};
-use ic_camera::CameraProjection;
 use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8, Patch};
+use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8};
 use ic_kernel::{KernelArgs, Kernels};
+use ic_mapping::Patch;
 
 use crate::CmdArgs;
 use crate::NamedProject;
@@ -296,45 +295,22 @@ impl ProjectSet {
 
         let src_img_ref = self.image_cache.src_image(&path)?;
         let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
-        // let src_img = ImageRgb8::read_image(path)?;
 
         let nps = p.nps_ref();
         let camera = cip_r.camera_ref();
 
-        let mut model_pts = vec![];
-        for name in &pd.nps {
-            if let Some(n) = nps.get_pt(name) {
-                let model = n.model().0;
-                model_pts.push((name, model, camera.world_xyz_to_px_abs_xy(&model)))
-            } else {
-                return Err(format!("Could not find NP {name} in the project").into());
-            }
-        }
-        if model_pts.len() < 3 {
-            return Err(format!(
-                "Need at least 3 points for a patch, got {}",
-                model_pts.len()
-            )
-            .into());
-        }
-
-        for m in &model_pts {
-            eprintln!("{} {} {}", m.0, m.1, m.2);
-        }
-        let model_pts: Vec<_> = model_pts.into_iter().map(|(_, m, _)| m).collect();
-
-        let px_per_model = pd.px_per_model.unwrap_or(10.0);
-        let Some(patch) = Patch::create(src_img, px_per_model, model_pts.iter(), &|m| {
-            camera.world_xyz_to_px_abs_xy(&m)
-        })?
-        else {
-            return Err("Failled to create patch".into());
+        let Some(mut patch) = Patch::create(nps.iter().cloned()) else {
+            return Err(format!("Failed to create patch for nps with {} points", nps.len()).into());
         };
+        patch.set_render_px_per_model(25.0);
+        patch.set_expansion_factor(1.1);
+        patch.update_data();
+
+        let patch_img = patch.create_img(&*camera, src_img).unwrap();
 
         let to_width = pd.width.map(|x| x as usize).unwrap_or(200);
         let ws = pd.window.unwrap_or(4) as u32;
-        let img = patch.img();
-        let (w, h, mut img_data) = img.as_vec_gray_f32(Some(to_width));
+        let (w, h, mut img_data) = patch_img.as_vec_gray_f32(Some(to_width));
         let mut img_data_sq = img_data.clone();
         let args: KernelArgs = (w, h).into();
 

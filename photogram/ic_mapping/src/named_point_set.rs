@@ -51,6 +51,16 @@ impl<'de> Deserialize<'de> for NamedPointSet {
 
 //ip NamedPointSet
 impl NamedPointSet {
+    //ap len
+    pub fn len(&self) -> usize {
+        self.points.len()
+    }
+
+    //ap is_empty
+    pub fn is_empty(&self) -> bool {
+        self.points.is_empty()
+    }
+
     //fp set_tag_set
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
         self.points.set_tag_set(tags)
