@@ -17,7 +17,7 @@ pub struct ProjectDecode {
     pub dec_type: ProjectDecodeType,
     pub project: String,
     pub idx: usize,
-    pub cip: Option<usize>,
+    pub cip: Option<String>,
     pub width: Option<f64>,
     pub height: Option<f64>,
     pub px_per_model: Option<f64>,
@@ -44,7 +44,7 @@ impl ProjectDecode {
             pd.dec_type = ProjectDecodeType::UnknownProject;
             pd.project = project.into();
         }
-        if let Some(Ok(cip)) = request.get_one::<usize>("cip") {
+        if let Some(Ok(cip)) = request.get_one::<String>("cip") {
             pd.cip = Some(cip);
         }
         if let Some(Ok(width)) = request.get_one::<f64>("width") {
@@ -111,8 +111,8 @@ impl ProjectDecode {
         }
     }
     //ap cip
-    pub fn cip(&self) -> Option<usize> {
-        self.cip
+    pub fn cip(&self) -> Option<&str> {
+        self.cip.as_ref().map(|x| x.as_str())
     }
 
     //zz All done

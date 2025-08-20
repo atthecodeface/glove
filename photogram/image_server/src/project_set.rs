@@ -168,14 +168,15 @@ impl ProjectSet {
         response: &mut HttpResponse,
         pd: &ProjectDecode,
     ) -> Result<()> {
-        let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
-        if cip >= p.ncips() {
-            return Err("Cip out of range".into());
-        }
-        let cip = p.cip(cip).clone();
+
+        let cip = pd.cip().unwrap_or_default();
+        let Some(cip) = p.cip(cip).cloned() else {
+            return Err("Cip could not be found".into());
+        };
         let cip_r = cip.borrow();
+
         let pms = cip_r.pms();
         let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| *p.screen()));
         let triangles: Vec<_> = mesh.triangles().collect();
@@ -197,13 +198,13 @@ impl ProjectSet {
         response: &mut HttpResponse,
         pd: &ProjectDecode,
     ) -> Result<()> {
-        let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
-        if cip >= p.ncips() {
-            return Err("Cip out of range".into());
-        }
-        let cip = p.cip(cip).clone();
+
+        let cip = pd.cip().unwrap_or_default();
+        let Some(cip) = p.cip(cip).cloned() else {
+            return Err("Cip could not be found".into());
+        };
         let cip_r = cip.borrow();
 
         let Some(path) = self.cmd_args.find_image_file(cip_r.image_filename()) else {
@@ -230,13 +231,13 @@ impl ProjectSet {
         response: &mut HttpResponse,
         pd: &ProjectDecode,
     ) -> Result<()> {
-        let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
-        if cip >= p.ncips() {
-            return Err("Cip out of range".into());
-        }
-        let cip = p.cip(cip).clone();
+
+        let cip = pd.cip().unwrap_or_default();
+        let Some(cip) = p.cip(cip).cloned() else {
+            return Err("Cip could not be found".into());
+        };
         let cip_r = cip.borrow();
 
         let Some(path) = self.cmd_args.find_image_file(cip_r.image_filename()) else {
@@ -280,14 +281,15 @@ impl ProjectSet {
         response: &mut HttpResponse,
         pd: &ProjectDecode,
     ) -> Result<()> {
-        let cip = pd.cip().unwrap_or_default();
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
-        if cip >= p.ncips() {
-            return Err("Cip out of range".into());
-        }
-        let cip = p.cip(cip).clone();
+
+        let cip = pd.cip().unwrap_or_default();
+        let Some(cip) = p.cip(cip).cloned() else {
+            return Err("Cip could not be found".into());
+        };
         let cip_r = cip.borrow();
+
         let Some(path) = self.cmd_args.find_image_file(cip_r.image_filename()) else {
             return Err(format!("Could not find image file {}", cip_r.image_filename()).into());
         };

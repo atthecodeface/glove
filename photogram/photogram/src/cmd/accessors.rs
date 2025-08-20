@@ -46,8 +46,8 @@ impl CmdArgs {
     }
 
     //mi cip
-    pub fn cip(&self) -> &Rrc<Cip> {
-        &self.cip
+    pub fn cip(&self) -> Option<&Rrc<Cip>> {
+        self.cip.as_ref()
     }
 
     //mi np_names
@@ -104,6 +104,11 @@ impl CmdArgs {
     //mi arg_usizes
     pub fn arg_usizes(&self) -> &[usize] {
         &self.arg_usizes
+    }
+
+    //mi arg_strings
+    pub fn arg_strings<'a>(&'a self) -> impl Iterator<Item = &'a str> {
+        self.arg_strings.iter().map(|s| s.as_str())
     }
 
     //mi arg_as_point3d

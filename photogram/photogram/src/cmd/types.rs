@@ -36,8 +36,7 @@ pub struct CmdArgs {
     pub(crate) pms: Rrc<PointMappingSet>,
 
     // CIP that is part of the project
-    pub(crate) cip: Rrc<Cip>,
-    pub(crate) cip_number: usize,
+    pub(crate) cip: Option<Rrc<Cip>>,
 
     // camera is a *specific* camera, not part of a CIP or project
     pub(crate) camera: CameraInstance,

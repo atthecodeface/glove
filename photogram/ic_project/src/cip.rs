@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag};
+use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag, TagSet};
 use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
@@ -103,7 +103,12 @@ impl Cip {
         &self.image
     }
 
-    //mp set_image_name
+    //mp resolve_tag
+    pub fn resolve_tag(&mut self, tag_set: &TagSet) {
+        self.image.resolve_in(tag_set);
+    }
+
+    //mp set_image
     pub fn set_image<I: Into<Tag>>(&mut self, s: I) {
         self.image = s.into();
     }
@@ -138,7 +143,7 @@ impl Cip {
         self.pms_filename = s.into();
     }
 
-    //cp read_json
+    //mp read_json
     /// Used by Wasm
     pub fn read_json(
         &mut self,

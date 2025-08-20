@@ -3,7 +3,7 @@
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use ic_base::{NamedRayList, Ray, Rrc};
+use ic_base::{NamedRayList, Ray, Rrc, Tag};
 use ic_camera::CameraProjection;
 use ic_image::{Image, ImageDrawable};
 use ic_mapping::PointMapping;
@@ -113,6 +113,10 @@ fn locate_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    if cmd_args.cip().is_none() {
+        return Err(format!("No CIP selected",).into());
+    }
+
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let n = pms_n.len();
     if n < 3 {
@@ -123,9 +127,13 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let max_np_error = cmd_args.max_error();
 
     let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
-    cmd_args.cip().borrow_mut().locate(filter, max_pairs)?;
+    cmd_args
+        .cip()
+        .unwrap()
+        .borrow_mut()
+        .locate(filter, max_pairs)?;
 
-    let camera = cmd_args.cip().borrow().camera().borrow().clone();
+    let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
     *cmd_args.camera_mut() = camera;
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
@@ -151,6 +159,10 @@ fn orient_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    if cmd_args.cip().is_none() {
+        return Err(format!("No CIP selected",).into());
+    }
+
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
 
     let max_np_error = cmd_args.max_error();
@@ -158,10 +170,11 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
     let _total_error = cmd_args
         .cip()
+        .unwrap()
         .borrow_mut()
         .orient_camera_using_model_directions(filter)?;
 
-    let camera = cmd_args.cip().borrow().camera().borrow().clone();
+    let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
     *cmd_args.camera_mut() = camera;
     cmd_args.if_verbose(|| {
         eprintln!("{}", cmd_args.camera());
@@ -324,13 +337,17 @@ fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi image_patch_fn
 fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    if cmd_args.cip().is_none() {
+        return Err(format!("No CIP selected",).into());
+    }
+
     let nps = cmd_args.get_nps()?;
 
     if nps.len() < 3 {
         return Err(format!("Need at least 3 points for a patch, got {}", nps.len()).into());
     }
 
-    let cip = cmd_args.cip().borrow();
+    let cip = cmd_args.cip().unwrap().borrow();
     let camera = cip.camera_ref();
 
     let src_img = cmd_args.get_image_read_or_create()?;
@@ -424,7 +441,15 @@ fn as_json_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi as_json_fn
 fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    cmd_args.cip().borrow().to_json(cmd_args.pretty_json())
+    if cmd_args.cip().is_none() {
+        return Err(format!("No CIP selected",).into());
+    }
+
+    cmd_args
+        .cip()
+        .unwrap()
+        .borrow()
+        .to_json(cmd_args.pretty_json())
 }
 
 //fi show_mappings_cmd
@@ -521,19 +546,20 @@ fn add_cmd() -> CommandBuilder<CmdArgs> {
 //fi add_fn
 fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut cip = Cip::default();
+
     let camera_filename = cmd_args.get_string_arg(0).unwrap();
     let image_filename = cmd_args.get_string_arg(1).unwrap();
     let pms_filename = cmd_args.get_string_arg(2).unwrap();
+
     cip.set_camera_filename(camera_filename);
-    //    cip.set_image(image_filename);
+    cip.set_image(Tag::owned(image_filename));
     cip.set_image_filename(image_filename);
     cip.set_pms_filename(pms_filename);
     cip.set_camera(cmd_args.camera().clone().into());
 
     let cip: Rrc<Cip> = cip.into();
-    let n = cmd_args.project().ncips();
     cmd_args.project_mut().add_cip(cip.clone());
-    let _ = cmd_args.set_cip(n);
+    cmd_args.cip = Some(cip);
     Ok("".into())
 }
 

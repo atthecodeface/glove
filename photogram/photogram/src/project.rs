@@ -21,8 +21,6 @@ pub fn as_json_cmd() -> CommandBuilder<CmdArgs> {
         .about("As_Json the project as a *single* JSON file")
         .long_about(LIST_LONG_HELP);
 
-    
-
     CommandBuilder::new(command, Some(Box::new(as_json_fn)))
 }
 
@@ -38,19 +36,17 @@ pub fn list_cmd() -> CommandBuilder<CmdArgs> {
         .about("Operate on a list as a whole")
         .long_about(LIST_LONG_HELP);
 
-    
-
     CommandBuilder::new(command, Some(Box::new(list_fn)))
 }
 
 //fi list_fn
 fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let camera = cmd_args.project().cip(0).borrow().camera().clone();
+    let camera = cmd_args.camera().clone();
 
     eprintln!("Camera {camera:?}");
     eprintln!(
         "Mapping {}",
-        camera.borrow().world_xyz_to_px_abs_xy(&Point3D::default())
+        camera.world_xyz_to_px_abs_xy(&Point3D::default())
     );
     println!(
         "{}",

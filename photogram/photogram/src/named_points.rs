@@ -189,10 +189,10 @@ fn get_model_points_cmd() -> CommandBuilder<CmdArgs> {
 
     CmdArgs::add_arg_named_point(&mut build, (None, false));
 
-    CmdArgs::add_arg_positional_usize(
+    CmdArgs::add_arg_positional_string(
         &mut build,
         "cip",
-        "Cip numbers to use for the point mappings",
+        "Cip names to use for the point mappings",
         None,
         None,
     );
@@ -205,11 +205,14 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.get_nps()?;
 
     let cips: Vec<_> = cmd_args
-        .arg_usizes()
-        .iter()
+        .arg_strings()
         .map(|cip| {
             /* bound it */
-            let cip = cmd_args.project.cip(*cip).borrow();
+            let cip = cmd_args
+                .project
+                .cip(cip)
+                .expect("Need error - could not find CIP")
+                .borrow();
             (cip.pms().clone(), cip.camera().clone())
         })
         .collect();

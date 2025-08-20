@@ -44,8 +44,7 @@ impl CmdArgs {
         self.if_verbose(|| eprintln!("Loaded project from '{project_filename}'"));
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
-        self.cip_number = 0;
-        self.cip = self.project.cip(0).clone();
+        self.cip = None;
         Ok(())
     }
 
@@ -144,30 +143,25 @@ impl CmdArgs {
     //mi add_pms
     /// Adds a point mapping set
     pub(crate) fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
+        if self.cip.is_none() {
+            return Err(format!("No CIP selected when adding PMS",).into());
+        }
         let (_, (pms, pms_not_found)) =
             PointMappingSet::load_json_file(&self.path_set, pms_filename, &self.project.nps_ref())?;
 
         if !pms_not_found.is_empty() {
             eprintln!("Warning: {pms_not_found:?}");
         }
+        self.cip.as_ref().unwrap().borrow_mut().pms_mut().merge(pms);
 
-        if self.project.ncips() == 0 {
-            let cip: Rrc<Cip> = Cip::default().into();
-            self.cip = cip.clone();
-            self.project.add_cip(cip);
-        }
-        self.cip.borrow_mut().pms_mut().merge(pms);
         Ok(())
     }
 
     //mp set_camera
     pub fn set_camera(&mut self, camera: CameraInstance) {
-        if self.project.ncips() == 0 {
-            let cip: Rrc<Cip> = Cip::default().into();
-            self.cip = cip.clone();
-            self.project.add_cip(cip);
+        if let Some(cip) = self.cip.as_ref() {
+            cip.borrow_mut().set_camera(camera.clone().into());
         }
-        self.cip.borrow_mut().set_camera(camera.clone().into());
         self.camera = camera;
     }
 
@@ -199,18 +193,13 @@ impl CmdArgs {
     // *cip.camera_mut() = camera;
     // *cip.pms_mut() = pms;
     // let cip = cip.into();
-    pub(crate) fn set_cip(&mut self, cip: usize) -> Result<()> {
-        if cip >= self.project.ncips() {
-            return Err(format!(
-                "CIP {cip} is too large for the project (it has {} cips)",
-                self.project.ncips()
-            )
-            .into());
-        }
-        self.cip_number = cip;
-        self.cip = self.project.cip(cip).clone();
-        self.pms = self.cip.borrow().pms().clone();
-        self.camera = self.cip.borrow().camera().borrow().clone();
+    pub(crate) fn set_cip(&mut self, cip: &str) -> Result<()> {
+        let Some(cip) = self.project.cip(cip).cloned() else {
+            return Err(format!("CIP {cip} could not be found",).into());
+        };
+        self.pms = cip.as_ref().borrow().pms().clone();
+        self.camera = cip.as_ref().borrow().camera().borrow().clone();
+        self.cip = Some(cip);
         Ok(())
     }
 

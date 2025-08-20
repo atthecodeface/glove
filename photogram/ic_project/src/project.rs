@@ -243,8 +243,13 @@ impl Project {
     }
 
     //ap cip
-    pub fn cip(&self, n: usize) -> &Rrc<Cip> {
-        &self.cips[n]
+    pub fn cip<A: AsRef<str>>(&self, name: A) -> Option<&Rrc<Cip>> {
+        for c in &self.cips {
+            if c.borrow().image().as_str() == name.as_ref() {
+                return Some(c);
+            }
+        }
+        None
     }
 
     //mp set_cdb
@@ -272,10 +277,9 @@ impl Project {
     }
 
     //mp add_cip
-    pub fn add_cip(&mut self, cip: Rrc<Cip>) -> usize {
-        let n = self.cips.len();
+    pub fn add_cip(&mut self, cip: Rrc<Cip>) {
+        cip.borrow_mut().resolve_tag(&self.image_tag_set);
         self.cips.push(cip);
-        n
     }
 
     //mp to_json

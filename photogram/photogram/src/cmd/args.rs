@@ -113,10 +113,10 @@ impl CmdArgs {
     //fp add_arg_cip
     pub fn add_arg_cip(build: &mut CommandBuilder<Self>, required: bool) {
         let arg_count = required.into();
-        build.add_arg_usize(
+        build.add_arg_string(
             "cip",
             None,
-            "CIP number (camera and PMS) within the project",
+            "CIP name (camera and PMS) within the project",
             arg_count,
             None,
             CmdArgs::set_cip,
