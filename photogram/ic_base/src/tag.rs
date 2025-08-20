@@ -157,14 +157,14 @@ impl std::ops::Deref for Tag {
 //ip PartialOrd for Tag
 impl std::cmp::PartialOrd for Tag {
     fn partial_cmp(&self, other: &Tag) -> Option<std::cmp::Ordering> {
-        Borrow::<str>::borrow(self).partial_cmp(Borrow::<str>::borrow(other))
+        Some(self.cmp(other))
     }
 }
 
 //ip Cmp for Tag
 impl std::cmp::Ord for Tag {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        Borrow::<str>::borrow(self).cmp(Borrow::<str>::borrow(other))
     }
 }
 
@@ -211,10 +211,7 @@ impl Tag {
     }
 
     pub fn is_resolved(&self) -> bool {
-        match self {
-            Tag::Shared(_) => true,
-            _ => false,
-        }
+        matches!(self, Tag::Shared(_))
     }
     pub fn take_name(self) -> Option<String> {
         match self {
@@ -253,9 +250,11 @@ impl TagSet {
     //mp resolve_tag
     pub fn resolve_tag(&self, tag: Tag) -> Option<Tag> {
         match tag {
-            Tag::Unresolved(name) => {
-                self.index.borrow().get(&name).map(|index| Tag::Shared(self.tags.borrow()[*index].clone()))
-            }
+            Tag::Unresolved(name) => self
+                .index
+                .borrow()
+                .get(&name)
+                .map(|index| Tag::Shared(self.tags.borrow()[*index].clone())),
             Tag::Owned(name) => {
                 if let Some(index) = self.index.borrow().get(&name) {
                     Some(Tag::Shared(self.tags.borrow()[*index].clone()))

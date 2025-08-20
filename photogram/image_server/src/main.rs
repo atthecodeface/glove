@@ -59,7 +59,9 @@ fn serve_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         eprintln!("*******************************************************************");
         eprintln!("*** Running server in foreground - interrupt to stop the server ***");
         eprintln!("*******************************************************************");
-        loop {}
+        loop {
+            std::thread::sleep(std::time::Duration::new(1, 0));
+        }
     } else {
         eprintln!("************************************");
         eprintln!("*** Running server in background ***");

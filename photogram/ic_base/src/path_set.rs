@@ -47,9 +47,8 @@ pub struct PathSet {
 
 //ip PathSet
 impl PathSet {
-    //mp glob_path
-    pub fn glob_path<D, F>(
-        &self,
+    //mi glob_path
+    fn glob_path<D, F>(
         mut paths: Vec<PathBuf>,
         max: usize,
         max_depth: usize,
@@ -76,23 +75,21 @@ impl PathSet {
                 let Ok(contents) = std::fs::read_dir(path) else {
                     return paths;
                 };
-                for p in contents {
-                    if let Ok(p) = p {
-                        paths = self.glob_path(
-                            paths,
-                            max,
-                            max_depth - 1,
-                            dir_filter,
-                            file_filter,
-                            &p.path(),
-                        );
-                    }
+                // contents is iterator of Result, which can be flatted to ignore errors
+                for p in contents.flatten() {
+                    paths = Self::glob_path(
+                        paths,
+                        max,
+                        max_depth - 1,
+                        dir_filter,
+                        file_filter,
+                        &p.path(),
+                    );
                 }
             }
-        } else if path.is_file()
-            && file_filter(path) {
-                paths.push(path.into());
-            }
+        } else if path.is_file() && file_filter(path) {
+            paths.push(path.into());
+        }
         paths
     }
 
@@ -110,7 +107,7 @@ impl PathSet {
     {
         let mut paths = vec![];
         for p in self.paths.iter() {
-            paths = self.glob_path(paths, max, max_depth, dir_filter, file_filter, p);
+            paths = Self::glob_path(paths, max, max_depth, dir_filter, file_filter, p);
         }
         paths
     }

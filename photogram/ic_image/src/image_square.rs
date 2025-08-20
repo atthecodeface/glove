@@ -130,11 +130,7 @@ where
     fn is_region_free(&self, sq: u32, w_sq: u32, h_sq: u32) -> bool {
         let x_sq = sq % self.width_sq;
         let y_sq = sq / self.width_sq;
-        if x_sq > self.width_sq - w_sq {
-            false
-        } else if y_sq > self.height_sq - h_sq {
-            false
-        } else {
+        if x_sq + w_sq <= self.width_sq && y_sq + h_sq <= self.height_sq {
             for y in 0..h_sq {
                 for x in 0..w_sq {
                     if self.alloc_get_bit(x_sq + x, y_sq + y) {
@@ -143,13 +139,16 @@ where
                 }
             }
             true
+        } else {
+            false
         }
     }
 
     //mi find_free_region
     fn find_free_region(&self, w_sq: u32, h_sq: u32) -> Option<(u32, u32)> {
         if w_sq * h_sq == 1 {
-            self.find_first_free_square_from(0).map(|sq| (sq % self.width_sq, sq / self.width_sq))
+            self.find_first_free_square_from(0)
+                .map(|sq| (sq % self.width_sq, sq / self.width_sq))
         } else {
             let mut i = 0;
             while let Some(sq) = self.find_first_free_square_from(i) {

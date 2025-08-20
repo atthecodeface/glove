@@ -143,6 +143,7 @@ impl NamedPointSet {
     }
 
     //dp into_iter
+    #[allow(clippy::should_implement_trait)]
     pub fn into_iter(self) -> impl Iterator<Item = Option<NamedPoint>> {
         self.points.into_values().map(Rc::into_inner)
     }

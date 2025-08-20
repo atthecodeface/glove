@@ -49,9 +49,10 @@ impl Serialize for ImageSquareSets {
 impl ImageSquareSets {
     //cp from_desc
     pub fn from_desc(desc: ImageSquareSetsDesc) -> Self {
-        let mut s = Self::default();
-        s.index = desc.index;
-        s
+        Self {
+            index: desc.index,
+            ..Default::default()
+        }
     }
 
     //mp ensure_loaded
