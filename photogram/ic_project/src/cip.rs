@@ -167,7 +167,7 @@ impl Cip {
 
     //cp from_desc
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
-        let image = cip_desc.image;
+        let mut image = cip_desc.image;
         let camera = CameraInstance::from_desc(&project.cdb().borrow(), cip_desc.camera)?.into();
         let pms: Rrc<PointMappingSet> = cip_desc.pms.into();
         let _warnings = pms
@@ -176,6 +176,10 @@ impl Cip {
         let camera_filename = cip_desc.camera_filename;
         let pms_filename = cip_desc.pms_filename;
         let image_filename = cip_desc.image_filename;
+        if image.is_empty() {
+            image = Tag::owned(image_filename.clone());
+        }
+        // image = Tag::owned(format!("What the fuck {image:?} '{image_filename}'"));
         Ok((
             Self {
                 camera_filename,

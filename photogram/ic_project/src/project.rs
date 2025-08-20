@@ -242,9 +242,16 @@ impl Project {
         self.cips.len()
     }
 
+    //ap cip_name
+    pub fn cip_name(&self, n: usize) -> Option<String> {
+        self.cips.get(n).map(|c| c.borrow().image().to_string())
+    }
+
     //ap cip
     pub fn cip<A: AsRef<str>>(&self, name: A) -> Option<&Rrc<Cip>> {
-        self.cips.iter().find(|&c| c.borrow().image().as_str() == name.as_ref())
+        self.cips
+            .iter()
+            .find(|&c| c.borrow().image().as_str() == name.as_ref())
     }
 
     //mp set_cdb
