@@ -67,6 +67,7 @@ where
         let cos_theta = dir_p0.dot(&dir_p1);
         let angle = cos_theta.acos();
         let model_line = ModelLine::new(model_p0, model_p1);
+        eprintln!("{}, {}", pm0.named_point(), pm1.named_point());
         let mls = ModelLineSubtended::new(&model_line, angle);
         let n = self.lines.len();
         // eprintln!("push {mls:?}");

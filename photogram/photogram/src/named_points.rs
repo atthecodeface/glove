@@ -6,7 +6,7 @@ use clap::Command;
 
 use thunderclap::CommandBuilder;
 
-use ic_base::{JsonParsable, Ray, TagSet};
+use ic_base::{JsonParsable, Point3D, Ray, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color;
 use ic_mapping::NamedPointSet;
@@ -218,6 +218,11 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             (cip.pms().clone(), cip.camera().clone())
         })
         .collect();
+    for (_, c) in &cips {
+        if c.borrow().position() == Point3D::default() {
+            return Err(format!("CIP had a default position for get_model_points - probably deriving from unlocated camera").into());
+        }
+    }
 
     let mut result_nps = NamedPointSet::default();
     // Don't really need a TagSet as  the named points are single use, but it is good practice
@@ -226,8 +231,10 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let mut ray_list = Vec::new();
         for (pms, camera) in &cips {
             if let Some(pm) = pms.borrow().mapping_of_np(&np) {
-                let ray = pm.get_mapped_ray(&*camera.borrow(), true);
-                ray_list.push(ray);
+                if pm.is_mapped() {
+                    let ray = pm.get_mapped_ray(&*camera.borrow(), true);
+                    ray_list.push(ray);
+                }
             }
         }
         if ray_list.len() > 1 {
@@ -252,7 +259,6 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn as_json_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("as_json").about("Generate the JSON for the NPS");
 
-    
     CommandBuilder::new(command, Some(Box::new(as_json_fn)))
 }
 

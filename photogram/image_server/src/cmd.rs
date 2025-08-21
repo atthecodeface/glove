@@ -1,8 +1,8 @@
 //a Imports
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
-use star_catalog::Catalog;
+use star_catalog::Catalog as StarCatalog;
 use thunderclap::CommandArgs;
 use thunderclap::CommandBuilder;
 
@@ -30,7 +30,8 @@ pub struct CmdArgsInner {
     image_path_set: PathSet,
     project_path_set: PathSet,
 
-    // star_catalog: Option<Mutex<Catalog>>,
+    // star_catalog is in a Mutex not a RwLock as it is not sync, as some of the star filters require RefCell
+    star_catalog: Option<Mutex<StarCatalog>>,
 
     // Positional string / f64 / usize arguments
     arg_strings: Vec<String>,
@@ -172,9 +173,11 @@ impl CmdArgs {
 
     //fp set_star_catalog
     pub fn set_star_catalog(&mut self, filename: &str) -> Result<()> {
-        let mut catalog = Catalog::load_catalog(filename, 99.)?;
+        let mut catalog = StarCatalog::load_catalog(filename, 99.)?;
         catalog.derive_data();
-        // self.star_catalog = Some(Box::new(catalog));
+        self.map_mut(|inner| {
+            inner.star_catalog = Some(Mutex::new(catalog));
+        });
         Ok(())
     }
 

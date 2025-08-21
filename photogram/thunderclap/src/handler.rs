@@ -149,6 +149,8 @@ impl<C: CommandArgs> CommandHandlerSet<C> {
 /// method.
 pub struct CommandSet<C: CommandArgs> {
     command: Command,
+    /// Command, but with the extra stuff for batch/interactive mode
+    batch_command: Command,
     handler_set: CommandHandlerSet<C>,
     cmd_stack: Vec<(String, Option<usize>)>,
     variables: HashMap<String, Rc<String>>,
@@ -163,11 +165,13 @@ impl<C: CommandArgs> CommandSet<C> {
     /// Create a new command set, for a subcommand
     pub(crate) fn new(
         command: Command,
+        batch_command: Command,
         handler_set: CommandHandlerSet<C>,
         use_builtins: bool,
     ) -> Self {
         Self {
             command,
+            batch_command,
             handler_set,
             cmd_stack: vec![],
             variables: HashMap::default(),
@@ -188,11 +192,6 @@ impl<C: CommandArgs> CommandSet<C> {
     ) -> Self {
         let (command, handler_set) = builder.take();
         let mut command = command.no_binary_name(true);
-        let mut use_builtins = false;
-        if allow_interactive || allow_batch {
-            command = Self::add_builtins(command);
-            use_builtins = true;
-        }
         if allow_batch {
             command = command.subcommand_required(false);
             command = command.arg(
@@ -202,7 +201,14 @@ impl<C: CommandArgs> CommandSet<C> {
                     .action(ArgAction::Append),
             );
         }
-        Self::new(command, handler_set, use_builtins)
+        let (use_builtins, batch_command) = {
+            if allow_interactive || allow_batch {
+                (true, Self::add_builtins(command.clone()))
+            } else {
+                (false, command.clone())
+            }
+        };
+        Self::new(command, batch_command, handler_set, use_builtins)
     }
 
     //mi add_builtins
@@ -551,7 +557,7 @@ impl<C: CommandArgs> CommandSet<C> {
             if s[0].as_bytes()[0] == b'#' {
                 return Ok(());
             }
-            self.execute(cmd_args, s)?;
+            self.execute(cmd_args, s, true)?;
         }
         Ok(())
     }
@@ -582,13 +588,20 @@ impl<C: CommandArgs> CommandSet<C> {
     /// Execute at the top level, given an iterator that provides the arguments
     ///
     /// It is deemed to be executed from 'cmd_stack.last()';
-    fn execute<I, T>(&mut self, cmd_args: &mut C, itr: I) -> Result<(), C::Error>
+    fn execute<I, T>(&mut self, cmd_args: &mut C, itr: I, in_batch: bool) -> Result<(), C::Error>
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
         cmd_args.reset_args();
-        let mut cmd = self.command.clone();
+        let mut cmd = {
+            if in_batch {
+                self.batch_command.clone()
+            } else {
+                self.command.clone()
+            }
+        };
+
         if let Some((name, opt_line)) = self.cmd_stack.last() {
             if let Some(line) = opt_line {
                 cmd = cmd.bin_name(format!("{name} line {line}"));
@@ -659,7 +672,7 @@ impl<C: CommandArgs> CommandSet<C> {
         for (k, v) in std::env::vars() {
             self.variables.insert(k, Rc::new(v));
         }
-        match self.execute(cmd_args, iter) {
+        match self.execute(cmd_args, iter, false) {
             Err(e) => {
                 eprintln!("{e}");
                 std::process::exit(4);
