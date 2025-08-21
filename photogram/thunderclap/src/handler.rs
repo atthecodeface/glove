@@ -208,12 +208,26 @@ impl<C: CommandArgs> CommandSet<C> {
                 (false, command.clone())
             }
         };
+        if allow_interactive {
+            command = command.subcommand_required(false);
+            command = command.arg(
+                Arg::new("interactive")
+                    .long("interactive")
+                    .help("Run comamnds from stdin after executing any batches or other provided commands")
+                    .action(ArgAction::SetTrue),
+            );
+        }
         Self::new(command, batch_command, handler_set, use_builtins)
     }
 
     //mi add_builtins
     fn add_builtins(command: Command) -> Command {
         command
+            .arg(
+                Arg::new("ignore_errors")
+                    .long("ignore_errors")
+                    .help("Ignore errors - i.e. do not exit if an error occurs, but return an empty result")
+                    .action(ArgAction::SetTrue))
             .subcommand(
                 Command::new("set")
                     .about("Set a thunderclap variable to a value")
@@ -342,7 +356,7 @@ impl<C: CommandArgs> CommandSet<C> {
         if let Some(keys) = matches.get_many::<String>("key") {
             for k in keys {
                 let Some(v) = cmd_args.value_str(k) else {
-                    return Err("Argument set does not have a value for 'k'"
+                    return Err("Argument set does not have a value for '{k}'"
                         .to_string()
                         .into());
                 };
@@ -584,6 +598,57 @@ impl<C: CommandArgs> CommandSet<C> {
         }
     }
 
+    //mi execute_given_matches
+    fn execute_given_matches(
+        &mut self,
+        cmd_args: &mut C,
+        matches: &ArgMatches,
+    ) -> Result<(), C::Error> {
+        self.handler_set.handle_args(cmd_args, &matches)?;
+        if self.use_builtins {
+            if let Some(result) = self.handle_builtins(cmd_args, &matches)? {
+                self.executed_result(result);
+                return Ok(());
+            }
+        }
+        if matches.contains_id("batch") {
+            self.show_result = false;
+            let batches: Vec<_> = matches
+                .get_many::<String>("batch")
+                .unwrap()
+                .map(|filename| {
+                    (
+                        filename.clone(),
+                        std::fs::read_to_string(filename)
+                            .map_err(|e| format!("failed to load batch file {filename}: {e}")),
+                    )
+                })
+                .collect();
+            for b in &batches {
+                if let Err(err) = &b.1 {
+                    return Err(err.clone().into());
+                }
+            }
+            for (filename, s) in batches {
+                self.cmd_stack.push((filename, Some(0)));
+                self.execute_str(cmd_args, &s.unwrap())?;
+                self.cmd_stack.pop();
+            }
+        }
+        let result = self
+            .handler_set
+            .handle_cmd(cmd_args, &matches)
+            .map_err(|e| {
+                format!(
+                    "{}:{} {e}",
+                    self.cmd_stack.last().unwrap().0,
+                    self.cmd_stack.last().unwrap().1.unwrap_or_default(),
+                )
+            })?;
+        self.executed_result(result);
+        Ok(())
+    }
+
     //mi execute
     /// Execute at the top level, given an iterator that provides the arguments
     ///
@@ -593,6 +658,7 @@ impl<C: CommandArgs> CommandSet<C> {
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
+        let mut be_interactive = false;
         cmd_args.reset_args();
         let mut cmd = {
             if in_batch {
@@ -611,55 +677,50 @@ impl<C: CommandArgs> CommandSet<C> {
         }
         match cmd.try_get_matches_from_mut(itr) {
             Err(e) => {
-                e.exit();
+                if !in_batch {
+                    e.exit();
+                }
+                return Err(e.to_string().into());
             }
             Ok(matches) => {
-                self.handler_set.handle_args(cmd_args, &matches)?;
-                if self.use_builtins {
-                    if let Some(result) = self.handle_builtins(cmd_args, &matches)? {
-                        self.executed_result(result);
-                        return Ok(());
-                    }
+                let ignore_errors = matches.get_one::<bool>("ignore_errors") == Some(&true);
+                if !in_batch && matches.get_one::<bool>("interactive") == Some(&true) {
+                    be_interactive = true;
                 }
-                if matches.contains_id("batch") {
-                    self.show_result = false;
-                    let batches: Vec<_> = matches
-                        .get_many::<String>("batch")
-                        .unwrap()
-                        .map(|filename| {
-                            (
-                                filename.clone(),
-                                std::fs::read_to_string(filename).map_err(|e| {
-                                    format!("failed to load batch file {filename}: {e}")
-                                }),
-                            )
-                        })
-                        .collect();
-                    for b in &batches {
-                        if let Err(err) = &b.1 {
-                            return Err(err.clone().into());
+                match self.execute_given_matches(cmd_args, &matches) {
+                    Err(e) => {
+                        if !ignore_errors {
+                            return Err(e);
                         }
                     }
-                    for (filename, s) in batches {
-                        self.cmd_stack.push((filename, Some(0)));
-                        self.execute_str(cmd_args, &s.unwrap())?;
-                        self.cmd_stack.pop();
-                    }
+                    _ => (),
                 }
-                let result = self
-                    .handler_set
-                    .handle_cmd(cmd_args, &matches)
-                    .map_err(|e| {
-                        format!(
-                            "{}:{} {e}",
-                            self.cmd_stack.last().unwrap().0,
-                            self.cmd_stack.last().unwrap().1.unwrap_or_default(),
-                        )
-                    })?;
-                self.executed_result(result);
-                Ok(())
             }
         }
+        if be_interactive {
+            // Read in input.
+            let stdin = std::io::stdin();
+            let mut stdout = std::io::stdout();
+            let mut buffer = String::new();
+            loop {
+                print!("{} > ", cmd.get_bin_name().unwrap_or_default());
+                stdout.flush().map_err(|e| e.to_string().into())?;
+                if stdin.read_line(&mut buffer).is_err() {
+                    break;
+                }
+                if buffer.is_empty() {
+                    break;
+                }
+                match self.execute_str_line(cmd_args, &buffer) {
+                    Err(e) => {
+                        println!("Error: {e}");
+                    }
+                    _ => (),
+                }
+                buffer.clear();
+            }
+        }
+        Ok(())
     }
 
     //mp execute_env

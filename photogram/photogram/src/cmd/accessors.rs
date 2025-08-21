@@ -188,6 +188,16 @@ impl CmdArgs {
         self.angle
     }
 
+    //mi range
+    pub fn range(&self) -> f64 {
+        self.range
+    }
+
+    //mi steps
+    pub fn steps(&self) -> usize {
+        self.steps
+    }
+
     //mi max_error
     pub fn max_error(&self) -> f64 {
         self.max_error

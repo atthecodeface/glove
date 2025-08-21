@@ -5,7 +5,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{utils, JsonParsable, Point2D, Ray, Result};
+use ic_base::{utils, JsonParsable, Point2D, Point3D, Quat, Ray, Result};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
@@ -346,6 +346,7 @@ impl PointMappingSet {
             mls.add_line((&self.mappings[i], &self.mappings[j]));
         }
     }
+
     //mp find_worst_error
     //
     // used by get_best_location
@@ -387,6 +388,130 @@ impl PointMappingSet {
 
 //ip PointMappingSet - Camera locate and orient
 impl PointMappingSet {
+    //mi qr_err_of_posn
+    fn qr_err_of_posn<C>(&self, pm_n: &[usize], camera: &mut C, pt: &Point3D) -> (Quat, f64)
+    where
+        C: CameraProjection,
+    {
+        camera.set_position(pt);
+        let mut qs = vec![];
+        for i in pm_n.iter() {
+            let di_c = self.mappings[*i].get_mapped_unit_vector(camera);
+            let di_m = (pt - self.mappings[*i].model()).normalize();
+
+            for j in pm_n.iter() {
+                if i == j {
+                    continue;
+                }
+                let dj_c = self.mappings[*j].get_mapped_unit_vector(camera);
+                let dj_m = (pt - self.mappings[*j].model()).normalize();
+
+                qs.push((
+                    1.0,
+                    utils::orientation_mapping_vpair_to_ppair(
+                        di_m.as_ref(),
+                        dj_m.as_ref(),
+                        &di_c,
+                        &dj_c,
+                    )
+                    .into(),
+                ));
+            }
+        }
+        utils::weighted_average_many_with_err(&qs)
+    }
+
+    //mp locate_and_orient
+    pub fn locate_and_orient<C, F>(
+        &self,
+        mut camera: C,
+        filter: F,
+        max_pairs: usize,
+        max_angle_subtended_error: f64,
+    ) -> Result<(f64, C)>
+    where
+        C: CameraProjection + Clone,
+        F: Fn(usize, &PointMapping) -> bool + Clone,
+    {
+        let pm_n_f = filter.clone();
+        let pm_n: Vec<usize> = self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| pm_n_f(*n, pm))
+            .map(|(n, _m)| n)
+            .collect();
+
+        let mut mls = ModelLineSet::new(camera.clone());
+        self.add_good_model_lines(&mut mls, filter, max_pairs);
+
+        if mls.num_lines() < 2 {
+            return Err(format!(
+                "Required at least 2 good screen pairs, but found {}",
+                mls.num_lines()
+            )
+            .into());
+        }
+
+        eprintln!("Using {} model lines", mls.num_lines());
+
+        let (location, err) =
+            mls.find_best_min_err_location2(100, 100, max_angle_subtended_error, |pt| {
+                self.qr_err_of_posn(&pm_n, &mut camera, pt).1
+            });
+        let (qr, err) = self.qr_err_of_posn(&pm_n, &mut camera, &location);
+        camera.set_position(&location);
+        camera.set_orientation(&qr);
+        Ok((err, camera))
+    }
+
+    //mp relocate_and_orient
+    pub fn relocate_and_orient<C, F>(
+        &self,
+        mut camera: C,
+        filter: F,
+        range: f64,
+        steps: usize,
+    ) -> Result<(f64, C)>
+    where
+        C: CameraProjection + Clone,
+        F: Fn(usize, &PointMapping) -> bool + Clone,
+    {
+        let pm_n_f = filter.clone();
+        let pm_n: Vec<usize> = self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| pm_n_f(*n, pm))
+            .map(|(n, _m)| n)
+            .collect();
+
+        let center = camera.position();
+        let delta = (2.0 * range) / ((steps - 1) as f64);
+        let offset = range / (((steps - 1) / 2) as f64);
+        let mut best = (1E8, Point3D::default(), Quat::default());
+        for i in 0..(steps * steps * steps) {
+            let dx = i % steps;
+            let dy = (i / steps) % steps;
+            let dz = (i / steps / steps) % steps;
+            let dx = (dx as f64 - offset) * delta;
+            let dy = (dy as f64 - offset) * delta;
+            let dz = (dz as f64 - offset) * delta;
+            let position = center + &[dx, dy, dz];
+            self.qr_err_of_posn(&pm_n, &mut camera, &position);
+            let (qr, err) = self.qr_err_of_posn(&pm_n, &mut camera, &position);
+            if err > best.0 {
+                continue;
+            }
+            best = (err, position, qr);
+        }
+        camera.set_position(&best.1);
+        camera.set_orientation(&best.2);
+        Ok((best.0, camera))
+    }
+
     //fp orient_camera_using_model_directions
     pub fn orient_camera_using_model_directions<C, F>(
         &self,

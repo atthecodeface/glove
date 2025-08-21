@@ -250,6 +250,12 @@ impl CmdArgs {
         Ok(())
     }
 
+    //mi set_range
+    pub(crate) fn set_range(&mut self, v: f64) -> Result<()> {
+        self.range = v;
+        Ok(())
+    }
+
     //mi set_angle
     pub(crate) fn set_angle(&mut self, v: f64) -> Result<()> {
         self.angle = v;
@@ -271,6 +277,12 @@ impl CmdArgs {
     //mi set_flags
     pub(crate) fn set_flags(&mut self, v: usize) -> Result<()> {
         self.flags = v;
+        Ok(())
+    }
+
+    //mi set_steps
+    pub(crate) fn set_steps(&mut self, v: usize) -> Result<()> {
+        self.steps = v;
         Ok(())
     }
 

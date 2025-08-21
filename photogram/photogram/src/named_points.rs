@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use clap::Command;
-
+use geo_nd::Vector;
 use thunderclap::CommandBuilder;
 
 use ic_base::{JsonParsable, Point3D, Ray, TagSet};
@@ -218,9 +218,10 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             (cip.pms().clone(), cip.camera().clone())
         })
         .collect();
+
     for (_, c) in &cips {
         if c.borrow().position() == Point3D::default() {
-            return Err(format!("CIP had a default position for get_model_points - probably deriving from unlocated camera").into());
+            eprintln!("Warning: CIP had a default position for get_model_points - probably deriving from unlocated camera");
         }
     }
 
@@ -230,11 +231,14 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for np in nps {
         let mut ray_list = Vec::new();
         for (pms, camera) in &cips {
+            if camera.borrow().position().is_zero() {
+                continue;
+            }
+
+            // Get a ray only if the CIP maps that named point onto its sensor with a PointMapping
             if let Some(pm) = pms.borrow().mapping_of_np(&np) {
-                if pm.is_mapped() {
-                    let ray = pm.get_mapped_ray(&*camera.borrow(), true);
-                    ray_list.push(ray);
-                }
+                let ray = pm.get_mapped_ray(&*camera.borrow(), true);
+                ray_list.push(ray);
             }
         }
         if ray_list.len() > 1 {

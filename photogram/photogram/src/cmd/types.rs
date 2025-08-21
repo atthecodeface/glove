@@ -94,4 +94,6 @@ pub struct CmdArgs {
     pub(crate) max_error: f64,
     pub(crate) max_points: usize,
     pub(crate) max_pairs: usize,
+    pub(crate) steps: usize,
+    pub(crate) range: f64,
 }

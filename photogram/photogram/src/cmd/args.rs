@@ -246,6 +246,30 @@ impl CmdArgs {
         );
     }
 
+    //fp add_arg_steps
+    pub fn add_arg_steps(build: &mut CommandBuilder<Self>, default_value: Option<&'static str>) {
+        build.add_arg_usize(
+            "steps",
+            None,
+            "Number of steps to use",
+            false.into(),
+            default_value,
+            CmdArgs::set_steps,
+        );
+    }
+
+    //fp add_arg_range
+    pub fn add_arg_range(build: &mut CommandBuilder<Self>, default_value: Option<&'static str>) {
+        build.add_arg_f64(
+            "range",
+            None,
+            "Range parameter for (e.g.) a kernel",
+            false.into(),
+            default_value,
+            CmdArgs::set_range,
+        );
+    }
+
     //fp add_arg_scale
     pub fn add_arg_scale(build: &mut CommandBuilder<Self>) {
         build.add_arg_f64(

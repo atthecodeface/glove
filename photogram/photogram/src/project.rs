@@ -1,7 +1,7 @@
 //a Imports
 
 use clap::Command;
-
+use geo_nd::Vector;
 use thunderclap::CommandBuilder;
 
 use ic_base::Point3D;
@@ -41,17 +41,20 @@ pub fn list_cmd() -> CommandBuilder<CmdArgs> {
 
 //fi list_fn
 fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let camera = cmd_args.camera().clone();
-
-    eprintln!("Camera {camera:?}");
-    eprintln!(
-        "Mapping {}",
-        camera.world_xyz_to_px_abs_xy(&Point3D::default())
-    );
-    println!(
-        "{}",
-        serde_json::to_string_pretty(cmd_args.project()).unwrap()
-    );
+    let ncips = cmd_args.project().ncips();
+    for i in 0..ncips {
+        let name = cmd_args.project().cip_name(i).unwrap();
+        let cip = cmd_args.project().cip(&name).unwrap().clone();
+        let cip = cip.borrow();
+        let camera = cip.camera();
+        let position = camera.borrow().position().clone();
+        let is_placed = !position.is_zero();
+        if is_placed {
+            println!("Cip: '{name}' @ {position}",);
+        } else {
+            println!("Cip: '{name}' camera unplaced");
+        }
+    }
     Ok("".into())
 }
 

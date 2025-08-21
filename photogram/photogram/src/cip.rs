@@ -202,6 +202,118 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
+//a locate_and_orient
+//fi locate_and_orient_cmd
+fn locate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate_and_orient")
+        .about("Set the locate_and_orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(locate_and_orient_fn)));
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+
+    build
+}
+
+//fi locate_and_orient_fn
+fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    if cmd_args.cip().is_none() {
+        return Err("No CIP selected".to_string().into());
+    }
+
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+    let n = pms_n.len();
+    if n < 3 {
+        return Err(format!("Required at least 3 mapped points, but found {n}",).into());
+    }
+
+    let max_pairs = cmd_args.max_pairs();
+    let max_np_error = cmd_args.max_error();
+    let max_angle_subtended_error = 0.01;
+
+    let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
+    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    let (err, camera) = cmd_args
+        .cip()
+        .unwrap()
+        .borrow()
+        .pms()
+        .borrow_mut()
+        .locate_and_orient(camera.clone(), filter, max_pairs, max_angle_subtended_error)?;
+
+    cmd_args
+        .cip()
+        .unwrap()
+        .borrow_mut()
+        .set_camera(camera.clone().into());
+    *cmd_args.camera_mut() = camera;
+    cmd_args.if_verbose(|| {
+        eprintln!("Eventual qr err {}", err);
+        eprintln!("{}", cmd_args.camera());
+    });
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
+}
+
+//fi relocate_and_orient_cmd
+fn relocate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("relocate_and_orient")
+        .about("Set the relocate_and_orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::new(command, Some(Box::new(relocate_and_orient_fn)));
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+    CmdArgs::add_arg_steps(&mut build, Some("40"));
+    CmdArgs::add_arg_range(&mut build, Some("10.0"));
+
+    build
+}
+
+//fi relocate_and_orient_fn
+fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    if cmd_args.cip().is_none() {
+        return Err("No CIP selected".to_string().into());
+    }
+
+    let pms_n = cmd_args.get_pms_indices_of_nps()?;
+    let n = pms_n.len();
+    if n < 3 {
+        return Err(format!("Required at least 3 mapped points, but found {n}",).into());
+    }
+
+    let max_np_error = cmd_args.max_error();
+    let range = cmd_args.range();
+    let steps = cmd_args.steps();
+
+    let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
+    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    let (err, camera) = cmd_args
+        .cip()
+        .unwrap()
+        .borrow()
+        .pms()
+        .borrow_mut()
+        .relocate_and_orient(camera.clone(), filter, range, steps)?;
+
+    cmd_args
+        .cip()
+        .unwrap()
+        .borrow_mut()
+        .set_camera(camera.clone().into());
+    *cmd_args.camera_mut() = camera;
+    cmd_args.if_verbose(|| {
+        eprintln!("Eventual qr err {}", err);
+        eprintln!("{}", cmd_args.camera());
+    });
+    cmd_args.write_outputs()?;
+    cmd_args.output_camera()
+}
+
 //a Image and image_patch commands
 //fi image_cmd
 fn image_cmd() -> CommandBuilder<CmdArgs> {
@@ -671,6 +783,8 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(add_cmd());
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
+    build.add_subcommand(locate_and_orient_cmd());
+    build.add_subcommand(relocate_and_orient_cmd());
     build.add_subcommand(create_rays_cmd());
     build.add_subcommand(combine_rays_from_model_cmd());
     build.add_subcommand(show_rays_cmd());
