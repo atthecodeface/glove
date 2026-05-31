@@ -230,7 +230,8 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     result_nps.set_tag_set(Rc::new(TagSet::default()));
     for np in nps {
         let mut ray_list = Vec::new();
-        for (pms, camera) in &cips {
+        let mut cip_of_ray_list = Vec::new();
+        for (n, (pms, camera)) in cips.iter().enumerate() {
             if camera.borrow().position().is_zero() {
                 continue;
             }
@@ -239,6 +240,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             if let Some(pm) = pms.borrow().mapping_of_np(&np) {
                 let ray = pm.get_mapped_ray(&*camera.borrow(), true);
                 ray_list.push(ray);
+                cip_of_ray_list.push(n);
             }
         }
         if ray_list.len() > 1 {
@@ -248,8 +250,13 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
                 result_nps.add_pt(np.name().as_str(), *np.color(), Some(pt), e_sq.sqrt());
                 cmd_args.if_verbose(|| {
-                    for r in ray_list {
-                        eprintln!("Ray to {} {:?}", np.name(), r.distances(&pt));
+                    for (cip_n, r) in cip_of_ray_list.iter().zip(ray_list.iter()) {
+                        eprintln!(
+                            "Ray to {} {:?} {}",
+                            np.name(),
+                            r.distances(&pt),
+                            cmd_args.get_string_arg(*cip_n).unwrap()
+                        );
                     }
                 });
             }

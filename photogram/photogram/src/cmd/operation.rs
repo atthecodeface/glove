@@ -20,43 +20,12 @@ fn is_regex(s: &str) -> bool {
 impl CmdArgs {
     //mp get_nps
     pub fn get_nps(&self) -> Result<Vec<Rc<NamedPoint>>> {
-        let mut r = vec![];
-        if self.np.is_empty() {
+        let r = self
+            .nps
+            .borrow()
+            .select(self.np.iter().map(|s| s.as_str()))?;
+        if r.is_empty() {
             return Ok(self.nps.borrow().iter().cloned().collect());
-        }
-        for np in &self.np {
-            if np.is_empty() {
-                continue;
-            }
-            if np.as_bytes()[0] == b'#' {
-                let color = Color::try_from(np.as_str())?;
-                let nps = self.nps.borrow().of_color(&color);
-                if nps.is_empty() {
-                    eprintln!("No named points found with color {color}");
-                }
-                for np in nps {
-                    if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
-                        r.push(np);
-                    }
-                }
-            } else if is_regex(np) {
-                let regex = RegexBuilder::new(np)
-                    // .case_insensitive(true)
-                    .build()
-                    .map_err(|e| format!("failed to compile regex '{np}': {e}"))?;
-                for np in self.nps.borrow().iter() {
-                    if regex.is_match(np.name()) && !r.iter().any(|n| Rc::ptr_eq(n, np)) {
-                        r.push(np.clone());
-                    }
-                }
-            } else {
-                let Some(np) = self.nps.borrow().get_pt(np) else {
-                    return Err(format!("Could not find named point {np} in the set").into());
-                };
-                if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
-                    r.push(np);
-                }
-            }
         }
         Ok(r)
     }

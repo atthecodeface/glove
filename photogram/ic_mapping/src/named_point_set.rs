@@ -147,6 +147,35 @@ impl NamedPointSet {
             .cloned()
     }
 
+    //mp select
+    pub fn select<'a, I>(&self, search: I) -> Result<Vec<Rc<NamedPoint>>>
+    where
+        I: Iterator<Item = &'a str> + 'a,
+    {
+        let mut r = vec![];
+        for np in search {
+            if np.is_empty() {
+                continue;
+            }
+            if np.as_bytes()[0] == b'#' {
+                let color = Color::try_from(np)?;
+                for np in self.of_color(&color) {
+                    if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
+                        r.push(np);
+                    }
+                }
+            } else {
+                r = self.points.fold_search(np, false, r, |mut r, np| {
+                    if !r.iter().any(|n| Rc::ptr_eq(n, np)) {
+                        r.push(np.clone());
+                    }
+                    r
+                })?;
+            }
+        }
+        Ok(r)
+    }
+
     //fp iter
     pub fn iter(&self) -> impl Iterator<Item = &Rc<NamedPoint>> {
         self.points.iter()

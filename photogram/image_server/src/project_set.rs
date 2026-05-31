@@ -284,6 +284,9 @@ impl ProjectSet {
         let up = self.projects[pd.idx].ensure_loaded()?;
         let p = up.as_ref();
 
+        let nps = pd.nps();
+        let nps = p.nps().borrow().select(nps.iter().map(|s| s.as_str()))?;
+
         let cip = pd.cip().unwrap_or_default();
         let Some(cip) = p.cip(cip).cloned() else {
             return Err("Cip could not be found".into());
@@ -297,7 +300,6 @@ impl ProjectSet {
         let src_img_ref = self.image_cache.src_image(&path)?;
         let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
 
-        let nps = p.nps_ref();
         let camera = cip_r.camera_ref();
 
         let Some(mut patch) = Patch::create(nps.iter().cloned()) else {

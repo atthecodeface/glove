@@ -15,15 +15,15 @@ pub enum ProjectDecodeType {
 #[derive(Debug, Default)]
 pub struct ProjectDecode {
     pub dec_type: ProjectDecodeType,
-    pub project: String,
+    project: String,
     pub idx: usize,
-    pub cip: Option<String>,
+    cip: Option<String>,
     pub width: Option<f64>,
     pub height: Option<f64>,
     pub px_per_model: Option<f64>,
     pub window: Option<usize>,
     pub radius: Option<usize>,
-    pub nps: Vec<String>,
+    nps: Vec<String>,
 }
 
 //ip ProjectDecode
@@ -113,6 +113,11 @@ impl ProjectDecode {
     //ap cip
     pub fn cip(&self) -> Option<&str> {
         self.cip.as_deref()
+    }
+
+    //ap nps
+    pub fn nps(&self) -> &[String] {
+        &self.nps
     }
 
     //zz All done

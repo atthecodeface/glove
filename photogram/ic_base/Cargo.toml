@@ -11,6 +11,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+regex.workspace = true
 nalgebra.workspace = true
 thiserror.workspace = true
 image.workspace = true

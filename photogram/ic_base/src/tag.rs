@@ -1,11 +1,14 @@
 //a Imports
 use std::borrow::Borrow;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
+
+use crate::Result;
 
 //a Tag
 //tp Tag
@@ -236,6 +239,24 @@ pub struct TagSet {
     index: RefCell<HashMap<Tag, usize>>,
 }
 
+struct TagSetIter<'a> {
+    x: Ref<'a, Vec<Rc<String>>>,
+    n: usize,
+    index: usize,
+}
+impl<'a> std::iter::Iterator for TagSetIter<'a> {
+    type Item = Rc<String>;
+    fn next(&mut self) -> Option<Rc<String>> {
+        if self.index < self.n {
+            let i = self.index;
+            self.index += 1;
+            Some(self.x[i].clone())
+        } else {
+            None
+        }
+    }
+}
+
 //ip TagSet
 impl TagSet {
     //mi insert_name
@@ -272,6 +293,16 @@ impl TagSet {
             Tag::Shared(self.tags.borrow()[*index].clone())
         } else {
             self.insert_name(name.to_owned().into())
+        }
+    }
+
+    //mp iter
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Rc<String>> + 'a {
+        let n = self.tags.borrow().len();
+        TagSetIter {
+            x: self.tags.borrow(),
+            n,
+            index: 0,
         }
     }
 
@@ -418,6 +449,42 @@ where
     //mp get_data
     pub fn get_data(&self, name: &str) -> Option<&Rc<V>> {
         self.data.get(name)
+    }
+
+    //mp is_regex
+    fn is_regex(s: &str) -> bool {
+        s.chars().any(|c| "^[*?".contains(c))
+    }
+
+    //mp fold_search
+    pub fn fold_search<F, T>(
+        &self,
+        search: &str,
+        case_insensitive: bool,
+        mut acc: T,
+        fold: F,
+    ) -> Result<T>
+    where
+        F: Fn(T, &Rc<V>) -> T,
+    {
+        if Self::is_regex(search) {
+            let regex = RegexBuilder::new(search)
+                .case_insensitive(case_insensitive)
+                .build()
+                .map_err(|e| format!("failed to compile regex '{search}': {e}"))?;
+            for t in self.tags.iter() {
+                if regex.is_match(t.as_str()) {
+                    acc = fold(acc, self.data.get(&t).unwrap());
+                }
+            }
+        } else {
+            if let Some(data) = self.get_data(search) {
+                acc = fold(acc, data);
+            } else {
+                return Err(format!("Could not find named point {search} in the set").into());
+            };
+        }
+        Ok(acc)
     }
 
     //mp iter
