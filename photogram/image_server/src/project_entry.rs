@@ -131,7 +131,7 @@ impl NamedProject {
     }
 
     //ap ensure_loaded
-    pub fn ensure_loaded(&self) -> Result<UniqueProjectRef> {
+    pub fn ensure_loaded(&self) -> Result<UniqueProjectRef<'_>> {
         let mut p = self.project.lock().unwrap();
         if p.is_none() {
             let mut project = ProjectWrap::default();
