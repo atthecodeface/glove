@@ -70,7 +70,8 @@ cal_img_5005:
 
 .PHONY: cal_img_5006
 cal_img_5006:
-	${MAKE} CAMERA_BODY=T2i CAMERA_LENS=50mm MM_FOCUS=1390 YAW_MIN=0.3 YAW_MAX=20.0 CAL_STAR_MAPPINGS=nac/camera_5006_star_mappings.json STAR_CATALOG=${STAR_CATAALOG_HIPPARCOS_JSON} STAR_BRIGHTNESS='--brightness 9.0' IMG_BG=IMG_5006.JPG camera_calibrate
+	${MAKE} CAMERA_BODY=T2i CAMERA_LENS=50mm MM_FOCUS=1390 YAW_MIN=0.3 YAW_MAX=20.0 CAL_STAR_MAPPINGS=nac/camera_5006_star_mappings.json STAR_CATALOG='--star_catalog hipp_bright' STAR_BRIGHTNESS='--brightness 9.0' IMG_BG=IMG_5006.JPG camera_calibrate
+	#${MAKE} CAMERA_BODY=T2i CAMERA_LENS=50mm MM_FOCUS=1390 YAW_MIN=0.3 YAW_MAX=20.0 CAL_STAR_MAPPINGS=nac/camera_5006_star_mappings.json STAR_CATALOG=${STAR_CATAALOG_HIPPARCOS_JSON} STAR_BRIGHTNESS='--brightness 9.0' IMG_BG=IMG_5006.JPG camera_calibrate
 
 #a Camera calibration
 # The process is stw map six points to generate angles to map 6 stars to get an orientation
@@ -97,7 +98,7 @@ cal_img_5006:
 
 .PHONY: camera_calibrate
 camera_calibrate:
-	${MAKE} STAR_BRIGHTNESS='--brightness 5.0' YAW_MIN=3.5 YAW_MAX=20 cal_initial
+	${MAKE} STAR_BRIGHTNESS='--brightness 4.8' YAW_MIN=3.5 YAW_MAX=20 cal_initial
 	${MAKE} cal_step_1
 	${MAKE} cal_step_2
 	${MAKE} cal_step_3
@@ -115,6 +116,8 @@ camera_calibrate:
 # First find the general orientation (note the stars required are of mag 4.49 and brighter)
 # Then update the star mapping for stars close to the orientation
 # Now orient using the new selected stars
+#
+# Needs CAMERA_BODY to be set to something, CAMERA_LENS, MM_FOCUS, INITIAL_CAL, CAL_STAR_MAPPINGS, STAR_CATALOG, STAR_BRIGHTNESS
 .PHONY: cal_initial
 cal_initial:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2); this then updates the mapping, orients, and updates the mapping again"
@@ -168,11 +171,11 @@ cal_step_final:
 .PHONY: cal_reset_np1
 cal_reset_np1:
 	@echo "Find initial orientation from 6 stars (three each marked as magnification 1 and 2) *given* a calibration N"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star --star_mapping ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} --brightness 5.5 --triangle_closeness 0.2 --closeness 0.2 --write_camera ${CAL_DIR}/rebase_camera.json find_stars 
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c nac/camera.json --use_body ${CAMERA_BODY} --use_lens ${CAMERA_LENS} --use_focus ${MM_FOCUS} --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star --star_mapping ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} --brightness 5.5 --triangle_closeness 0.2 --closeness 0.2 --write_camera ${CAL_DIR}/rebase_camera.json find_stars
 	@echo "Now create an updated star mapping with ids from the star catalog for mappings that map on to stars"
 	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/rebase_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star --star_mapping ${CAL_STAR_MAPPINGS} ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.4 --write_star_mapping ${CAL_DIR}/stars_mapped_using_rebase.json  --yaw_min 0 --yaw_max ${YAW_MAX} update_star_mapping
 	@echo "Orient based on updated star mapping"
-	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_DIR}/stars_mapped_using_rebase.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_camera ${CAL_DIR}/orient_${NP1}.json orient 
+	${CAMERA_CALIBRATE} ${CAMERA_DB} -c ${CAL_DIR}/base_camera.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star ${CAL_DIR}/stars_mapped_using_rebase.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_camera ${CAL_DIR}/orient_${NP1}.json orient
 
 
 .PHONY: cal_step_n
@@ -196,7 +199,7 @@ cal_yaw_plot_n:
 .PHONY: cal_orient_n
 cal_orient_n:
 	@echo "Orient based on mapping from ${N} using lens cal ${NP1}"
-	${PHOTOGRAM} -c ${CAL_DIR}/orient_0.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star --star_mapping ${CAL_DIR}/stars_mapped_using_${N}.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_camera ${CAL_DIR}/orient_${NP1}.json orient 
+	${PHOTOGRAM} -c ${CAL_DIR}/orient_0.json --use_polys ${CAL_DIR}/lens_cal_${NP1}.json star --star_mapping ${CAL_DIR}/stars_mapped_using_${N}.json ${STAR_CATALOG} ${STAR_BRIGHTNESS} --closeness 0.2 --write_camera ${CAL_DIR}/orient_${NP1}.json orient
 
 .PHONY: cal_update_star_mapping_n
 cal_update_star_mapping_n:
@@ -230,7 +233,7 @@ FLAGS ?= 0
 ANGLE ?= 0.0
 # DO NOT USE!
 # COPY ?= --kernel copy
-KERNEL = window_corr 
+KERNEL = window_corr
 KERNEL_FLAGS = ${COPY} --kernel ${KERNEL} --kernel_flags ${FLAGS} --kernel_angle ${ANGLE}
 
 .PHONY: correlate
@@ -304,7 +307,7 @@ orient: oriented_${IMAGE}.json
 
 # Use the training PMS to generate a location and orientation, using nps_base
 #
-# 
+#
 located_${IMAGE}.json: ${IMG_CAL} nac/pms_all_${IMAGE}.json nac/camera_nac_${IMAGE}.json
 	${IMG_CAL} -v ${CAMERA_DB} ${NPS_BASE} ${ICAL_LOC}  --pms nac/pms_all_${IMAGE}.json --camera nac/camera_nac_${IMAGE}.json --write_camera $@
 oriented_${IMAGE}.json: ${IMG_CAL} nac/pms_all_${IMAGE}.json located_${IMAGE}.json
@@ -351,18 +354,18 @@ orient_all:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6040.json --pms pms_nac_4v3a6040_training.json > oriented_4v3a6040.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6041.json --pms pms_nac_4v3a6041_training.json > oriented_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6042.json --pms pms_nac_4v3a6042_training.json > oriented_4v3a6042.json
-	cp oriented_4v3a6040.json located_4v3a6040.json 
-	cp oriented_4v3a6041.json located_4v3a6041.json 
-	cp oriented_4v3a6042.json located_4v3a6042.json 
+	cp oriented_4v3a6040.json located_4v3a6040.json
+	cp oriented_4v3a6041.json located_4v3a6041.json
+	cp oriented_4v3a6042.json located_4v3a6042.json
 
 .PHONY: orient_all_untraining
 orient_all_untraining:
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6040.json --pms pms_nac_4v3a6040.json > oriented_4v3a6040.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6041.json --pms pms_nac_4v3a6041.json > oriented_4v3a6041.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS} ${ICAL_ORIENT} --camera located_4v3a6042.json --pms pms_nac_4v3a6042.json > oriented_4v3a6042.json
-	cp oriented_4v3a6040.json located_4v3a6040.json 
-	cp oriented_4v3a6041.json located_4v3a6041.json 
-	cp oriented_4v3a6042.json located_4v3a6042.json 
+	cp oriented_4v3a6040.json located_4v3a6040.json
+	cp oriented_4v3a6041.json located_4v3a6041.json
+	cp oriented_4v3a6042.json located_4v3a6042.json
 
 .PHONY: images_all
 images_all:
@@ -381,17 +384,17 @@ get_model_points: ${IMG_CAL}
 
 
 # This simply finds non-background (top left pixel) regions and their centres-of-gravity on an image
-find_regions: ${IMG_CAL} 
+find_regions: ${IMG_CAL}
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/4v3a6028_with_corners.png find_regions
 
 # This finds the grid points from non-black pixels in image_with_corners.png, determines the centre, and outputs a mapping file
-grid_points: ${IMG_CAL} 
+grid_points: ${IMG_CAL}
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/${IMAGE_GRID}_with_corners.png --write ${OUTPUT_DIR}corners.png find_grid_points > ${OUTPUT_DIR}grid_${IMAGE_GRID}.json
 
-find_regions_image: ${IMG_CAL} 
+find_regions_image: ${IMG_CAL}
 	${IMAGE_ANALYZE} --read ${IMAGE_DIR}/${IMAGE}_pms.png find_regions
 
-get_point_mappings: ${IMG_CAL} 
+get_point_mappings: ${IMG_CAL}
 	${IMG_CAL} ${CAMERA_DB} ${NPS_BASE} get_point_mappings --read ${IMAGE_DIR}/${IMAGE}_pms.png > ${OUTPUT_DIR}pms_base_${IMAGE}.json
 	${IMG_CAL} ${CAMERA_DB} ${NPS_ALL} get_point_mappings --read ${IMAGE_DIR}/${IMAGE}_pms.png > ${OUTPUT_DIR}pms_all_${IMAGE}.json
 
