@@ -1,7 +1,7 @@
 //a Imports
-use geo_nd::{quat, Quaternion, Vector};
+use geo_nd::{Quaternion, Vector, quat};
 use serde::{Deserialize, Serialize};
-use star_catalog::{Catalog, CatalogIndex, Subcube};
+use star_catalog::{Catalog, CatalogIndex, StarMatchMappingSet, Subcube};
 
 use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 use ic_camera::CameraProjection;
@@ -9,8 +9,7 @@ use ic_camera::{CalibrationMapping, CameraInstance};
 use ic_image::ImagePt;
 
 //a Useful functions
-//fi orientation_mapping_triangle
-/// Get q which maps model to camera
+/// Get q which maps model direction (di/j/k_m f64 triples) to camera direction (di/j/k Point3D)
 ///
 /// dc === quat::apply3(q, dm)
 fn orientation_mapping_triangle(
@@ -41,7 +40,16 @@ fn orientation_mapping_triangle(
     (q_avg, err)
 }
 
-//fp orientation_mapping
+/// Find the orientation that maps di_m and dj_m to di_c and dj_c, assuming that they map very well
+///
+/// This finds the quaternions that map di_c to the Z axis, and di_m to the Z
+/// axis, then applies these quaternions to dj_m/c and determines the angle of
+/// rotation (around the Z axis) required to make them be on the same great
+/// circle; a quaternion applying this rotation around the Z axxis is
+/// dertermined.
+///
+/// The result is the product of the three quaternions (conjugated as
+/// appropriate)
 fn orientation_mapping(di_m: &[f64; 3], dj_m: &[f64; 3], di_c: Point3D, dj_c: Point3D) -> Quat {
     let z_axis: Point3D = [0., 0., 1.].into();
     let qi_c: Quat = quat::rotation_of_vec_to_vec(&di_c.into(), &z_axis.into()).into();
@@ -67,8 +75,8 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
     let mut closest = None;
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {
-            let cv: &[f64; 3] = catalog[*index].vector();
-            let c = v.dot(cv);
+            let cv: Point3D = catalog[*index].vector().into();
+            let c = v.dot(&cv);
             if let Some((cc, _)) = closest {
                 if c > cc {
                     closest = Some((c, *index));
@@ -86,8 +94,8 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
 /// Should probably store this as a vec of Point3D and a vec of same length of Point2D
 #[derive(Debug, Clone, Default)]
 pub struct StarMapping {
-    /// Sensor coordinate, star 'brightness', Hipparcos catalog id
-    mappings: Vec<(isize, isize, usize, usize)>,
+    /// Sensor coordinate, star 'brightness', catalog id (e.g. hipparocs catalog id)
+    mappings: Vec<(isize, isize, f32, usize)>,
 }
 
 //ip JsonParsable for StarMapping
@@ -142,21 +150,23 @@ impl StarMapping {
 
 //ip StarMapping - Accessors
 impl StarMapping {
-    //ap mappings
-    pub fn mappings(&self) -> &[(isize, isize, usize, usize)] {
+    /// Get the mappings
+    pub fn mappings(&self) -> &[(isize, isize, f32, usize)] {
         &self.mappings
     }
 
-    //mp star_direction
-    /// Maps the absolute pixel px,py to world direction
+    /// Get the world direction of a star mapping sensor position (x,y) given a
+    /// [CameraInstance], its lens mapping and orientation
+    ///
+    /// It *does* apply the lens mapping of the camera
     pub fn star_direction(&self, camera: &CameraInstance, index: usize) -> Point3D {
         let (px, py, _, _) = self.mappings[index];
         let txty = camera.px_abs_xy_to_camera_txty(&[px as f64, py as f64].into());
         camera.camera_xyz_to_world_dir(&-txty.to_unit_vector()) // possibly -ve
     }
 
-    //mp mapped_camera_direction
-    /// Maps the absolute pixel px,py to camera direction
+    /// Maps the absolute pixel px,py to camera direction, using its lens
+    /// mapping (but not orientation)
     ///
     /// It *does* apply the lens mapping of the camera
     pub fn mapped_camera_direction(&self, camera: &CameraInstance, index: usize) -> Point3D {
@@ -180,9 +190,9 @@ impl StarMapping {
     //mp camera_ra_de
     pub fn camera_ra_de(camera: &CameraInstance) -> (f64, f64) {
         let q_r_c = camera.orientation().conjugate(); // Get camera-to-model
-                                                      // Map 0,0,1 camera to model - then we have the direction the camera is looking at
-                                                      //
-                                                      // Then right-ascension is atan(y/x), and declination is asin(z)
+        // Map 0,0,1 camera to model - then we have the direction the camera is looking at
+        //
+        // Then right-ascension is atan(y/x), and declination is asin(z)
         let z_axis: Point3D = [0.0, 0., -1.].into(); // z of [1][0] and [2][0] q_r.conjugate()
         let pts_at: Point3D = quat::apply3(q_r_c.as_ref(), z_axis.as_ref()).into();
         let ra = pts_at[1].atan2(pts_at[0]).to_degrees();
@@ -407,167 +417,93 @@ impl StarMapping {
         Ok(q_r)
     }
 
-    //mp find_stars
+    /// Find the best orientation for a set of stars selected from the mappings
+    /// by having a magnitude less than that given here.
+    ///
+    /// The max_angle_delta is in *radians*
     fn find_stars(
         &self,
         catalog: &Catalog,
         camera: &CameraInstance,
         max_angle_delta: f64,
-        mag: usize,
-    ) -> Result<Vec<(Quat, (CatalogIndex, CatalogIndex, CatalogIndex), f64)>> {
-        //cb Create list of mag1_stars and directions to them, and mag2 if possible
-        let mut selected_mappings = vec![];
-        for i in 0..self.mappings.len() {
-            if self.mappings[i].2 == mag {
-                selected_mappings.push(i);
+        mag: f32,
+    ) -> Result<Vec<StarMatchMappingSet>> {
+        let mut star_vectors = vec![];
+        for (i, m) in self.mappings.iter().enumerate() {
+            if m.2 <= mag {
+                star_vectors.push(self.mapped_camera_direction(camera, i).into());
             }
         }
 
-        if selected_mappings.len() < 3 {
+        if star_vectors.len() < 3 {
             return Err(format!(
                 "The calibration requires three 'mag {mag}' star; there were {}",
-                selected_mappings.len()
+                star_vectors.len()
             )
             .into());
         }
 
-        let sensor_directions: Vec<Point3D> = selected_mappings
-            .iter()
-            .map(|n| self.mapped_camera_direction(camera, *n))
-            .collect();
-
-        //cb Create angles between first three mag1 stars
-        let sensor_angles = [
-            sensor_directions[1].dot(&sensor_directions[2]).acos(),
-            sensor_directions[2].dot(&sensor_directions[0]).acos(),
-            sensor_directions[0].dot(&sensor_directions[1]).acos(),
-        ];
-        let angle_degrees: Vec<_> = sensor_angles.iter().map(|a| a.to_degrees()).collect();
-        eprintln!("Angles (just using focal length of lens) between first three magnitude '{mag}' stars: {angle_degrees:?}" );
-
-        //cb Find candidates for the three stars
         let subcube_iter = Subcube::iter_all();
-        let candidate_tris =
-            catalog.find_star_triangles(subcube_iter, &sensor_angles, max_angle_delta);
+        // let search = StarTriangleSearch::of_angles(sensor_angles, max_angle_delta).unwrap(); // THs can barf of the search has bad sensor angles
+        let max_candidates = 10_000_000;
 
-        let mut printed = 0;
-        let mut candidate_q_m_to_c = vec![];
-        eprintln!(
-            "\nGenerating candidate StarCatalog 'id's for the three stars for magnitude {mag} triangle",
+        // catalog.filter_max_magnitude(this.max_magnitude);
+        let (completed_search, mut star_match_mappings) = catalog.find_best_star_mappings(
+            subcube_iter,
+            &star_vectors,
+            max_angle_delta,
+            max_candidates,
         );
-        for tri in candidate_tris.iter() {
-            let (q_m_to_c, err) = orientation_mapping_triangle(
-                catalog[tri.0].vector(),
-                catalog[tri.1].vector(),
-                catalog[tri.2].vector(),
-                sensor_directions[0],
-                sensor_directions[1],
-                sensor_directions[2],
-            );
-            if err < 0.01 {
-                candidate_q_m_to_c.push((q_m_to_c, *tri, err));
-            }
-        }
-        candidate_q_m_to_c.sort_by(|a, b| (a.2).partial_cmp(&b.2).unwrap());
 
-        for (_q, tri, e) in &candidate_q_m_to_c {
-            printed += 1;
-            match printed.cmp(&10) {
-                std::cmp::Ordering::Equal => {
-                    eprintln!("...");
-                }
-                std::cmp::Ordering::Less => {
-                    eprintln!(
-                        "{e:.6e}: {}, {}, {}",
-                        catalog[tri.0].id(),
-                        catalog[tri.1].id(),
-                        catalog[tri.2].id(),
-                    );
-                }
-                _ => {}
-            }
+        if !completed_search {
+            eprintln!(
+                "There were more than {max_candidates} possibilities to search - some have not been evaluated; use a smaller max_angle_delta"
+            );
         }
-        eprintln!("Total: {} candidates", candidate_q_m_to_c.len());
-        Ok(candidate_q_m_to_c)
+
+        star_match_mappings
+            .sort_by(|smm_a, smm_b| smm_a.quality.partial_cmp(&smm_b.quality).unwrap());
+
+        return Ok(star_match_mappings);
     }
 
-    //mp find_orientation_from_triangles
+    /// Find the orientation of the camera from a set of triangles
+    ///
     /// A value of 0.15 degrees is normal for max_angle_delta
     pub fn find_orientation_from_triangles(
         &self,
         catalog: &Catalog,
         camera: &CameraInstance,
+        magnitude: f32,
         max_angle_delta: f64,
     ) -> Result<Vec<(f64, Quat)>> {
         let max_angle_delta = max_angle_delta.to_radians();
 
-        //cb Create list of mag1_stars and directions to them, and mag2 if possible
-        let candidate_q_m_to_c = self.find_stars(catalog, camera, max_angle_delta, 1)?;
-        let mag2_candidate_q_m_to_c = self.find_stars(catalog, camera, max_angle_delta, 2)?;
+        // Find sets of star match mappings, sorted so best is first
+        let star_match_mapping_sets =
+            self.find_stars(catalog, camera, max_angle_delta, magnitude)?;
 
-        //cb Find mag1 that match mag2
-        eprintln!("\nFinding matching orientations for magnitude 1 and magnitude 2 candidates",);
-        let mut printed = 0;
-        let mut mag1_mag2_pairs = vec![];
-        for (mag1_q_m_to_c, mag1_tri, _e1) in candidate_q_m_to_c.iter() {
-            for (mag2_q_m_to_c, mag2_tri, _e2) in mag2_candidate_q_m_to_c.iter() {
-                let q = *mag2_q_m_to_c / *mag1_q_m_to_c;
-                let r = q.as_rijk().0.abs();
-                // r = cos(x = angle of rotation) = 1 - x^2/2 + x^4/24 - ...
-                // x^2 = 2(1-r)
-                let x2 = (1.0 - r) * 2.0;
-                if x2 < max_angle_delta * max_angle_delta {
-                    // 3.1E-5 {
-                    // x = 0.2 degrees
-                    let qs = [(1.0, mag1_q_m_to_c), (1.0, mag2_q_m_to_c)];
-                    let q_r = Quat::weighted_average_many(qs.into_iter());
-                    mag1_mag2_pairs.push((x2.sqrt(), q_r, *mag1_tri, *mag2_tri));
-                    printed += 1;
-                    match printed.cmp(&10) {
-                        std::cmp::Ordering::Equal => {
-                            eprintln!("...");
-                        }
-                        std::cmp::Ordering::Less => {
-                            eprintln!(
-                                "{} : {},{},{} {},{},{} {r} : {}",
-                                x2.sqrt().to_degrees(),
-                                catalog[mag1_tri.0].id(),
-                                catalog[mag1_tri.1].id(),
-                                catalog[mag1_tri.2].id(),
-                                catalog[mag2_tri.0].id(),
-                                catalog[mag2_tri.1].id(),
-                                catalog[mag2_tri.2].id(),
-                                catalog[mag2_tri.2].de().to_degrees(),
-                            );
-                        }
-                        _ => {}
-                    }
-                }
+        for (i, smm) in star_match_mapping_sets.iter().enumerate() {
+            if i > 10 {
+                break;
             }
+            eprintln!(
+                "{i} {},{},{} quality:{} angle_mean:{} {}",
+                catalog[smm.initial_match.triangle().0].id(),
+                catalog[smm.initial_match.triangle().1].id(),
+                catalog[smm.initial_match.triangle().2].id(),
+                smm.quality,
+                smm.angle_mean,
+                smm.quaternion()
+            );
         }
-        eprintln!("Total: {} matching orientations", mag1_mag2_pairs.len());
-        if mag1_mag2_pairs.is_empty() {
-            return Err("Failed to find matching candidate triangles".into());
-        }
-        mag1_mag2_pairs.sort_by(|a, b| (a.0).partial_cmp(&b.0).unwrap());
 
-        //cb Generate results
-        let (x, q_r, tri_mag1, tri_mag2) = &mag1_mag2_pairs[0];
-
-        eprintln!("\nThe best match of the candidate triangles:");
-        eprintln!(
-            "    {}, {}, {}, {}, {}, {}  : {} {q_r},",
-            catalog[tri_mag1.1].id(),
-            catalog[tri_mag1.0].id(),
-            catalog[tri_mag1.2].id(),
-            catalog[tri_mag2.1].id(),
-            catalog[tri_mag2.0].id(),
-            catalog[tri_mag2.2].id(),
-            x.to_degrees(),
-        );
-        Ok(mag1_mag2_pairs
+        Ok(star_match_mapping_sets
             .into_iter()
-            .map(|(x, q_r, _, _)| (x, q_r))
+            .map(|smm| {
+                let q: Quat = smm.quaternion().as_array::<4>().unwrap().into();
+                (smm.quality, q.conjugate())
+            })
             .collect())
     }
 
