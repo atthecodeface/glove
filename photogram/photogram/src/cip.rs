@@ -144,7 +144,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let max_np_error = cmd_args.max_error();
 
     let filter = |n, pm: &PointMapping| {
-        (pm.named_point().is_mapped() && pms_n.contains(&n) && pm.model_error() < max_np_error)
+        pm.named_point().is_mapped() && pms_n.contains(&n) && pm.model_error() < max_np_error
     };
     cmd_args
         .cip()
@@ -186,7 +186,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let max_np_error = cmd_args.max_error();
 
-    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    let filter = |n, pm: &PointMapping| pms_n.contains(&n) && pm.model_error() < max_np_error;
     let _total_error = cmd_args
         .cip()
         .unwrap()
@@ -235,7 +235,7 @@ fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let max_angle_subtended_error = 0.01;
 
     let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
-    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    let filter = |n, pm: &PointMapping| pms_n.contains(&n) && pm.model_error() < max_np_error;
     let (err, camera) = cmd_args
         .cip()
         .unwrap()
@@ -291,7 +291,7 @@ fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let steps = cmd_args.steps();
 
     let camera = cmd_args.cip().unwrap().borrow().camera().borrow().clone();
-    let filter = |n, pm: &PointMapping| (pms_n.contains(&n) && pm.model_error() < max_np_error);
+    let filter = |n, pm: &PointMapping| pms_n.contains(&n) && pm.model_error() < max_np_error;
     let (err, camera) = cmd_args
         .cip()
         .unwrap()

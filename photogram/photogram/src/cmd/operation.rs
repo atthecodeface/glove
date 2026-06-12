@@ -1,11 +1,10 @@
 //a Imports
 use std::rc::Rc;
 
-use regex::RegexBuilder;
 
 use ic_base::Result;
 use ic_camera::CameraProjection;
-use ic_image::{Color, Image, ImagePt, ImageRgb8};
+use ic_image::{Image, ImagePt, ImageRgb8};
 use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 
 use super::CmdArgs;

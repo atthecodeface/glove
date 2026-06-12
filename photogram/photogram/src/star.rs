@@ -1,12 +1,13 @@
 //a Imports
 use clap::Command;
+use geo_nd::Quaternion;
 use star_catalog::StarFilter;
 use thunderclap::CommandBuilder;
 
 use ic_base::RollYaw;
 use ic_camera::CameraProjection;
 
-use crate::cmd::{cmd_ok, CmdArgs, CmdResult};
+use crate::cmd::{CmdArgs, CmdResult, cmd_ok};
 
 //a Help messages
 //hi STAR_LONG_HELP
@@ -135,6 +136,7 @@ fn star_find_stars_cmd() -> CommandBuilder<CmdArgs> {
 }
 
 //fp star_find_stars_fn
+/// Find the stars within the angle delta with a minimum brightness in the catalog and mappings
 fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let brightness = cmd_args.brightness();
     cmd_args.ensure_star_catalog()?;
@@ -146,8 +148,17 @@ fn star_find_stars_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let angle_orientations = cmd_args.star_mapping().find_orientation_from_triangles(
         cmd_args.star_catalog(),
         cmd_args.camera(),
+        cmd_args.brightness(),
         cmd_args.triangle_closeness(),
     )?;
+
+    cmd_args
+        .camera_mut()
+        .set_orientation(&angle_orientations[0].1.conjugate());
+    let (num_unmapped, total_error) = cmd_args.update_star_mappings();
+    //        best_match = (orientation, *x, num_unmapped);
+    eprintln!("First candidate has unmapped {num_unmapped} total_error {total_error}",);
+
     let mut best_match = (angle_orientations[0].1, angle_orientations[0].0, usize::MAX);
     for (i, (x, q)) in angle_orientations.iter().enumerate() {
         cmd_args.camera_mut().set_orientation(q);

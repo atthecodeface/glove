@@ -4,7 +4,6 @@ use clap::Command;
 use geo_nd::Vector;
 use thunderclap::CommandBuilder;
 
-use ic_base::Point3D;
 use ic_camera::CameraProjection;
 
 use crate::cmd::{CmdArgs, CmdResult};
