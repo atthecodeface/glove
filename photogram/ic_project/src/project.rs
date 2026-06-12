@@ -209,31 +209,31 @@ impl Project {
     }
 
     //ap cdb_ref
-    pub fn cdb_ref(&self) -> Ref<CameraDatabase> {
+    pub fn cdb_ref(&self) -> Ref<'_, CameraDatabase> {
         self.cdb.borrow()
     }
 
     //ap nps_ref
     /// Get a borrowed reference to the NamedPointSet
-    pub fn nps_ref(&self) -> Ref<NamedPointSet> {
+    pub fn nps_ref(&self) -> Ref<'_, NamedPointSet> {
         self.nps.borrow()
     }
 
     //ap nps_mut
     /// Get a mutable borrowed reference to the NamedPointSet
-    pub fn nps_mut(&self) -> RefMut<NamedPointSet> {
+    pub fn nps_mut(&self) -> RefMut<'_, NamedPointSet> {
         self.nps.borrow_mut()
     }
 
     //ap isqs_ref
     /// Get a borrowed reference to the ImageSquareSets
-    pub fn isqs_ref(&self) -> Ref<ImageSquareSets> {
+    pub fn isqs_ref(&self) -> Ref<'_, ImageSquareSets> {
         self.image_squares.borrow()
     }
 
     //ap isqs_mut
     /// Get a mutable borrowed reference to the ImageSquareSets
-    pub fn isqs_mut(&self) -> RefMut<ImageSquareSets> {
+    pub fn isqs_mut(&self) -> RefMut<'_, ImageSquareSets> {
         self.image_squares.borrow_mut()
     }
 

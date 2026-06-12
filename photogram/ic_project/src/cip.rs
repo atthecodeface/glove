@@ -214,13 +214,13 @@ impl Cip {
 
     //mp camera_ref
     /// Get a borrowed reference to the CameraInstance
-    pub fn camera_ref(&self) -> Ref<CameraInstance> {
+    pub fn camera_ref(&self) -> Ref<'_, CameraInstance> {
         self.camera.borrow()
     }
 
     //mp camera_mut
     /// Get a mutable borrowed reference to the CameraInstance
-    pub fn camera_mut(&self) -> RefMut<CameraInstance> {
+    pub fn camera_mut(&self) -> RefMut<'_, CameraInstance> {
         self.camera.borrow_mut()
     }
 
@@ -231,13 +231,13 @@ impl Cip {
 
     //mp pms_ref
     /// Get a borrowed reference to the PointMappingSet
-    pub fn pms_ref(&self) -> Ref<PointMappingSet> {
+    pub fn pms_ref(&self) -> Ref<'_, PointMappingSet> {
         self.pms.borrow()
     }
 
     //mp pms_mut
     /// Get a mutable borrowed reference to the PointMappingSet
-    pub fn pms_mut(&self) -> RefMut<PointMappingSet> {
+    pub fn pms_mut(&self) -> RefMut<'_, PointMappingSet> {
         self.pms.borrow_mut()
     }
 
