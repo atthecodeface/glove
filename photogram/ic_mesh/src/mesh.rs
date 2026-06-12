@@ -757,14 +757,14 @@ impl Mesh {
         let cd = self[c_p1] - self[c_p0];
         let od = self[o_p1] - self[o_p0];
 
-        let on = [od[1], -od[0]];
+        let on: Point2D = [od[1], -od[0]].into();
         let c_p0_side_of_od = (self[c_p0] - self[o_p0]).dot(&on);
         let c_p1_side_of_od = (self[c_p1] - self[o_p0]).dot(&on);
         if c_p0_side_of_od * c_p1_side_of_od > 0. {
             return false;
         }
 
-        let cn = [cd[1], -cd[0]];
+        let cn: Point2D = [cd[1], -cd[0]].into();
         let o_p0_side_of_od = (self[o_p0] - self[c_p0]).dot(&cn);
         let o_p1_side_of_od = (self[o_p1] - self[c_p0]).dot(&cn);
         if o_p0_side_of_od * o_p1_side_of_od > 0. {

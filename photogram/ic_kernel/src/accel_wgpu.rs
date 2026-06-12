@@ -464,7 +464,7 @@ impl ImageAccelerator {
     }
 
     //mp map_output
-    fn map_output(&self, byte_size: u64) -> Result<wgpu::BufferView, String> {
+    fn map_output(&self, byte_size: u64) -> Result<wgpu::BufferView<'_>, String> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let buffer_slice = self.output_buffer.slice(0..byte_size);
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());

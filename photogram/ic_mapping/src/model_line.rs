@@ -5,7 +5,6 @@ use geo_nd::Vector;
 use ic_base::Point3D;
 use serde::{Deserialize, Serialize};
 
-
 //a ModelLine
 //tp ModelLine
 /// A line in model space
@@ -39,6 +38,7 @@ impl ModelLine {
             return k / l;
         }
         for v in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] {
+            let v: Point3D = v.into();
             let perp = direction.cross_product(&v);
             let l = perp.length();
             if l > 0.001 {

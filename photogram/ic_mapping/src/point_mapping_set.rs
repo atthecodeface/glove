@@ -456,7 +456,7 @@ impl PointMappingSet {
 
         eprintln!("Using {} model lines", mls.num_lines());
 
-        let (location, err) =
+        let (location, _err) =
             mls.find_best_min_err_location2(100, 100, max_angle_subtended_error, |pt| {
                 self.qr_err_of_posn(&pm_n, &mut camera, pt).1
             });
