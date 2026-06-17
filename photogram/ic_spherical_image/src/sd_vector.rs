@@ -1,5 +1,5 @@
 use geo_nd::Vector;
-use ic_base::{GCTriangle, Point3D, Triangle3D};
+use ic_base::{Point3D, Triangle3D};
 
 /// This type describes a specific subdivision of an initial GCTriangle
 ///

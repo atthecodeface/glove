@@ -1,4 +1,4 @@
-use geo_nd::{Vector, vector};
+use geo_nd::Vector;
 use ic_base::Point3D;
 use ic_spherical_image::{SdIndex, SphericalData, shapes};
 

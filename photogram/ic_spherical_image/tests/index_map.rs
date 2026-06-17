@@ -12,7 +12,7 @@ fn test_icos() -> Result<(), Box<dyn std::error::Error>> {
         .map(|p| sd.add_initial_point(p.into()))
         .collect();
 
-    let tris: Vec<_> = ICOSAHEDRON
+    let _tris: Vec<_> = ICOSAHEDRON
         .iter()
         .map(|(p0, p1, p2)| sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]))
         .collect();

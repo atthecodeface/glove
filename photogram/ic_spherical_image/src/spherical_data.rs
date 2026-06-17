@@ -226,7 +226,7 @@ impl SphericalData {
         p1: PtIndex,
         p2: PtIndex,
     ) -> GreatCircleTriangleIndex {
-        if let Some(gc) = self.find_gc_triangle(p0, p1, p2) {
+        if let Some(_gc) = self.find_gc_triangle(p0, p1, p2) {
             panic!("Triangle already exists");
         }
         let gc_p0_p1 = self.find_or_add_gc_line(p0, p1);
