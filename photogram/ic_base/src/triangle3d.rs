@@ -23,62 +23,100 @@ use crate::Point3D;
 #[derive(Debug, Clone)]
 pub struct GCTriangle {
     /// The (nonunit) normal to the great circle joining the first two points on the sphere
-    pub normal_01: Point3D,
+    pub nonunit_normal_01: Point3D,
     /// The (nonunit) normal to the great circle joining the second two points on the sphere
-    pub normal_12: Point3D,
+    pub nonunit_normal_12: Point3D,
     /// The (nonunit) normal to the great circle joining the third point on the sphere to the first point on the sphere
-    pub normal_20: Point3D,
+    pub nonunit_normal_20: Point3D,
 }
 impl GCTriangle {
-    pub fn of_normals(
+    /// Create a GCTriangle given three (nonunit) normals
+    ///
+    /// the points of the triangle are at:
+    ///
+    ///  P0 = normal_20 x normal_01
+    ///  P1 = normal_01 x normal_12
+    ///  P2 = normal_12 x normal_20
+    pub fn of_normals(normal_01: &Point3D, normal_12: &Point3D, normal_20: &Point3D) -> Self {
+        Self {
+            nonunit_normal_01: *normal_01,
+            nonunit_normal_12: *normal_12,
+            nonunit_normal_20: *normal_20,
+        }
+    }
+
+    /// Create a GCTriangle of points *on the unit sphere* given three (nonunit) normals
+    ///
+    /// This requires scaling the normals by k01, k12, k20
+    /// the points of the triangle of the normals provided are at:
+    ///
+    ///  P0 = normal_20 x normal_01 * k20 * k01
+    ///  P1 = normal_01 x normal_12 * k01 * k12
+    ///  P2 = normal_12 x normal_20 * k12 * k20
+    ///
+    /// To yield Px of length 1; k20*k01 = 1 / (normal_20 x normal_01).length, etc
+    ///
+    /// Define nlen_20_01 = (normal_20 x normal_01).length()
+    ///
+    /// Then k20*k01 * k20*k12 / k01*k12 = 1/nlen_20_01 * 1/nlen_12_20 / (1/nlen_01_12)
+    ///      k20*k20 = nlen_01_12 / (nlen_20_01 * nlen_12_20)
+    ///      k20 = sqrt(nlen_01_12 / (nlen_20_01 * nlen_12_20))
+    ///      k12 = sqrt(nlen_20_01 / (nlen_12_20 * nlen_01_12))
+    ///      k01 = sqrt(nlen_12_20 / (nlen_01_12 * nlen_20_01))
+    pub fn of_normals_on_sphere(
         normal_01: &Point3D,
         normal_12: &Point3D,
         normal_20: &Point3D,
     ) -> Self {
+        let nlen_01_12 = normal_01.cross_product(normal_12).length();
+        let nlen_12_20 = normal_12.cross_product(normal_20).length();
+        let nlen_20_01 = normal_20.cross_product(normal_01).length();
+        let k01 = (nlen_12_20 / (nlen_01_12 * nlen_20_01)).sqrt();
+        let k12 = (nlen_20_01 / (nlen_12_20 * nlen_01_12)).sqrt();
+        let k20 = (nlen_01_12 / (nlen_20_01 * nlen_12_20)).sqrt();
         Self {
-            normal_01: *normal_01,
-            normal_12: *normal_12,
-            normal_20: *normal_20,
+            nonunit_normal_01: *normal_01 * k01,
+            nonunit_normal_12: *normal_12 * k12,
+            nonunit_normal_20: *normal_20 * k20,
         }
     }
-    pub fn contains_pt(&self, p: &Point3D) -> bool {
-        self.normal_01.dot(p) >= 0.0 && self.normal_12.dot(p) >= 0.0 && self.normal_20.dot(p) >= 0.0
-    }
+
+    /// Create a [GCTriangle] given three points P0, P1 and P2
     pub fn of_points(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Self {
         Self::of_normals(
-            &p0.cross_product(&p1), &p1.cross_product(&p2), &p2.cross_product(&p0))
+            &p0.cross_product(&p1),
+            &p1.cross_product(&p2),
+            &p2.cross_product(&p0),
+        )
     }
+
+    /// Return true if the GCTriangle includes a point projected onto the
+    /// triangle by scaling uniformaly
+    pub fn contains_pt_scaled(&self, p: &Point3D) -> bool {
+        self.nonunit_normal_01.dot(p) >= 0.0
+            && self.nonunit_normal_12.dot(p) >= 0.0
+            && self.nonunit_normal_20.dot(p) >= 0.0
+    }
+
+    /// Retrieve the three points from the (nonunit) normals
     pub fn nonunit_points(&self) -> [Point3D; 3] {
         return [
-            self.normal_20.cross_product(&self.normal_01),
-            self.normal_01.cross_product(&self.normal_12),
-            self.normal_12.cross_product(&self.normal_20),
+            self.nonunit_normal_20
+                .cross_product(&self.nonunit_normal_01),
+            self.nonunit_normal_01
+                .cross_product(&self.nonunit_normal_12),
+            self.nonunit_normal_12
+                .cross_product(&self.nonunit_normal_20),
         ];
     }
 
-    /// Find the normal to the *flat* triangle consisting of the *unit* points
-    ///
-    /// If the normals are derived from *unit* points then this could be the sum of the normals; however, if they are not then the proper calculation is required.
-    ///
-    /// Normal is (p1-p0) x (p2-p0) = (p1xp2) - (p0xp2) - (p1xp0) - (p0xp0)
-    ///          = (p1 x p2) + (p2 x p0) + (p0 x p1)
-    ///
-    ///  Where k = p0.(p1 x p2) = p1.(p2 x p0) = p2.(p0 x p1)
-    ///
-    ///  p0 = k (n20 x n01), p1 = k (n01 x n12), p2 = k (n12 x n20)
-    ///     p1 x p2 = k ((n01 x n12) x (n12 x n20))
-    ///             = -k ((n12 x n01) x (n12 x n20))
-    ///             = -k (n12.(n01 x n20)) n12
-    ///             = -k . c . n12
-    ///
-    ///   Where c = n12.(n01 x n20) =
-    pub fn normal_nonunit(&self) -> Point3D {
-        // Assume the normals are not derived from unit points
-        let [p0, p1, p2] = self.nonunit_points();
-        let p0 = p0.normalize();
-        let p1 = p1.normalize();
-        let p2 = p2.normalize();
-        (p1-p0).cross_product(p2-p0)
+    /// Retrieve a (nonunit) normal
+    pub fn nonunit_normal(&self, index: usize) -> &Point3D {
+        match index {
+            0 => &self.nonunit_normal_01,
+            1 => &self.nonunit_normal_12,
+            _ => &self.nonunit_normal_20,
+        }
     }
 }
 
@@ -106,7 +144,7 @@ impl GCTriangle {
 #[derive(Debug, Clone)]
 pub struct Triangle3D {
     /// Unit normal
-    normal: Point3D,
+    unit_normal: Point3D,
 
     /// Closest distance of plane to origin
     value: f64,
@@ -135,32 +173,35 @@ pub struct Triangle3D {
 impl Triangle3D {
     #[track_caller]
     pub fn validate(&self) {
-        assert!((self.normal.length_sq()-1.0).abs()<1E-6, "Normal must be a unit vector");
         assert!(
-            self.normal.dot(self.points[1] - self.points[0]).abs() < 1E-6,
+            (self.unit_normal.length_sq() - 1.0).abs() < 1E-6,
+            "Normal must be a unit vector"
+        );
+        assert!(
+            self.unit_normal.dot(self.points[1] - self.points[0]).abs() < 1E-6,
             "Invalid normal p1-p0 {} in Triangle3D {:0.4} {:0.4}  {:0.4} {:0.4} {:0.4}",
-            self.normal.dot(self.points[2] - self.points[0]),
-            self.normal,
+            self.unit_normal.dot(self.points[2] - self.points[0]),
+            self.unit_normal,
             self.points[1] - self.points[0],
             self.points[0],
             self.points[1],
             self.points[2]
         );
         assert!(
-            self.normal.dot(self.points[2] - self.points[0]).abs() < 1E-6,
+            self.unit_normal.dot(self.points[2] - self.points[0]).abs() < 1E-6,
             "Invalid normal p2-p0 {} in Triangle3D {:0.4} {:0.4}  {:0.4} {:0.4} {:0.4}",
-            self.normal.dot(self.points[2] - self.points[0]),
-            self.normal,
+            self.unit_normal.dot(self.points[2] - self.points[0]),
+            self.unit_normal,
             self.points[2] - self.points[0],
             self.points[0],
             self.points[1],
             self.points[2]
         );
         assert!(
-            self.normal.dot(self.points[2] - self.points[1]).abs() < 1E-6,
+            self.unit_normal.dot(self.points[2] - self.points[1]).abs() < 1E-6,
             "Invalid normal p2-p1 {} in Triangle3D {:0.4} {:0.4}  {:0.4} {:0.4} {:0.4}",
-            self.normal.dot(self.points[2] - self.points[0]),
-            self.normal,
+            self.unit_normal.dot(self.points[2] - self.points[0]),
+            self.unit_normal,
             self.points[2] - self.points[1],
             self.points[0],
             self.points[1],
@@ -179,8 +220,14 @@ impl Triangle3D {
         assert!((self.tangent_20.dot(self.points[1]) - self.value_20 - 1.0).abs() < 1E-6);
         assert!((self.tangent_20.dot(self.points[2]) - self.value_20).abs() < 1E-6);
     }
+
+    /// Make the [Triangle3D] given:
+    ///
+    /// * The *unit* normal to the plane
+    /// * The three points P0, P1 and P2 (which P.normal must be 0)
+    /// * Three tangents (perpendicular to the normal and their line Px-Py)
     fn make(
-        normal: Point3D,
+        unit_normal: Point3D,
         tangent_01: Point3D,
         tangent_12: Point3D,
         tangent_20: Point3D,
@@ -188,7 +235,7 @@ impl Triangle3D {
         p1: Point3D,
         p2: Point3D,
     ) -> Self {
-        let value = p0.dot(&normal);
+        let value = p0.dot(&unit_normal);
 
         // Note tangent_01.dot(&p0) == tangent_01.dot(&p1);
         let value_01_p01 = tangent_01.dot(&p0);
@@ -204,7 +251,7 @@ impl Triangle3D {
         let value_20_diff = value_20_p1 - value_20_p20;
 
         Self {
-            normal,
+            unit_normal,
             value,
             points: [p0, p1, p2],
             tangent_01: tangent_01 / value_01_diff,
@@ -216,40 +263,39 @@ impl Triangle3D {
         }
     }
 
-    pub fn of_gc_triangle(tri: &GCTriangle) -> Self {
-        let [p0, p1, p2] = tri.nonunit_points();
-        let p0 = p0.normalize();
-        let p1 = p1.normalize();
-        let p2 = p2.normalize();
-
-        // let normal = (p1-p0).cross_product(p2-p0).normalize();
-        let normal = tri.normal_nonunit().normalize();
-        let tangent_01 = tri.normal_01 - normal * tri.normal_01.dot(&normal);
-        let tangent_12 = tri.normal_12 - normal * tri.normal_12.dot(&normal);
-        let tangent_20 = tri.normal_20 - normal * tri.normal_20.dot(&normal);
-
-        let p = Self::make(normal, tangent_01, tangent_12, tangent_20, p0, p1, p2);
-        p.validate();
-        p
+    pub fn of_normals_on_sphere(
+        normal_01: &Point3D,
+        normal_12: &Point3D,
+        normal_20: &Point3D,
+    ) -> Self {
+        let p0 = normal_20.cross_product(normal_01).normalize();
+        let p1 = normal_01.cross_product(normal_12).normalize();
+        let p2 = normal_12.cross_product(normal_20).normalize();
+        Self::of_points(&p0, &p1, &p2)
     }
 
-    pub fn of_points(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Option<Self> {
+    /// Create a Triangle3D from three points
+    pub fn of_points(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Self {
+        // For small triangles, P0/P1/P2 are all P + dP0/dP1/dP2
+        //
+        // Determining the normal by using differences between the points is
+        // probably the least problematic from a floating point error
+        // perspective
         let p01 = p1 - p0;
         let p12 = p2 - p1;
         let p20 = p0 - p2;
         let normal = p01.cross_product(&p12);
-        if normal.length_sq() < 1E-10 {
-            None
-        } else {
-            let normal = normal.normalize();
-            // Note these will be scaled appropriately, so no need to normalize
-            let tangent_01 = normal.cross_product(&p01);
-            let tangent_12 = normal.cross_product(&p12);
-            let tangent_20 = normal.cross_product(&p20);
-            Some(Self::make(
-                normal, tangent_01, tangent_12, tangent_20, *p0, *p1, *p2,
-            ))
+        let normal = normal.normalize();
+        // Note these will be scaled appropriately, so no need to normalize
+        let tangent_01 = normal.cross_product(&p01);
+        let tangent_12 = normal.cross_product(&p12);
+        let tangent_20 = normal.cross_product(&p20);
+        let p = Self::make(normal, tangent_01, tangent_12, tangent_20, *p0, *p1, *p2);
+        if true {
+            #[cfg(debug_assertions)]
+            p.validate();
         }
+        p
     }
 
     /// Borrow the points
@@ -258,7 +304,7 @@ impl Triangle3D {
     }
 
     pub fn unit_normal(&self) -> &Point3D {
-        &self.normal
+        &self.unit_normal
     }
 
     /// Find the Barycentric coordinates of a point
@@ -293,22 +339,22 @@ impl Triangle3D {
     /// Return the point in 3D where it is scaled onto the
     /// plane of the triangle
     pub fn point_projected_onto_by_scaling(&self, p: &Point3D) -> Point3D {
-        let p_value = self.normal.dot(p);
+        let p_value = self.unit_normal.dot(p);
         let r = *p * self.value / p_value;
-        eprintln!("{p} {r} {}", self.normal.dot(r) - self.value);
+        eprintln!("{p} {r} {}", self.unit_normal.dot(r) - self.value);
         r
     }
 
     /// Return the point in 3D where it is projected directly onto the
     /// plane of the triangle by moving along the normal
     pub fn point_projected_onto_by_normal(&self, p: &Point3D) -> (Point3D, f64) {
-        let p_value = self.normal.dot(p);
-        let result = *p + (self.normal * (self.value - p_value));
+        let p_value = self.unit_normal.dot(p);
+        let result = *p + (self.unit_normal * (self.value - p_value));
         (result, p_value - self.value)
     }
 
     /// Get the origin of the plane in space
     pub fn origin_in_space(&self) -> Point3D {
-        self.normal * self.value
+        self.unit_normal * self.value
     }
 }

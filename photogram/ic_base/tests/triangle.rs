@@ -14,13 +14,13 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(t.nonunit_points()[1], y);
     assert_eq!(t.nonunit_points()[2], z);
 
-    assert!(t.contains_pt(&x));
-    assert!(t.contains_pt(&y));
-    assert!(t.contains_pt(&z));
+    assert!(t.contains_pt_scaled(&x));
+    assert!(t.contains_pt_scaled(&y));
+    assert!(t.contains_pt_scaled(&z));
 
-    assert!(!t.contains_pt(&-x));
-    assert!(!t.contains_pt(&-y));
-    assert!(!t.contains_pt(&-z));
+    assert!(!t.contains_pt_scaled(&-x));
+    assert!(!t.contains_pt_scaled(&-y));
+    assert!(!t.contains_pt_scaled(&-z));
 
     let mid_xy = (x + y) * 0.5;
     let mid_yz = (y + z) * 0.5;
@@ -43,12 +43,16 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
         &[0.0, 0.5, 0.8].into(),
     );
 
-    // Normals of t are (-0.5, 0.3, 0.8); (0.8, -0.5, 0.3); (0.3, 0.8, -0.5)
+    // GC Normals of t are scaled versions of (-0.5, 0.3, 0.8); (0.8, -0.5, 0.3); (0.3, 0.8, -0.5)
     dbg!(&t);
-    let ot = GCTriangle::of_normals(&t.normal_01, &t.normal_12, &t.normal_20);
-    assert!(t.normal_01.distance_sq(&ot.normal_01) < 1E-4);
-    assert!(t.normal_12.distance_sq(&ot.normal_12) < 1E-4);
-    assert!(t.normal_20.distance_sq(&ot.normal_20) < 1E-4);
+    let ot = GCTriangle::of_normals(
+        &t.nonunit_normal_01,
+        &t.nonunit_normal_12,
+        &t.nonunit_normal_20,
+    );
+    assert!(t.nonunit_normal_01.distance_sq(&ot.nonunit_normal_01) < 1E-4);
+    assert!(t.nonunit_normal_12.distance_sq(&ot.nonunit_normal_12) < 1E-4);
+    assert!(t.nonunit_normal_20.distance_sq(&ot.nonunit_normal_20) < 1E-4);
 
     let oot = GCTriangle::of_points(
         &ot.nonunit_points()[0],
@@ -57,38 +61,44 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     assert!(
-        t.normal_01
+        t.nonunit_normal_01
             .normalize()
-            .distance_sq(&oot.normal_01.normalize())
+            .distance_sq(&oot.nonunit_normal_01.normalize())
             < 1E-4
     );
     assert!(
-        t.normal_12
+        t.nonunit_normal_12
             .normalize()
-            .distance_sq(&oot.normal_12.normalize())
+            .distance_sq(&oot.nonunit_normal_12.normalize())
             < 1E-4
     );
     assert!(
-        t.normal_20
+        t.nonunit_normal_20
             .normalize()
-            .distance_sq(&oot.normal_20.normalize())
+            .distance_sq(&oot.nonunit_normal_20.normalize())
             < 1E-4
     );
 
-    let oot3 = Triangle3D::of_gc_triangle(&oot);
+    let oot3 = Triangle3D::of_normals_on_sphere(
+        oot.nonunit_normal(0),
+        oot.nonunit_normal(1),
+        oot.nonunit_normal(2),
+    );
 
     let oot3b = Triangle3D::of_points(
-        &ot.nonunit_points()[0],
-        &ot.nonunit_points()[1],
-        &ot.nonunit_points()[2],
-    )
-    .unwrap();
+        &ot.nonunit_points()[0].normalize(),
+        &ot.nonunit_points()[1].normalize(),
+        &ot.nonunit_points()[2].normalize(),
+    );
 
     assert!(
         oot3.points()[0]
             .normalize()
             .distance_sq(&oot3b.points()[0].normalize())
-            < 1E-4
+            < 1E-4,
+        "Point {:0.4} too far from {:0.4}",
+        oot3.points()[0].normalize(),
+        oot3b.points()[0].normalize()
     );
     assert!(
         oot3.points()[1]
@@ -116,7 +126,12 @@ fn test_gct1() -> Result<(), Box<dyn std::error::Error>> {
     let m = x + y + z;
 
     let gct = GCTriangle::of_points(&x, &y, &z);
-    let t = Triangle3D::of_gc_triangle(&gct);
+
+    let t = Triangle3D::of_normals_on_sphere(
+        gct.nonunit_normal(0),
+        gct.nonunit_normal(1),
+        gct.nonunit_normal(2),
+    );
 
     assert!(gct.nonunit_points()[0].distance_sq(&x) < 1E-4);
     assert!(gct.nonunit_points()[1].distance_sq(&y) < 1E-4);
@@ -200,7 +215,17 @@ fn test_pts(x: Point3D, y: Point3D, z: Point3D) -> Result<(), Box<dyn std::error
     let m = x + y + z;
 
     let gct = GCTriangle::of_points(&x, &y, &z);
-    let t = Triangle3D::of_gc_triangle(&gct);
+    let t = Triangle3D::of_normals_on_sphere(
+        gct.nonunit_normal(0),
+        gct.nonunit_normal(1),
+        gct.nonunit_normal(2),
+    );
+    let t = Triangle3D::of_points(
+        &gct.nonunit_points()[0],
+        &gct.nonunit_points()[1],
+        &gct.nonunit_points()[2],
+    );
+
     t.validate();
     assert!(
         gct.nonunit_points()[0]
@@ -219,16 +244,6 @@ fn test_pts(x: Point3D, y: Point3D, z: Point3D) -> Result<(), Box<dyn std::error
             .normalize()
             .distance_sq(&z.normalize())
             < 1E-4
-    );
-
-    assert!(
-        gct.normal_nonunit()
-            .normalize()
-            .distance_sq(t.unit_normal())
-            < 1E-4,
-        "Normals {:0.4} {:0.4} should be the same",
-        gct.normal_nonunit().normalize(),
-        t.unit_normal()
     );
 
     assert!(t.points()[0].normalize().distance_sq(&x.normalize()) < 1E-4);
