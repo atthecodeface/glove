@@ -79,11 +79,10 @@ impl Kernels {
         if self.verbose {
             eprintln!("Run shader {shader} with {work_items} items");
         }
-        if let Some(wgpu) = &self.wgpu {
-            if wgpu.run_shader(shader, args, work_items, src_data, out_data)? {
+        if let Some(wgpu) = &self.wgpu
+            && wgpu.run_shader(shader, args, work_items, src_data, out_data)? {
                 return Ok(());
             }
-        }
         self.cpu
             .run_shader(shader, args, work_items, src_data, out_data)
             .map(|_| ())

@@ -76,7 +76,7 @@ fn closest_star(catalog: &Catalog, v: Point3D) -> Option<(f64, CatalogIndex)> {
     for s in s.iter_range(2) {
         for index in catalog[s].iter() {
             let cv: Point3D = catalog[*index].vector().into();
-            let c = v.dot(&cv);
+            let c = v.dot(cv);
             if let Some((cc, _)) = closest {
                 if c > cc {
                     closest = Some((c, *index));
@@ -286,7 +286,7 @@ impl StarMapping {
                     let roll_error = model_ry.roll() - cam_ry.roll();
                     let relative_yaw_error = model_ry.yaw() / cam_ry.yaw() - 1.0;
 
-                    let err = sv.dot(&star_m).acos().to_degrees();
+                    let err = sv.dot(star_m).acos().to_degrees();
                     let star_pxy = camera.world_xyz_to_px_abs_xy(&sv);
                     total_error += (1.0 - err).powi(2);
                     num_mapped += 1;
@@ -354,8 +354,8 @@ impl StarMapping {
         let mut world = vec![];
         let mut sensor = vec![];
         for mapping in &self.mappings {
-            if mapping.3 != 0 {
-                if let Some(c) = catalog.find_sorted(mapping.3) {
+            if mapping.3 != 0
+                && let Some(c) = catalog.find_sorted(mapping.3) {
                     let star = &catalog[c];
                     let sv: &[f64; 3] = star.vector();
 
@@ -369,7 +369,6 @@ impl StarMapping {
                     world.push(sv.into());
                     sensor.push(map);
                 }
-            }
         }
         CalibrationMapping::new(world, sensor)
     }
@@ -390,11 +389,10 @@ impl StarMapping {
         let mut qs = vec![];
         let mut cat_index = vec![];
         for (i, mapping) in self.mappings.iter().enumerate() {
-            if let Some(c) = catalog.find_sorted(mapping.3) {
-                if catalog[c].magnitude() < search_brightness {
+            if let Some(c) = catalog.find_sorted(mapping.3)
+                && catalog[c].magnitude() < search_brightness {
                     cat_index.push((i, c));
                 }
-            }
         }
         if cat_index.len() < 2 {
             return Err("Could not find 2 stars that map".into());
@@ -464,7 +462,7 @@ impl StarMapping {
         star_match_mappings
             .sort_by(|smm_a, smm_b| smm_a.quality.partial_cmp(&smm_b.quality).unwrap());
 
-        return Ok(star_match_mappings);
+        Ok(star_match_mappings)
     }
 
     /// Find the orientation of the camera from a set of triangles
