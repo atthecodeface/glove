@@ -59,9 +59,9 @@ impl SdSubtriangle {
         let p20_mp = self.p2 + self.p0;
 
         // Create four triangles with counter-clockwise points as viewed from the outside
-        let gcn_01mp_12mp = p01_mp.cross_product(&p12_mp);
-        let gcn_12mp_20mp = p12_mp.cross_product(&p20_mp);
-        let gcn_20mp_01mp = p20_mp.cross_product(&p01_mp);
+        let gcn_01mp_12mp = p01_mp.cross_product(p12_mp);
+        let gcn_12mp_20mp = p12_mp.cross_product(p20_mp);
+        let gcn_20mp_01mp = p20_mp.cross_product(p01_mp);
 
         let subtriangle = if gcn_20mp_01mp.dot(p) <= 0.0 {
             0

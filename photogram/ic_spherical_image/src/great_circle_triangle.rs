@@ -247,9 +247,9 @@ impl GcTriangle {
             let gcl = &sd[gc];
             let p0 = gcl.p0();
             let p1 = gcl.p1();
-            let normal = p0.vector().cross_product(&p1.vector()).normalize();
+            let normal = p0.vector().cross_product(p1.vector()).normalize();
             let gcl_normal = gcl.normal().vector();
-            if normal.distance_sq(&gcl_normal) > 1E-6 {
+            if normal.distance_sq(gcl_normal) > 1E-6 {
                 return Err(format!(
                     "Distance between normal {normal} and {gcl_normal} for {gcl:?} and its two points {p0:?}, {p1:?} is nonzero"
                 ));

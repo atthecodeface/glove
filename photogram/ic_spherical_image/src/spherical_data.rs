@@ -113,7 +113,7 @@ impl SphericalData {
             .enumerate()
             .filter(|(i, _)| (*i & 1) == 0)
         {
-            let n_dot_n = normal.dot(&n.vector());
+            let n_dot_n = normal.dot(n.vector());
             if n_dot_n.abs() > 0.999999 {
                 if n_dot_n > 0.0 {
                     return (NormalIndex::from_usize(i), NormalIndex::from_usize(i + 1));
@@ -183,7 +183,7 @@ impl SphericalData {
         let swapped = p0 > p1;
         let p0_vec = self.points[p0].vector();
         let p1_vec = self.points[p1].vector();
-        let normal = p0_vec.cross_product(&p1_vec);
+        let normal = p0_vec.cross_product(p1_vec);
         let normal = if swapped { -normal } else { normal };
         let normal_idx = self.add_normal(normal).0;
         let (_swapped, gc_line) = GcLine::new(
