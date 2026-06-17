@@ -2,13 +2,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use ic_base::{Mesh, PathGlob, Result};
+use ic_base::{PathGlob, Result};
 use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
 use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8};
 use ic_kernel::{KernelArgs, Kernels};
 use ic_mapping::Patch;
+use ic_mesh::Mesh;
 
 use crate::CmdArgs;
 use crate::NamedProject;
@@ -177,7 +178,7 @@ impl ProjectSet {
         let cip_r = cip.borrow();
 
         let pms = cip_r.pms();
-        let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| *p.screen()));
+        let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| *p.screen()), 1E-2);
         let triangles: Vec<_> = mesh.triangles().collect();
         eprintln!("Triangles of mesh {triangles:?}");
         let json = serde_json::to_string(&triangles).unwrap();
