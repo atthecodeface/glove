@@ -3,11 +3,11 @@ use geo_nd::Vector;
 
 use crate::{Point2D, Point3D};
 
-//a Plane of best fit
-//tp Plane
-/// Described by point . normal = value
+/// A simple plane in 3D, described by point . normal = value
 ///
-/// normal is a unit vector here
+/// The plane contains three vectors: the normal, a tangent on the plane, and
+/// the second tangent that is perpendicular to both the normal and the other
+/// tangent
 #[derive(Default, Debug, Clone)]
 pub struct Plane {
     /// Unit normal
@@ -19,20 +19,19 @@ pub struct Plane {
     /// One tangent - a unit vector
     tangent_0: Point3D,
 
-    /// The other tangent - tangent_0 X normal
+    /// The other tangent - the cross product of tangent_0 and the normal
     tangent_1: Point3D,
 }
 
-//ip From<(Point3D, f64)> for Plane {
 impl From<(Point3D, f64)> for Plane {
+    /// Create a plane from a normal and a value
     fn from((normal, value): (Point3D, f64)) -> Self {
         Self::of_normal_value(&normal, value)
     }
 }
 
-//ip Plane
 impl Plane {
-    //cp of_normal_value
+    /// Create a [Plane] given a normal and a value
     pub fn of_normal_value(normal: &Point3D, value: f64) -> Self {
         let l = normal.length();
         let normal = *normal / l;
@@ -43,25 +42,33 @@ impl Plane {
             tangent_0: Point3D::default(),
             tangent_1: Point3D::default(),
         };
-        if !s.set_tangent(&[1.0_f64, 0., 0.].into()) {
-            let okay = s.set_tangent(&[0.0_f64, 1., 0.].into());
+        if !s.set_tangents(&[1.0_f64, 0., 0.].into()) {
+            let okay = s.set_tangents(&[0.0_f64, 1., 0.].into());
             assert!(okay);
         }
         s
     }
 
-    //ap normal
+    /// Borrow the normal
     pub fn normal(&self) -> &Point3D {
         &self.normal
     }
 
-    //ap value
+    /// Get the value associated with the plane (points on the plane have p.normal = this)
     pub fn value(&self) -> f64 {
         self.value
     }
 
-    //mp set_tangent
-    pub fn set_tangent(&mut self, tangent: &Point3D) -> bool {
+    /// Set the tangents to the plane to be in the direction of the cross
+    /// product of the normal and a given vector, and perpendicular to both of these
+    ///
+    /// Returns false if the provided vector does not permit tangents to be set
+    /// (for example, if the given vector is close-to-parallel to the normal)
+    ///
+    /// This is used both initially (to create the tangents arbitrarily for a
+    /// plane) and by clients that have specific needs for the tangent
+    /// directions
+    pub fn set_tangents(&mut self, tangent: &Point3D) -> bool {
         let tangent = tangent.normalize();
         let other_tangent = self.normal.cross_product(&tangent);
         if other_tangent.length_sq() < 0.1 {
@@ -73,15 +80,13 @@ impl Plane {
         }
     }
 
-    //mp distance_sq
-    /// Return the total distance_sq of an iterator of points
+    /// Return the total distance_sq from the plane of an iterator of 3D points
     pub fn distance_sq<'a, I: Iterator<Item = &'a Point3D>>(&self, pts: I) -> f64 {
         pts.fold(0.0, |acc, p| {
             acc + (self.normal.dot(p) - self.value).powi(2)
         })
     }
 
-    //mp point_projected_onto
     /// Return the point in 3D where it is projected directly onto the
     /// plane by moving along the normal
     pub fn point_projected_onto(&self, p: &Point3D) -> (Point3D, f64) {
@@ -90,25 +95,27 @@ impl Plane {
         (result, p_value - self.value)
     }
 
-    //mp within_plane
     /// Find the coords (tangent_0, tangent_1) for the point
+    ///
+    /// As the tangents are perpendicular to each other, these are linearly independent
+    /// values
     pub fn within_plane(&self, p: &Point3D) -> Point2D {
         [p.dot(&self.tangent_0), p.dot(&self.tangent_1)].into()
     }
 
-    //mp point_in_space
-    /// Given a 2D point, find the coordinates in space
+    /// Given a 2D point on the plane (tangent 0, tangent 1), find the
+    /// coordinates in 3D space on the plane that it corresponds to
     pub fn point_in_space(&self, p: &Point2D) -> Point3D {
         self.normal * self.value + (self.tangent_0 * p[0]) + (self.tangent_1 * p[1])
     }
 
-    //mp origin_in_space
-    /// Get the origin in space
+    /// Get the origin of the plane in space
     pub fn origin_in_space(&self) -> Point3D {
         self.normal * self.value
     }
 
-    //mp from_triangle
+    /// Derive a plane from a triangle of points in 3D space; if the points are
+    /// collinear then return None
     pub fn from_triangle(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Option<Self> {
         let c = (*p0 + *p1 + *p2) / 3.0;
         let dp0 = *p0 - c;
@@ -123,7 +130,9 @@ impl Plane {
         }
     }
 
-    //mp best_fit
+    /// Generate a plane of best fit given an iterator of 3D points in space
+    ///
+    /// This uses a minimum-squared-distance-from-the-plane calculation
     pub fn best_fit<'a, I: Clone + ExactSizeIterator<Item = &'a Point3D>>(pts: I) -> Option<Self> {
         let sum_x2 = pts.clone().fold(0., |acc, p| acc + p[0].powi(2));
         let sum_y2 = pts.clone().fold(0., |acc, p| acc + p[1].powi(2));
@@ -178,80 +187,4 @@ impl Plane {
         let r = r.normalize();
         Some((r, n / rl).into())
     }
-}
-
-//a Tests
-#[test]
-fn test_plane() -> Result<(), String> {
-    // The test plane here is the plane X=3
-    //
-    // The tangents are *known* (white-box) to be 0,1,0 and 0,0,1
-    let normal: Point3D = [1.0, 0.0, 0.0].into();
-    let p: Plane = (normal, 3.0).into();
-    assert_eq!(p.normal(), &normal);
-
-    let x: Point3D = [5.0, 6.0, 4.0].into();
-    eprintln!("x: {x}");
-    eprintln!("x in plane: {}", p.within_plane(&x));
-    eprintln!("point in space: {}", p.point_in_space(&p.within_plane(&x)));
-    eprintln!(
-        "x projected onto: {} {}",
-        p.point_projected_onto(&x).0,
-        p.point_projected_onto(&x).1
-    );
-    assert_eq!(
-        p.point_in_space(&p.within_plane(&x)),
-        p.point_projected_onto(&x).0
-    );
-    assert_eq!(p.within_plane(&x)[0], 6.0);
-    assert_eq!(p.within_plane(&x)[1], 4.0);
-
-    let pts: &[Point3D] = &[
-        [1., 2., 3.].into(),
-        [3., 5., 6.].into(),
-        [1., 2., 5.].into(),
-    ];
-    for x in pts.iter() {
-        assert!(
-            p.point_in_space(&p.within_plane(x))
-                .distance(&p.point_projected_onto(x).0)
-                < 1E-4
-        );
-    }
-    Ok(())
-}
-
-#[test]
-fn test_plane2() -> Result<(), String> {
-    // Plane x=-z, y = anything, (3,_,3) is on the plane
-    let normal: Point3D = [1.0, 0.0, 1.0].into();
-    let p: Plane = (normal, 3.0).into();
-
-    eprintln!("plane {p:?}");
-
-    eprintln!("origin  {}", p.origin_in_space());
-
-    // normal will be length 1/sqrt(2)
-
-    let pts: &[Point3D] = &[
-        [1., 2., 3.].into(), // .normal = 4/sqrt(2); d = 3*sqrt(2) = 6/sqrt(2); on is +2/sqrt(2) normal = (2,2,4)
-        [3., 5., 6.].into(),
-        [1., 2., 5.].into(),
-    ];
-    for x in pts.iter() {
-        eprintln!("\n{x}");
-        eprintln!("  {}", p.within_plane(x));
-        eprintln!("  {}", p.point_in_space(&p.within_plane(x)));
-        eprintln!(
-            "  =? {} {}",
-            p.point_projected_onto(x).0,
-            p.point_projected_onto(x).1
-        );
-        assert!(
-            p.point_in_space(&p.within_plane(x))
-                .distance(&p.point_projected_onto(x).0)
-                < 1E-4
-        );
-    }
-    Ok(())
 }

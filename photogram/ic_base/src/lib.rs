@@ -16,6 +16,7 @@ pub use path_set::{PathGlob, PathSet};
 mod plane;
 mod quadtree;
 mod tag;
+mod triangle3d;
 pub mod types;
 pub mod utils;
 pub use tag::{Tag, TagData, TagMap, TagSet};
@@ -23,6 +24,7 @@ mod word_xy;
 pub use word_xy::WordXy;
 
 pub use plane::Plane;
+pub use triangle3d::{GCTriangle, Triangle3D};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod ray;
