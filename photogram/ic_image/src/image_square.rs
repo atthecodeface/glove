@@ -1,4 +1,12 @@
-//a Imports
+//! The concept of the ImageSquareSet is that it uses an Image of some form to contain sets
+//! of square patches that can be copied to/from somewhere, that are identifiable bits of
+//! an image
+//!
+//! Different squares from different images can then be compared for closeness
+//!
+//! The ImageSquareSet on a given image contents is essentially an arena of
+//! squares which can be allocated and freed
+
 use std::rc::Rc;
 
 use image::{DynamicImage, GenericImage, GenericImageView};
@@ -10,8 +18,11 @@ use crate::{Image, ImageDrawable};
 //a Consts
 pub const SQUARE_SIZE: u32 = 8;
 
-//a ImageSquareSet
-//tp ImageSquareSet
+/// A set of image squares gathered from one or more images, with a backing store of 'I'
+///
+/// A subset of the image will be used, indicated by the used_squares
+///
+/// Each square in the image has the same width_sq and height_sq
 #[derive(Debug)]
 pub struct ImageSquareSet<I: Image> {
     image_filename: String,
@@ -217,8 +228,7 @@ where
     }
 }
 
-//a ImageSquares
-//tp ImageSquares
+/// A square inside an image, given a width and a height
 pub struct ImageSquares<I: Image> {
     image: Rrc<I>,
     w: u32,

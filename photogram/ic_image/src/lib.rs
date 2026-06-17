@@ -7,6 +7,9 @@ mod line_iter;
 mod regions;
 mod traits;
 
+mod patch;
+pub use patch::ImagePatch;
+
 pub use color::{Color, Gray16};
 pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
