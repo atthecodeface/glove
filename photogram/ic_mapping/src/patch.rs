@@ -9,30 +9,31 @@ use ic_mesh::Mesh;
 
 use crate::NamedPoint;
 
-//a PatchMesh
-//tp PatchMesh
 /// A mesh of 2D points witin a plane of a patch
 #[derive(Default)]
 pub struct PatchMesh {
+    /// The 2D points that make up the mesh
     model_pts_projected: Vec<Point2D>,
+    /// The mesh of triangles (using indices into the model_pts_projected) that make up the mesh
     mesh: Mesh,
+    /// The bounding box of the mesh
     mesh_bounds: (f64, f64, f64, f64),
 }
 
-//ip PatchMesh
 impl PatchMesh {
-    //ap is_empty
+    /// True if the patch has no projected points
     pub fn is_empty(&self) -> bool {
         self.model_pts_projected.is_empty()
     }
 
-    //mp clear
+    /// Clear the projected points and the mesh
     pub fn clear(&mut self) {
         self.model_pts_projected.clear();
         self.mesh = Mesh::default();
     }
 
-    //mp update_data
+    /// Replace the contents of the [PatchMesh] with new projected points,
+    /// optionally optimizing the mesh
     pub fn update_data(&mut self, model_pts_projected: Vec<Point2D>, optimize: bool) {
         self.model_pts_projected = model_pts_projected;
         if optimize {
@@ -51,22 +52,27 @@ impl PatchMesh {
         );
     }
 
-    //ap model_pts_projected
+    /// Borrow the 2D points that make up the mesh
     pub fn model_pts_projected(&self) -> &[Point2D] {
         &self.model_pts_projected
     }
 
-    //ap mesh_bounds
+    /// Get the BBox of the mesh
     pub fn mesh_bounds(&self) -> &(f64, f64, f64, f64) {
         &self.mesh_bounds
     }
 
-    //ap mesh
+    /// Borrow the mesh
     pub fn mesh(&self) -> &Mesh {
         &self.mesh
     }
 
-    //mp split_triangles_to_max_area
+    /// Split the triangles in the mesh if they exceed a maximum area
+    ///
+    /// Returns the number of triangles split
+    ///
+    /// This breaks the mesh up into smaller triangles if required, to provide
+    /// for a better mesh mapping
     pub fn split_triangles_to_max_area(&mut self, max_area: f64, optimize: bool) -> usize {
         let triangles_split = 0;
         let mut centroids: Vec<_> = self.model_pts_projected().to_vec();
@@ -93,8 +99,9 @@ impl PatchMesh {
         triangles_split
     }
 
-    //mp split_mesh_edges
-    /// Split just the mesh edges
+    /// Split the mesh into more triangles so that no edge of the mesh exceeds a maximum length
+    ///
+    /// Returns the number of edges split
     pub fn split_mesh_edges(&mut self, max_len: f64, optimize: bool) -> usize {
         let edges_split = self.mesh.split_edges(max_len);
         if edges_split > 0 && optimize {
@@ -103,8 +110,9 @@ impl PatchMesh {
         edges_split
     }
 
-    //mp split_mesh_triangles
     /// Split just the mesh triangles
+    ///
+    /// Returns the number of triangles split
     pub fn split_mesh_triangles(&mut self, max_area: f64, optimize: bool) -> usize {
         let triangles_split = self.mesh.split_triangles(max_area);
         if triangles_split > 0 && optimize {
@@ -114,8 +122,6 @@ impl PatchMesh {
     }
 }
 
-//a Patch
-//tp Patch
 /// A patch in *model space* using NamedPoints
 ///
 /// If the model is updated then the patch has to be updated
@@ -131,7 +137,7 @@ pub struct Patch {
 
 //ip Patch
 impl Patch {
-    //ap plane
+    /// Retrieve the [Plane] in the model space that this [Patch] corresponds to, if any
     pub fn plane(&self) -> Option<&Plane> {
         if self.plane_ok {
             Some(&self.plane)
@@ -197,7 +203,7 @@ impl Patch {
             self.plane_ok = false;
             return false;
         };
-        plane.set_tangent(&(self.model_pts[1] - self.model_pts[0]));
+        plane.set_tangents(&(self.model_pts[1] - self.model_pts[0]));
         self.plane = plane;
         let d2 = self.plane.distance_sq(self.model_pts.iter());
         eprintln!("Plane: {d2:.4} {:.4?}", self.plane);
