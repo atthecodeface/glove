@@ -25,7 +25,7 @@ impl ic_cache::Cacheable for WrapUsize {
     fn size(&self) -> usize {
         4
     }
-    fn as_any(&self) -> &(dyn Any) {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
@@ -67,7 +67,7 @@ impl ic_cache::Cacheable for CacheThing {
             Thing::Huge(s) => s,
         }
     }
-    fn as_any(&self) -> &(dyn Any) {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }

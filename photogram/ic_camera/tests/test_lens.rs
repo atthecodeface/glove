@@ -19,7 +19,7 @@ where
     let mut num_out_of_range = 0;
 
     let wrange = wmax - wmin;
-    let yaws = (0..1000).map(|i| ((i as f64) / 1000.0 * wrange + wmin));
+    let yaws = (0..1000).map(|i| (i as f64) / 1000.0 * wrange + wmin);
 
     let sensor_yaws: Vec<_> = yaws.clone().map(&fwd_fn).collect();
     let world_yaws: Vec<_> = yaws.clone().collect();

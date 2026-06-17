@@ -31,9 +31,9 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     let mid_zx_n = mid_zx.normalize();
 
     let t0 = GCTriangle::of_points(&x, &mid_xy_n, &mid_zx_n);
-    let t1 = GCTriangle::of_points(&y, &mid_yz_n, &mid_xy_n);
-    let t2 = GCTriangle::of_points(&z, &mid_zx_n, &mid_yz_n);
-    let t3 = GCTriangle::of_points(&mid_xy_n, &mid_zx_n, &mid_yz_n);
+    let _t1 = GCTriangle::of_points(&y, &mid_yz_n, &mid_xy_n);
+    let _t2 = GCTriangle::of_points(&z, &mid_zx_n, &mid_yz_n);
+    let _t3 = GCTriangle::of_points(&mid_xy_n, &mid_zx_n, &mid_yz_n);
 
     let x = Some(Rc::new(t0.clone()));
     eprintln!("{}", std::mem::size_of_val(&x));
@@ -215,7 +215,7 @@ fn test_pts(x: Point3D, y: Point3D, z: Point3D) -> Result<(), Box<dyn std::error
     let m = x + y + z;
 
     let gct = GCTriangle::of_points(&x, &y, &z);
-    let t = Triangle3D::of_normals_on_sphere(
+    let _t = Triangle3D::of_normals_on_sphere(
         gct.nonunit_normal(0),
         gct.nonunit_normal(1),
         gct.nonunit_normal(2),
