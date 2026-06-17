@@ -28,16 +28,10 @@ fn test_find_icos_pt() -> Result<(), Box<dyn std::error::Error>> {
         "Point must be inside the triangle the index indicated"
     );
 
-    let gct = &sd[t];
-    eprintln!("{gct:?}");
-    // points are (0.8, 0, 0.5); (0.5, 0.8, 0); (0, 0.5, 0.8)
-    let normals = gct.get_normals(&sd);
-    // GC normals are (-0.5, 0.3, -0.8); (0.8, -0.5, 0.3); (0.3, 0.8, -0.5);
     for subdivision in 0..10 {
-        let st =
-            sd.find_subtriangle_of_point(&normals[0], &normals[1], &normals[2], &p, subdivision);
+        let st = sd.find_subtriangle_of_point_in_triangle(t, &p, subdivision);
 
-        let t3 = st.to_triangle3d();
+        let t3 = st.to_triangle3d_on_sphere();
         t3.validate();
 
         let b: Point3D = t3.barycentric_coordinates(&p).into();

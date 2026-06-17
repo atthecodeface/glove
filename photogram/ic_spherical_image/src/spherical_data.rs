@@ -363,15 +363,15 @@ impl SphericalData {
     ///      P1----M12----P2
     /// ```
     ///
-    pub fn find_subtriangle_of_point(
+    pub fn find_subtriangle_of_point_in_triangle(
         &self,
-        gcn_01: &Point3D,
-        gcn_12: &Point3D,
-        gcn_20: &Point3D,
+        gc_triangle: GreatCircleTriangleIndex,
         p: &Point3D,
         subdivide: u8,
     ) -> SdSubtriangle {
-        let mut sub = SdSubtriangle::new(gcn_01, gcn_12, gcn_20);
+        let normals = self[gc_triangle].get_normals(self);
+
+        let mut sub = SdSubtriangle::new(&normals[0], &normals[1], &normals[2]);
         for _ in 0..subdivide {
             sub.find_subtriangle_of_point(p);
         }
