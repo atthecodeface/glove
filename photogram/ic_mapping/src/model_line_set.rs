@@ -3,7 +3,7 @@ use std::default::Default;
 
 use geo_nd::Vector;
 
-use ic_base::{utils, Point3D};
+use ic_base::{Point3D, utils};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLine, ModelLineSubtended, PointMapping};
@@ -282,9 +282,9 @@ where
                     break;
                 }
             }
-            // if too_far_out_of_whack {
-            // continue;
-            // }
+            if false && too_far_out_of_whack {
+                continue;
+            }
             let p_err = err_of_posn(&p);
             if p_err >= min_err {
                 continue;

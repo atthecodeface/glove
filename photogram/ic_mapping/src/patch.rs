@@ -22,11 +22,13 @@ pub struct PatchMesh {
 
 impl PatchMesh {
     /// True if the patch has no projected points
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.model_pts_projected.is_empty()
     }
 
     /// Clear the projected points and the mesh
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.model_pts_projected.clear();
         self.mesh = Mesh::default();
@@ -73,6 +75,7 @@ impl PatchMesh {
     ///
     /// This breaks the mesh up into smaller triangles if required, to provide
     /// for a better mesh mapping
+    #[allow(dead_code)]
     pub fn split_triangles_to_max_area(&mut self, max_area: f64, optimize: bool) -> usize {
         let triangles_split = 0;
         let mut centroids: Vec<_> = self.model_pts_projected().to_vec();

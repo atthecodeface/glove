@@ -12,6 +12,7 @@ use ic_image::ImagePt;
 /// Get q which maps model direction (di/j/k_m f64 triples) to camera direction (di/j/k Point3D)
 ///
 /// dc === quat::apply3(q, dm)
+#[allow(dead_code)]
 fn orientation_mapping_triangle(
     di_m: &[f64; 3],
     dj_m: &[f64; 3],
@@ -355,20 +356,21 @@ impl StarMapping {
         let mut sensor = vec![];
         for mapping in &self.mappings {
             if mapping.3 != 0
-                && let Some(c) = catalog.find_sorted(mapping.3) {
-                    let star = &catalog[c];
-                    let sv: &[f64; 3] = star.vector();
+                && let Some(c) = catalog.find_sorted(mapping.3)
+            {
+                let star = &catalog[c];
+                let sv: &[f64; 3] = star.vector();
 
-                    // Note that the *distance* is not important; the
-                    // 3D point of the mapping is always converted to
-                    // a direction (subtracting the camera position)
-                    // and reoriented for the camera, and the apparent
-                    // distance is irrelevant
-                    let sv = [-sv[0], -sv[1], -sv[2]];
-                    let map = [mapping.0 as f64, mapping.1 as f64].into();
-                    world.push(sv.into());
-                    sensor.push(map);
-                }
+                // Note that the *distance* is not important; the
+                // 3D point of the mapping is always converted to
+                // a direction (subtracting the camera position)
+                // and reoriented for the camera, and the apparent
+                // distance is irrelevant
+                let sv = [-sv[0], -sv[1], -sv[2]];
+                let map = [mapping.0 as f64, mapping.1 as f64].into();
+                world.push(sv.into());
+                sensor.push(map);
+            }
         }
         CalibrationMapping::new(world, sensor)
     }
@@ -390,9 +392,10 @@ impl StarMapping {
         let mut cat_index = vec![];
         for (i, mapping) in self.mappings.iter().enumerate() {
             if let Some(c) = catalog.find_sorted(mapping.3)
-                && catalog[c].magnitude() < search_brightness {
-                    cat_index.push((i, c));
-                }
+                && catalog[c].magnitude() < search_brightness
+            {
+                cat_index.push((i, c));
+            }
         }
         if cat_index.len() < 2 {
             return Err("Could not find 2 stars that map".into());

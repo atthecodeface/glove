@@ -1,7 +1,6 @@
 //a Imports
 use std::rc::Rc;
 
-
 use ic_base::Result;
 use ic_camera::CameraProjection;
 use ic_image::{Image, ImagePt, ImageRgb8};
@@ -10,6 +9,7 @@ use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
 use super::CmdArgs;
 
 //a Is regex
+#[allow(dead_code)]
 fn is_regex(s: &str) -> bool {
     s.chars().any(|c| "^[*?".contains(c))
 }
