@@ -174,7 +174,7 @@ impl PointMapping {
             let err_c_txty = camera.px_abs_xy_to_camera_txty(&err_s_xy);
             let world_err_vec = -camera.camera_txty_to_world_dir(&err_c_txty);
 
-            let dot = world_pm_direction_vec.dot(&world_err_vec);
+            let dot = world_pm_direction_vec.dot(world_err_vec);
             if dot < min_cos {
                 min_cos = dot;
             }
@@ -235,7 +235,7 @@ impl PointMapping {
             .px_abs_xy_to_camera_txty(self.screen())
             .to_unit_vector();
         let dxdy = camera.camera_xyz_to_world_xyz(&((-screen_vec) * model_dist)) - self.model();
-        let axis = model_vec.cross_product(&screen_vec);
+        let axis = model_vec.cross_product(screen_vec);
         let sin_sep = axis.length();
         let error = sin_sep * model_dist;
         let angle = sin_sep.asin().to_degrees();

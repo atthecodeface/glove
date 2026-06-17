@@ -256,19 +256,19 @@ impl Patch {
         let sensor_pt = camera.world_xyz_to_px_abs_xy(&model_pt);
         let p = self.plane.point_in_space(&[cx + 1.0, cy].into());
         let d0 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
+            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx - 1.0, cy].into());
         let d1 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
+            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx, cy + 1.0].into());
         let d2 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
+            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         let p = self.plane.point_in_space(&[cx, cy - 1.0].into());
         let d3 =
-            (model_pt.distance(&p) / sensor_pt.distance(&camera.world_xyz_to_px_abs_xy(&p))).abs();
+            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
 
         (d0.min(d1).min(d2).min(d3), d0.max(d1).max(d2).max(d3))
     }

@@ -231,7 +231,7 @@ impl ModelLineParametricPoint {
         let circle_radius = mls.circle_radius();
         let dz = mls.model_line.direction().normalize();
         let dx = mls.model_line.unit_perpendicular();
-        let dy = dz.cross_product(&dx);
+        let dy = dz.cross_product(dx);
         let mut s = Self {
             torus_center,
             torus_radius,

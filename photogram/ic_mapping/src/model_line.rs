@@ -32,14 +32,14 @@ impl ModelLine {
     pub fn unit_perpendicular(&self) -> Point3D {
         let direction = self.direction();
         let direction = direction / direction.length();
-        let k = self.pts[0].cross_product(&direction);
+        let k = self.pts[0].cross_product(direction);
         let l = k.length();
         if l > 0.001 {
             return k / l;
         }
         for v in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] {
             let v: Point3D = v.into();
-            let perp = direction.cross_product(&v);
+            let perp = direction.cross_product(v);
             let l = perp.length();
             if l > 0.001 {
                 return perp / l;
@@ -55,7 +55,7 @@ impl ModelLine {
         let l = direction.length();
         let k = (*k) / l;
         let direction = (*direction) / l;
-        let p0 = direction.cross_product(&k);
+        let p0 = direction.cross_product(k);
         let p1 = p0 + direction;
         Self::new(p0, p1)
     }
@@ -66,7 +66,7 @@ impl ModelLine {
         let p = *p - self.pts[0];
         let d = self.pts[1] - self.pts[0];
         let len_d2 = d.length_sq();
-        let l = p.dot(&d);
+        let l = p.dot(d);
         self.pts[0] + (d * (l / len_d2))
     }
 
@@ -76,7 +76,7 @@ impl ModelLine {
     pub fn cos_angle_subtended(&self, p: &Point3D) -> f64 {
         let p_p0 = *p - self.pts[0];
         let p_p1 = *p - self.pts[1];
-        p_p0.dot(&p_p1) / (p_p0.length() * p_p1.length())
+        p_p0.dot(p_p1) / (p_p0.length() * p_p1.length())
     }
 
     //mp radius_of_circumcircle
@@ -95,7 +95,7 @@ impl ModelLine {
     pub fn radius_of_circumcircle(&self, p: &Point3D) -> f64 {
         let p0p = *p - self.pts[0];
         let p1p = *p - self.pts[1];
-        let p0p_x_p1p = p0p.cross_product(&p1p);
+        let p0p_x_p1p = p0p.cross_product(p1p);
         self.length() * p0p.length() * p1p.length() / (2.0 * p0p_x_p1p.length())
     }
 }
