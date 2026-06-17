@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_stars", "ic_threads", "image_server", "ic_play", "thunderclap"]
+members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_spherical_image", "ic_stars", "ic_threads", "image_server", "ic_play", "indexed", "thunderclap"]
 
 [workspace.package]
 edition = "2024"
@@ -23,9 +23,11 @@ ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
 ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
 ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
 ic_project = { version = "0.1.0", path = "./ic_project" }
+ic_spherical_image = { version = "0.1.0", path = "./ic_spherical_image" }
 ic_stars = { version = "0.1.0", path = "./ic_stars" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
 ic_play = { version = "0.1.0", path = "./ic_play" }
+indexed = { version = "0.1.0", path = "./indexed" }
 thunderclap = { version = "0.1.0", path = "./thunderclap" }
 
 nalgebra = "0.32.1"
