@@ -356,7 +356,7 @@ where
             // );
             QtPath::child_mask(allow_left, allow_right, allow_below, allow_above)
         })
-        .filter(move |qtpp| qtpp.pt().distance(&center) <= radius)
+        .filter(move |qtpp| qtpp.pt().distance(center) <= radius)
     }
 
     //mp iter_with_pivot

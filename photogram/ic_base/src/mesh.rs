@@ -612,10 +612,10 @@ impl Mesh {
                 let od = self[o_p1] - self[o_p0];
                 let cn: Point2D = [cd[1], -cd[0]].into();
                 let on: Point2D = [od[1], -od[0]].into();
-                let c_p0_side_of_od = (self[c_p0] - self[o_p0]).dot(&on);
-                let c_p1_side_of_od = (self[c_p1] - self[o_p0]).dot(&on);
-                let o_p0_side_of_od = (self[o_p0] - self[c_p0]).dot(&cn);
-                let o_p1_side_of_od = (self[o_p1] - self[c_p0]).dot(&cn);
+                let c_p0_side_of_od = (self[c_p0] - self[o_p0]).dot(on);
+                let c_p1_side_of_od = (self[c_p1] - self[o_p0]).dot(on);
+                let o_p0_side_of_od = (self[o_p0] - self[c_p0]).dot(cn);
+                let o_p1_side_of_od = (self[o_p1] - self[c_p0]).dot(cn);
                 let c_l2 = cd.length();
                 let o_l2 = od.length();
                 // Note that > 0. should allow empty triangles with

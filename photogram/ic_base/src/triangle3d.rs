@@ -84,9 +84,9 @@ impl GCTriangle {
     /// Create a [GCTriangle] given three points P0, P1 and P2
     pub fn of_points(p0: &Point3D, p1: &Point3D, p2: &Point3D) -> Self {
         Self::of_normals(
-            &p0.cross_product(&p1),
-            &p1.cross_product(&p2),
-            &p2.cross_product(&p0),
+            &p0.cross_product(p1),
+            &p1.cross_product(p2),
+            &p2.cross_product(p0),
         )
     }
 
@@ -100,14 +100,14 @@ impl GCTriangle {
 
     /// Retrieve the three points from the (nonunit) normals
     pub fn nonunit_points(&self) -> [Point3D; 3] {
-        return [
+        [
             self.nonunit_normal_20
-                .cross_product(&self.nonunit_normal_01),
+                .cross_product(self.nonunit_normal_01),
             self.nonunit_normal_01
-                .cross_product(&self.nonunit_normal_12),
+                .cross_product(self.nonunit_normal_12),
             self.nonunit_normal_12
-                .cross_product(&self.nonunit_normal_20),
-        ];
+                .cross_product(self.nonunit_normal_20),
+        ]
     }
 
     /// Retrieve a (nonunit) normal
@@ -235,19 +235,19 @@ impl Triangle3D {
         p1: Point3D,
         p2: Point3D,
     ) -> Self {
-        let value = p0.dot(&unit_normal);
+        let value = p0.dot(unit_normal);
 
         // Note tangent_01.dot(&p0) == tangent_01.dot(&p1);
-        let value_01_p01 = tangent_01.dot(&p0);
-        let value_01_p2 = tangent_01.dot(&p2);
+        let value_01_p01 = tangent_01.dot(p0);
+        let value_01_p2 = tangent_01.dot(p2);
         let value_01_diff = value_01_p2 - value_01_p01;
 
-        let value_12_p12 = tangent_12.dot(&p1);
-        let value_12_p0 = tangent_12.dot(&p0);
+        let value_12_p12 = tangent_12.dot(p1);
+        let value_12_p0 = tangent_12.dot(p0);
         let value_12_diff = value_12_p0 - value_12_p12;
 
-        let value_20_p20 = tangent_20.dot(&p2);
-        let value_20_p1 = tangent_20.dot(&p1);
+        let value_20_p20 = tangent_20.dot(p2);
+        let value_20_p1 = tangent_20.dot(p1);
         let value_20_diff = value_20_p1 - value_20_p20;
 
         Self {
@@ -284,12 +284,12 @@ impl Triangle3D {
         let p01 = p1 - p0;
         let p12 = p2 - p1;
         let p20 = p0 - p2;
-        let normal = p01.cross_product(&p12);
+        let normal = p01.cross_product(p12);
         let normal = normal.normalize();
         // Note these will be scaled appropriately, so no need to normalize
-        let tangent_01 = normal.cross_product(&p01);
-        let tangent_12 = normal.cross_product(&p12);
-        let tangent_20 = normal.cross_product(&p20);
+        let tangent_01 = normal.cross_product(p01);
+        let tangent_12 = normal.cross_product(p12);
+        let tangent_20 = normal.cross_product(p20);
         let p = Self::make(normal, tangent_01, tangent_12, tangent_20, *p0, *p1, *p2);
         if true {
             #[cfg(debug_assertions)]

@@ -70,12 +70,12 @@ impl Plane {
     /// directions
     pub fn set_tangents(&mut self, tangent: &Point3D) -> bool {
         let tangent = tangent.normalize();
-        let other_tangent = self.normal.cross_product(&tangent);
+        let other_tangent = self.normal.cross_product(tangent);
         if other_tangent.length_sq() < 0.1 {
             false
         } else {
             self.tangent_1 = other_tangent.normalize();
-            self.tangent_0 = self.tangent_1.cross_product(&self.normal).normalize();
+            self.tangent_0 = self.tangent_1.cross_product(self.normal).normalize();
             true
         }
     }
@@ -100,7 +100,7 @@ impl Plane {
     /// As the tangents are perpendicular to each other, these are linearly independent
     /// values
     pub fn within_plane(&self, p: &Point3D) -> Point2D {
-        [p.dot(&self.tangent_0), p.dot(&self.tangent_1)].into()
+        [p.dot(self.tangent_0), p.dot(self.tangent_1)].into()
     }
 
     /// Given a 2D point on the plane (tangent 0, tangent 1), find the
@@ -120,12 +120,12 @@ impl Plane {
         let c = (*p0 + *p1 + *p2) / 3.0;
         let dp0 = *p0 - c;
         let dp1 = *p1 - c;
-        let normal = dp0.cross_product(&dp1);
+        let normal = dp0.cross_product(dp1);
         if normal.length_sq() < 1E-10 {
             None
         } else {
             let normal = normal.normalize();
-            let value = p0.dot(&normal);
+            let value = p0.dot(normal);
             Some((normal, value).into())
         }
     }

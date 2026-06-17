@@ -329,8 +329,8 @@ impl Ray {
     /// D^2 = |(p-a)^b| ^ 2
     pub fn distances(&self, pt: &Point3D) -> (f64, f64) {
         let p_minus_a = *pt - self.start;
-        let k = p_minus_a.dot(&self.direction);
-        let cross = p_minus_a.cross_product(&self.direction);
+        let k = p_minus_a.dot(self.direction);
+        let cross = p_minus_a.cross_product(self.direction);
         let d_sq = cross.length_sq();
         (k, d_sq)
     }
@@ -340,15 +340,15 @@ impl Ray {
     ///
     /// Output data for debug
     pub fn intersect(&self, other: &Self) {
-        let d_n = self.direction.cross_product(&other.direction);
+        let d_n = self.direction.cross_product(other.direction);
         let l_d_n_sq = d_n.length_sq();
 
         // dbg!(d_n, l_d_n_sq);
         // if l_d_n_sq < 1.0E-8 {}
         let a_diff = self.start - other.start;
-        let dot_ds = self.direction.dot(&other.direction);
-        let a_diff_dot_d0 = self.direction.dot(&a_diff);
-        let a_diff_dot_d1 = other.direction.dot(&a_diff);
+        let dot_ds = self.direction.dot(other.direction);
+        let a_diff_dot_d0 = self.direction.dot(a_diff);
+        let a_diff_dot_d1 = other.direction.dot(a_diff);
 
         // dbg!(a_diff, dot_ds, a_diff_dot_d0, a_diff_dot_d1);
 
@@ -363,7 +363,7 @@ impl Ray {
         let p0 = self.start + self.direction * k0;
         let p1 = other.start + other.direction * k1;
 
-        let l = a_diff.dot(&d_n) / l_d_n_sq.sqrt();
+        let l = a_diff.dot(d_n) / l_d_n_sq.sqrt();
         // dbg!(p0, p1, l);
         dbg!(k0, k1, r0, r1, l);
 
