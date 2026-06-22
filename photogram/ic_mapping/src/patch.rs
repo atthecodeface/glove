@@ -321,8 +321,8 @@ impl Patch {
         let ity = ty.ceil() as isize;
         println!("Image bounds {ilx}, {irx}, {iby}, {ity}");
 
-        let width = (irx - ilx) as usize;
-        let height = (ity - iby) as usize;
+        let width = (irx - ilx) as u32;
+        let height = (ity - iby) as u32;
         let mut patch_img = I::new(width, height);
 
         for x in 0..width {

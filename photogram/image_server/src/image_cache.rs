@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
-use ic_image::{ImageDrawable, ImageGray16, ImageRgb8};
+use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 enum KeyType {
@@ -110,7 +110,8 @@ impl ImageCache {
         let key = ImageCacheKey::of_image_path(&path);
         if !cache.contains(&key) {
             eprintln!("Cache miss for {:?}", path.as_ref());
-            let src_img = ImageRgb8::read_image(path)?;
+            // TDODO: Change to read
+            let src_img = ImageRgb8::read(path)?;
             let src_img = ImageCacheEntry::Rgb(src_img);
             cache.insert(key.clone(), src_img);
         }

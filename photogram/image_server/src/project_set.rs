@@ -253,10 +253,9 @@ impl ProjectSet {
         let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
         let y_scale = pd.height.map(|h| src_size.1 / h).unwrap_or(1.0);
         let scale = x_scale.max(y_scale);
-        let width = (src_size.0 / scale) as usize;
-        let height = (src_size.1 / scale) as usize;
-        let no_file: Option<String> = None;
-        let mut scaled_img = ImageRgb8::read_or_create_image(width, height, no_file).unwrap();
+        let width = (src_size.0 / scale) as u32;
+        let height = (src_size.1 / scale) as u32;
+        let mut scaled_img = ImageRgb8::new(width, height);
         for y in 0..height {
             let sy = (y as f64 + 0.5) * scale;
             for x in 0..width {

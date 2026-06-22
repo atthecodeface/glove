@@ -72,7 +72,7 @@ impl CmdArgs {
         if self.read_img.is_empty() || self.write_img.is_none() {
             return Ok(());
         }
-        let mut img = ImageRgb8::read_image(&self.read_img[0])?;
+        let mut img = ImageRgb8::read(&self.read_img[0])?;
         for p in pts {
             p.draw(&mut img);
         }
@@ -93,9 +93,11 @@ impl CmdArgs {
             }
         };
         let img = ImageRgb8::read_or_create_image::<std::path::PathBuf>(
-            self.camera.sensor_size().0 as usize,
-            self.camera.sensor_size().1 as usize,
             read_filename,
+            Some((
+                self.camera.sensor_size().0 as u32,
+                self.camera.sensor_size().1 as u32,
+            )),
         )?;
         Ok(img)
     }
@@ -108,8 +110,9 @@ impl CmdArgs {
         let Some(read_filename) = self.path_set.find_file(read_filename) else {
             return Err(format!("could not finde image file {read_filename}").into());
         };
-        let img = ImageRgb8::read_image(read_filename)
-            .map_err(|e| (e, "failed to read image".to_string()))?;
+        // TDODO: Change to read
+        let img =
+            ImageRgb8::read(read_filename).map_err(|e| (e, "failed to read image".to_string()))?;
         Ok(img)
     }
 
