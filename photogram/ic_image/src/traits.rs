@@ -67,8 +67,35 @@ pub trait ImageDrawable {
     }
 }
 
-pub trait Image: ImageDrawable {
-    fn new(width: usize, height: usize) -> Self;
+pub trait Image: Sized + ImageDrawable {
+    fn new(width: u32, height: u32) -> Self;
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    fn read<P: AsRef<Path>>(path: P) -> Result<Self>;
     fn encode(&self, extension: &str) -> Result<Vec<u8>>;
+    fn read_or_create_image<P: AsRef<Path>>(
+        opt_filename: Option<P>,
+        opt_img_wh: Option<(u32, u32)>,
+    ) -> Result<Self> {
+        if let Some(filename) = opt_filename {
+            let img = Self::read(filename)?;
+            if let Some(wh) = opt_img_wh {
+                if wh == img.size() {
+                    Ok(img)
+                } else {
+                    let (w, h) = img.size();
+                    let (width, height) = wh;
+                    Err(format!(
+                        "Image read has incorrect dimensions of ({w},{h}) instead of ({width},{height})",
+                    )
+                    .into())
+                }
+            } else {
+                Ok(img)
+            }
+        } else if let Some((width, height)) = opt_img_wh {
+            Ok(Self::new(width, height))
+        } else {
+            panic!("Must provide filename or width+height");
+        }
+    }
 }

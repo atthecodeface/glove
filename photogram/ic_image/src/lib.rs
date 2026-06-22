@@ -8,7 +8,7 @@ mod regions;
 mod traits;
 
 mod patch;
-pub use patch::ImagePatch;
+pub use patch::{FromPatchFn, ImagePatch};
 
 pub use color::{Color, Gray16};
 pub use image_pt::ImagePt;

@@ -1,8 +1,24 @@
 use crate::Image;
 
+/// A trait to map from a (rectangulat) patch source to pixels
+///
+/// This trait can be implemented by a type that contains a stateful mapping of
+/// some patch (x,y) to its own space, where a subsequent (x+dx, y+dy) may use
+/// the state of the mapping to a new pixel from its own space
+///
+/// For example, it could be implemented by a 'square' patch on a tiled sphere,
+/// where moving along one pixel in the Y is likely to remain within the same
+/// tile, and so the 'current' tile can be cached in the type. When a new pixel
+/// is requested it can first be compared to the 'current' tile, and provided
+/// from there if it maps appropriately; otherwise a new tile may need to be
+/// found
 pub trait FromPatchFn {
     type Pixel;
+    /// Invoked to, in effect, reset the mapping to indicate that future calls
+    /// will be starting from around/at this X,Y
+
     fn set_mapping(&mut self, patch_x: u32, patch_y: u32);
+    /// Map from a patch X,Y to a pixel
     fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel>;
 }
 
@@ -30,6 +46,16 @@ pub struct ImagePatch<'a, I: Image> {
     width: u32,
     height: u32,
     from_patch: Box<dyn FromPatchFn<Pixel = I::Pixel> + 'a>,
+}
+
+impl<'a, I: Image> std::fmt::Debug for ImagePatch<'a, I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ImagePatch[{},{}:{}x{}]",
+            self.x, self.y, self.width, self.height
+        )
+    }
 }
 
 impl<'a, I: Image> ImagePatch<'a, I> {

@@ -1,4 +1,3 @@
-//a Imports
 use std::io::Cursor;
 use std::path::Path;
 
@@ -20,7 +19,6 @@ impl std::ops::Deref for ImageRgb8 {
     }
 }
 
-//ip DerefMut for ImageRgb8
 impl std::ops::DerefMut for ImageRgb8 {
     fn deref_mut(&mut self) -> &mut DynamicImage {
         &mut self.0
@@ -29,42 +27,10 @@ impl std::ops::DerefMut for ImageRgb8 {
 
 //ip ImageRgb8
 impl ImageRgb8 {
-    //cp read_image
-    pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let img = ImageReader::open(&path)?.decode()?.into_rgb8();
-        Ok(Self(img.into()))
-    }
-
-    //fp read_or_create_image
-    pub fn read_or_create_image<P: AsRef<Path>>(
-        width: usize,
-        height: usize,
-        opt_filename: Option<P>,
-    ) -> Result<Self> {
-        let width = width as u32;
-        let height = height as u32;
-        if let Some(filename) = opt_filename {
-            let img = Self::read_image(&filename)?;
-            let (w, h) = img.size();
-            if w != width || h != height {
-                Err(format!(
-                    "Image read has incorrect dimensions of ({w},{h}) instead of ({width},{height})",
-                )
-                .into())
-            } else {
-                Ok(img)
-            }
-        } else {
-            Ok(Self(DynamicImage::new_rgb8(width, height)))
-        }
-    }
-
-    //ac buffer
     pub(crate) fn buffer(&self) -> &image::DynamicImage {
         &self.0
     }
 
-    //mp as_vec_gray_f32
     pub fn as_vec_gray_f32(&self, as_width: Option<usize>) -> (usize, usize, Vec<f32>) {
         let size = self.size();
         let size = (size.0 as usize, size.1 as usize);
@@ -88,17 +54,16 @@ impl ImageRgb8 {
         (width, height, result)
     }
 
-    //cp of_gray
     pub fn of_gray(image: &ImageGray16) -> Self {
         let image = image.buffer().to_rgb8();
         Self(image.into())
     }
 
-    //cp from_image
     pub fn from_image(image: &image::DynamicImage) -> Self {
         let image = image.to_rgb8();
         Self(image.into())
     }
+
     pub fn of_image(i: DynamicImage) -> std::result::Result<Self, DynamicImage> {
         if i.as_rgba8().is_some() {
             Ok(Self(i))
@@ -125,15 +90,22 @@ impl ImageDrawable for ImageRgb8 {
 
 //ip Image for ImageRgb8
 impl Image for ImageRgb8 {
-    fn new(width: usize, height: usize) -> Self {
-        Self(DynamicImage::new_rgb8(width as u32, height as u32))
+    fn new(width: u32, height: u32) -> Self {
+        Self(DynamicImage::new_rgb8(width, height))
     }
+
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.0
             .save(path)
             .map_err(|e| format!("Failed to encode image {e}"))?;
         Ok(())
     }
+
+    fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let img = ImageReader::open(&path)?.decode()?.into_rgb8();
+        Ok(Self(img.into()))
+    }
+
     fn encode(&self, extension: &str) -> Result<Vec<u8>> {
         let format = {
             match extension {
