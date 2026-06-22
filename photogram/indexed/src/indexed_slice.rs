@@ -130,7 +130,7 @@ where
     //ap iter
     /// Get a iterator over references to our values.
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> {
+    pub fn iter<'iter>(&'iter self) -> std::slice::Iter<'iter, T> {
         self.slice.iter()
     }
 
@@ -147,7 +147,7 @@ where
     //ap indices
     /// Get an interator over all our indices.
     #[inline(always)]
-    pub fn indices(&self) -> impl ExactSizeIterator<Item = I> {
+    pub fn indices(&self) -> std::iter::Map<std::ops::Range<usize>, fn(usize) -> I> {
         (0..self.slice.len()).map(I::from_usize)
     }
 
