@@ -100,4 +100,40 @@ impl SdSubtriangle {
             }
         }
     }
+    pub fn into_subtriangle(&mut self, subtriangle: u8) {
+        // Create midpoints of the lines (no need to normalize)
+        let p01_mp = self.p0 + self.p1;
+        let p12_mp = self.p1 + self.p2;
+        let p20_mp = self.p2 + self.p0;
+
+        // Create four triangles with counter-clockwise points as viewed from the outside
+        let gcn_01mp_12mp = p01_mp.cross_product(p12_mp);
+        let gcn_12mp_20mp = p12_mp.cross_product(p20_mp);
+        let gcn_20mp_01mp = p20_mp.cross_product(p01_mp);
+        match subtriangle {
+            0 => {
+                self.gcn_12 = -gcn_20mp_01mp;
+                self.p1 = p01_mp;
+                self.p2 = p20_mp;
+            }
+            1 => {
+                self.gcn_20 = -gcn_01mp_12mp;
+                self.p0 = p01_mp;
+                self.p2 = p12_mp;
+            }
+            2 => {
+                self.gcn_01 = -gcn_12mp_20mp;
+                self.p0 = p20_mp;
+                self.p1 = p12_mp;
+            }
+            _ => {
+                self.gcn_01 = gcn_12mp_20mp;
+                self.gcn_12 = gcn_20mp_01mp;
+                self.gcn_20 = gcn_01mp_12mp;
+                self.p0 = p12_mp;
+                self.p1 = p20_mp;
+                self.p2 = p01_mp;
+            }
+        }
+    }
 }

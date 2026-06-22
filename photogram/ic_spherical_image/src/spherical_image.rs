@@ -1,108 +1,142 @@
-use ic_base::{Point2D, Point3D, Triangle3D};
-use std::marker::PhantomData;
+use crate::{GreatCircleTriangleIndex, SdIndex, SphericalData, SphericalImageError};
+use ic_base::JsonParsable;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-trait Color: Default {}
-trait ImagePatch<C>: Default {
-    fn pixel_wh(&self) -> u32;
+use crate::{SphericalImageShape, SphericalPatch, SphericalPatchDescriptor};
+
+/// A descriptor of a spherical image that accompanies the actual bitmap that
+/// contains the pixels
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SphericalImageDescriptor {
+    /// The image size
+    img_wh: (u32, u32),
+    /// Toplevel shape
+    shape: SphericalImageShape,
+    /// Patch hierarchy description
+    patches: Vec<SphericalPatchDescriptor>,
 }
 
-/// A pair of triangles (p[0], p[1], p[2]; p[1], p[2], p[3]) and the image data associated with them
-pub struct TrianglePatchPair<C: Color, I: ImagePatch<C>> {
-    /// The four coordinates *on the sphere* that the two triangles making up this patch correspond to
-    sphere_corners: [Point3D; 4],
-    /// The Plane consisting of points 0, 1, 2 - which should be
-    /// counterclockwise as a surface when viewed from *outside* the solid
-    plane012: Triangle3D,
-    /// The Plane consisting of points 3, 1, 2 - which should be
-    /// clockwise as a surface when viewed from *outside* the solid (i.e. the opposite orientation to plane012)
-    plane312: Triangle3D,
-    /// The image data for the square made up of the two triangles, of dimension pixel_wh by pixel_wh
-    image_data: I,
-    phantom: PhantomData<C>,
+impl JsonParsable for SphericalImageDescriptor {
+    type PostParseArg = ();
+    type PostParseResult = SphericalImage;
+    fn reason() -> &'static str {
+        "SphericalImagehDescriptor"
+    }
+    fn post_parse(self, _args: &()) -> ic_base::Result<SphericalImage> {
+        Ok(SphericalImage::of_desc(&self)?)
+    }
 }
 
-impl<C: Color, I: ImagePatch<C>> TrianglePatchPair<C, I> {
-    fn new(sphere_corners: [Point3D; 4]) -> Option<Self> {
-        let image_data = I::default();
-        let plane012 =
-            Triangle3D::of_points(&sphere_corners[0], &sphere_corners[1], &sphere_corners[2])?;
-
-        let plane312 =
-            Triangle3D::of_points(&sphere_corners[3], &sphere_corners[1], &sphere_corners[2])?;
-
-        Some(Self {
-            sphere_corners,
-            plane012,
-            plane312,
-            image_data,
-            phantom: PhantomData,
+impl SphericalImageDescriptor {
+    /// Create a [SphericalImageDescriptor] for the toplevel triangles of the given shape
+    pub fn of_shape_toplevel(
+        shape: SphericalImageShape,
+        img_wh: (u32, u32),
+        patch_size: u32,
+    ) -> Result<Self, SphericalImageError> {
+        let mut patches = vec![];
+        let sd = shape.to_spherical_data()?;
+        let mut img_x = 0;
+        let mut img_y = 0;
+        for (i, (_t0, _t1)) in sd
+            .iter_triangle_indicess()
+            .zip(sd.iter_triangle_indicess().skip(1))
+            .enumerate()
+            .filter(|(i, _)| (i & 1) == 0)
+        {
+            let spd = SphericalPatchDescriptor {
+                patch_size,
+                img_xy: (img_x, img_y),
+                toplevel_t0: i as u16,
+                toplevel_t1: (i + 1) as u16,
+                subdivision_to_patch: 0,
+                t0_subdivision_hierarchy: 0,
+                t1_subdivision_hierarchy: 0,
+                patch_subdivision: 0,
+            };
+            img_x += patch_size;
+            if img_x >= img_wh.0 {
+                img_x = 0;
+                img_y += patch_size;
+            }
+            patches.push(spd);
+        }
+        Ok(Self {
+            shape,
+            patches,
+            img_wh,
         })
     }
-    fn coord_in_patch(&self, _pt: &Point3D) -> Point2D {
-        Point2D::default()
+}
+
+/// A descriptor of a spherical image that accompanies the actual bitmap that
+/// contains the pixels
+#[derive(Debug)]
+pub struct SphericalImage {
+    /// The image size
+    img_wh: (u32, u32),
+    /// Toplevel shape
+    shape: SphericalImageShape,
+    /// The triangles, normals, etc in the sphere surface
+    sd: SphericalData,
+    /// GreatCircleTriangleIndex for sd for triangles in the image that are
+    /// toplevel or toplevel subdivide by one
+    sd_index: SdIndex,
+    /// Patches that make up the surface
+    patches: Vec<SphericalPatch>,
+    patch_map: HashMap<GreatCircleTriangleIndex, usize>,
+}
+
+impl SphericalImage {
+    fn of_desc(desc: &SphericalImageDescriptor) -> Result<Self, SphericalImageError> {
+        let mut sd = desc.shape.to_spherical_data()?;
+        let mut patches = vec![];
+        for p in &desc.patches {
+            patches.push(SphericalPatch::of_desc(&mut sd, p)?);
+        }
+        let mut patch_map = HashMap::new();
+        for (i, p) in patches.iter().enumerate() {
+            patch_map.insert(p.t0, i);
+            patch_map.insert(p.t1, i);
+        }
+        let sd_index = SdIndex::new(
+            &sd,
+            sd.iter_triangle_indicess()
+                .filter(|t| sd[*t].subdivision_path().subdivision() <= 1),
+        );
+
+        Ok(Self {
+            img_wh: desc.img_wh,
+            shape: desc.shape.clone(),
+            sd,
+            sd_index,
+            patches,
+            patch_map,
+        })
     }
-    fn contains_point(&self, pt: &Point3D) -> bool {
-        if self.plane012.contains_point(pt) {
-            true
-        } else if self.plane312.contains_point(pt) {
-            true
-        } else {
-            false
+    /*
+    //    pub fn of_desc(desc: SphericalImageDescriptor) -> Self {}
+    pub fn of_shape(pts: &[[f64; 3]], triangle_indices: &[(usize, usize, usize)]) -> Self {
+        let mut patches = vec![];
+        for ti in triangle_indices.chunks(2) {
+            assert_eq!(ti.len(), 2, "An even number of faces is required");
+            let gc0 = GCTriangle::of_points(
+                &pts[ti[0].0].into(),
+                &pts[ti[0].1].into(),
+                &pts[ti[0].2].into(),
+            );
+            let gc1 = GCTriangle::of_points(
+                &pts[ti[1].0].into(),
+                &pts[ti[1].1].into(),
+                &pts[ti[1].2].into(),
+            );
+            patches.push(ImagePatch::of_gc_triangles(&gc0, &gc1));
+        }
+        Self {
+            img_wh: (0, 0),
+            patches,
         }
     }
-}
-
-#[derive(Default)]
-pub enum QuadTreeImagePatch<C, I> {
-    #[default]
-    Empty,
-    Uniform(C),
-    Data(I),
-}
-
-pub struct SphericalImageOctahedron<C: Color, I: ImagePatch<C>> {
-    patches: [TrianglePatchPair<C, I>; 4],
-}
-
-impl<C: Color, I: ImagePatch<C>> SphericalImageOctahedron<C, I> {
-    fn new() -> Self {
-        let patches = [
-            TrianglePatchPair::new([
-                [0.0, 0.0, 1.0].into(),
-                [1.0, 0.0, 0.0].into(),
-                [0.0, 1.0, 0.0].into(),
-                [0.0, 0.0, -1.0].into(),
-            ])
-            .unwrap(),
-            TrianglePatchPair::new([
-                [0.0, 0.0, 1.0].into(),
-                [0.0, 1.0, 0.0].into(),
-                [-1.0, 0.0, 0.0].into(),
-                [0.0, 0.0, -1.0].into(),
-            ])
-            .unwrap(),
-            TrianglePatchPair::new([
-                [0.0, 0.0, 1.0].into(),
-                [-1.0, 0.0, 0.0].into(),
-                [0.0, -1.0, 0.0].into(),
-                [0.0, 0.0, -1.0].into(),
-            ])
-            .unwrap(),
-            TrianglePatchPair::new([
-                [0.0, 0.0, 1.0].into(),
-                [0.0, -1.0, 0.0].into(),
-                [1.0, 0.0, 0.0].into(),
-                [0.0, 0.0, -1.0].into(),
-            ])
-            .unwrap(),
-        ];
-        Self { patches }
-    }
-    fn find_patch_of_point(&self, p: Point3D, ignore_mask: u32) -> Option<usize> {
-        None
-    }
-    /// Iterate through the pixels with centers at x0, x1 with n pixels precisely; n must be 2 or more
-    fn pixel_iter(x0: Point3D, x1: Point3D, n: u32) // -> Option<impl ExactSizeIterator<Item = C>> {
-    {
-    }
+    */
 }

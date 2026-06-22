@@ -14,7 +14,7 @@ fn test_find_icos_pt() -> Result<(), Box<dyn std::error::Error>> {
         sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]);
     }
 
-    let index = SdIndex::new(&sd);
+    let index = SdIndex::new(&sd, sd.iter_triangle_indicess());
 
     let p: Point3D = [0.1, 0.2, 0.3].into();
     let p = p.normalize();

@@ -163,42 +163,42 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("Finding triangles");
     assert!(
-        sd.find_gc_triangle(ym, zm, xp).is_some(),
+        sd.find_gc_triangle_of_points(ym, zm, xp).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         ym,
         zm,
         xp,
     );
     assert!(
-        sd.find_gc_triangle(ym, xp, zm).is_some(),
+        sd.find_gc_triangle_of_points(ym, xp, zm).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         ym,
         xp,
         zm,
     );
     assert!(
-        sd.find_gc_triangle(xp, ym, zm).is_some(),
+        sd.find_gc_triangle_of_points(xp, ym, zm).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         xp,
         ym,
         zm,
     );
     assert!(
-        sd.find_gc_triangle(xp, zm, ym).is_some(),
+        sd.find_gc_triangle_of_points(xp, zm, ym).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         xp,
         zm,
         ym,
     );
     assert!(
-        sd.find_gc_triangle(zm, ym, xp).is_some(),
+        sd.find_gc_triangle_of_points(zm, ym, xp).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         zm,
         ym,
         xp,
     );
     assert!(
-        sd.find_gc_triangle(zm, xp, ym).is_some(),
+        sd.find_gc_triangle_of_points(zm, xp, ym).is_some(),
         "Triangle {:?}, {:?}, {:?} should be present",
         zm,
         xp,

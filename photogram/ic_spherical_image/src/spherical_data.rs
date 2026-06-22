@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use geo_nd::Vector;
+use geo_nd::{Vector, vector::sub};
 
 use ic_base::Point3D;
 use indexed::{Idx, IndexedVec};
 
-use crate::{GcLine, GcNormal, GcTriangle, ImagePt, SdSubtriangle};
+use crate::{
+    GcLine, GcNormal, GcTriangle, ImagePt, SdSubtriangle, SphericalImageError, SubdivisionPath,
+};
 
 indexed::make_index!(
     /// An index into the 'points' vector of `Rc<(PtIndex, Point3D)>`
@@ -29,9 +31,11 @@ indexed::make_index!(
 indexed::make_index!(
     /// An index into the 'great circle triangles' vector of `image_gc`
     ///
+    /// This can be 'None'
+    ///
     /// Each represents a portion of a great circle between two points, possibly
     /// with a defined mid-point, and it refers to the normal to the GC
-    GreatCircleTriangleIndex, usize, false);
+    GreatCircleTriangleIndex, usize, true);
 
 /// A set of points, normals, great circles, etc that make up the informatioqn for a spherical image
 ///
@@ -44,6 +48,7 @@ pub struct SphericalData {
     gc_triangles: IndexedVec<GreatCircleTriangleIndex, GcTriangle, false>,
     gc_line_map: HashMap<(PtIndex, PtIndex), GreatCircleLineIndex>,
     gc_triangle_map: HashMap<(PtIndex, PtIndex, PtIndex), GreatCircleTriangleIndex>,
+    gc_triangle_index: HashMap<(GreatCircleTriangleIndex, u64), GreatCircleTriangleIndex>,
 }
 
 impl std::ops::Index<PtIndex> for SphericalData {
@@ -75,9 +80,24 @@ impl std::ops::Index<GreatCircleTriangleIndex> for SphericalData {
 }
 
 impl SphericalData {
+    /// Create from shape data - points and triangle indices
+    pub fn of_shape(pts: &[[f64; 3]], triangle_indices: &[(usize, usize, usize)]) -> Self {
+        let mut sd = Self::default();
+        let pts: Vec<_> = pts.iter().map(|p| sd.add_initial_point(p.into())).collect();
+        for (p0, p1, p2) in triangle_indices {
+            sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]);
+        }
+        sd
+    }
+
     /// Iterate through the points
     pub fn iter_points(&self) -> impl ExactSizeIterator<Item = &'_ Rc<ImagePt>> {
         self.points.iter()
+    }
+
+    /// Get the number of triangles
+    pub fn num_triangles(&self) -> usize {
+        self.gc_triangles.len()
     }
 
     /// Iterate through the triangles
@@ -155,12 +175,27 @@ impl SphericalData {
         let (p0, p2) = (p0.min(p2), p0.max(p2));
         let (p1, p2) = (p1.min(p2), p1.max(p2));
         self.gc_triangle_map.insert((p0, p1, p2), gc);
+        self.gc_triangle_index.insert(
+            (self[gc].toplevel(gc), self[gc].subdivision_path().path()),
+            gc,
+        );
     }
 
-    /// Find the GC line between the two points, and return (false, gc) if the
-    /// great circle line is between p0 and p1; (true, gc) if it is between p1
-    /// and p0; none if it is not present
-    pub fn find_gc_triangle(
+    /// Find the GC triangle of toplevel and path
+    pub fn find_gc_triangle_of_toplevel_and_path(
+        &self,
+        top_gc: GreatCircleTriangleIndex,
+        subdivision_path: SubdivisionPath,
+    ) -> Option<GreatCircleTriangleIndex> {
+        self.gc_triangle_index
+            .get(&(top_gc, subdivision_path.path()))
+            .copied()
+    }
+
+    /// Find the GC triangle using the three points
+    ///
+    /// This is used in 'find or add' to stop duplicate triangles
+    pub fn find_gc_triangle_of_points(
         &self,
         p0: PtIndex,
         p1: PtIndex,
@@ -198,21 +233,36 @@ impl SphericalData {
 
     /// Find, or add if not present, a GC triangle that uses P0, P1, P2
     /// counterclockwise when viewed from the outside
-    pub fn find_or_add_gc_triangle(
+    pub fn find_or_add_subdivided_gc_triangle(
         &mut self,
+        subdivides: GreatCircleTriangleIndex,
         p0: PtIndex,
         p1: PtIndex,
         p2: PtIndex,
-        subdivision: u8,
+        subdivision_path_step: u8,
     ) -> (bool, GreatCircleTriangleIndex) {
-        if let Some(gc) = self.find_gc_triangle(p0, p1, p2) {
+        if let Some(gc) = self.find_gc_triangle_of_points(p0, p1, p2) {
             return (false, gc);
         }
 
+        let subdivision_path = self[subdivides]
+            .subdivision_path()
+            .subpath(subdivision_path_step as u64);
         let gc_p0_p1 = self.find_or_add_gc_line(p0, p1);
         let gc_p1_p2 = self.find_or_add_gc_line(p1, p2);
         let gc_p2_p0 = self.find_or_add_gc_line(p2, p0);
-        let gc_tri = GcTriangle::new(self, gc_p0_p1, gc_p1_p2, gc_p2_p0, p0, p1, p2, subdivision);
+        let top_gc = self[subdivides].toplevel(subdivides);
+        let gc_tri = GcTriangle::new(
+            self,
+            top_gc,
+            gc_p0_p1,
+            gc_p1_p2,
+            gc_p2_p0,
+            p0,
+            p1,
+            p2,
+            subdivision_path,
+        );
         let gc_idx = self.gc_triangles.push(gc_tri);
         self.add_gc_triangle(p0, p1, p2, gc_idx);
         (true, gc_idx)
@@ -226,13 +276,23 @@ impl SphericalData {
         p1: PtIndex,
         p2: PtIndex,
     ) -> GreatCircleTriangleIndex {
-        if let Some(_gc) = self.find_gc_triangle(p0, p1, p2) {
+        if let Some(_gc) = self.find_gc_triangle_of_points(p0, p1, p2) {
             panic!("Triangle already exists");
         }
         let gc_p0_p1 = self.find_or_add_gc_line(p0, p1);
         let gc_p1_p2 = self.find_or_add_gc_line(p1, p2);
         let gc_p2_p0 = self.find_or_add_gc_line(p2, p0);
-        let gc_tri = GcTriangle::new(self, gc_p0_p1, gc_p1_p2, gc_p2_p0, p0, p1, p2, 0);
+        let gc_tri = GcTriangle::new(
+            self,
+            GreatCircleTriangleIndex::none(),
+            gc_p0_p1,
+            gc_p1_p2,
+            gc_p2_p0,
+            p0,
+            p1,
+            p2,
+            SubdivisionPath::default(),
+        );
         let gc_idx = self.gc_triangles.push(gc_tri);
         self.add_gc_triangle(p0, p1, p2, gc_idx);
         gc_idx
@@ -274,13 +334,15 @@ impl SphericalData {
         mid_pt_idx
     }
 
+    /// Find the GreatCircleTriangleIndex of the triangle at the required
+    /// subdivision level that contains the point
     pub fn find_gc_triangle_of_vector(
         &self,
         v: &Point3D,
         subdivision: u8,
     ) -> Option<GreatCircleTriangleIndex> {
         for t in self.gc_triangles.indices() {
-            if self[t].subdivision() != subdivision {
+            if self[t].subdivision_path().subdivision() != subdivision {
                 continue;
             }
             if self.gc_triangles[t].point_outside_lines(self, v) == 0 {
@@ -312,7 +374,6 @@ impl SphericalData {
         // Retrieve the points in counter-clockwise order as viewed from the outside
         let gc = &self[gc_triangle];
         let (p0, p1, p2) = gc.get_points(self);
-        let subdivision = gc.subdivision();
 
         // Retrieve the lines to create midpoints
         let p01 = gc.gc_line(0).1;
@@ -325,10 +386,14 @@ impl SphericalData {
         let p02_mp = self.get_or_add_midpoint_of_line(p02);
 
         // Create four triangles with counter-clockwise points as viewed from the outside
-        let (t0_new, t0) = self.find_or_add_gc_triangle(p0, p01_mp, p02_mp, subdivision + 1);
-        let (t1_new, t1) = self.find_or_add_gc_triangle(p1, p12_mp, p01_mp, subdivision + 1);
-        let (t2_new, t2) = self.find_or_add_gc_triangle(p2, p02_mp, p12_mp, subdivision + 1);
-        let (t3_new, t3) = self.find_or_add_gc_triangle(p02_mp, p01_mp, p12_mp, subdivision + 1);
+        let (t0_new, t0) =
+            self.find_or_add_subdivided_gc_triangle(gc_triangle, p0, p01_mp, p02_mp, 0);
+        let (t1_new, t1) =
+            self.find_or_add_subdivided_gc_triangle(gc_triangle, p1, p12_mp, p01_mp, 1);
+        let (t2_new, t2) =
+            self.find_or_add_subdivided_gc_triangle(gc_triangle, p2, p02_mp, p12_mp, 2);
+        let (t3_new, t3) =
+            self.find_or_add_subdivided_gc_triangle(gc_triangle, p02_mp, p01_mp, p12_mp, 3);
 
         // Count the total new triangles (should be 0 or 4)
         let mut total_new = 0;
@@ -376,5 +441,37 @@ impl SphericalData {
             sub.find_subtriangle_of_point(p);
         }
         sub
+    }
+
+    pub fn find_triangle_or_parent(
+        &self,
+        gc_triangle: GreatCircleTriangleIndex,
+        mut subdivision_path: SubdivisionPath,
+    ) -> GreatCircleTriangleIndex {
+        let top_gc = self[gc_triangle].toplevel(gc_triangle);
+        while subdivision_path.subdivision() > 0 {
+            if let Some(gct) = self.find_gc_triangle_of_toplevel_and_path(top_gc, subdivision_path)
+            {
+                return gct;
+            }
+            subdivision_path = subdivision_path.parent();
+        }
+        top_gc
+    }
+
+    /// Find the required SubdivisionPath of a GC Triangle in the SphereData -
+    /// which may not be a toplevel triangle
+    pub fn find_or_subdivide_to_gc_triangle(
+        &mut self,
+        gc_triangle: GreatCircleTriangleIndex,
+        subdivision_path: SubdivisionPath,
+    ) -> Result<GreatCircleTriangleIndex, SphericalImageError> {
+        loop {
+            let gct = self.find_triangle_or_parent(gc_triangle, subdivision_path);
+            if self[gct].subdivision_path().subdivision() == subdivision_path.subdivision() {
+                return Ok(gct);
+            }
+            self.subdivide_triangle(gct);
+        }
     }
 }

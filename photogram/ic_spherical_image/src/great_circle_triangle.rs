@@ -2,7 +2,10 @@ use geo_nd::Vector;
 
 use ic_base::Point3D;
 
-use crate::{GreatCircleLineIndex, PtIndex, SphericalData};
+use crate::{
+    GreatCircleLineIndex, GreatCircleTriangleIndex, PtIndex, SphericalData, SubdivisionPath,
+};
+use indexed::Idx;
 
 /// A portion of a sphere bounded by three great circle segments
 ///
@@ -11,6 +14,8 @@ use crate::{GreatCircleLineIndex, PtIndex, SphericalData};
 /// definition of that midpoint's position.
 #[derive(Debug)]
 pub struct GcTriangle {
+    /// Toplevel triangle - None if this is toplevel
+    top: GreatCircleTriangleIndex,
     /// The great circle segment containing points P0 and P1
     ///
     /// The segment has two points: if swapped bit 0 is clear then the segment's
@@ -20,20 +25,21 @@ pub struct GcTriangle {
     gc1: GreatCircleLineIndex,
     gc2: GreatCircleLineIndex,
     swapped: u8,
-    subdivision: u8,
+    subdivision_path: SubdivisionPath,
 }
 
 impl GcTriangle {
     /// Create a new GcTriangle
     pub(crate) fn new(
         sd: &SphericalData,
+        top: GreatCircleTriangleIndex,
         gc0: GreatCircleLineIndex,
         gc1: GreatCircleLineIndex,
         gc2: GreatCircleLineIndex,
         p0: PtIndex,
         p1: PtIndex,
         p2: PtIndex,
-        subdivision: u8,
+        subdivision_path: SubdivisionPath,
     ) -> Self {
         let mut swapped = 0;
         if sd[gc0].p0().index() != p0 {
@@ -46,17 +52,23 @@ impl GcTriangle {
             swapped |= 4;
         }
         Self {
+            top,
             gc0,
             gc1,
             gc2,
             swapped,
-            subdivision,
+            subdivision_path,
         }
     }
 
     /// Get the degree of subdivision for this triangle
-    pub fn subdivision(&self) -> u8 {
-        self.subdivision
+    pub fn toplevel(&self, gct: GreatCircleTriangleIndex) -> GreatCircleTriangleIndex {
+        if self.top.is_none() { gct } else { self.top }
+    }
+
+    /// Get the degree of subdivision and path for this triangle
+    pub fn subdivision_path(&self) -> SubdivisionPath {
+        self.subdivision_path
     }
 
     /// Retrieve a line segment for the triangle, and whether it is included in

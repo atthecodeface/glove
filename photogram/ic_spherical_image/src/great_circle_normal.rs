@@ -16,6 +16,10 @@ impl GcNormal {
         let i = self.0.index();
         NormalIndex::from_usize(i ^ 1)
     }
+    pub fn lower_index(&self) -> NormalIndex {
+        let i = self.0.index();
+        NormalIndex::from_usize(i & !1)
+    }
     pub fn vector(&self) -> &Point3D {
         &self.1
     }
