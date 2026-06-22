@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use geo_nd::Vector;
 
 use ic_base::Point3D;
-use indexed::Idx;
 
 use crate::{GreatCircleTriangleIndex, SphericalData};
 
@@ -68,7 +67,7 @@ use crate::{GreatCircleTriangleIndex, SphericalData};
 /// * an icosahedron, with 15 great circles and 160 regions (for 20 triangles)
 ///
 /// * an icosahedron subdivided once, with 21 great circles and 280 regions (for 80 triangles)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SdIndex {
     normals: Vec<Point3D>,
     map: HashMap<u64, GreatCircleTriangleIndex>,

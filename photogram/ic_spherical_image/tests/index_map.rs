@@ -17,7 +17,7 @@ fn test_icos() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(p0, p1, p2)| sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]))
         .collect();
 
-    let index = SdIndex::new(&sd, sd.iter_triangle_indicess());
+    let index = SdIndex::new(&sd, sd.iter_triangle_indices());
 
     let p = [0.1, 0.2, 0.3].into();
     let t = index
@@ -39,7 +39,7 @@ fn test_icos() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let t_vec: Vec<_> = sd
-        .iter_triangle_indicess()
+        .iter_triangle_indices()
         .filter(|t| sd[*t].subdivision_path().subdivision_matches(0))
         .collect();
     for t in t_vec {
@@ -48,7 +48,7 @@ fn test_icos() -> Result<(), Box<dyn std::error::Error>> {
 
     let index = SdIndex::new(
         &sd,
-        sd.iter_triangle_indicess()
+        sd.iter_triangle_indices()
             .filter(|t| sd[*t].subdivision_path().subdivision_matches(1)),
     );
 
@@ -89,7 +89,7 @@ fn test_octa() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(p0, p1, p2)| sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]))
         .collect();
 
-    let index = SdIndex::new(&sd, sd.iter_triangle_indicess());
+    let index = SdIndex::new(&sd, sd.iter_triangle_indices());
 
     let p = [0.1, 0.2, 0.3].into();
     let t = index
@@ -111,7 +111,7 @@ fn test_octa() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let t_vec: Vec<_> = sd
-        .iter_triangle_indicess()
+        .iter_triangle_indices()
         .filter(|t| sd[*t].subdivision_path().subdivision_matches(0))
         .collect();
     for t in t_vec {
@@ -120,7 +120,7 @@ fn test_octa() -> Result<(), Box<dyn std::error::Error>> {
 
     let index = SdIndex::new(
         &sd,
-        sd.iter_triangle_indicess()
+        sd.iter_triangle_indices()
             .filter(|t| sd[*t].subdivision_path().subdivision_matches(1)),
     );
 
@@ -143,7 +143,7 @@ fn test_octa() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let t_vec: Vec<_> = sd
-        .iter_triangle_indicess()
+        .iter_triangle_indices()
         .filter(|t| sd[*t].subdivision_path().subdivision_matches(1))
         .collect();
     for t in t_vec {
@@ -152,7 +152,7 @@ fn test_octa() -> Result<(), Box<dyn std::error::Error>> {
 
     let index = SdIndex::new(
         &sd,
-        sd.iter_triangle_indicess()
+        sd.iter_triangle_indices()
             .filter(|t| sd[*t].subdivision_path().subdivision_matches(2)),
     );
     // let index = SdIndex::new(&sd);/
@@ -192,7 +192,7 @@ fn test_tetra() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(p0, p1, p2)| sd.add_initial_gc_triangle(pts[*p0], pts[*p1], pts[*p2]))
         .collect();
 
-    let index = SdIndex::new(&sd, sd.iter_triangle_indicess());
+    let index = SdIndex::new(&sd, sd.iter_triangle_indices());
 
     let p = [0.1, 0.2, 0.3].into();
     let t = index
@@ -214,7 +214,7 @@ fn test_tetra() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let t_vec: Vec<_> = sd
-        .iter_triangle_indicess()
+        .iter_triangle_indices()
         .filter(|t| sd[*t].subdivision_path().subdivision_matches(0))
         .collect();
     for t in t_vec {
@@ -223,7 +223,7 @@ fn test_tetra() -> Result<(), Box<dyn std::error::Error>> {
 
     let index = SdIndex::new(
         &sd,
-        sd.iter_triangle_indicess()
+        sd.iter_triangle_indices()
             .filter(|t| sd[*t].subdivision_path().subdivision_matches(1)),
     );
 
@@ -246,7 +246,7 @@ fn test_tetra() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let t_vec: Vec<_> = sd
-        .iter_triangle_indicess()
+        .iter_triangle_indices()
         .filter(|t| sd[*t].subdivision_path().subdivision_matches(1))
         .collect();
     for t in t_vec {
@@ -255,7 +255,7 @@ fn test_tetra() -> Result<(), Box<dyn std::error::Error>> {
 
     let index = SdIndex::new(
         &sd,
-        sd.iter_triangle_indicess()
+        sd.iter_triangle_indices()
             .filter(|t| sd[*t].subdivision_path().subdivision_matches(2)),
     );
     // let index = SdIndex::new(&sd);/

@@ -6,12 +6,12 @@ use ic_base::Point3D;
 /// The `vec` are not meant to be copied or cloned, as they are unique, and so
 /// this does not support Clone
 #[derive(Debug)]
-pub struct ImagePt {
+pub struct SphericalImagePt {
     pt: PtIndex,
     vec: Point3D,
 }
 
-impl ImagePt {
+impl SphericalImagePt {
     pub fn new(pt: PtIndex, vec: Point3D) -> Self {
         Self { pt, vec }
     }

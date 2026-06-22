@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use geo_nd::{Vector, vector::sub};
+use geo_nd::Vector;
 
 use ic_base::Point3D;
 use indexed::{Idx, IndexedVec};
 
 use crate::{
-    GcLine, GcNormal, GcTriangle, ImagePt, SdSubtriangle, SphericalImageError, SubdivisionPath,
+    GcLine, GcNormal, GcTriangle, SdSubtriangle, SphericalImageError, SphericalImagePt,
+    SubdivisionPath,
 };
 
 indexed::make_index!(
@@ -42,7 +43,7 @@ indexed::make_index!(
 /// This does not include any pixel data, and is a purely internal structure
 #[derive(Default, Debug)]
 pub struct SphericalData {
-    points: IndexedVec<PtIndex, Rc<ImagePt>, false>,
+    points: IndexedVec<PtIndex, Rc<SphericalImagePt>, false>,
     gc_lines: IndexedVec<GreatCircleLineIndex, GcLine, true>,
     normals: IndexedVec<NormalIndex, Rc<GcNormal>, false>,
     gc_triangles: IndexedVec<GreatCircleTriangleIndex, GcTriangle, false>,
@@ -52,7 +53,7 @@ pub struct SphericalData {
 }
 
 impl std::ops::Index<PtIndex> for SphericalData {
-    type Output = Rc<ImagePt>;
+    type Output = Rc<SphericalImagePt>;
     fn index(&self, index: PtIndex) -> &Self::Output {
         &self.points[index]
     }
@@ -91,7 +92,7 @@ impl SphericalData {
     }
 
     /// Iterate through the points
-    pub fn iter_points(&self) -> impl ExactSizeIterator<Item = &'_ Rc<ImagePt>> {
+    pub fn iter_points(&self) -> impl Clone + ExactSizeIterator<Item = &'_ Rc<SphericalImagePt>> {
         self.points.iter()
     }
 
@@ -101,26 +102,26 @@ impl SphericalData {
     }
 
     /// Iterate through the triangles
-    pub fn iter_triangles(&self) -> impl ExactSizeIterator<Item = &'_ GcTriangle> {
+    pub fn iter_triangles(&self) -> impl Clone + ExactSizeIterator<Item = &'_ GcTriangle> {
         self.gc_triangles.iter()
     }
 
     /// Iterate through the triangle indices
-    pub fn iter_triangle_indicess(
+    pub fn iter_triangle_indices(
         &self,
-    ) -> impl ExactSizeIterator<Item = GreatCircleTriangleIndex> {
+    ) -> impl Clone + ExactSizeIterator<Item = GreatCircleTriangleIndex> {
         self.gc_triangles.indices()
     }
 
     /// Iterate through the triangles
-    pub fn iter_normals(&self) -> impl ExactSizeIterator<Item = &'_ Rc<GcNormal>> {
+    pub fn iter_normals(&self) -> impl Clone + ExactSizeIterator<Item = &'_ Rc<GcNormal>> {
         self.normals.iter()
     }
 
     /// Add an initial point, from one of the vertices of the `shape` triangles
     pub fn add_initial_point(&mut self, pt: Point3D) -> PtIndex {
         let idx = self.points.next_index();
-        self.points.push(ImagePt::new(idx, pt).into());
+        self.points.push(SphericalImagePt::new(idx, pt).into());
         idx
     }
 
@@ -316,7 +317,7 @@ impl SphericalData {
         let mid_pt_vec = (p0.vector() + p1.vector()).normalize();
         let mid_pt_idx = self.points.next_index();
         self.points
-            .push(ImagePt::new(mid_pt_idx, mid_pt_vec).into());
+            .push(SphericalImagePt::new(mid_pt_idx, mid_pt_vec).into());
         let mid_pt = &self.points[mid_pt_idx];
         self.gc_lines[gc_line].set_midpoint(mid_pt.clone());
 

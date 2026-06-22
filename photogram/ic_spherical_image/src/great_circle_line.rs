@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{GcNormal, ImagePt};
+use crate::{GcNormal, SphericalImagePt};
 
 /// A portion of a great circle
 ///
@@ -13,13 +13,17 @@ use crate::{GcNormal, ImagePt};
 #[derive(Debug)]
 pub struct GcLine {
     normal: Rc<GcNormal>,
-    p0: Rc<ImagePt>,
-    p1: Rc<ImagePt>,
-    mid_point: Option<Rc<ImagePt>>,
+    p0: Rc<SphericalImagePt>,
+    p1: Rc<SphericalImagePt>,
+    mid_point: Option<Rc<SphericalImagePt>>,
 }
 
 impl GcLine {
-    pub fn new(normal: &Rc<GcNormal>, p0: &Rc<ImagePt>, p1: &Rc<ImagePt>) -> (bool, Self) {
+    pub fn new(
+        normal: &Rc<GcNormal>,
+        p0: &Rc<SphericalImagePt>,
+        p1: &Rc<SphericalImagePt>,
+    ) -> (bool, Self) {
         let swapped = (*p0).index() > p1.index();
         if !swapped {
             (
@@ -43,19 +47,19 @@ impl GcLine {
             )
         }
     }
-    pub(crate) fn set_midpoint(&mut self, mid_point: Rc<ImagePt>) {
+    pub(crate) fn set_midpoint(&mut self, mid_point: Rc<SphericalImagePt>) {
         self.mid_point = Some(mid_point);
     }
-    pub fn p0(&self) -> &Rc<ImagePt> {
+    pub fn p0(&self) -> &Rc<SphericalImagePt> {
         &self.p0
     }
-    pub fn p1(&self) -> &Rc<ImagePt> {
+    pub fn p1(&self) -> &Rc<SphericalImagePt> {
         &self.p1
     }
     pub fn normal(&self) -> &Rc<GcNormal> {
         &self.normal
     }
-    pub fn midpoint(&self) -> Option<&Rc<ImagePt>> {
+    pub fn midpoint(&self) -> Option<&Rc<SphericalImagePt>> {
         self.mid_point.as_ref()
     }
 }

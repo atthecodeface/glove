@@ -1,6 +1,8 @@
 use ic_base::JsonParsable;
 
-use ic_spherical_image::{SphericalImageDescriptor, SphericalImageShape, SphericalPatchDescriptor};
+use ic_spherical_image::{
+    SphericalImage, SphericalImageDescriptor, SphericalImageShape, SphericalPatchDescriptor,
+};
 
 #[test]
 fn test_shape() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +15,7 @@ fn test_shape() -> Result<(), Box<dyn std::error::Error>> {
     let _t = SphericalImageShape::load_json("\"Octahedron\"", &())?;
     let _t = SphericalImageShape::load_json("\"Icosahedron\"", &())?;
     eprintln!("{_t:?}");
-    // assert!(false, "Fore fail");
+    // assert!(false, "Force fail");
     Ok(())
 }
 
@@ -27,6 +29,7 @@ fn test_patch() -> Result<(), Box<dyn std::error::Error>> {
     let sd = (SphericalImageShape::Tetrahedron).to_spherical_data()?;
     let t = SphericalPatchDescriptor::load_json(
         r##"{
+        "file_number":0,
         "patch_size":32,
         "img_xy": [0,0],
         "toplevel_t0": 0,
@@ -39,7 +42,7 @@ fn test_patch() -> Result<(), Box<dyn std::error::Error>> {
         &sd,
     )?;
     eprintln!("{t:?}");
-    // assert!(false, "Fore fail");
+    // assert!(false, "Force fail");
     Ok(())
 }
 
@@ -57,6 +60,7 @@ fn test_imagee_tetrahedron() -> Result<(), Box<dyn std::error::Error>> {
         "shape": "Tetrahedron",
         "patches": [
         {
+        "file_number":0,
         "patch_size":32,
         "img_xy": [0,0],
         "toplevel_t0": 0,
@@ -68,6 +72,7 @@ fn test_imagee_tetrahedron() -> Result<(), Box<dyn std::error::Error>> {
         },
 
         {
+        "file_number":0,
         "patch_size":32,
         "img_xy": [32,0],
         "toplevel_t0": 2,
@@ -84,7 +89,7 @@ fn test_imagee_tetrahedron() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     eprintln!("{t:?}");
 
-    assert!(false, "Fore fail");
+    // assert!(false, "Force fail");
     Ok(())
 }
 
@@ -95,13 +100,13 @@ fn test_imagee_octahedron() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_string_pretty(&SphericalImageShape::Tetrahedron)?
     );
     // Parse known shapes correctly
-    let sd = (SphericalImageShape::Tetrahedron).to_spherical_data()?;
-    let t = SphericalImageDescriptor::load_json(
+    let spherical_image = SphericalImageDescriptor::load_json(
         r##"{
         "img_wh": [64,64],
         "shape": "Octahedron",
         "patches": [
         {
+        "file_number":0,
         "patch_size":32,
         "img_xy": [0,0],
         "toplevel_t0": 0,
@@ -113,6 +118,7 @@ fn test_imagee_octahedron() -> Result<(), Box<dyn std::error::Error>> {
         },
 
         {
+        "file_number":0,
         "patch_size":32,
         "img_xy": [32,0],
         "toplevel_t0": 2,
@@ -127,8 +133,7 @@ fn test_imagee_octahedron() -> Result<(), Box<dyn std::error::Error>> {
         "##,
         &(),
     )?;
-    eprintln!("{t:?}");
 
-    assert!(false, "Fore fail");
+    // assert!(false, "Force fail");
     Ok(())
 }

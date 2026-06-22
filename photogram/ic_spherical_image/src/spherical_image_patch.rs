@@ -1,9 +1,10 @@
 use crate::{GcTriangle, SdSubtriangle, SphericalData, SphericalImageError};
 use geo_nd::Vector;
 use ic_base::{GCTriangle, Point3D, Triangle3D};
+use ic_image::Image;
 
 /// An internal type that manages mapping over a single square patch
-pub struct MapXYToVec {
+pub struct MapXYToVec<'map, I: Image> {
     /// Triangle3D from SdSubtriangle that is the subdivided triangle of size
     /// img_size scaled down by 2^subdivision - bottom left of the square patch
     t012: Triangle3D,
@@ -12,8 +13,18 @@ pub struct MapXYToVec {
     /// img_size scaled down by 2^subdivision - top right of the square patch
     t230: Triangle3D,
     patch_size: u32,
+    mapping: Box<dyn FnMut(Point3D) -> Option<I::Pixel> + 'map>,
 }
-impl MapXYToVec {
+impl<'a, I: Image> ic_image::FromPatchFn for MapXYToVec<'a, I> {
+    type Pixel = I::Pixel;
+    fn set_mapping(&mut self, patch_x: u32, patch_y: u32) {}
+    fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
+        self.map_xy(patch_x, patch_y)
+            .map(|v| (self.mapping)(v))
+            .flatten()
+    }
+}
+impl<'a, I: Image> MapXYToVec<'a, I> {
     // fn new( sx, sy)
     fn map_xy(&mut self, x: u32, y: u32) -> Option<Point3D> {
         let dbl_size = 2 * self.patch_size;
@@ -21,7 +32,7 @@ impl MapXYToVec {
 
         if x >= self.patch_size || y >= self.patch_size {
             None
-        } else if x + y <= self.patch_size {
+        } else if x + y < self.patch_size {
             let c0 = 2 * x + 1;
             let c2 = 2 * y + 1;
             let c1 = dbl_size - c0 - c2;
@@ -56,7 +67,7 @@ impl MapXYToVec {
 /// P1 is defined to be N01 x N12
 /// P2 is defined to be N01 x N12 == N23 x (-N20)
 /// P3 is defined to be N23 x N30
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImagePatch {
     t012: GCTriangle,
     t230: GCTriangle,
@@ -119,7 +130,6 @@ impl ImagePatch {
         if l30.0 {
             n30 = -n30
         };
-        eprintln!("{n01:?} {n12:?} {n20:?} {n23:?} {n30:?}");
 
         let t012 = GCTriangle::of_normals_on_sphere(&n01, &n12, &n20);
         let t230 = GCTriangle::of_normals_on_sphere(&n23, &n30, &-n20);
@@ -144,8 +154,15 @@ impl ImagePatch {
     ///  0 <= sy < (1<<subdivision)
     ///
     /// Only works with subdivision == 0 for now
-    pub fn map_subsquare(&self, subdivision: u8, _sx: u32, _sy: u32) -> MapXYToVec {
+    pub fn map_subsquare<'map, I: Image, F: FnMut(Point3D) -> Option<I::Pixel> + 'map>(
+        &self,
+        subdivision: u8,
+        _sx: u32,
+        _sy: u32,
+        mapping: F,
+    ) -> MapXYToVec<'map, I> {
         assert_eq!(subdivision, 0);
+        let mapping = Box::new(mapping);
         let t012 = SdSubtriangle::new(
             &self.t012.nonunit_normal_01,
             &self.t012.nonunit_normal_12,
@@ -156,6 +173,7 @@ impl ImagePatch {
             &self.t230.nonunit_normal_12,
             &self.t230.nonunit_normal_20,
         );
+        eprintln!("{t012:?} {t230:?}");
         let t012 = t012.to_triangle3d_on_sphere();
         let t230 = t230.to_triangle3d_on_sphere();
         let patch_size = self.img_sz;
@@ -163,6 +181,7 @@ impl ImagePatch {
             t012,
             t230,
             patch_size,
+            mapping,
         }
     }
 }
