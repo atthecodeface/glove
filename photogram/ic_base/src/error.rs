@@ -24,6 +24,8 @@ pub enum Error {
     PolynomialFit(usize),
     #[error("{0}: {1}")]
     SelfError(String, Box<Self>),
+    #[error("{0}: {1}")]
+    BoxError(&'static str, Box<dyn std::error::Error>),
 }
 
 impl<P: std::fmt::Display> std::convert::From<(P, std::io::Error)> for Error {

@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 
 use crate::{Error, PathSet, Result};
 
-//a JsonParsable
+/// A type parsable by Json which takes a descriptor and, post parsing, can generate another object
 pub trait JsonParsable: serde::de::DeserializeOwned {
     type PostParseArg;
     type PostParseResult: Sized;
