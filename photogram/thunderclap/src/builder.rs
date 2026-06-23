@@ -1,9 +1,22 @@
 //a Imports
 use std::collections::HashMap;
+use std::rc::Rc;
 
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::builder::StyledStr;
+use clap::{value_parser, Arg, ArgAction, Command, Id};
 
-use crate::{ArgCount, ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet};
+use crate::{
+    ArgCount, ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet, ExecError,
+};
+
+//a Useful functions
+//mi into_box
+/// This function si required to make Rust happy
+///
+/// Box::new will not map from a Fn to a dyn
+fn into_box<'lt, C: CommandArgs, F: 'lt + CommandFn<C>>(x: F) -> Box<dyn 'lt + CommandFn<C>> {
+    Box::new(x)
+}
 
 //a CommandBuilder
 //tp CommandBuilder
@@ -28,12 +41,13 @@ impl<C: CommandArgs> std::default::Default for CommandBuilder<C> {
 }
 
 //ip CommandBuilder
+
 impl<C: CommandArgs> CommandBuilder<C> {
-    //cp new
-    pub fn new(mut command: Command, handler: Option<Box<dyn CommandFn<C>>>) -> Self {
-        if handler.is_none() {
-            command = command.subcommand_required(true);
-        }
+    //ci create_with_opt_handler
+    pub fn create_with_opt_handler(
+        command: Command,
+        handler: Option<Box<dyn CommandFn<C> + 'static>>,
+    ) -> Self {
         let handler_set = CommandHandlerSet::new(handler);
         let sub_cmds = HashMap::default();
         Self {
@@ -41,6 +55,26 @@ impl<C: CommandArgs> CommandBuilder<C> {
             handler_set,
             sub_cmds,
         }
+    }
+
+    //cp new
+    pub fn new(mut command: Command) -> Self {
+        command = command.subcommand_required(true);
+        Self::create_with_opt_handler(command, None)
+    }
+
+    //cp with_handler
+    pub fn with_handler<F>(command: Command, handler: F) -> Self
+    where
+        F: CommandFn<C> + 'static,
+    {
+        let handler = into_box(handler);
+        Self::create_with_opt_handler(command, Some(handler))
+    }
+
+    //ap command
+    pub fn command(&self) -> &Command {
+        &self.command
     }
 
     //mp set_arg_reset
@@ -83,12 +117,65 @@ impl<C: CommandArgs> CommandBuilder<C> {
     }
 
     //mp main
-    /// Convert the builder into an actual [CommandSet] to be used by 'main'
+    /// Convert the builder into an actual [CommandSet] to be used by
+    /// 'main' or 'execute'
     pub fn main(self, allow_batch: bool, allow_interactive: bool) -> CommandSet<C> {
         CommandSet::main(self, allow_batch, allow_interactive)
     }
 
+    //mp add_arg_value
+    /// Invoke the 'set' function if the option is provided, once for
+    /// each match, for each command execution.
+    ///
+    /// If a default value is provided then there will be at least one
+    /// match, and therefore at least one invocation of the 'set' function.
+    pub fn add_arg_value<F, I>(
+        &mut self,
+        tag: &'static str,
+        short: Option<char>,
+        help: &'static str,
+        count: I,
+        default_value: Option<&'static str>,
+        set: F,
+    ) where
+        F: Fn(&mut C, &Rc<C::Value>) -> Result<(), C::Error> + 'static,
+        I: Into<ArgCount>,
+    {
+        let count = count.into();
+        let uses_tag = count.uses_tag();
+        let required = count.required();
+        let action = count.action();
+        let num_args = count.num_args();
+        let mut arg = Arg::new(tag)
+            .help(help)
+            .value_parser(value_parser!(String))
+            .required(required)
+            .action(action);
+        if let Some(num_args) = num_args {
+            arg = arg.num_args(num_args);
+        }
+        if uses_tag {
+            arg = arg.long(tag);
+        }
+        if let Some(short) = short {
+            arg = arg.short(short);
+        }
+        if let Some(default_value) = default_value {
+            arg = arg.default_value(default_value);
+        }
+        self.add_arg(
+            arg,
+            Box::new(move |cmd_set, args, matches| {
+                cmd_set.fold_matches(args, matches, tag, (), |_, args, value| {
+                    set(args, value).map_err(ExecError::set_arg)
+                })
+            }),
+        );
+    }
+
     //mp add_flag
+    /// The 'set' function is always invoked, on every command
+    /// execution, with either true or false as the argument
     pub fn add_flag<F>(
         &mut self,
         tag: &'static str,
@@ -107,7 +194,9 @@ impl<C: CommandArgs> CommandBuilder<C> {
         }
         self.add_arg(
             arg,
-            Box::new(move |args, matches| set(args, *matches.get_one::<bool>(tag).unwrap())),
+            Box::new(move |_command_set, args, matches| {
+                set(args, *matches.get_one::<bool>(tag).unwrap()).map_err(ExecError::set_arg)
+            }),
         );
     }
 }
@@ -139,25 +228,48 @@ macro_rules! add_arg {
         arg
     }};
     ($m:ident, $t: ty, ref $ft:ty ) => {
+        /// Add an argument
+        ///
+        /// 'tag' is how the argument is referred to in clap, and must be unique
+        ///
+        /// 'short' is the '-X' option used to specify the argument;
+        ///    use None for positional arguments, or for nonpositional
+        ///    arguments that do not need a short setting.
+        ///
+        /// 'count' indicates the number of arguments required, and if
+        ///    the argument is positional or requires a '--XXX' option
+        ///
+        /// 'default_value' is a *string* which is used if the user
+        ///    does not provide an option; this will be parsed
+        ///    appropriately as if provided by the user.
+        ///
+        /// 'set' is a callback invoked for every occurrence of the
+        ///    argument; if the count indicates a *single* argument at
+        ///    most, then it will be invoked at most once
         impl<C: CommandArgs> CommandBuilder<C> {
-            pub fn $m<F>(
+            pub fn $m<F, I, S, T>(
                 &mut self,
-                tag: &'static str,
+                tag: T,
                 short: Option<char>,
-                help: &'static str,
-                count: ArgCount,
+                help: S,
+                count: I,
                 default_value: Option<&'static str>,
                 set: F,
             ) where
                 F: Fn(&mut C, &$ft) -> Result<(), C::Error> + 'static,
+                I: Into<ArgCount>,
+                S: Into<StyledStr>,
+                T: Into<Id>,
             {
-                let arg = add_arg!($t, tag, help, short, count, default_value);
+                let count = count.into();
+                let tag: Id = tag.into();
+                let arg = add_arg!($t, tag.clone(), help, short, count, default_value);
 
                 self.add_arg(
                     arg,
-                    Box::new(move |args, matches| {
-                        for v in matches.get_many::<$t>(tag).unwrap() {
-                            set(args, &*v)?
+                    Box::new(move |_command_set, args, matches| {
+                        for v in matches.get_many::<$t>(tag.as_str()).unwrap() {
+                            set(args, &*v).map_err(ExecError::set_arg)?
                         }
                         Ok(())
                     }),
@@ -167,24 +279,29 @@ macro_rules! add_arg {
     };
     ($m:ident, $t: ty, $ft:ty ) => {
         impl<C: CommandArgs> CommandBuilder<C> {
-            pub fn $m<F>(
+            pub fn $m<F, I, S, T>(
                 &mut self,
-                tag: &'static str,
+                tag: T,
                 short: Option<char>,
-                help: &'static str,
-                count: ArgCount,
+                help: S,
+                count: I,
                 default_value: Option<&'static str>,
                 set: F,
             ) where
                 F: Fn(&mut C, $ft) -> Result<(), C::Error> + 'static,
+                I: Into<ArgCount>,
+                S: Into<StyledStr>,
+                T: Into<Id>,
             {
-                let arg = add_arg!($t, tag, help, short, count, default_value);
+                let count = count.into();
+                let tag: Id = tag.into();
+                let arg = add_arg!($t, tag.clone(), help, short, count, default_value);
 
                 self.add_arg(
                     arg,
-                    Box::new(move |args, matches| {
-                        for v in matches.get_many::<$t>(tag).unwrap() {
-                            set(args, *v)?
+                    Box::new(move |_command_set, args, matches| {
+                        for v in matches.get_many::<$t>(tag.as_str()).unwrap() {
+                            set(args, *v).map_err(ExecError::set_arg)?
                         }
                         Ok(())
                     }),
@@ -197,6 +314,7 @@ macro_rules! add_arg {
     };
 }
 
+//a add_arg_* methods for CommandBuilder
 add_arg!(add_arg_string, String, ref str);
 
 add_arg!(add_arg_isize, isize);

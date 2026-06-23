@@ -3,6 +3,33 @@ use clap::ArgAction;
 
 //a ArgCount
 //tp ArgCount
+/// This represents the number of arguments required for a command
+///
+/// There are 'From' implementations to make the use of this
+/// simpler.
+///
+/// For positional arguments, use `(Option<usize> , true)`:
+///
+///    * (None, true) for an optional list of any number of positional arguments
+///
+///    * (Some(0), true) for a single optional positional argument
+///
+///    * (Some(n), true) for 'n' required positional arguments
+///
+/// For option arguments (where '-x' or '--long_x' is required) use:
+///
+///    * false for an optional single option arguments
+///
+///    * true for a required single option arguments
+///
+///    * None for any number of option arguments, with no minimum number
+///
+///    * Some(n:usize) for up to a maximum of n option arguments
+///
+///    * (Some(n), false) for exactly 'n' option arguments
+///
+///    * (n:usize, ) for a minimum of n arguments, with no maximum number (note this is a tuple)
+///
 #[derive(Debug, Default, Clone, Copy)]
 pub enum ArgCount {
     #[default]

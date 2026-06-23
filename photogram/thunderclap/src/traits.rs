@@ -1,7 +1,91 @@
 //a Imports
 use clap::ArgMatches;
 
+use crate::{CommandSet, ExecError};
+
 //a CommandArgs
+//tt CommandArgsValue
+/// This must provide `ToString` for use in batch mode and
+/// interactive operation, where the results of commands can be
+/// stored for future command invocations
+pub trait CommandArgsValue: std::default::Default {
+    const CAN_INDEX: bool;
+    const CAN_GET: bool;
+    fn value_string(&self) -> String;
+    /// Return true if the value is effectively 'NULL', so should not be pusehd to the result stack
+    fn is_none(&self) -> bool;
+    fn is_empty(&self) -> bool {
+        true
+    }
+    fn len(&self) -> Option<usize> {
+        None
+    }
+    fn index(&self, _n: usize) -> Option<Self> {
+        None
+    }
+    fn get(&self, _s: &str) -> Option<Self> {
+        None
+    }
+    fn key(&self, _n: usize) -> Option<&str> {
+        None
+    }
+    fn is_array(&self) -> bool {
+        false
+    }
+    fn is_map(&self) -> bool {
+        false
+    }
+}
+
+//ip CommandArgsValue for ()
+impl CommandArgsValue for () {
+    const CAN_INDEX: bool = false;
+    const CAN_GET: bool = false;
+    fn is_none(&self) -> bool {
+        true
+    }
+
+    fn value_string(&self) -> String {
+        "".into()
+    }
+}
+
+//mi command_args_value
+macro_rules! command_args_value {
+    {$t:ty} => {
+        impl $crate :: CommandArgsValue for $t {
+            const CAN_INDEX: bool = false;
+            const CAN_GET: bool = false;
+            fn is_none(&self) -> bool { false }
+            fn value_string(&self) -> String { std::string::ToString::to_string(self) }
+        }
+    };
+}
+
+//ip CommandArgsValue for String
+command_args_value! {String}
+
+//ip CommandArgsValue for u8 to usize
+command_args_value! {usize}
+command_args_value! {u64}
+command_args_value! {u32}
+command_args_value! {u16}
+command_args_value! {u8}
+
+//ip CommandArgsValue for i8 to isize
+command_args_value! {isize}
+command_args_value! {i64}
+command_args_value! {i32}
+command_args_value! {i16}
+command_args_value! {i8}
+
+//ip CommandArgsValue for f32, f64
+command_args_value! {f32}
+command_args_value! {f64}
+
+//ip CommandArgsValue for bool
+command_args_value! {bool}
+
 //tt CommandArgs
 /// Trait that describes to the library the types used for argument and command functions
 ///
@@ -9,16 +93,17 @@ use clap::ArgMatches;
 /// build the arguments for the execution of commands
 pub trait CommandArgs: 'static {
     /// Error type returned as an error by all [ArgFn] and [CommandFn]
-    type Error: std::convert::From<String> + std::fmt::Display;
+    type Error: std::error::Error;
+    // type Error: std::convert::From<String> + std::error::Error;
 
     /// Value type returned by commands
-    ///
-    /// This must provide `ToString` for use in batch mode and
-    /// interactive operation, where the results of commands can be
-    /// stored for future command invocations
-    type Value: std::default::Default + std::string::ToString;
+    type Value: CommandArgsValue;
 
-    fn cmd_ok() -> Result<Self::Value, Self::Error>;
+    fn value_from_str(s: &str) -> Result<Self::Value, Self::Error>;
+
+    fn cmd_ok() -> Result<Self::Value, Self::Error> {
+        Ok(Self::Value::default())
+    }
 
     /// Function invoked before every batch or interactive command to reset temporary options
     fn reset_args(&mut self) {}
@@ -32,7 +117,7 @@ pub trait CommandArgs: 'static {
     /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
     ///
     /// Return None if the key is not provided by the args
-    fn value_str(&self, _key: &str) -> Option<String> {
+    fn value_str(&self, _key: &str) -> Option<Self::Value> {
         None
     }
 
@@ -43,13 +128,13 @@ pub trait CommandArgs: 'static {
     /// Return Ok(true) if the key value was set correctly
     ///
     /// Return Err() if the key was known but could not be set
-    fn value_set(&mut self, _key: &str, _value: &str) -> Result<bool, Self::Error> {
+    fn value_set(&mut self, _key: &str, _value: &Self::Value) -> Result<bool, Self::Error> {
         Ok(false)
     }
 }
 
-//a ArgFn
-//tt ArgFn
+//a ArgResetFn, ArgFn
+//tt ArgResetFn
 /// Trait of functions submitted to reset [CommandArgs] prior to a (sub)command
 ///
 /// This is invoked for a subcommand prior to setting its matches
@@ -80,10 +165,18 @@ impl<C: CommandArgs, T: Fn(&mut C) + 'static> ArgResetFn<C> for T {}
 /// should be supplied first, and its [ArgFn] will be invoked first,
 /// permitting later argument functions to just modify the main data
 /// structure.
-pub trait ArgFn<C: CommandArgs>: Fn(&mut C, &ArgMatches) -> Result<(), C::Error> + 'static {}
+pub trait ArgFn<C: CommandArgs>:
+    Fn(&CommandSet<C>, &mut C, &ArgMatches) -> Result<(), ExecError<C>> + 'static
+{
+}
 
 //ip ArgFn for Fn(CommandArgs, ArgMatches)
-impl<C: CommandArgs, T: Fn(&mut C, &ArgMatches) -> Result<(), C::Error> + 'static> ArgFn<C> for T {}
+impl<
+        C: CommandArgs,
+        T: Fn(&CommandSet<C>, &mut C, &ArgMatches) -> Result<(), ExecError<C>> + 'static,
+    > ArgFn<C> for T
+{
+}
 
 //a CommandFn
 //tt CommandFn
