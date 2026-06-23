@@ -168,6 +168,10 @@ impl CommandArgs for CmdArgs {
         Ok("".into())
     }
 
+    fn value_from_str(s: &str) -> Result<Self::Value, Self::Error> {
+        Ok(s.into())
+    }
+
     fn reset_args(&mut self) {
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
@@ -224,7 +228,7 @@ impl CommandArgs for CmdArgs {
     }
 
     /// Set the value
-    fn value_set(&mut self, key: &str, value: &str) -> Result<bool, Error> {
+    fn value_set(&mut self, key: &str, value: &String) -> Result<bool, Error> {
         for k in KEY_FNS.iter() {
             if key == k.0 {
                 return k.2(self, value);

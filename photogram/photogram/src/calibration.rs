@@ -1,9 +1,8 @@
-//a Imports
 use std::io::Write;
 
 use clap::Command;
-use geo_nd::{quat, Quaternion, Vector};
-use thunderclap::CommandBuilder;
+use geo_nd::{Quaternion, Vector, quat};
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{Point3D, Quat, RollYaw};
 use ic_camera::polynomial;
@@ -11,7 +10,7 @@ use ic_camera::{CameraProjection, LensPolys};
 use ic_image::{Color, Image, ImageDrawable};
 use ic_mapping::ModelLineSet;
 
-use crate::cmd::{cmd_ok, CmdArgs, CmdResult};
+use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help messages
 //hi CAMERA_CALIBRATE_LONG_HELP
@@ -144,22 +143,6 @@ of those mappings with *green* crosses.
 
 It also draws black crosses for a range of (x,y,0) values.";
 
-//a Locate
-//fi locate_cmd
-fn locate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("locate")
-        .about("Determine an optimal location from a calibration description")
-        .long_about(LOCATE_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_num_pts(&mut build);
-    CmdArgs::add_arg_write_camera(&mut build);
-
-    build
-}
-
-//fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
 
@@ -230,22 +213,6 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a Orient
-//fi orient_cmd
-fn orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("orient")
-        .about("Determine an optimal orientation from a calibration description")
-        .long_about(ORIENT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_num_pts(&mut build);
-    CmdArgs::add_arg_write_camera(&mut build);
-
-    build
-}
-
-//fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
 
@@ -342,24 +309,6 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a Lens calibrate
-//fi lens_calibrate_cmd
-fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("lens_calibrate")
-        .about("From calibrate_from_grid")
-        .long_about(LENS_CALIBRATE_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(lens_calibrate_fn)));
-
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_arg_num_pts(&mut build);
-    CmdArgs::add_arg_poly_degree(&mut build);
-    CmdArgs::add_arg_write_polys(&mut build);
-
-    build
-}
-
 //fi lens_calibrate_fn
 fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
@@ -385,8 +334,10 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         sensor_yaws.push(sensor_ry.yaw());
     }
     if sensor_yaws.len() < 30 {
-        eprintln!("Lens calibration being attempted with only {} points; it is unwise to use fewer than 30",
-                  sensor_yaws.len());
+        eprintln!(
+            "Lens calibration being attempted with only {} points; it is unwise to use fewer than 30",
+            sensor_yaws.len()
+        );
     }
 
     let lens_poly = LensPolys::calibration(
@@ -418,25 +369,6 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_polynomials()
 }
 
-//a Yaw plot
-//fi yaw_plot_cmd
-fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("yaw_plot")
-        .about("Plot yaw")
-        .long_about(YAW_PLOT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(yaw_plot_fn)));
-
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_arg_num_pts(&mut build);
-    CmdArgs::add_arg_use_deltas(&mut build);
-    CmdArgs::add_arg_write_svg(&mut build);
-
-    build
-}
-
-//fi yaw_plot_fn
 fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
@@ -589,27 +521,9 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     } else {
         println!("{s}");
     }
-    cmd_ok()
+    CmdArgs::cmd_ok()
 }
 
-//a Roll plot
-//fi roll_plot_cmd
-fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("roll_plot")
-        .about("Plot roll of model versus roll of camera")
-        .long_about(ROLL_PLOT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(roll_plot_fn)));
-
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_write_svg(&mut build);
-    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
-    CmdArgs::add_arg_num_pts(&mut build);
-
-    build
-}
-
-//fi roll_plot_fn
 fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
@@ -663,25 +577,9 @@ fn roll_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         println!("{s}");
     }
 
-    cmd_ok()
+    CmdArgs::cmd_ok()
 }
 
-//a Grid image
-fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("grid_image")
-        .about("From calibrate_from_grid")
-        .long_about(GRID_IMAGE_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(grid_image_fn)));
-
-    CmdArgs::add_arg_calibration_mapping(&mut build, true);
-    CmdArgs::add_arg_read_image(&mut build, Some(1));
-    CmdArgs::add_arg_write_image(&mut build, true);
-    CmdArgs::add_arg_num_pts(&mut build);
-    build
-}
-
-//fi grid_image_fn
 fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
@@ -725,18 +623,98 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
     img.write(cmd_args.write_img().unwrap())?;
 
-    cmd_ok()
+    CmdArgs::cmd_ok()
+}
+fn locate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate")
+        .about("Determine an optimal location from a calibration description")
+        .long_about(LOCATE_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, locate_fn);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_write_camera(&mut build);
+
+    build
+}
+fn orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("orient")
+        .about("Determine an optimal orientation from a calibration description")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, orient_fn);
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_write_camera(&mut build);
+
+    build
+}
+fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("lens_calibrate")
+        .about("From calibrate_from_grid")
+        .long_about(LENS_CALIBRATE_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, lens_calibrate_fn);
+
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_poly_degree(&mut build);
+    CmdArgs::add_arg_write_polys(&mut build);
+
+    build
+}
+fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("yaw_plot")
+        .about("Plot yaw")
+        .long_about(YAW_PLOT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, yaw_plot_fn);
+
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
+    CmdArgs::add_arg_use_deltas(&mut build);
+    CmdArgs::add_arg_write_svg(&mut build);
+
+    build
 }
 
-//a calibration command
-//fp calibration
+fn roll_plot_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("roll_plot")
+        .about("Plot roll of model versus roll of camera")
+        .long_about(ROLL_PLOT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, roll_plot_fn);
+
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_write_svg(&mut build);
+    CmdArgs::add_arg_yaw_min_max(&mut build, Some("1.0"), Some("20.0"));
+    CmdArgs::add_arg_num_pts(&mut build);
+
+    build
+}
+fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("grid_image")
+        .about("From calibrate_from_grid")
+        .long_about(GRID_IMAGE_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, grid_image_fn);
+
+    CmdArgs::add_arg_calibration_mapping(&mut build, true);
+    CmdArgs::add_arg_read_image(&mut build, Some(1));
+    CmdArgs::add_arg_write_image(&mut build, true);
+    CmdArgs::add_arg_num_pts(&mut build);
+    build
+}
+
 pub fn calibration_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("calibration")
         .about("Use a calibration mapping to calibrate a lens")
         .long_about(CAMERA_CALIBRATE_LONG_HELP)
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());

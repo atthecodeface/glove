@@ -1,8 +1,6 @@
-//a Imports
-
 use clap::Command;
 use geo_nd::Vector;
-use thunderclap::CommandBuilder;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_camera::CameraProjection;
 
@@ -13,29 +11,9 @@ use crate::cmd::{CmdArgs, CmdResult};
 const LIST_LONG_HELP: &str = "\
 List help";
 
-//a Create JSON for the whole project
-//fp as_json_cmd
-pub fn as_json_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_json")
-        .about("As_Json the project as a *single* JSON file")
-        .long_about(LIST_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(as_json_fn)))
-}
-
 //fi as_json_fn
 fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.project().to_json(cmd_args.pretty_json())
-}
-
-//a List as a whole
-//fp list_cmd
-pub fn list_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("list")
-        .about("Operate on a list as a whole")
-        .long_about(LIST_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(list_fn)))
 }
 
 //fi list_fn
@@ -54,17 +32,33 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             println!("Cip: '{name}' camera unplaced");
         }
     }
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//a project command
-//fp project_cmd
+fn as_json_cmd() -> CommandBuilder<CmdArgs> {
+    CommandBuilder::with_handler(
+        Command::new("as_json")
+            .about("As_Json the project as a *single* JSON file")
+            .long_about(LIST_LONG_HELP),
+        as_json_fn,
+    )
+}
+
+fn list_cmd() -> CommandBuilder<CmdArgs> {
+    CommandBuilder::with_handler(
+        Command::new("list")
+            .about("Operate on a list as a whole")
+            .long_about(LIST_LONG_HELP),
+        list_fn,
+    )
+}
+
 pub fn project_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("project")
         .about("Operate on a camera/image/point mapping set")
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     build.add_subcommand(list_cmd());
     build.add_subcommand(as_json_cmd());

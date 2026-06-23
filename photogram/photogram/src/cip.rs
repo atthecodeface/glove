@@ -1,7 +1,7 @@
 //a Imports
 
 use clap::Command;
-use thunderclap::CommandBuilder;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{NamedRayList, Ray, Rrc, Tag};
 use ic_camera::CameraProjection;
@@ -97,7 +97,7 @@ and end points (given the focus distance of the camera) are provided.
 
 //hi COMBINE_RAYS_FROM_MODEL_LONG_HELP
 const COMBINE_RAYS_FROM_MODEL_LONG_HELP: &str = "\
-This combines a list of from-model rays from a JSON file and generates 
+This combines a list of from-model rays from a JSON file and generates
 a model-space best location of ray intersection.
 
 The rays in the file are from different model points and the direction
@@ -112,23 +112,6 @@ Combining the rays from model produces a Camera JSON result (with an updated
 direction, no change to orientation), but does not modify the camera
 ";
 
-//a Locate
-//fi locate_cmd
-fn locate_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("locate")
-        .about("Find location and orientation for a camera to map points to model")
-        .long_about(LOCATE_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(locate_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
-    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
-
-    build
-}
-
-//fi locate_fn
 fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -161,22 +144,6 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a orient
-//fi orient_cmd
-fn orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("orient")
-        .about("Set the orientation for a camera using weighted average of pairs of point mappings")
-        .long_about(ORIENT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(orient_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
-
-    build
-}
-
-//fi orient_fn
 fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -202,23 +169,6 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a locate_and_orient
-//fi locate_and_orient_cmd
-fn locate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("locate_and_orient")
-        .about("Set the locate_and_orientation for a camera using weighted average of pairs of point mappings")
-        .long_about(ORIENT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(locate_and_orient_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
-    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
-
-    build
-}
-
-//fi locate_and_orient_fn
 fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -258,23 +208,6 @@ fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//fi relocate_and_orient_cmd
-fn relocate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("relocate_and_orient")
-        .about("Set the relocate_and_orientation for a camera using weighted average of pairs of point mappings")
-        .long_about(ORIENT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(relocate_and_orient_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
-    CmdArgs::add_arg_steps(&mut build, Some("40"));
-    CmdArgs::add_arg_range(&mut build, Some("10.0"));
-
-    build
-}
-
-//fi relocate_and_orient_fn
 fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -314,27 +247,6 @@ fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a Image and image_patch commands
-//fi image_cmd
-fn image_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("image")
-        .about("Read image and draw crosses on named and mapped points")
-        .long_about(IMAGE_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(image_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (0,));
-    CmdArgs::add_arg_pms(&mut build);
-
-    CmdArgs::add_arg_read_image(&mut build, Some(1_usize)); // 0 or 1 in a list
-    CmdArgs::add_arg_write_image(&mut build, true);
-
-    CmdArgs::add_arg_pms_color(&mut build);
-    CmdArgs::add_arg_model_color(&mut build);
-    build
-}
-
-//fi image_fn
 fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps_n = cmd_args.get_nps()?;
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
@@ -448,25 +360,10 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     }
     img.write(write_filename)?;
-    Ok("".into())
+
+    CmdArgs::cmd_ok()
 }
 
-//fi image_patch_cmd
-fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("image_patch")
-        .about("Extract a patch from an image")
-        .long_about(IMAGE_PATCH_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(image_patch_fn)));
-
-    // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
-    CmdArgs::add_arg_read_image(&mut build, 1_usize);
-    CmdArgs::add_arg_write_image(&mut build, true);
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    build
-}
-
-//fi image_patch_fn
 fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -494,26 +391,9 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let patch_img = patch.create_img(&*camera, &src_img).unwrap();
     patch_img.write(write_filename)?;
 
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//a Create/show Rays
-//fi show_rays_cmd
-fn show_rays_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("show_rays")
-        .about("Show rays for the CIP using its camera and mappings")
-        .long_about(SHOW_RAYS_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(show_rays_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-
-    // from_camera
-
-    build
-}
-
-//fi show_rays_fn
 fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
@@ -529,23 +409,10 @@ fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let end = ray.start() + ray.direction() * camera.focus_distance();
         eprintln!("{} {end}", pm.name());
     }
-    Ok("".into())
+
+    CmdArgs::cmd_ok()
 }
 
-//fi create_rays_cmd
-fn create_rays_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("create_rays")
-        .about("Create rays for a given located camera and its mappings")
-        .long_about(CREATE_RAYS_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(create_rays_fn)));
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    CmdArgs::add_arg_from_camera(&mut build);
-
-    build
-}
-
-//fi create_rays_fn
 fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
@@ -563,18 +430,6 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     named_rays.to_json(cmd_args.pretty_json())
 }
 
-//fi combine_rays_from_model_cmd
-fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("combine_rays_from_model")
-        .about("Combine rays from a model")
-        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_model_fn)));
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-    build
-}
-
-//fi combine_rays_from_model_fn
 fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
@@ -620,15 +475,6 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-//a Interrogate (show_mappings etc)
-//fi as_json_cmd
-fn as_json_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_json").about("Generate the JSON for the CIP");
-
-    CommandBuilder::new(command, Some(Box::new(as_json_fn)))
-}
-
-//fi as_json_fn
 fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
@@ -641,18 +487,6 @@ fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .to_json(cmd_args.pretty_json())
 }
 
-//fi show_mappings_cmd
-fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("show_mappings")
-        .about("Show the total and worst error for a point mapping set");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(show_mappings_fn)));
-    CmdArgs::add_arg_pms(&mut build);
-    CmdArgs::add_arg_camera(&mut build, false);
-    build
-}
-
-//fi show_mappings_fn
 fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.pms().borrow();
     let nps = cmd_args.nps();
@@ -667,22 +501,9 @@ fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let we = pms.find_worst_error(camera).1;
     println!("WE {we:.2} TE {te:.2}");
 
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//fi list_cmd
-fn list_cmd() -> CommandBuilder<CmdArgs> {
-    let command =
-        Command::new("list").about("Show the total and worst error for a point mapping set");
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(list_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-
-    build
-}
-
-//fi list_fn
 fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms().borrow();
@@ -709,14 +530,185 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             );
         }
     }
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//fi add_cmd
+fn locate_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate")
+        .about("Find location and orientation for a camera to map points to model")
+        .long_about(LOCATE_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, locate_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+
+    build
+}
+
+fn orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("orient")
+        .about("Set the orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, orient_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+
+    build
+}
+
+fn locate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("locate_and_orient")
+        .about("Set the locate_and_orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, locate_and_orient_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_pairs(&mut build, Some("100"));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+
+    build
+}
+
+fn relocate_and_orient_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("relocate_and_orient")
+        .about("Set the relocate_and_orientation for a camera using weighted average of pairs of point mappings")
+        .long_about(ORIENT_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, relocate_and_orient_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_max_error(&mut build, Some("10.0"));
+    CmdArgs::add_arg_steps(&mut build, Some("40"));
+    CmdArgs::add_arg_range(&mut build, Some("10.0"));
+
+    build
+}
+
+fn image_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("image")
+        .about("Read image and draw crosses on named and mapped points")
+        .long_about(IMAGE_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, image_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (0,));
+    CmdArgs::add_arg_pms(&mut build);
+
+    CmdArgs::add_arg_read_image(&mut build, Some(1_usize)); // 0 or 1 in a list
+    CmdArgs::add_arg_write_image(&mut build, true);
+
+    CmdArgs::add_arg_pms_color(&mut build);
+    CmdArgs::add_arg_model_color(&mut build);
+    build
+}
+
+fn image_patch_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("image_patch")
+        .about("Extract a patch from an image")
+        .long_about(IMAGE_PATCH_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, image_patch_fn);
+
+    // let cmd = cmdline_args::add_image_dir_arg(cmd, false);
+    CmdArgs::add_arg_read_image(&mut build, 1_usize);
+    CmdArgs::add_arg_write_image(&mut build, true);
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    build
+}
+
+fn show_rays_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("show_rays")
+        .about("Show rays for the CIP using its camera and mappings")
+        .long_about(SHOW_RAYS_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, show_rays_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
+    // from_camera
+
+    build
+}
+
+fn create_rays_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("create_rays")
+        .about("Create rays for a given located camera and its mappings")
+        .long_about(CREATE_RAYS_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, create_rays_fn);
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    CmdArgs::add_arg_from_camera(&mut build);
+
+    build
+}
+
+fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("combine_rays_from_model")
+        .about("Combine rays from a model")
+        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, combine_rays_from_model_fn);
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+    build
+}
+
+fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+    let mut cip = Cip::default();
+
+    let camera_filename = cmd_args.get_string_arg(0).unwrap();
+    let image_filename = cmd_args.get_string_arg(1).unwrap();
+    let pms_filename = cmd_args.get_string_arg(2).unwrap();
+
+    let image_filename2 = image_filename.to_owned();
+
+    cip.set_camera_filename(camera_filename);
+    let image = Tag::owned(image_filename);
+    cip.set_image(image);
+    cip.set_image_filename(image_filename);
+    cip.set_pms_filename(pms_filename);
+    cip.set_camera(cmd_args.camera().clone().into());
+
+    let cip: Rrc<Cip> = cip.into();
+    cmd_args.project_mut().add_cip(cip.clone());
+    let _ = cmd_args.set_cip(&image_filename2);
+    CmdArgs::cmd_ok()
+}
+
+fn as_json_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("as_json").about("Generate the JSON for the CIP");
+
+    CommandBuilder::with_handler(command, as_json_fn)
+}
+
+fn show_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("show_mappings")
+        .about("Show the total and worst error for a point mapping set");
+
+    let mut build = CommandBuilder::with_handler(command, show_mappings_fn);
+    CmdArgs::add_arg_pms(&mut build);
+    CmdArgs::add_arg_camera(&mut build, false);
+    build
+}
+
+fn list_cmd() -> CommandBuilder<CmdArgs> {
+    let command =
+        Command::new("list").about("Show the total and worst error for a point mapping set");
+
+    let mut build = CommandBuilder::with_handler(command, list_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
+    build
+}
 fn add_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("add").about("Add a new CIP");
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(add_fn)));
+    let mut build = CommandBuilder::with_handler(command, add_fn);
     CmdArgs::add_arg_positional_string(
         &mut build,
         "camera",
@@ -742,37 +734,12 @@ fn add_cmd() -> CommandBuilder<CmdArgs> {
     build
 }
 
-//fi add_fn
-fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let mut cip = Cip::default();
-
-    let camera_filename = cmd_args.get_string_arg(0).unwrap();
-    let image_filename = cmd_args.get_string_arg(1).unwrap();
-    let pms_filename = cmd_args.get_string_arg(2).unwrap();
-
-    let image_filename2 = image_filename.to_owned();
-
-    cip.set_camera_filename(camera_filename);
-    let image = Tag::owned(image_filename);
-    cip.set_image(image);
-    cip.set_image_filename(image_filename);
-    cip.set_pms_filename(pms_filename);
-    cip.set_camera(cmd_args.camera().clone().into());
-
-    let cip: Rrc<Cip> = cip.into();
-    cmd_args.project_mut().add_cip(cip.clone());
-    let _ = cmd_args.set_cip(&image_filename2);
-    Ok("".into())
-}
-
-//a CIP command
-//fp cip_cmd
 pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("cip")
         .about("Operate on a camera/image/point mapping set")
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
     CmdArgs::add_arg_cip(&mut build, false);
 
     build.add_subcommand(as_json_cmd());

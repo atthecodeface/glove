@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use clap::Command;
 use geo_nd::Vector;
-use thunderclap::CommandBuilder;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{JsonParsable, Point3D, Ray, TagSet};
 use ic_camera::CameraProjection;
@@ -16,7 +16,7 @@ use crate::cmd::{CmdArgs, CmdResult};
 //a Help
 //hi COMBINE_RAYS_FROM_MODEL_LONG_HELP
 const COMBINE_RAYS_FROM_MODEL_LONG_HELP: &str = "\
-This combines a list of from-model rays from a JSON file and generates 
+This combines a list of from-model rays from a JSON file and generates
 a model-space best location of ray intersection.
 
 The rays in the file are from different model points and the direction
@@ -85,19 +85,6 @@ const UPDATE_MODEL_LONG_HELP: &str = "\
 Add and/or update model positions for all named points in the supplied JSON
 ";
 
-//a CombineFrom
-//fi combine_rays_from_model_cmd
-fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("combine_rays_from_model")
-        .about("Combine rays from a model")
-        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_model_fn)));
-    CmdArgs::add_arg_named_ray_file(&mut build, (1,));
-    build
-}
-
-//fi combine_rays_from_model_fn
 fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let named_rays = cmd_args.named_rays();
 
@@ -135,19 +122,6 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     camera.to_json(cmd_args.pretty_json())
 }
 
-//fi combine_rays_from_camera_cmd
-fn combine_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("combine_rays_from_camera")
-        .about("Combine rays from a camera")
-        .long_about(COMBINE_RAYS_FROM_CAMERA_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(combine_rays_from_camera_fn)));
-    CmdArgs::add_arg_named_ray_file(&mut build, (1,));
-
-    build
-}
-
-//fi combine_rays_from_camera_fn
 fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.nps();
     let named_rays = cmd_args.named_rays();
@@ -177,32 +151,9 @@ fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         }
     }
 
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//a Get model points
-//fi get_model_points_cmd
-fn get_model_points_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("get_model_points")
-        .about("Get model points from camera and pms")
-        .long_about(GET_MODEL_POINTS_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(get_model_points_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, false));
-
-    CmdArgs::add_arg_positional_string(
-        &mut build,
-        "cip",
-        "Cip names to use for the point mappings",
-        None,
-        None,
-    );
-
-    build
-}
-
-//fi get_model_points_fn
 fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.get_nps()?;
 
@@ -221,7 +172,9 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     for (_, c) in &cips {
         if c.borrow().position() == Point3D::default() {
-            eprintln!("Warning: CIP had a default position for get_model_points - probably deriving from unlocated camera");
+            eprintln!(
+                "Warning: CIP had a default position for get_model_points - probably deriving from unlocated camera"
+            );
         }
     }
 
@@ -265,33 +218,10 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     result_nps.to_json(false)
 }
 
-//a List, add command
-//fi as_json_cmd
-fn as_json_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_json").about("Generate the JSON for the NPS");
-
-    CommandBuilder::new(command, Some(Box::new(as_json_fn)))
-}
-
-//fi as_json_fn
 fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.nps().borrow().to_json(cmd_args.pretty_json())
 }
 
-//fi list_cmd
-fn list_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("list")
-        .about("List information about named points")
-        .long_about(LIST_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(list_fn)));
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-
-    build
-}
-
-//fi list_fn
 fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.get_nps()?;
     for np in nps {
@@ -300,29 +230,6 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//fi add_cmd
-fn add_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("add")
-        .about("Add a named point")
-        .long_about(ADD_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(add_fn)));
-
-    CmdArgs::add_arg_positional_string(&mut build, "name", "Name of point to add", Some(1), None);
-    CmdArgs::add_arg_positional_string(&mut build, "color", "Color of point", Some(1), None);
-    CmdArgs::add_arg_positional_string(&mut build, "point3d", "Posiiton in 3D", Some(0), None);
-    CmdArgs::add_arg_positional_f64(
-        &mut build,
-        "error",
-        "Error radius in 3D",
-        Some(0),
-        Some("5.0"),
-    );
-
-    build
-}
-
-//fi add_fn
 fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let name = cmd_args.get_string_arg(0).unwrap();
     let color: Color = cmd_args.get_string_arg(1).unwrap().try_into()?;
@@ -337,29 +244,10 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     cmd_args.project().nps_mut().add_pt(name, color, model, err);
-    Ok("".into())
+
+    CmdArgs::cmd_ok()
 }
 
-//fi update_model_cmd
-fn update_model_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("update_model")
-        .about("Update_Model a named point")
-        .long_about(UPDATE_MODEL_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(update_model_fn)));
-
-    CmdArgs::add_arg_positional_string(
-        &mut build,
-        "json",
-        "Named point set JSON to update with",
-        Some(1),
-        None,
-    );
-
-    build
-}
-
-//fi update_model_fn
 fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let new_nps = NamedPointSet::load_json(cmd_args.get_string_arg(0).unwrap(), &())?;
     for opt_new_np in new_nps.into_iter() {
@@ -379,17 +267,110 @@ fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             cmd_args.nps().borrow_mut().add_np(new_np);
         }
     }
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//a Named points command
-//fi named_points_cmd
+fn as_json_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("as_json").about("Generate the JSON for the NPS");
+    CommandBuilder::with_handler(command, as_json_fn)
+}
+
+fn list_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("list")
+        .about("List information about named points")
+        .long_about(LIST_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, list_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, true));
+
+    build
+}
+fn add_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("add")
+        .about("Add a named point")
+        .long_about(ADD_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, add_fn);
+
+    CmdArgs::add_arg_positional_string(&mut build, "name", "Name of point to add", Some(1), None);
+    CmdArgs::add_arg_positional_string(&mut build, "color", "Color of point", Some(1), None);
+    CmdArgs::add_arg_positional_string(&mut build, "point3d", "Posiiton in 3D", Some(0), None);
+    CmdArgs::add_arg_positional_f64(
+        &mut build,
+        "error",
+        "Error radius in 3D",
+        Some(0),
+        Some("5.0"),
+    );
+
+    build
+}
+fn update_model_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("update_model")
+        .about("Update_Model a named point")
+        .long_about(UPDATE_MODEL_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, update_model_fn);
+
+    CmdArgs::add_arg_positional_string(
+        &mut build,
+        "json",
+        "Named point set JSON to update with",
+        Some(1),
+        None,
+    );
+
+    build
+}
+
+fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("combine_rays_from_model")
+        .about("Combine rays from a model")
+        .long_about(COMBINE_RAYS_FROM_MODEL_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, combine_rays_from_model_fn);
+    CmdArgs::add_arg_named_ray_file(&mut build, (1,));
+    build
+}
+
+fn combine_rays_from_camera_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("combine_rays_from_camera")
+        .about("Combine rays from a camera")
+        .long_about(COMBINE_RAYS_FROM_CAMERA_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, combine_rays_from_camera_fn);
+    CmdArgs::add_arg_named_ray_file(&mut build, (1,));
+
+    build
+}
+
+fn get_model_points_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("get_model_points")
+        .about("Get model points from camera and pms")
+        .long_about(GET_MODEL_POINTS_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, get_model_points_fn);
+
+    CmdArgs::add_arg_named_point(&mut build, (None, false));
+
+    CmdArgs::add_arg_positional_string(
+        &mut build,
+        "cip",
+        "Cip names to use for the point mappings",
+        None,
+        None,
+    );
+
+    build
+}
+
 pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("named_points")
         .about("Operate on the named points for a project")
         .long_about(PROJECT_LONG_HELP);
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     build.add_subcommand(as_json_cmd());
     build.add_subcommand(combine_rays_from_model_cmd());

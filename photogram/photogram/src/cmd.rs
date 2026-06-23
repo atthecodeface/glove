@@ -1,6 +1,6 @@
 //a Imports
 mod types;
-pub use types::{cmd_ok, CmdArgs, CmdResult};
+pub use types::{CmdArgs, CmdResult};
 
 mod command_args;
 

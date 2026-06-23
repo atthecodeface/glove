@@ -12,7 +12,7 @@ impl CmdArgs {
             "path",
             None,
             "Add a directory to the search path",
-            (0,).into(),
+            (0,),
             None,
             CmdArgs::add_path,
         );
@@ -44,7 +44,7 @@ impl CmdArgs {
             "kernel",
             None,
             "Add a kernel to run",
-            arg_count.into(),
+            arg_count,
             None,
             CmdArgs::add_kernel,
         );
@@ -56,7 +56,7 @@ impl CmdArgs {
             "nps",
             None,
             "Add a named point set to the list",
-            (0,).into(),
+            (0,),
             None,
             CmdArgs::add_nps,
         );
@@ -68,7 +68,7 @@ impl CmdArgs {
             "camera_db",
             None,
             "Camera database JSON filename",
-            required.into(),
+            required,
             None,
             CmdArgs::set_camera_db,
         );
@@ -80,7 +80,7 @@ impl CmdArgs {
             "project_file",
             None,
             "Complet project JSON filename",
-            required.into(),
+            required,
             None,
             CmdArgs::set_project_file,
         );
@@ -92,7 +92,7 @@ impl CmdArgs {
             "project_desc",
             None,
             "Project descriptor JSON filename",
-            required.into(),
+            required,
             None,
             CmdArgs::set_project_desc,
         );
@@ -104,7 +104,7 @@ impl CmdArgs {
             "pms",
             None,
             "Add a point mapping set",
-            false.into(), // Perhaps should allow some in...
+            false, // Perhaps should allow some in...
             None,
             CmdArgs::add_pms,
         );
@@ -112,12 +112,11 @@ impl CmdArgs {
 
     //fp add_arg_cip
     pub fn add_arg_cip(build: &mut CommandBuilder<Self>, required: bool) {
-        let arg_count = required.into();
         build.add_arg_string(
             "cip",
             None,
             "CIP name (camera and PMS) within the project",
-            arg_count,
+            required,
             None,
             CmdArgs::set_cip,
         );
@@ -129,7 +128,7 @@ impl CmdArgs {
             "camera",
             Some('c'),
             "Camera lens, placement and orientation JSON",
-            required.into(),
+            required,
             None,
             CmdArgs::set_camera_file,
         );
@@ -138,7 +137,7 @@ impl CmdArgs {
             "use_body",
             None,
             "Specify which body to use in the camera",
-            false.into(),
+            false,
             None,
             CmdArgs::set_camera_body,
         );
@@ -147,7 +146,7 @@ impl CmdArgs {
             "use_lens",
             None,
             "Specify which lens to use in the camera",
-            false.into(),
+            false,
             None,
             CmdArgs::set_camera_lens,
         );
@@ -156,7 +155,7 @@ impl CmdArgs {
             "use_focus",
             None,
             "Specify the focus distance in mm used for the image, in the camera",
-            false.into(),
+            false,
             None,
             CmdArgs::set_camera_focus_distance,
         );
@@ -165,7 +164,7 @@ impl CmdArgs {
             "use_polys",
             None,
             "Specify an override for the lens polynomials in the camera",
-            false.into(),
+            false,
             None,
             CmdArgs::set_camera_polys,
         );
@@ -180,7 +179,7 @@ impl CmdArgs {
             "rays",
             None,
             "Add named ray Json files (list of name, ray)",
-            arg_count.into(),
+            arg_count,
             None,
             CmdArgs::add_named_ray_file,
         );
@@ -192,7 +191,7 @@ impl CmdArgs {
             "np",
             None,
             "The name of a named point to use or look for; can be a regular expression",
-            arg_count.into(),
+            arg_count,
             None,
             CmdArgs::add_np,
         );
@@ -204,7 +203,7 @@ impl CmdArgs {
             "px",
             None,
             "Pixel X value to use",
-            required.into(),
+            required,
             None,
             CmdArgs::set_px,
         );
@@ -216,7 +215,7 @@ impl CmdArgs {
             "py",
             None,
             "Pixel Y value to use",
-            required.into(),
+            required,
             None,
             CmdArgs::set_py,
         );
@@ -228,7 +227,7 @@ impl CmdArgs {
             "kernel_size",
             None,
             "Size parameter for a kernel",
-            required.into(),
+            required,
             Some("8"),
             CmdArgs::set_kernel_size,
         );
@@ -240,7 +239,7 @@ impl CmdArgs {
             "flags",
             None,
             "Flags parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             Some("0"),
             CmdArgs::set_flags,
         );
@@ -252,7 +251,7 @@ impl CmdArgs {
             "steps",
             None,
             "Number of steps to use",
-            false.into(),
+            false,
             default_value,
             CmdArgs::set_steps,
         );
@@ -264,7 +263,7 @@ impl CmdArgs {
             "range",
             None,
             "Range parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             default_value,
             CmdArgs::set_range,
         );
@@ -276,7 +275,7 @@ impl CmdArgs {
             "scale",
             None,
             "Scale parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             Some("1"),
             CmdArgs::set_scale,
         );
@@ -288,7 +287,7 @@ impl CmdArgs {
             "angle",
             None,
             "Angle parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             Some("0"),
             CmdArgs::set_angle,
         );
@@ -336,7 +335,7 @@ impl CmdArgs {
             "calibration_mapping",
             Some('m'),
             "Camera calibration mapping JSON",
-            required.into(),
+            required,
             None,
             CmdArgs::set_calibration_mapping_file,
         );
@@ -509,7 +508,7 @@ impl CmdArgs {
             "star_mapping",
             None,
             "JSON file mapping sensor coordinates to catalog identifiers",
-            false.into(),
+            false,
             None,
             CmdArgs::set_star_mapping_file,
         );
@@ -521,7 +520,7 @@ impl CmdArgs {
             "star_catalog",
             None,
             "Star catalog to use",
-            false.into(),
+            false,
             None,
             CmdArgs::set_star_catalog,
         );
@@ -551,7 +550,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_string_arg,
         );
@@ -569,7 +568,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_f64_arg,
         );
@@ -587,7 +586,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_usize_arg,
         );
@@ -602,7 +601,7 @@ impl CmdArgs {
             "read",
             Some('r'),
             "Image to read",
-            arg_count.into(),
+            arg_count,
             None,
             CmdArgs::add_read_img,
         );
@@ -614,7 +613,7 @@ impl CmdArgs {
             "write",
             Some('w'),
             "Image to write",
-            required.into(),
+            required,
             None,
             CmdArgs::set_write_img,
         );

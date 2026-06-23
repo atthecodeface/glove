@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 use clap::Command;
-use thunderclap::CommandBuilder;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::Result;
 use ic_camera::polynomial;
@@ -54,8 +54,6 @@ The Named Point associated with the color of the region is found, and
 a Point Mapping Set is generated mapping the Named Points onto the
 centre of the appropriate region.";
 
-//a Useful functions
-//fi find_center_point
 /// Find the point closest to the center
 fn find_center_point((cx, cy): (f64, f64), pts: &[(f64, f64)]) -> usize {
     let mut min_dsq = f64::MAX;
@@ -72,7 +70,6 @@ fn find_center_point((cx, cy): (f64, f64), pts: &[(f64, f64)]) -> usize {
     min
 }
 
-//fi find_axis_pts
 /// From a given origin (cx,cy), follow all those points with similar
 /// cy (for an x axis) or cx, and generate the index of the points and
 /// the delta along the axis for those points on the axis
@@ -118,8 +115,6 @@ fn spacing_of_coords(pts: &[(usize, f64)]) -> Result<f64> {
     Ok(avg_spacing)
 }
 
-//a PolyIntercept
-//tp PolyIntercept
 struct PolyIntercept {
     /// Degress of polynomial
     #[allow(dead_code)]
@@ -140,7 +135,6 @@ struct PolyIntercept {
     g_of_p: Vec<f64>,
 }
 
-//ip PolyIntercept
 impl PolyIntercept {
     //fi from_pts
     fn from_pts(
@@ -288,17 +282,6 @@ impl PolyGrid {
     }
 }
 
-//a Find regions
-//fi find_regions_cmd
-fn find_regions_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("find_regions")
-        .about("Read image and find regions")
-        .long_about(FIND_REGIONS_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(find_regions_fn)))
-}
-
-//fi find_regions_fn
 fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut img = cmd_args.get_image_read_or_create()?;
 
@@ -345,19 +328,9 @@ fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     println!("{}", serde_json::to_string_pretty(&cogs).unwrap());
 
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//fi find_grid_points_cmd
-fn find_grid_points_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("find_grid_points")
-        .about("Read image and find grid points")
-        .long_about(FIND_GRID_POINTS_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(find_grid_points_fn)))
-}
-
-//fi find_grid_points_fn
 fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut img = cmd_args.get_image_read_or_create()?;
     let bg = cmd_args.bg_color().copied().unwrap_or(Color::black());
@@ -403,23 +376,10 @@ fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     println!("{}", serde_json::to_string_pretty(&mappings).unwrap());
-    Ok("".into())
+
+    CmdArgs::cmd_ok()
 }
 
-//a Get point mappings
-//fi get_point_mappings_cmd
-fn get_point_mappings_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("get_point_mappings")
-        .about("Read image and find regions")
-        .long_about(GET_POINT_MAPPINGS_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(get_point_mappings_fn)));
-    CmdArgs::add_arg_read_image(&mut build, true);
-    CmdArgs::add_arg_bg_color(&mut build);
-    build
-}
-
-//fi get_point_mappings_fn
 fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.nps();
     let img = cmd_args.get_image_read_or_create()?;
@@ -452,16 +412,42 @@ fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.if_verbose(|| {
         eprintln!("Exported {} mappings", pms.mappings().len());
     });
-    Ok("".into())
+
+    CmdArgs::cmd_ok()
 }
 
-//a Image_analyze command
-//fp image_analyze
+fn find_regions_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("find_regions")
+        .about("Read image and find regions")
+        .long_about(FIND_REGIONS_LONG_HELP);
+
+    CommandBuilder::with_handler(command, find_regions_fn)
+}
+
+fn find_grid_points_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("find_grid_points")
+        .about("Read image and find grid points")
+        .long_about(FIND_GRID_POINTS_LONG_HELP);
+
+    CommandBuilder::with_handler(command, find_grid_points_fn)
+}
+
+fn get_point_mappings_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("get_point_mappings")
+        .about("Read image and find regions")
+        .long_about(GET_POINT_MAPPINGS_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, get_point_mappings_fn);
+    CmdArgs::add_arg_read_image(&mut build, true);
+    CmdArgs::add_arg_bg_color(&mut build);
+    build
+}
+
 pub fn image_analyze_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("image_analyze")
         .about("Analyze an image, finding regions or applying kernels");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     CmdArgs::add_arg_read_image(&mut build, (1,));
     CmdArgs::add_arg_write_image(&mut build, false);

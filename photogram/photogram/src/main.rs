@@ -272,7 +272,7 @@ use ic_base::Result;
 
 //a Mods
 mod cmd;
-pub use cmd::{cmd_ok, CmdArgs, CmdResult};
+pub use cmd::{CmdArgs, CmdResult};
 mod calibration;
 mod cip;
 mod image_analyze;
@@ -289,7 +289,7 @@ fn main() -> Result<()> {
         .about("Photogrammetry tool")
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     CmdArgs::add_arg_verbose(&mut build);
     CmdArgs::add_arg_pretty_json(&mut build);
@@ -324,6 +324,9 @@ fn main() -> Result<()> {
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);
-    command.execute_env(&mut cmd_args)?;
+    command
+        .execute_env(&mut cmd_args)
+        .map_err(|e| format!("Error {e:?}"))?;
+
     Ok(())
 }

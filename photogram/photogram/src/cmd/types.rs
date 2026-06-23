@@ -12,9 +12,6 @@ use ic_stars::StarMapping;
 
 //a CmdResult
 pub type CmdResult = std::result::Result<String, ic_base::Error>;
-pub fn cmd_ok() -> CmdResult {
-    Ok("".into())
-}
 
 //a CmdArgs
 //tp CmdArgs

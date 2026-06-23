@@ -1,7 +1,7 @@
 //a Imports
 
 use clap::Command;
-use thunderclap::CommandBuilder;
+use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_image::{Image, ImageDrawable, ImageGray16};
 use ic_kernel::{KernelArgs, Kernels};
@@ -41,17 +41,6 @@ Apply a number of kernels (with a single set of size, scale etc arguments)
 Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
 ";
 
-//a Luma
-//fi as_luma_cmd
-fn as_luma_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_luma")
-        .about("Generate a 16-bit luma image")
-        .long_about(AS_LUMA_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(as_luma_fn)))
-}
-
-//fi as_luma_fn
 fn as_luma_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let img = cmd_args.get_image_read_or_create()?;
 
@@ -71,16 +60,6 @@ fn as_luma_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//fi luma_window_cmd
-fn luma_window_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_window")
-        .about("Analyze an image in luma space using a window")
-        .long_about(LUMA_WINDOW_LONG_HELP);
-
-    CommandBuilder::new(command, Some(Box::new(luma_window_fn)))
-}
-
-//fi luma_window_fn
 fn luma_window_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let img = cmd_args.get_image_read_or_create()?;
 
@@ -127,22 +106,6 @@ fn luma_window_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     Ok("".into())
 }
 
-//fi luma_kernel_cmd
-fn luma_kernel_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_kernel")
-        .about("Apply kernels to an image in luma space")
-        .long_about(LUMA_KERNEL_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(luma_kernel_fn)));
-    CmdArgs::add_arg_kernel(&mut build, (1,));
-    CmdArgs::add_arg_scale(&mut build);
-    CmdArgs::add_arg_kernel_size(&mut build, false);
-    CmdArgs::add_arg_px(&mut build, true);
-    CmdArgs::add_arg_py(&mut build, true);
-
-    build
-}
-
 //fi luma_kernel_fn
 fn luma_kernel_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let img = cmd_args.get_read_image(0)?;
@@ -187,28 +150,9 @@ fn luma_kernel_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     } else {
         eprintln!("Image not written as no output image provided");
     }
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//fi luma_kernel_pair_cmd
-fn luma_kernel_pair_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("luma_kernel_pair")
-        .about("Apply kernels to a pair of images in luma space")
-        .long_about(LUMA_KERNEL_PAIR_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command, Some(Box::new(luma_kernel_pair_fn)));
-    CmdArgs::add_arg_kernel(&mut build, (1,));
-    CmdArgs::add_arg_scale(&mut build);
-    CmdArgs::add_arg_kernel_size(&mut build, false);
-    CmdArgs::add_arg_px(&mut build, true);
-    CmdArgs::add_arg_py(&mut build, true);
-    CmdArgs::add_arg_angle(&mut build);
-    CmdArgs::add_arg_flags(&mut build);
-
-    build
-}
-
-//fi luma_kernel_pair_fn
 fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let img2 = cmd_args.get_read_image(1)?;
     let img1 = cmd_args.get_read_image(0)?;
@@ -330,16 +274,62 @@ fn luma_kernel_pair_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     } else {
         eprintln!("Image not written as no output image provided");
     }
-    Ok("".into())
+    CmdArgs::cmd_ok()
 }
 
-//a Image_process command
-//fp image_process
+fn as_luma_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("as_luma")
+        .about("Generate a 16-bit luma image")
+        .long_about(AS_LUMA_LONG_HELP);
+
+    CommandBuilder::with_handler(command, as_luma_fn)
+}
+
+fn luma_window_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("luma_window")
+        .about("Analyze an image in luma space using a window")
+        .long_about(LUMA_WINDOW_LONG_HELP);
+
+    CommandBuilder::with_handler(command, luma_window_fn)
+}
+
+fn luma_kernel_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("luma_kernel")
+        .about("Apply kernels to an image in luma space")
+        .long_about(LUMA_KERNEL_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, luma_kernel_fn);
+    CmdArgs::add_arg_kernel(&mut build, (1,));
+    CmdArgs::add_arg_scale(&mut build);
+    CmdArgs::add_arg_kernel_size(&mut build, false);
+    CmdArgs::add_arg_px(&mut build, true);
+    CmdArgs::add_arg_py(&mut build, true);
+
+    build
+}
+
+fn luma_kernel_pair_cmd() -> CommandBuilder<CmdArgs> {
+    let command = Command::new("luma_kernel_pair")
+        .about("Apply kernels to a pair of images in luma space")
+        .long_about(LUMA_KERNEL_PAIR_LONG_HELP);
+
+    let mut build = CommandBuilder::with_handler(command, luma_kernel_pair_fn);
+    CmdArgs::add_arg_kernel(&mut build, (1,));
+    CmdArgs::add_arg_scale(&mut build);
+    CmdArgs::add_arg_kernel_size(&mut build, false);
+    CmdArgs::add_arg_px(&mut build, true);
+    CmdArgs::add_arg_py(&mut build, true);
+    CmdArgs::add_arg_angle(&mut build);
+    CmdArgs::add_arg_flags(&mut build);
+
+    build
+}
+
 pub fn image_process_cmd() -> CommandBuilder<CmdArgs> {
     let command =
         Command::new("image_process").about("Perform image processing, such as applying kernels");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     CmdArgs::add_arg_read_image(&mut build, (1,));
     CmdArgs::add_arg_write_image(&mut build, false);
