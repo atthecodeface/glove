@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "photogram", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_spherical_image", "ic_stars", "ic_threads", "image_server", "ic_play", "indexed", "thunderclap"]
+members = [ "photogram", "image_server", "spherical_image", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_spherical_image", "ic_stars", "ic_threads", "ic_play", "indexed", "thunderclap"]
 
 [workspace.package]
 edition = "2024"
