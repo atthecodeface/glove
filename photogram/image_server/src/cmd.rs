@@ -16,8 +16,6 @@ pub fn cmd_ok() -> CmdResult {
     Ok("".into())
 }
 
-//a CmdArgsInner - the actual arguments
-//tp CmdArgsInner
 #[derive(Default)]
 pub struct CmdArgsInner {
     verbose: bool,
@@ -260,7 +258,7 @@ impl CmdArgs {
             "num_threads",
             None,
             "Num_Threads parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             Some("0"),
             CmdArgs::set_num_threads,
         );
@@ -271,7 +269,7 @@ impl CmdArgs {
             "port",
             None,
             "Port parameter for (e.g.) a kernel",
-            false.into(),
+            false,
             Some("8020"),
             CmdArgs::set_port,
         );
@@ -282,7 +280,7 @@ impl CmdArgs {
             "file_path",
             None,
             "Add a directory to the search path",
-            (0,).into(),
+            (0,),
             None,
             CmdArgs::add_file_path,
         );
@@ -294,7 +292,7 @@ impl CmdArgs {
             "image_path",
             None,
             "Add a directory to the search path",
-            (0,).into(),
+            (0,),
             None,
             CmdArgs::add_image_path,
         );
@@ -306,7 +304,7 @@ impl CmdArgs {
             "project_path",
             None,
             "Add a directory to the search path",
-            (0,).into(),
+            (0,),
             None,
             CmdArgs::add_project_path,
         );
@@ -318,7 +316,7 @@ impl CmdArgs {
             "star_catalog",
             None,
             "Star catalog to use",
-            false.into(),
+            false,
             None,
             CmdArgs::set_star_catalog,
         );
@@ -336,7 +334,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_string_arg,
         );
@@ -354,7 +352,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_f64_arg,
         );
@@ -372,7 +370,7 @@ impl CmdArgs {
             name,
             None,
             help,
-            (number, true).into(),
+            (number, true),
             default_value,
             CmdArgs::add_usize_arg,
         );
@@ -476,6 +474,10 @@ impl CommandArgs for CmdArgs {
     type Error = Error;
     type Value = String;
 
+    fn value_from_str(s: &str) -> Result<Self::Value> {
+        Ok(s.into())
+    }
+
     fn cmd_ok() -> CmdResult {
         Ok("".into())
     }
@@ -504,7 +506,7 @@ impl CommandArgs for CmdArgs {
     }
 
     /// Set the value
-    fn value_set(&mut self, key: &str, value: &str) -> Result<bool> {
+    fn value_set(&mut self, key: &str, value: &String) -> Result<bool> {
         for k in KEY_FNS.iter() {
             if key == k.0 {
                 return k.2(self, value);

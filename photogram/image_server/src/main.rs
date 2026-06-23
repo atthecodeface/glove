@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use clap::Command;
 use thunderclap::CommandBuilder;
 
-use image_server::{cmd_ok, CmdArgs, CmdResult, ProjectSet};
+use image_server::{CmdArgs, CmdResult, ProjectSet, cmd_ok};
 
 use ic_base::Result;
 // use ic_cache::{Cache, CacheEntry, Cacheable};
@@ -23,7 +23,7 @@ static HTTP_SRV: OnceLock<HttpServer<ProjectSet>> = OnceLock::new();
 fn serve_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("serve").about("Start an HTTP server");
 
-    let mut build = CommandBuilder::new(command, Some(Box::new(serve_fn)));
+    let mut build = CommandBuilder::with_handler(command, serve_fn);
     CmdArgs::add_arg_num_threads(&mut build);
     CmdArgs::add_arg_port(&mut build);
     CmdArgs::add_arg_background(&mut build);
@@ -84,7 +84,7 @@ fn main() -> Result<()> {
         .about("Image calibration/correlation server")
         .version("0.1.0");
 
-    let mut build = CommandBuilder::new(command, None);
+    let mut build = CommandBuilder::new(command);
 
     CmdArgs::add_arg_verbose(&mut build);
     CmdArgs::add_arg_pretty_json(&mut build);
@@ -96,7 +96,9 @@ fn main() -> Result<()> {
 
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);
-    command.execute_env(&mut cmd_args)?;
+    command
+        .execute_env(&mut cmd_args)
+        .map_err(|e| format!("Error {e:?}"))?;
 
     Ok(())
 }
