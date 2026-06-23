@@ -1,5 +1,6 @@
 //a Modules
 mod arg_count;
+mod arg_descriptor;
 mod builder;
 mod command_set;
 mod handler;
@@ -10,6 +11,7 @@ use thiserror::Error;
 
 pub mod json;
 pub use arg_count::ArgCount;
+pub use arg_descriptor::ArgDescriptor;
 pub use builder::CommandBuilder;
 pub use traits::{CommandArgs, CommandArgsValue};
 

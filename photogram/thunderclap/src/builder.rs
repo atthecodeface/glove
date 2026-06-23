@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use clap::builder::StyledStr;
-use clap::{value_parser, Arg, ArgAction, Command, Id};
+use clap::{Arg, ArgAction, Command, Id, value_parser};
 
 use crate::{
-    ArgCount, ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet, CommandSet, ExecError,
+    ArgCount, ArgDescriptor, ArgFn, ArgResetFn, CommandArgs, CommandFn, CommandHandlerSet,
+    CommandSet, ExecError,
 };
 
 //a Useful functions
@@ -81,6 +82,12 @@ impl<C: CommandArgs> CommandBuilder<C> {
     pub fn set_arg_reset(&mut self, handler: Box<dyn ArgResetFn<C>>) -> &mut Self {
         self.handler_set.set_arg_reset(handler);
         self
+    }
+
+    pub fn add_args(&mut self, arg_descriptors: &[ArgDescriptor<C>]) {
+        for ad in arg_descriptors {
+            ad.build(self);
+        }
     }
 
     //mp add_arg
