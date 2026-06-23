@@ -3,12 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
 use star_catalog::Catalog as StarCatalog;
-use thunderclap::CommandArgs;
-use thunderclap::CommandBuilder;
+use thunderclap::{ArgCount, ArgDescriptor, CommandArgs, CommandBuilder};
 
-use ic_base::{PathSet, Result};
-
-use ic_base::Error;
+use ic_base::{Error, PathSet, Result};
 
 //a CmdResult
 pub type CmdResult = std::result::Result<String, ic_base::Error>;
@@ -219,162 +216,83 @@ impl CmdArgs {
     }
 }
 
-//a CmdArgs arg build methods
-//ip CmdArgs arg build methods
 impl CmdArgs {
-    //mp add_arg_verbose
-    pub fn add_arg_verbose(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "verbose",
-            Some('v'),
-            "Enable verbose output",
-            CmdArgs::set_verbose,
-        );
-    }
+    const ARG_VERBOSE: ArgDescriptor<Self> = ArgDescriptor::arg_flag(
+        "verbose",
+        Some('v'),
+        "Enable verbose output",
+        &Self::set_verbose,
+    );
 
-    //mp add_arg_pretty_json
-    pub fn add_arg_pretty_json(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "pretty_json",
-            None,
-            "Enable pretty_json output",
-            CmdArgs::set_pretty_json,
-        );
-    }
+    const ARG_PRETTY_JSON: ArgDescriptor<Self> = ArgDescriptor::arg_flag(
+        "pretty_json",
+        None,
+        "Use pretty-printing for Json output",
+        &Self::set_pretty_json,
+    );
 
-    //mp add_arg_background
-    pub fn add_arg_background(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "background",
-            Some('b'),
-            "Enable background output",
-            CmdArgs::set_background,
-        );
-    }
+    const ARG_FILE_PATH: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "file_path",
+        None,
+        "Add a directory to the search path",
+        ArgCount::Any,
+        None,
+        &Self::add_file_path,
+    );
 
-    //fp add_arg_num_threads
-    pub fn add_arg_num_threads(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "num_threads",
-            None,
-            "Num_Threads parameter for (e.g.) a kernel",
-            false,
-            Some("0"),
-            CmdArgs::set_num_threads,
-        );
-    }
-    //fp add_arg_port
-    pub fn add_arg_port(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "port",
-            None,
-            "Port parameter for (e.g.) a kernel",
-            false,
-            Some("8020"),
-            CmdArgs::set_port,
-        );
-    }
-    //mp add_arg_file_path
-    pub fn add_arg_file_path(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "file_path",
-            None,
-            "Add a directory to the search path",
-            (0,),
-            None,
-            CmdArgs::add_file_path,
-        );
-    }
+    const ARG_IMAGE_PATH: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "image_path",
+        None,
+        "Add a directory to the search path",
+        ArgCount::Any,
+        None,
+        &Self::add_image_path,
+    );
 
-    //mp add_arg_image_path
-    pub fn add_arg_image_path(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "image_path",
-            None,
-            "Add a directory to the search path",
-            (0,),
-            None,
-            CmdArgs::add_image_path,
-        );
-    }
+    const ARG_PROJECT_PATH: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "project_path",
+        None,
+        "Add a directory to the search path",
+        ArgCount::Any,
+        None,
+        &Self::add_project_path,
+    );
 
-    //mp add_arg_project_path
-    pub fn add_arg_project_path(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "project_path",
-            None,
-            "Add a directory to the search path",
-            (0,),
-            None,
-            CmdArgs::add_project_path,
-        );
-    }
+    const ARG_BACKGROUND: ArgDescriptor<Self> = ArgDescriptor::arg_flag(
+        "background",
+        Some('b'),
+        "Enable background operation",
+        &Self::set_background,
+    );
 
-    //fp add_arg_star_catalog
-    pub fn add_arg_star_catalog(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "star_catalog",
-            None,
-            "Star catalog to use",
-            false,
-            None,
-            CmdArgs::set_star_catalog,
-        );
-    }
+    const ARG_NUM_THREADS: ArgDescriptor<Self> = ArgDescriptor::arg_usize(
+        "num_threads",
+        None,
+        "num_threads parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("0"),
+        &Self::set_num_threads,
+    );
 
-    //fp add_arg_positional_string
-    pub fn add_arg_positional_string(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_string(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_string_arg,
-        );
-    }
+    const ARG_PORT: ArgDescriptor<Self> = ArgDescriptor::arg_usize(
+        "port",
+        None,
+        "Port parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("8020"),
+        &Self::set_port,
+    );
 
-    //fp add_arg_positional_f64
-    pub fn add_arg_positional_f64(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_f64(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_f64_arg,
-        );
-    }
+    pub const ARGS_MAIN: &[ArgDescriptor<Self>] = &[
+        Self::ARG_VERBOSE,
+        Self::ARG_PRETTY_JSON,
+        Self::ARG_FILE_PATH,
+        Self::ARG_IMAGE_PATH,
+        Self::ARG_PROJECT_PATH,
+    ];
 
-    //fp add_arg_positional_usize
-    pub fn add_arg_positional_usize(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_usize(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_usize_arg,
-        );
-    }
+    pub const ARGS_SERVE: &[ArgDescriptor<Self>] =
+        &[Self::ARG_NUM_THREADS, Self::ARG_PORT, Self::ARG_BACKGROUND];
 }
 
 //a CmdArgs accessors and operations

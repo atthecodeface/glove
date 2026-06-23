@@ -24,10 +24,7 @@ fn serve_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("serve").about("Start an HTTP server");
 
     let mut build = CommandBuilder::with_handler(command, serve_fn);
-    CmdArgs::add_arg_num_threads(&mut build);
-    CmdArgs::add_arg_port(&mut build);
-    CmdArgs::add_arg_background(&mut build);
-
+    build.add_args(CmdArgs::ARGS_SERVE);
     build
 }
 
@@ -85,12 +82,7 @@ fn main() -> Result<()> {
         .version("0.1.0");
 
     let mut build = CommandBuilder::new(command);
-
-    CmdArgs::add_arg_verbose(&mut build);
-    CmdArgs::add_arg_pretty_json(&mut build);
-    CmdArgs::add_arg_file_path(&mut build);
-    CmdArgs::add_arg_image_path(&mut build);
-    CmdArgs::add_arg_project_path(&mut build);
+    build.add_args(CmdArgs::ARGS_MAIN);
 
     build.add_subcommand(serve_cmd());
 
