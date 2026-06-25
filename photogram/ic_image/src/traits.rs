@@ -17,6 +17,7 @@ pub trait ImageDrawable {
     type Pixel: ImageColor;
     fn get(&self, x: u32, y: u32) -> Self::Pixel;
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel);
+    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Self::Pixel);
     fn size(&self) -> (u32, u32);
 
     fn draw_cross(&mut self, p: &Point2D, size: f64, color: &Self::Pixel) {

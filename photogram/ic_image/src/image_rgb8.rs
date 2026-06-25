@@ -83,6 +83,16 @@ impl ImageDrawable for ImageRgb8 {
     fn get(&self, x: u32, y: u32) -> Color {
         Color(self.0.get_pixel(x, y))
     }
+    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Color) {
+        let img = self.0.as_mut_rgb8().unwrap();
+        let pixel = img.get_pixel_mut(x, y);
+        let r = (color.0[0] as f64) * (1.0 - blend) + (blend * (pixel[0] as f64));
+        let g = (color.0[1] as f64) * (1.0 - blend) + (blend * (pixel[1] as f64));
+        let b = (color.0[2] as f64) * (1.0 - blend) + (blend * (pixel[2] as f64));
+        pixel[0] = r as u8;
+        pixel[1] = g as u8;
+        pixel[2] = b as u8;
+    }
     fn size(&self) -> (u32, u32) {
         (self.0.width(), self.0.height())
     }

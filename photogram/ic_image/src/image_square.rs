@@ -377,6 +377,14 @@ where
             color,
         )
     }
+    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Self::Pixel) {
+        self.image.borrow_mut().blend(
+            x + (self.x_sq * SQUARE_SIZE),
+            y + (self.y_sq * SQUARE_SIZE),
+            blend,
+            color,
+        )
+    }
     fn size(&self) -> (u32, u32) {
         (self.w, self.h)
     }

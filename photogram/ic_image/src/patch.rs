@@ -45,6 +45,7 @@ pub struct ImagePatch<'a, I: Image> {
     y: u32,
     width: u32,
     height: u32,
+    blend: f64,
     from_patch: Box<dyn FromPatchFn<Pixel = I::Pixel> + 'a>,
 }
 
@@ -65,6 +66,7 @@ impl<'a, I: Image> ImagePatch<'a, I> {
         y: u32,
         width: u32,
         height: u32,
+        blend: f64,
         from_patch: F,
     ) -> Self {
         Self {
@@ -73,6 +75,7 @@ impl<'a, I: Image> ImagePatch<'a, I> {
             y,
             width,
             height,
+            blend,
             from_patch: Box::new(from_patch),
         }
     }
@@ -98,7 +101,7 @@ impl<'a, I: Image> ImagePatch<'a, I> {
             self.from_patch.set_mapping(x, 0);
             for y in 0..self.height {
                 if let Some(c) = self.from_patch.map_from_patch(x, y) {
-                    self.img.put(x + self.x, y + self.y, &c);
+                    self.img.blend(x + self.x, y + self.y, self.blend, &c);
                 }
             }
         }

@@ -2,7 +2,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Luma};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Luma, Pixel};
 
 use ic_base::Result;
 
@@ -100,6 +100,12 @@ impl ImageDrawable for ImageGray16 {
     fn get(&self, x: u32, y: u32) -> Self::Pixel {
         let img = self.0.as_luma16().unwrap();
         img.get_pixel(x, y).0[0]
+    }
+    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Self::Pixel) {
+        let img = self.0.as_mut_luma16().unwrap();
+        let pixel = img.get_pixel_mut(x, y);
+        let c = (pixel[0] as f64) * blend + ((1.0 - blend) * (*color as f64));
+        pixel[0] = c as u16;
     }
     fn size(&self) -> (u32, u32) {
         (self.0.width(), self.0.height())
