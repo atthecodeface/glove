@@ -7,7 +7,7 @@ use ic_base::{Point3D, Triangle3D};
 /// triangle more as *direction* vectors away from the origin that the
 /// triangle's points are actually at; this means there is much less normalization occurring, and
 #[derive(Debug, Clone)]
-pub struct SdSubtriangle {
+pub struct SubTriangle {
     /// The *relative* degree of subdivision that the triangle stack contains with respect to tri_toplevel
     ///
     /// If this is 0, then the gcn_vectors are those of the toplevel triangle, and tri_lowest == tri_toplevel
@@ -36,7 +36,8 @@ pub struct SdSubtriangle {
     p2: Point3D,
 }
 
-impl SdSubtriangle {
+impl SubTriangle {
+    /// Create a new subtriangle
     pub fn new(gcn_01: &Point3D, gcn_12: &Point3D, gcn_20: &Point3D) -> Self {
         Self {
             subdivision: 0,
@@ -49,9 +50,15 @@ impl SdSubtriangle {
             p2: gcn_12.cross_product(gcn_20),
         }
     }
+
+    /// Generate a Triangle3D of this [Subtriangle]
     pub fn to_triangle3d_on_sphere(&self) -> Triangle3D {
         Triangle3D::of_normals_on_sphere(&self.gcn_01, &self.gcn_12, &self.gcn_20)
     }
+
+    /// Change into the subtriangle that contains the specified point
+    ///
+    /// The point *must* be within this triangle (reallY) for this to make sense
     pub fn find_subtriangle_of_point(&mut self, p: &Point3D) {
         // Create midpoints of the lines (no need to normalize)
         let p01_mp = self.p0 + self.p1;
@@ -100,6 +107,8 @@ impl SdSubtriangle {
             }
         }
     }
+
+    /// Convert to a subtriangle (from 0 to 3) of this triangle
     pub fn into_subtriangle(&mut self, subtriangle: u8) {
         // Create midpoints of the lines (no need to normalize)
         let p01_mp = self.p0 + self.p1;

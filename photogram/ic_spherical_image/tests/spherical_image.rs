@@ -1,5 +1,5 @@
 use geo_nd::Vector;
-use ic_base::{GCTriangle, Point3D};
+use ic_base::{GcTriangle3D, Point3D};
 use ic_image::ImageGray16;
 use ic_spherical_image::{
     ImagePatch, SphericalImage, SphericalImageDescriptor, SphericalImageShape,
@@ -42,7 +42,7 @@ fn test_sph_image_tetra() -> Result<(), Box<dyn std::error::Error>> {
         Some(((d * 32000.0) + 32768.0) as u16)
     }
     for p in ps {
-        image.fill_image_patch(p, &pix_map);
+        image.fill_image_patch(0.0, p, &pix_map);
     }
 
     let mut t = std::env::temp_dir();

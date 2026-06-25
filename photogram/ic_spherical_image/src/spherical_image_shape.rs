@@ -5,8 +5,13 @@ use ic_base::JsonParsable;
 use crate::shapes;
 use crate::{SphericalData, SphericalImageError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+/// An enumeration of 'base' spherical image shapes; this simplifies some image generation
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
+
 pub enum SphericalImageShape {
+    #[default]
     Tetrahedron,
     Octahedron,
     Icosahedron,

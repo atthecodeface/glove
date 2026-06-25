@@ -7,7 +7,7 @@ use ic_base::Point3D;
 use indexed::{Idx, IndexedVec};
 
 use crate::{
-    GcLine, GcNormal, GcTriangle, SdSubtriangle, SphericalImageError, SphericalImagePt,
+    GcLine, GcNormal, GcTriangle, SphericalImageError, SphericalImagePt, SubTriangle,
     SubdivisionPath,
 };
 
@@ -434,10 +434,10 @@ impl SphericalData {
         gc_triangle: GreatCircleTriangleIndex,
         p: &Point3D,
         subdivide: u8,
-    ) -> SdSubtriangle {
+    ) -> SubTriangle {
         let normals = self[gc_triangle].get_normals(self);
 
-        let mut sub = SdSubtriangle::new(&normals[0], &normals[1], &normals[2]);
+        let mut sub = SubTriangle::new(&normals[0], &normals[1], &normals[2]);
         for _ in 0..subdivide {
             sub.find_subtriangle_of_point(p);
         }

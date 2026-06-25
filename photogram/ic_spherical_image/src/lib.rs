@@ -3,9 +3,9 @@ mod great_circle_normal;
 mod great_circle_triangle;
 mod image_pt;
 mod sd_index;
-mod sd_vector;
 mod spherical_data;
 mod subdivision;
+mod subtriangle;
 
 mod image_file;
 mod spherical_image;
@@ -23,10 +23,10 @@ pub use great_circle_line::GcLine;
 pub use great_circle_normal::GcNormal;
 pub use great_circle_triangle::GcTriangle;
 pub use sd_index::SdIndex;
-pub use sd_vector::SdSubtriangle;
 pub use spherical_data::{
     GreatCircleLineIndex, GreatCircleTriangleIndex, NormalIndex, PtIndex, SphericalData,
 };
+pub use subtriangle::SubTriangle;
 
 pub use image_file::{ImageFile, ImageFileDesc};
 pub use spherical_image::{ImageFileIndex, SphericalImage, SphericalImageDescriptor};

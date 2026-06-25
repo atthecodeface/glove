@@ -1,6 +1,6 @@
-use crate::{GcTriangle, SdSubtriangle, SphericalData, SphericalImageError};
+use crate::{GcTriangle, SphericalData, SphericalImageError, SubTriangle};
 use geo_nd::Vector;
-use ic_base::{GCTriangle, Point3D, Triangle3D};
+use ic_base::{GcTriangle3D, Point2D, Point3D, Triangle3D};
 use ic_image::Image;
 
 /// An internal type that manages mapping over a single square patch
@@ -25,7 +25,21 @@ impl<'a, I: Image> ic_image::FromPatchFn for MapXYToVec<'a, I> {
     }
 }
 impl<'a, I: Image> MapXYToVec<'a, I> {
-    // fn new( sx, sy)
+    /// Map from x,y within the patch to a point on one of the two triangles
+    ///
+    /// 0 <= x,y < patch_size
+    ///
+    /// First determine which triangle it is in - the lower left triangle (012)
+    /// or the upper right triangle (230)
+    ///
+    /// If in the lower left triangle then determine the barycentric coordinates
+    /// within that triangle; point 0 is at (patch_size,0); point 1 is at (0,0);
+    /// point 2 is at (0,patch_size)
+    ///
+    /// Hence c0 = x / patch_size; c2 is y / patch_size, c2 is 1 - c0 - c2
+    ///
+    /// We actually will want to tweak the image mapping of patches  but not yet
+    ///
     fn map_xy(&mut self, x: u32, y: u32) -> Option<Point3D> {
         let dbl_size = 2 * self.patch_size;
         let f_sc = dbl_size as f64;
@@ -69,8 +83,8 @@ impl<'a, I: Image> MapXYToVec<'a, I> {
 /// P3 is defined to be N23 x N30
 #[derive(Debug, Clone)]
 pub struct ImagePatch {
-    t012: GCTriangle,
-    t230: GCTriangle,
+    t012: GcTriangle3D,
+    t230: GcTriangle3D,
     img_xy: (u32, u32),
     img_sz: u32,
 }
@@ -131,8 +145,8 @@ impl ImagePatch {
             n30 = -n30
         };
 
-        let t012 = GCTriangle::of_normals_on_sphere(&n01, &n12, &n20);
-        let t230 = GCTriangle::of_normals_on_sphere(&n23, &n30, &-n20);
+        let t012 = GcTriangle3D::of_normals_on_sphere(&n01, &n12, &n20);
+        let t230 = GcTriangle3D::of_normals_on_sphere(&n23, &n30, &-n20);
         Some(Self {
             t012,
             t230,
@@ -163,17 +177,17 @@ impl ImagePatch {
     ) -> MapXYToVec<'map, I> {
         assert_eq!(subdivision, 0);
         let mapping = Box::new(mapping);
-        let t012 = SdSubtriangle::new(
+        let t012 = SubTriangle::new(
             &self.t012.nonunit_normal_01,
             &self.t012.nonunit_normal_12,
             &self.t012.nonunit_normal_20,
         );
-        let t230 = SdSubtriangle::new(
+        let t230 = SubTriangle::new(
             &self.t230.nonunit_normal_01,
             &self.t230.nonunit_normal_12,
             &self.t230.nonunit_normal_20,
         );
-        eprintln!("{t012:?} {t230:?}");
+
         let t012 = t012.to_triangle3d_on_sphere();
         let t230 = t230.to_triangle3d_on_sphere();
         let patch_size = self.img_sz;
@@ -182,6 +196,23 @@ impl ImagePatch {
             t230,
             patch_size,
             mapping,
+        }
+    }
+    pub fn image_coords(&self, p: &Point3D) -> Option<Point2D> {
+        if self.t012.contains_pt_scaled(p) {
+            let t3: Triangle3D = (&self.t012).into();
+            let p = t3.barycentric_coordinates(p);
+            let x = (p[0] * self.img_sz as f64) + self.img_xy.0 as f64;
+            let y = (p[2] * self.img_sz as f64) + self.img_xy.1 as f64;
+            Some([x, y].into())
+        } else if self.t230.contains_pt_scaled(p) {
+            let t3: Triangle3D = (&self.t230).into();
+            let p = t3.barycentric_coordinates(p);
+            let x = ((1.0 - p[0]) * self.img_sz as f64) + self.img_xy.0 as f64;
+            let y = ((1.0 - p[2]) * self.img_sz as f64) + self.img_xy.1 as f64;
+            Some([x, y].into())
+        } else {
+            None
         }
     }
 }

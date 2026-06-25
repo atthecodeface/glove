@@ -3,7 +3,7 @@ use crate::{
     SphericalImageError, SubdivisionPath,
 };
 use ic_base::{JsonParsable, PathSet, Point3D};
-use ic_image::Image;
+use ic_image::{Image, ImageGray16, ImageRgb8};
 use indexed::{Idx, IndexedVec};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -29,6 +29,9 @@ pub struct SphericalImageDescriptor {
     /// Toplevel shape
     shape: SphericalImageShape,
     /// Patch hierarchy description
+    ///
+    /// The patches *must* be in order of lowest resolution to highest
+    /// resolution, if they overlap at all
     patches: Vec<SphericalPatchDescriptor>,
 }
 
@@ -102,6 +105,9 @@ pub struct SphericalImage<I: Image> {
     /// toplevel or toplevel subdivide by one
     sd_index: SdIndex,
     /// Patches that make up the surface
+    ///
+    /// The patches *must* be in order of lowest resolution to highest
+    /// resolution, if they overlap at all
     patches: IndexedVec<PatchIndex, SphericalPatch, true>,
     /// Map from great circle index to the element of patches
     ///
@@ -300,6 +306,7 @@ impl<I: Image> SphericalImage<I> {
 
     pub fn fill_image_patch<F: FnMut(Point3D) -> Option<I::Pixel>>(
         &mut self,
+        blend: f64,
         patch: PatchIndex,
         get_pixel: F,
     ) {
@@ -319,8 +326,29 @@ impl<I: Image> SphericalImage<I> {
             y,
             size,
             size,
+            blend,
             from_patch,
         );
         image_patch.fill_img();
     }
+
+    pub fn get_pixel_of_direction(&self, p: &Point3D) -> Option<I::Pixel> {
+        for patch in self.patches.iter() {
+            if patch.contains_direction(&self.sd, p) {
+                if let Some(p) = patch.image_coords(&self.sd, p) {
+                    let image = self.image_files[patch.file_index].image();
+                    let (w, h) = image.size();
+                    let x = (p[0].max(0.0).min((w - 1) as f64)) as u32;
+                    let y = (p[1].max(0.0).min((h - 1) as f64)) as u32;
+                    return Some(image.get(x, y));
+                }
+            }
+        }
+        None
+    }
+}
+
+pub enum SphericalImageKind {
+    Rgb(SphericalImage<ImageRgb8>),
+    Gray16(SphericalImage<ImageGray16>),
 }

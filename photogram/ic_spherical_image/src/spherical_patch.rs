@@ -2,7 +2,7 @@ use crate::{
     GreatCircleTriangleIndex, ImageFileIndex, ImagePatch, SphericalData, SphericalImageError,
     SubdivisionPath,
 };
-use ic_base::JsonParsable;
+use ic_base::{JsonParsable, Point2D, Point3D};
 
 use indexed::Idx;
 use serde::{Deserialize, Serialize};
@@ -154,11 +154,11 @@ impl SphericalPatch {
         let t0_subdivision_hierarchy = sd[self.t0].subdivision_path().path();
         let t1_subdivision_hierarchy = sd[self.t1].subdivision_path().path();
         SphericalPatchDescriptor {
-            file_number: self.file_index.index() as u32,
+            file_number: self.file_index.opt_index().unwrap() as u32,
             patch_size: self.patch_size,
             img_xy: self.img_xy,
-            toplevel_t0: self.toplevel_t0.index() as u16,
-            toplevel_t1: self.toplevel_t1.index() as u16,
+            toplevel_t0: self.toplevel_t0.opt_index().unwrap() as u16,
+            toplevel_t1: self.toplevel_t1.opt_index().unwrap() as u16,
             subdivision_to_patch: subdivision,
             t0_subdivision_hierarchy,
             t1_subdivision_hierarchy,
@@ -172,5 +172,13 @@ impl SphericalPatch {
         self.patch_subdivision = patch_subdivision;
         self.image_patch.set_img_xy(img_xy);
         self.image_patch.set_img_sz(patch_size);
+    }
+
+    pub fn contains_direction(&self, sd: &SphericalData, p: &Point3D) -> bool {
+        sd[self.t0].point_outside_lines(sd, p) == 0 || sd[self.t1].point_outside_lines(sd, p) == 0
+    }
+
+    pub fn image_coords(&self, sd: &SphericalData, p: &Point3D) -> Option<Point2D> {
+        self.image_patch.image_coords(p)
     }
 }
