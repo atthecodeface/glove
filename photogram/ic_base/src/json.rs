@@ -1,10 +1,11 @@
-//a Imports
 use std::marker::PhantomData;
 use std::path::Path;
 
-use serde::de::DeserializeOwned;
+use geo_nd::Quaternion;
 
-use crate::{Error, PathSet, Result};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+use crate::{Error, PathSet, Point2D, Point3D, Quat, Result};
 
 /// A type parsable by Json which takes a descriptor and, post parsing, can generate another object
 pub trait JsonParsable: serde::de::DeserializeOwned {
@@ -35,6 +36,21 @@ impl JsonParsable for () {
     }
     fn post_parse(self, _args: &()) -> Result<()> {
         Ok(())
+    }
+}
+
+impl<T: JsonParsable> JsonParsable for Vec<T> {
+    type PostParseArg = T::PostParseArg;
+    type PostParseResult = Vec<T::PostParseResult>;
+    fn reason() -> &'static str {
+        "vec<>"
+    }
+    fn post_parse(self, args: &Self::PostParseArg) -> Result<Vec<T::PostParseResult>> {
+        let mut result = vec![];
+        for s in self.into_iter() {
+            result.push(s.post_parse(args)?);
+        }
+        Ok(result)
     }
 }
 
@@ -147,5 +163,47 @@ where
         let json = Self::read_json_file(path_set, path)?;
         let (filename, result) = json.deserialize()?;
         Ok((filename, result.post_parse(post_parse)?))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum QuaternionDesc {
+    Quaternion { i: f64, j: f64, k: f64, r: f64 },
+    LookAt { at: [f64; 3], up: [f64; 3] },
+}
+impl JsonParsable for QuaternionDesc {
+    type PostParseArg = ();
+    type PostParseResult = Quat;
+    fn reason() -> &'static str {
+        "orientation"
+    }
+    fn post_parse(self, _args: &()) -> Result<Quat> {
+        let q = match self {
+            QuaternionDesc::Quaternion { r, i, j, k } => Quat::of_rijk(r, i, j, k),
+            QuaternionDesc::LookAt { at, up } => Quat::look_at(&at.into(), &up.into()),
+        };
+        Ok(q.normalize())
+    }
+}
+
+impl JsonParsable for Point2D {
+    type PostParseArg = ();
+    type PostParseResult = Point2D;
+    fn reason() -> &'static str {
+        "2d point"
+    }
+    fn post_parse(self, _args: &()) -> Result<Point2D> {
+        Ok(self)
+    }
+}
+
+impl JsonParsable for Point3D {
+    type PostParseArg = ();
+    type PostParseResult = Point3D;
+    fn reason() -> &'static str {
+        "2d point"
+    }
+    fn post_parse(self, _args: &()) -> Result<Point3D> {
+        Ok(self)
     }
 }

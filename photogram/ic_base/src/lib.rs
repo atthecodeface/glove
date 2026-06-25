@@ -9,7 +9,7 @@ pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod json;
-pub use json::{JsonParsable, JsonSrc};
+pub use json::{JsonParsable, JsonSrc, QuaternionDesc};
 
 mod path_set;
 pub use path_set::{PathGlob, PathSet};
@@ -24,7 +24,7 @@ mod word_xy;
 pub use word_xy::WordXy;
 
 pub use plane::Plane;
-pub use triangle3d::{GCTriangle, Triangle3D};
+pub use triangle3d::{GcTriangle3D, Triangle3D};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 
 mod ray;

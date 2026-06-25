@@ -112,7 +112,12 @@ impl PathSet {
         paths
     }
 
-    //mp add_path
+    /// Clear the path set
+    pub fn clear(&mut self) {
+        self.paths.clear();
+    }
+
+    /// Add a new path (that must exist)
     pub fn add_path<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<()> {
         if !path.as_ref().exists() {
             Err(format!("Path {path} cannot be added to seach chain as it does not exist").into())
@@ -122,7 +127,18 @@ impl PathSet {
         }
     }
 
-    //mp find_file
+    /// Given a path, try to find the path in the set it derives most closely from
+    pub fn get_relative_path<P: AsRef<Path>>(&self, path: P) -> Option<(PathBuf, PathBuf)> {
+        let path = path.as_ref();
+        for p in &self.paths {
+            if let Ok(path) = path.strip_prefix(p) {
+                return Some((p.into(), path.into()));
+            }
+        }
+        None
+    }
+
+    /// Find a file within the path set
     pub fn find_file<P: AsRef<Path>>(&self, path: P) -> Option<PathBuf> {
         if path.as_ref().exists() {
             Some(path.as_ref().into())

@@ -1,5 +1,5 @@
 use geo_nd::Vector;
-use ic_base::{GCTriangle, Point3D, Triangle3D};
+use ic_base::{GcTriangle3D, Point3D, Triangle3D};
 
 use std::rc::Rc;
 
@@ -9,7 +9,7 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     let y: Point3D = [0.0, 1.0, 0.0].into();
     let z: Point3D = [0.0, 0.0, 1.0].into();
 
-    let t = GCTriangle::of_points(&x, &y, &z);
+    let t = GcTriangle3D::of_points(&x, &y, &z);
     assert_eq!(t.nonunit_points()[0], x);
     assert_eq!(t.nonunit_points()[1], y);
     assert_eq!(t.nonunit_points()[2], z);
@@ -30,14 +30,14 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     let mid_yz_n = mid_yz.normalize();
     let mid_zx_n = mid_zx.normalize();
 
-    let t0 = GCTriangle::of_points(&x, &mid_xy_n, &mid_zx_n);
-    let _t1 = GCTriangle::of_points(&y, &mid_yz_n, &mid_xy_n);
-    let _t2 = GCTriangle::of_points(&z, &mid_zx_n, &mid_yz_n);
-    let _t3 = GCTriangle::of_points(&mid_xy_n, &mid_zx_n, &mid_yz_n);
+    let t0 = GcTriangle3D::of_points(&x, &mid_xy_n, &mid_zx_n);
+    let _t1 = GcTriangle3D::of_points(&y, &mid_yz_n, &mid_xy_n);
+    let _t2 = GcTriangle3D::of_points(&z, &mid_zx_n, &mid_yz_n);
+    let _t3 = GcTriangle3D::of_points(&mid_xy_n, &mid_zx_n, &mid_yz_n);
 
     let x = Some(Rc::new(t0.clone()));
     eprintln!("{}", std::mem::size_of_val(&x));
-    let t = GCTriangle::of_points(
+    let t = GcTriangle3D::of_points(
         &[0.8, 0.0, 0.5].into(),
         &[0.5, 0.8, 0.0].into(),
         &[0.0, 0.5, 0.8].into(),
@@ -45,7 +45,7 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
 
     // GC Normals of t are scaled versions of (-0.5, 0.3, 0.8); (0.8, -0.5, 0.3); (0.3, 0.8, -0.5)
     dbg!(&t);
-    let ot = GCTriangle::of_normals(
+    let ot = GcTriangle3D::of_normals(
         &t.nonunit_normal_01,
         &t.nonunit_normal_12,
         &t.nonunit_normal_20,
@@ -54,7 +54,7 @@ fn test_gct0() -> Result<(), Box<dyn std::error::Error>> {
     assert!(t.nonunit_normal_12.distance_sq(&ot.nonunit_normal_12) < 1E-4);
     assert!(t.nonunit_normal_20.distance_sq(&ot.nonunit_normal_20) < 1E-4);
 
-    let oot = GCTriangle::of_points(
+    let oot = GcTriangle3D::of_points(
         &ot.nonunit_points()[0],
         &ot.nonunit_points()[1],
         &ot.nonunit_points()[2],
@@ -125,7 +125,7 @@ fn test_gct1() -> Result<(), Box<dyn std::error::Error>> {
     let z: Point3D = [0.0, 0.0, 1.0].into();
     let m = x + y + z;
 
-    let gct = GCTriangle::of_points(&x, &y, &z);
+    let gct = GcTriangle3D::of_points(&x, &y, &z);
 
     let t = Triangle3D::of_normals_on_sphere(
         gct.nonunit_normal(0),
@@ -214,7 +214,7 @@ fn test_gct2() -> Result<(), Box<dyn std::error::Error>> {
 fn test_pts(x: Point3D, y: Point3D, z: Point3D) -> Result<(), Box<dyn std::error::Error>> {
     let m = x + y + z;
 
-    let gct = GCTriangle::of_points(&x, &y, &z);
+    let gct = GcTriangle3D::of_points(&x, &y, &z);
     let _t = Triangle3D::of_normals_on_sphere(
         gct.nonunit_normal(0),
         gct.nonunit_normal(1),

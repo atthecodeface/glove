@@ -21,7 +21,7 @@ use crate::Point3D;
 /// Note, though that if the normals are *normalized* then the points derived
 /// from them are *NOT* unit points
 #[derive(Debug, Clone)]
-pub struct GCTriangle {
+pub struct GcTriangle3D {
     /// The (nonunit) normal to the great circle joining the first two points on the sphere
     pub nonunit_normal_01: Point3D,
     /// The (nonunit) normal to the great circle joining the second two points on the sphere
@@ -29,7 +29,8 @@ pub struct GCTriangle {
     /// The (nonunit) normal to the great circle joining the third point on the sphere to the first point on the sphere
     pub nonunit_normal_20: Point3D,
 }
-impl GCTriangle {
+
+impl GcTriangle3D {
     /// Create a GCTriangle given three (nonunit) normals
     ///
     /// the points of the triangle are at:
@@ -101,12 +102,9 @@ impl GCTriangle {
     /// Retrieve the three points from the (nonunit) normals
     pub fn nonunit_points(&self) -> [Point3D; 3] {
         [
-            self.nonunit_normal_20
-                .cross_product(self.nonunit_normal_01),
-            self.nonunit_normal_01
-                .cross_product(self.nonunit_normal_12),
-            self.nonunit_normal_12
-                .cross_product(self.nonunit_normal_20),
+            self.nonunit_normal_20.cross_product(self.nonunit_normal_01),
+            self.nonunit_normal_01.cross_product(self.nonunit_normal_12),
+            self.nonunit_normal_12.cross_product(self.nonunit_normal_20),
         ]
     }
 
@@ -168,6 +166,16 @@ pub struct Triangle3D {
     tangent_20: Point3D,
     /// The value associated with tangent_20 such that P2.tangent_20=P0.tangent_20=value_20
     value_20: f64,
+}
+
+impl std::convert::From<&GcTriangle3D> for Triangle3D {
+    fn from(gct: &GcTriangle3D) -> Self {
+        Self::of_normals_on_sphere(
+            gct.nonunit_normal(0),
+            gct.nonunit_normal(1),
+            gct.nonunit_normal(2),
+        )
+    }
 }
 
 impl Triangle3D {
@@ -341,7 +349,7 @@ impl Triangle3D {
     pub fn point_projected_onto_by_scaling(&self, p: &Point3D) -> Point3D {
         let p_value = self.unit_normal.dot(p);
         let r = *p * self.value / p_value;
-        eprintln!("{p} {r} {}", self.unit_normal.dot(r) - self.value);
+        // eprintln!("{p} {r} {}", self.unit_normal.dot(r) - self.value);
         r
     }
 
