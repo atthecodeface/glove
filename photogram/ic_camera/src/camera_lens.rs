@@ -342,6 +342,34 @@ impl LensPolys {
         Self::new(stw_poly, wts_poly)
     }
 
+    //cp set_stw_poly
+    fn set_stw_poly(mut self, poly: &[f64]) -> Self {
+        self.stw_poly = poly.to_vec();
+        self
+    }
+
+    //cp set_wts_poly
+    fn set_wts_poly(mut self, poly: &[f64]) -> Self {
+        self.wts_poly = poly.to_vec();
+        self
+    }
+
+    //mp stw
+    /// Map from sensor angle to world angle
+    ///
+    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
+    fn stw(&self, angle: f64) -> f64 {
+        angle * self.stw_poly.calc(angle.powi(2)) + angle
+    }
+
+    //mp wts
+    /// Map from world angle to sensor angle
+    ///
+    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
+    fn wts(&self, angle: f64) -> f64 {
+        angle * self.wts_poly.calc(angle.powi(2)) + angle
+    }
+
     //cp new
     pub fn new(stw_poly: Vec<f64>, wts_poly: Vec<f64>) -> Self {
         Self { stw_poly, wts_poly }
@@ -354,34 +382,6 @@ impl LensPolys {
         } else {
             Ok(serde_json::to_string(self)?)
         }
-    }
-
-    //cp set_stw_poly
-    pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
-        self.stw_poly = poly.to_vec();
-        self
-    }
-
-    //cp set_wts_poly
-    pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
-        self.wts_poly = poly.to_vec();
-        self
-    }
-
-    //mp stw
-    /// Map from sensor angle to world angle
-    ///
-    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    pub fn stw(&self, angle: f64) -> f64 {
-        angle * self.stw_poly.calc(angle.powi(2)) + angle
-    }
-
-    //mp wts
-    /// Map from world angle to sensor angle
-    ///
-    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    pub fn wts(&self, angle: f64) -> f64 {
-        angle * self.wts_poly.calc(angle.powi(2)) + angle
     }
 
     //cp calibration
@@ -582,18 +582,6 @@ impl CameraLens {
         self
     }
 
-    //cp set_stw_poly
-    pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
-        self.polys = self.polys.set_stw_poly(poly);
-        self
-    }
-
-    //cp set_wts_poly
-    pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
-        self.polys = self.polys.set_wts_poly(poly);
-        self
-    }
-
     //mp has_name
     pub fn has_name(&self, name: &str) -> bool {
         if name == self.name {
@@ -617,6 +605,18 @@ impl CameraLens {
     #[inline]
     pub fn mm_focal_length(&self) -> f64 {
         self.mm_focal_length
+    }
+
+    //cp set_stw_poly
+    pub fn set_stw_poly(mut self, poly: &[f64]) -> Self {
+        self.polys = self.polys.set_stw_poly(poly);
+        self
+    }
+
+    //cp set_wts_poly
+    pub fn set_wts_poly(mut self, poly: &[f64]) -> Self {
+        self.polys = self.polys.set_wts_poly(poly);
+        self
     }
 
     //ap tan_sensor_to_tan_world - map tan to tan
