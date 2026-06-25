@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use crate::interactive::{shell, CmdRequest, CmdResponse};
+use crate::interactive::{CmdRequest, CmdResponse, shell};
 use crate::{CommandArgs, CommandArgsValue, CommandBuilder, CommandHandlerSet, ExecError};
 
 //a CommandSet
@@ -539,6 +539,7 @@ impl<C: CommandArgs> CommandSet<C> {
             } else if escape {
                 // escape a character (e.g. inside quotes)
                 token.as_mut().unwrap().push(c);
+                escape = false;
             } else if let Some(dc) = delimiter {
                 // Closing delimiter
                 if c == dc {

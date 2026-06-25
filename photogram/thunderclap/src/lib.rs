@@ -2,6 +2,7 @@
 mod arg_count;
 mod arg_descriptor;
 mod builder;
+mod cmd_descriptor;
 mod command_set;
 mod handler;
 pub mod interactive;
@@ -13,6 +14,7 @@ pub mod json;
 pub use arg_count::ArgCount;
 pub use arg_descriptor::ArgDescriptor;
 pub use builder::CommandBuilder;
+pub use cmd_descriptor::CmdDescriptor;
 pub use traits::{CommandArgs, CommandArgsValue};
 
 pub use command_set::CommandSet;

@@ -103,6 +103,7 @@ impl From<(Option<usize>, bool)> for ArgCount {
 
 //ip ArgCount {
 impl ArgCount {
+    /// Return true if this requires a tag (e.g. --name); return false for positional arguments
     pub(crate) fn uses_tag(&self) -> bool {
         use ArgCount::*;
         !matches!(
@@ -110,6 +111,8 @@ impl ArgCount {
             PositionalOptional | PositionalRequired(_) | PositionalAny
         )
     }
+
+    /// Return true if this is a required 'option'
     pub(crate) fn required(&self) -> bool {
         use ArgCount::*;
         !matches!(
@@ -117,6 +120,8 @@ impl ArgCount {
             Optional | Any | Max(_) | PositionalOptional | PositionalAny
         )
     }
+
+    /// Get the actions required - Set for most, Append for those with a count of tage
     pub(crate) fn action(&self) -> ArgAction {
         use ArgCount::*;
         match self {
@@ -127,6 +132,8 @@ impl ArgCount {
             _ => ArgAction::Append,
         }
     }
+
+    /// Get the number of arguments required
     pub(crate) fn num_args(&self) -> Option<clap::builder::ValueRange> {
         use ArgCount::*;
         match self {
