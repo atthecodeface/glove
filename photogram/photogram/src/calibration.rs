@@ -346,6 +346,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         &world_yaws,
         yaw_range_min,
         yaw_range_max,
+        true,
     )
     .map_err(|e| {
         (

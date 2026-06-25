@@ -121,31 +121,31 @@ pub fn serialize_lens_name<S: serde::Serializer>(
 }
 
 //a Constants for standard lens types
-//cp LP_EQUISOLID
+//cp LP_EQUISOLID (e.g. Canon 15mm) (wts, stw)
 pub const LP_EQUISOLID: ([f64; 8], [f64; 8]) = (
     [
-        -0.4950859499527951,
-        -0.15013246274611447,
-        0.4607994472316932,
-        -1.0120615505147725,
-        1.1602022431325167,
-        -0.7109380326000974,
-        0.22122976594255306,
-        -0.02746571348689031,
+        -8.789983667156775e-6,
+        -0.37458023821091047,
+        0.23724022298119962,
+        -0.16315358644351363,
+        0.09640247269999236,
+        -0.04054515733150765,
+        0.010141726874280721,
+        -0.0011073389541707002,
     ],
     [
-        1.0000020622392185,
-        1.0000532319536433,
-        0.7467438690364361,
-        0.7625024914741516,
-        -0.005959510803222656,
-        4.911521911621094,
-        -10.391387939453125,
-        15.370040893554688,
+        1.074486590368906e-6,
+        0.37527500541182235,
+        0.17323485715314746,
+        0.1492935959249735,
+        -0.18428166955709457,
+        0.5444365739822388,
+        -0.5545806586742401,
+        0.2795114889740944,
     ],
 );
 
-//cp LP_STEREOGRAPHIC
+//cp LP_STEREOGRAPHIC (wts, stw)
 pub const LP_STEREOGRAPHIC: ([f64; 7], [f64; 7]) = (
     [
         -0.000015352771598031723,
@@ -167,7 +167,7 @@ pub const LP_STEREOGRAPHIC: ([f64; 7], [f64; 7]) = (
     ],
 );
 
-//cp LP_EQUIANGULAR
+//cp LP_EQUIANGULAR (wts, stw)
 pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
     [
         -5.491853016792447e-6,
@@ -258,6 +258,16 @@ pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
 ///    r0 = p1-1, r1 = p3, r2 = p5, r3 = p7, ...
 ///
 /// The calibration could take advantage of this
+///
+///
+///
+/// Want to change this to piecewise bezier_nd
+///
+/// This is effectively a tree of  Bezier | (pivot, less Node, Greater Node)
+///
+/// This can be stored as Vec<LPNode>, with LPNode being [f64;3] or (f64, usize, usize)
+///
+/// Or [f64;4] where if first is NAN then 1 and 2 are node pointers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LensPolys {
     /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
@@ -399,8 +409,9 @@ impl LensPolys {
         world_yaws: &[f64],
         yaw_range_min: f64,
         yaw_range_max: f64,
+        apply_filter: bool,
     ) -> Result<Self> {
-        //cb Calculate ws_yaws
+        // Create a vec of (world, sensor) yaw pairs where sensor yaw is > yaw_range_min
         let mut ws_yaws: Vec<_> = sensor_yaws
             .iter()
             .zip(world_yaws.iter())
@@ -409,8 +420,17 @@ impl LensPolys {
             .collect();
         ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-        let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws);
+        // Map vec of (world,sensor) yaw pairs to (local mean world, sensor)
+        // values using a windowed filter
+        let mean_median_ws_yaws = {
+            if apply_filter {
+                polynomial::filter_ws_yaws(&ws_yaws)
+            } else {
+                ws_yaws.clone()
+            }
+        };
 
+        // Generate an array (sensor^2, (world/sensor-1))
         let sy_gwy: Vec<_> = mean_median_ws_yaws
             .iter()
             .filter(|(_, s)| *s < yaw_range_max)
@@ -423,6 +443,7 @@ impl LensPolys {
             })
             .collect();
 
+        // Generate polynomial-of-best-fit p(sensor^2) = (world/sensor)-1
         let stw =
             polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied()).map_err(|e| {
                 Error::SelfError(
@@ -431,6 +452,7 @@ impl LensPolys {
                 )
             })?;
 
+        // Generate an array (world^2, (sensor/world-1))
         let wy_gsy = sensor_yaws.iter().map(|s| {
             let w = *s * stw.calc(s.powi(2)) + *s;
             if w.abs() < 0.001 {
@@ -440,6 +462,7 @@ impl LensPolys {
             }
         });
 
+        // Generate polynomial-of-best-fit p(world^2) = (sensor/world)-1
         let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy).map_err(|e| {
             Error::SelfError(
                 "failed to derive world-to-sensor polynomial".to_string(),

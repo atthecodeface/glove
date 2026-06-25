@@ -76,6 +76,12 @@ impl CalcPoly for Vec<f64> {
 }
 
 //a Find polynomial with minimum square error for data
+/// Map a list of (y,x) pairs (that are sorted by x) to produce an array of reduced length (L-N+1)
+/// of contents (y',x) where y' is obtained as x * (local mean of N y/x values ignoring worst two outliers)
+///
+/// So for every region of N successive points find the N values of yi/xi,
+/// discard the largest and smallest values, and calculate the mean of the
+/// remaining N-2; use the pair (x(N/2)*mean, x(N/2)) as the result
 pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
     // world, sensor
     let mut mean_median_wc_yaws = vec![];
@@ -94,19 +100,22 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
             smallest = smallest.min(*v);
             largest = largest.max(*v);
         }
+        // Find the *mean* of the N entries (of y/x) discarding the smallest and largest
         let mean = (total - smallest - largest) / (n - 2.0);
+        // If past the first N entries... do not use the initial filter data...
         if i >= mid * 2 {
+            // Push the resultant (y,x) tuple with the *same* x but the local-mean-times-x as 'y'
             mean_median_wc_yaws.push((mean * filter[mid].0, filter[mid].0));
             if false {
                 eprintln!(
-                "Orig s,w {:0.4},{:0.4} : Filter mid s,w {:0.4},{:0.4}, pushed s,w {:0.4},{:0.4}",
-                c.to_degrees(),
-                w.to_degrees(),
-                filter[mid].0.to_degrees(),
-                (filter[mid].1 * filter[mid].0).to_degrees(),
-                mean_median_wc_yaws.last().unwrap().1.to_degrees(),
-                mean_median_wc_yaws.last().unwrap().0.to_degrees(),
-            );
+                    "Orig s,w {:0.4},{:0.4} : Filter mid s,w {:0.4},{:0.4}, pushed s,w {:0.4},{:0.4}",
+                    c.to_degrees(),
+                    w.to_degrees(),
+                    filter[mid].0.to_degrees(),
+                    (filter[mid].1 * filter[mid].0).to_degrees(),
+                    mean_median_wc_yaws.last().unwrap().1.to_degrees(),
+                    mean_median_wc_yaws.last().unwrap().0.to_degrees(),
+                );
             }
         }
         filter.pop_front();
@@ -115,6 +124,8 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
 }
 
 //fp min_squares
+/// Find a polymoial-of-best-fit of a given degree P for a set of (x, p(x)) pairs
+///
 pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> Result<[f64; P]> {
     assert_eq!(P2, P * P);
     let n = xs.len();
@@ -148,38 +159,68 @@ pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> R
 }
 
 //fp min_squares_dyn
+/// Find a polymoial-of-best-fit of a given degree D for a set of (x, p(x)) pairs
+///
+/// This operates on the principle that, given a polynomial with coeffecients
+/// c0..cd-1, one can represent the known data points from the iterator (xi, yi)
+/// as an N-element column vector 'Y' of yi; the coefficients as a D-element
+/// column vector 'C'; and an N-by-D matrix 'X' whose rows are (1, xi, xi^2, xi^3)
+/// for the respective data point.
+///
+/// Then one can express this in matrix form as X * C = Y
+///
+/// If this holds, then:
+///
+///  X.transpose() * X * C = X.transpose() *Y
+///  (X.transpose() * X).inverse() * (X.transpose() * X) * C = (X.transpose() * X).inverse() * X.transpose() *Y
+///  C = (X.transpose() * X).inverse() * X.transpose() * Y
+///
 pub fn min_squares_dyn<I: ExactSizeIterator<Item = (f64, f64)>>(
-    p: usize,
+    degree: usize,
     iter: I,
 ) -> Result<Vec<f64>> {
     let n = iter.len();
-    let mut xi_m = vec![0.; n * p]; // N rows of P columns
-    let mut xi_m_t = vec![0.; n * p]; // P rows of N columns
+
+    // ys = Y
+    // xi_m = X
+    // xi_m_t = X.transpose()
+    let mut xi_m = vec![0.; n * degree]; // N rows of P columns
+    let mut xi_m_t = vec![0.; n * degree]; // P rows of N columns
     let mut ys = vec![0.; n];
     for (i, (x, y)) in iter.enumerate() {
         ys[i] = y;
         let mut xn = 1.;
-        for j in 0..p {
-            xi_m[i * p + j] = xn;
+        for j in 0..degree {
+            xi_m[i * degree + j] = xn;
             xi_m_t[j * n + i] = xn;
             xn *= x;
         }
     }
-    let mut x_xt = vec![0.; p * p]; // P by P matrix
-    matrix::multiply_dyn(p, n, p, &xi_m_t, &xi_m, &mut x_xt);
-    let mut dm = nalgebra::base::DMatrix::from_element(p, p, 2.0);
+
+    // x_xt = X.transpose() * X
+    let mut x_xt = vec![0.; degree * degree]; // P by P matrix
+    matrix::multiply_dyn(degree, n, degree, &xi_m_t, &xi_m, &mut x_xt);
+
+    // dm = (X.transpose() * X).inverse()
+    let mut dm = nalgebra::base::DMatrix::from_element(degree, degree, 2.0);
     dm.copy_from_slice(&x_xt);
     if !dm.try_inverse_mut() {
         return Err(Error::PolynomialFit(n));
     }
-    let mut xt_y = vec![0.; p]; // P row vector
-    matrix::multiply_dyn(p, n, 1, &xi_m_t, &ys, &mut xt_y);
-    let mut dm_2 = Vec::with_capacity(p * p); // P row vector
-    for i in 0..p * p {
+
+    // xt_y = X.transpose() * y
+    let mut xt_y = vec![0.; degree]; // P row vector
+    matrix::multiply_dyn(degree, n, 1, &xi_m_t, &ys, &mut xt_y);
+
+    // dm2 = (X.transpose() * X).inverse()
+    let mut dm_2 = Vec::with_capacity(degree * degree); // P row vector
+    for i in 0..degree * degree {
         dm_2.push(dm[i]);
     }
-    let mut res = vec![0.; p]; // P row vector
-    matrix::multiply_dyn(p, p, 1, &dm_2, &xt_y, &mut res);
+
+    // res = dm2 * xt_y = (X.transpose() * X).inverse() * (X.transpose() * y)
+    let mut res = vec![0.; degree]; // P row vector
+    matrix::multiply_dyn(degree, degree, 1, &dm_2, &xt_y, &mut res);
     Ok(res)
 }
 
@@ -216,8 +257,13 @@ pub fn error_in_y_stats<I: Iterator<Item = (f64, f64)>>(
     (max_sq_err, max_n, mean_err, mean_sq_err, variance_err)
 }
 
-//fp find_outliers
-/// Find points that are outside a range
+/// Find points x whose poly(x) is outside a range
+///
+/// This returns a Vec of the indices of all the values that have p(x) either less thean dmin
+/// or greater than dmax, in increasing order of index.
+///
+/// If these are to bre pruned from the provided iterator then it is best to do
+/// so using the *reverse* of the iterator
 pub fn find_outliers<I: Iterator<Item = (f64, f64)>>(
     poly: &[f64],
     iter: I,

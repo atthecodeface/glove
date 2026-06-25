@@ -119,6 +119,15 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
         .into()
     }
 
+    /// Convert a [Point3D] *direction* vector in world space (XYZ) to camera-space
+    /// coordinates (XYZ) by applying the orientation of the camera
+    ///
+    /// This does not apply the lens mapping.
+    #[inline]
+    fn world_dir_to_camera_xyz(&self, world_dir: &Point3D) -> Point3D {
+        quat::apply3(self.orientation().as_ref(), world_dir).into()
+    }
+
     /// Convert a [Point3D] *position* vector in world space (XYZ) to camera-space
     /// coordinates (XYZ) by translating and then applying the orientation of the camera
     ///
@@ -164,7 +173,7 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
         self.world_xyz_to_camera_xyz(world_xyz).into()
     }
 
-    /// Convert a [Point3D] *position* vector in world space (XYZ) to semnsor
+    /// Convert a [Point3D] *position* vector in world space (XYZ) to sensor
     /// absolute positions [Point2D] by translating and then applying the
     /// orientation of the camera, then applying the lens mapping and converting
     /// to the sensor position
@@ -174,5 +183,24 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     fn world_xyz_to_px_abs_xy(&self, world_xyz: &Point3D) -> Point2D {
         let camera_txty = self.world_xyz_to_camera_txty(world_xyz);
         self.camera_txty_to_px_abs_xy(&camera_txty)
+    }
+
+    /// Convert a [Point3D] *direvtion* vector in world space (XYZ) to semnsor
+    /// absolute positions [Point2D] by translating and then applying the
+    /// orientation of the camera, then applying the lens mapping and converting
+    /// to the sensor position.
+    ///
+    /// If the direction is *behind* the camera then return None
+    ///
+    /// This *DOES* apply the lens mapping.
+    #[inline]
+    fn world_dir_to_opt_px_abs_xy(&self, world_dir: &Point3D) -> Option<Point2D> {
+        let camera_xyz = self.world_dir_to_camera_xyz(world_dir);
+        if camera_xyz[2] < 1E-6 {
+            None
+        } else {
+            let camera_txty = camera_xyz.into();
+            Some(self.camera_txty_to_px_abs_xy(&camera_txty))
+        }
     }
 }

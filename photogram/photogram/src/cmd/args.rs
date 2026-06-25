@@ -79,7 +79,7 @@ impl CmdArgs {
         build.add_arg_string(
             "project_file",
             None,
-            "Complet project JSON filename",
+            "Complete project JSON filename",
             required,
             None,
             CmdArgs::set_project_file,

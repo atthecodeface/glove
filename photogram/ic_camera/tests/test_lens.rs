@@ -1,9 +1,10 @@
 //a Imports
 use ic_base::Result;
+use ic_camera::LensPolys;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_camera::LensPolys;
 
+/// Test the mapping by generating LensPolys for sensor yaw in 1000 steps from wmin to wmax mapped to world yaw through the mapping
 fn test_mapping<F>(
     name: &str,
     fwd_fn: F,
@@ -23,7 +24,7 @@ where
 
     let sensor_yaws: Vec<_> = yaws.clone().map(&fwd_fn).collect();
     let world_yaws: Vec<_> = yaws.clone().collect();
-    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0)?;
+    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0, false)?;
     let mut num_errors = 0;
     for world in yaws.clone() {
         let lens_sensor = lens_poly.wts(world);
@@ -85,7 +86,7 @@ where
     }
 
     if num_out_of_range > 0 {
-        return Err("Failed".into());
+        return Err(format!("Failed with {num_out_of_range} out of range").into());
     }
     Ok(())
 }
@@ -93,6 +94,7 @@ where
 #[test]
 fn test_stereographic() -> Result<()> {
     let lens = LensPolys::stereographic();
+    // tan(sensor) = 2 tan(world/2)
     let fwd_fn = |x: f64| ((x / 2.0).tan() * 2.0).atan();
     test_mapping(
         "STEREOGRAPHIC",
@@ -108,6 +110,7 @@ fn test_stereographic() -> Result<()> {
 #[test]
 fn test_equiangular() -> Result<()> {
     let lens = LensPolys::equiangular();
+    // tan(sensor) = 2 tan(world/2)
     let fwd_fn = |x: f64| x.atan();
     test_mapping(
         "EQUIANGULAR",
@@ -123,16 +126,19 @@ fn test_equiangular() -> Result<()> {
 #[test]
 fn test_equisolid() -> Result<()> {
     let lens = LensPolys::equisolid();
-    let fwd_fn = |x: f64| (x / 2.0).sin().atan();
+    // tan(sensor) = 2 sin(world/2)
+    let fwd_fn = |x: f64| ((x / 2.0).sin() * 2.0).atan();
     test_mapping(
         "EQUISOLID",
         fwd_fn,
         8,
         0.0,
-        0.92 * std::f64::consts::PI / 2.0,
+        0.97 * std::f64::consts::PI / 2.0,
         &lens,
         false,
-    )
+    )?;
+    assert!(false, "Force fail");
+    Ok(())
 }
 
 #[test]
