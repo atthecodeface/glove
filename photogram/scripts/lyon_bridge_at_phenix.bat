@@ -8,7 +8,7 @@ set lens "28mm linear"
 
 # Use identity orientation for first image
 set orientation ' {"Quaternion": [0,0,0,1]}'
---camera_db nac/camera_db.json --orientation ${orientation} --use_body R5 --use_lens "${lens}" --use_focus 1000
+--camera_db nac/camera_db.json --orientation ${orientation} --use_body R5 --use_lens "${lens}" --use_focus 100000
 
 # lens_polys_of_pts --xy [[0.03,0.03],[-0.1,-0.1]]
 # echo "${0}"
@@ -41,6 +41,7 @@ set pts "${0}"
 quaternion_mapping_pts --xyz "${pts}"
 set orientation_41_to_42 " \{\"Quaternion\": ${0}\}"
 
+# These two map *very* well with a 35mm lens
 # top of tram pole from embankment in front of boundary between pink/yellow building IMG42 4427,2087; IMG43 1077,1933
 # Top of traffic light pole other side of river in front of mustard building IMG42 7693,2734 IMG43 4277,2635
 photo_map_pts --xy [[4427,2087],[7693,2734],[1077,1933],[4277,2635]]
@@ -49,24 +50,25 @@ set pts "${0}"
 quaternion_mapping_pts --xyz "${pts}"
 set orientation_41_to_43 " \{\"Quaternion\": ${0}\}"
 
+# Note - 38 is probably taken from a different location
 # Top of narrow bollard on pavement above steps down on embankment IMG43 4277,2635 IMG38,2991,2519
-# Top of narrow bollard on pavement above steps down on embankment IMG43 7326,2637 IMG38,5946,2457
---verbose photo_map_pts --xy [[4277,2635],[7326,2637],[2991,2519],[5946,2457]]
+# Top of traffic lights in front of yellow building IMG43 7326,2627 IMG38,5946,2457
+--verbose photo_map_pts --xy [[4277,2635],[7326,2627],[2991,2519],[5946,2457]]
 set pts "${0}"
 --orientation ${orientation_41_to_43}
 quaternion_mapping_pts --xyz "${pts}"
 set orientation_41_to_38 " \{\"Quaternion\": ${0}\}"
 
-set blend 0.7
 set blend 0.0
+set blend 0.5
 
---verbose --orientation ${orientation}          read_photo --read /Users/gjstark/Git/Images/Lyon/145A3841.JPG --blend 0.0
---verbose --orientation ${orientation_41_to_40} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3840.JPG --blend ${blend}
---verbose --orientation ${orientation_41_to_39} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3839.JPG --blend ${blend}
---verbose --orientation ${orientation_41_to_42} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3842.JPG --blend ${blend}
---verbose --orientation ${orientation_41_to_38} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3838.JPG --blend ${blend}
---verbose --orientation ${orientation_41_to_43} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3843.JPG --blend ${blend}
---verbose --orientation ${orientation}          read_photo --read /Users/gjstark/Git/Images/Lyon/145A3841.JPG --blend ${blend}
+#--verbose --orientation ${orientation}          read_photo --read /Users/gjstark/Git/Images/Lyon/145A3841.JPG --blend 0.0
+#--verbose --orientation ${orientation_41_to_40} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3840.JPG --blend ${blend}
+#--verbose --orientation ${orientation_41_to_39} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3839.JPG --blend ${blend}
+ --verbose --orientation ${orientation_41_to_42} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3842.JPG --blend ${blend}
+### --verbose --orientation ${orientation_41_to_38} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3838.JPG --blend ${blend}
+# --verbose --orientation ${orientation_41_to_43} read_photo --read /Users/gjstark/Git/Images/Lyon/145A3843.JPG --blend ${blend}
+ --verbose --orientation ${orientation}          read_photo --read /Users/gjstark/Git/Images/Lyon/145A3841.JPG --blend ${blend}
 
 set orientation ' {"LookAt": [[-0.08,0.0,-1], [0.02,1,0]]}'
 --orientation ${orientation} --verbose render_panorama --width 4096 --height 1200  --fovv 40 --fovh 200 --write panorama.jpg

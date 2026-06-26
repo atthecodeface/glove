@@ -28,8 +28,9 @@
 --batch ./scripts/si_hires_oct.bat
 # --batch ./scripts/si_midres_oct.bat
 
---batch ./scripts/lyon_garden_overlook.bat
+# --batch ./scripts/lyon_garden_overlook.bat
 # --batch ./scripts/lyon_bridge_at_phenix.bat
+--batch ./scripts/lyon_awning_court.bat
 
 write_image_file
 
