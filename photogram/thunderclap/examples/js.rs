@@ -3,7 +3,7 @@ use thunderclap::json;
 impl thunderclap::CommandArgs for CmdArgs {
     type Error = serde_json::Error;
     type Value = json::Value;
-
+    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] = &[];
     fn value_from_str(s: &str) -> Result<Self::Value, Self::Error> {
         eprintln!("Json from str '{s}'");
         if let Ok(v) = serde_json::from_str::<Self::Value>(s) {

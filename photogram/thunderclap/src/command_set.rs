@@ -7,7 +7,9 @@ use std::rc::Rc;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use crate::interactive::{CmdRequest, CmdResponse, shell};
-use crate::{CommandArgs, CommandArgsValue, CommandBuilder, CommandHandlerSet, ExecError};
+use crate::{
+    CmdProperty, CommandArgs, CommandArgsValue, CommandBuilder, CommandHandlerSet, ExecError,
+};
 
 //a CommandSet
 //tp CommandSet
@@ -267,9 +269,13 @@ impl<C: CommandArgs> CommandSet<C> {
             .unwrap();
 
         // If the client does not handle the 'set' then set a local variable
-        if !cmd_args.value_set(k, &value).map_err(ExecError::set_arg)? {
-            self.variables.insert(k.into(), value);
+        if let Some(property) = CmdProperty::find_property(C::PROPERTIES, k) {
+            if (property.set_value_fn)(cmd_args, &value).map_err(ExecError::set_arg)? {
+                return ExecError::cmd_ok();
+            }
         }
+
+        self.variables.insert(k.into(), value);
         ExecError::cmd_ok()
     }
 
@@ -281,16 +287,21 @@ impl<C: CommandArgs> CommandSet<C> {
     ) -> Result<C::Value, ExecError<C>> {
         if let Some(keys) = matches.get_many::<String>("key") {
             for k in keys {
-                let Some(v) = cmd_args.value_str(k) else {
+                let Some(property) = CmdProperty::find_property(C::PROPERTIES, k) else {
+                    return Err(format!("Argument set does not have a value for '{k}'").into());
+                };
+                let Some(v) = (property.get_fn)(cmd_args) else {
                     return Err(format!("Argument set does not have a value for '{k}'").into());
                 };
                 println!("{k:20}: {}", v.value_string());
             }
         } else {
-            for k in cmd_args.keys() {
-                if let Some(v) = cmd_args.value_str(k) {
-                    println!("{k:20}: {}", v.value_string());
-                }
+            for property in C::PROPERTIES {
+                let k = property.name;
+                let Some(v) = (property.get_fn)(cmd_args) else {
+                    return Err(format!("Argument set does not have a value for '{k}'").into());
+                };
+                println!("{k:20}: {}", v.value_string());
             }
         }
         ExecError::cmd_ok()
@@ -415,7 +426,10 @@ impl<C: CommandArgs> CommandSet<C> {
                 self.result_history[n - 1 - v].clone()
             } else if let Some(v) = self.variables.get(name) {
                 v.clone()
-            } else if let Some(v) = cmd_args.value_str(name) {
+            } else if let Some(property) = CmdProperty::find_property(C::PROPERTIES, name) {
+                let Some(v) = (property.get_fn)(cmd_args) else {
+                    return Err(format!("Failed to get proerty value for {name}'").into());
+                };
                 Rc::new(v)
             } else {
                 return Err(format!("Failed to evaluate '${{{name}}}'").into());

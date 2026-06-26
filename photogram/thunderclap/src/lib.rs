@@ -6,6 +6,7 @@ mod cmd_descriptor;
 mod command_set;
 mod handler;
 pub mod interactive;
+mod property;
 mod traits;
 
 use thiserror::Error;
@@ -15,6 +16,7 @@ pub use arg_count::ArgCount;
 pub use arg_descriptor::ArgDescriptor;
 pub use builder::CommandBuilder;
 pub use cmd_descriptor::CmdDescriptor;
+pub use property::CmdProperty;
 pub use traits::{CommandArgs, CommandArgsValue};
 
 pub use command_set::CommandSet;

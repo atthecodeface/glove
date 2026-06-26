@@ -1,7 +1,7 @@
 //a Imports
 use clap::ArgMatches;
 
-use crate::{CommandSet, ExecError};
+use crate::{CmdProperty, CommandSet, ExecError};
 
 //a CommandArgs
 //tt CommandArgsValue
@@ -91,13 +91,16 @@ command_args_value! {bool}
 ///
 /// This should be implemented by a type that is used to hold and
 /// build the arguments for the execution of commands
-pub trait CommandArgs: 'static {
+pub trait CommandArgs: 'static + Sized {
     /// Error type returned as an error by all [ArgFn] and [CommandFn]
     type Error: std::error::Error;
     // type Error: std::convert::From<String> + std::error::Error;
 
     /// Value type returned by commands
     type Value: CommandArgsValue;
+
+    /// Properties
+    const PROPERTIES: &[CmdProperty<'static, Self, Self::Value, Self::Error>];
 
     fn value_from_str(s: &str) -> Result<Self::Value, Self::Error>;
 
@@ -107,30 +110,6 @@ pub trait CommandArgs: 'static {
 
     /// Function invoked before every batch or interactive command to reset temporary options
     fn reset_args(&mut self) {}
-
-    /// Get the keys (elements) of the arguments - used in batch and interactive only
-    fn keys(&self) -> Box<dyn Iterator<Item = &str>> {
-        const KEYS: [String; 0] = [];
-        Box::new(KEYS.iter().map(|s| s.as_str()))
-    }
-
-    /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
-    ///
-    /// Return None if the key is not provided by the args
-    fn value_str(&self, _key: &str) -> Option<Self::Value> {
-        None
-    }
-
-    /// Set the value to a value from a string
-    ///
-    /// Return Ok(false) if the key is not provided by the args
-    ///
-    /// Return Ok(true) if the key value was set correctly
-    ///
-    /// Return Err() if the key was known but could not be set
-    fn value_set(&mut self, _key: &str, _value: &Self::Value) -> Result<bool, Self::Error> {
-        Ok(false)
-    }
 }
 
 //a ArgResetFn, ArgFn
@@ -172,9 +151,9 @@ pub trait ArgFn<C: CommandArgs>:
 
 //ip ArgFn for Fn(CommandArgs, ArgMatches)
 impl<
-        C: CommandArgs,
-        T: Fn(&CommandSet<C>, &mut C, &ArgMatches) -> Result<(), ExecError<C>> + 'static,
-    > ArgFn<C> for T
+    C: CommandArgs,
+    T: Fn(&CommandSet<C>, &mut C, &ArgMatches) -> Result<(), ExecError<C>> + 'static,
+> ArgFn<C> for T
 {
 }
 

@@ -50,6 +50,7 @@ where
 {
     type Error = Error<V>;
     type Value = V;
+    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] = &[];
     fn value_from_str(s: &str) -> Result<V, Error<V>> {
         s.parse()
     }
