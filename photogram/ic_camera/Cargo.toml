@@ -17,6 +17,6 @@ nalgebra.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
+bezier-nd.workspace = true
 
 ic_base.workspace = true
-

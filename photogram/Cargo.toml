@@ -75,6 +75,10 @@ features = ["derive", "rc"]
 [workspace.dependencies.serde_json]
 version = "1.0.91"
 
+[workspace.dependencies.bezier-nd]
+version = "0.8"
+path = "../../bezier-nd-rs"
+
 [workspace.dependencies.geo-nd]
 version = "0.8"
 path = "../../geo-nd-rs"

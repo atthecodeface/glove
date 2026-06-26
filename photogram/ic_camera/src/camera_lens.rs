@@ -103,6 +103,7 @@
 
 !*/
 
+use bezier_nd::bernstein_fns::values::point_at;
 //a Imports
 use serde::{Deserialize, Serialize};
 
@@ -218,6 +219,159 @@ pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
         3200.9576625823975,
     ],
 );
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+struct PiecewiseLensPolyNode {
+    data: [[f64; 1]; 4],
+}
+use bezier_nd::{BezierBuilder, BezierConstruct, BezierElevate, BezierEval};
+impl PiecewiseLensPolyNode {
+    fn new_pivot_node(t: f64, lt: usize, gt: usize) -> Self {
+        Self {
+            data: [[f64::NAN; 1], [t; 1], [lt as f64; 1], [gt as f64; 1]],
+        }
+    }
+    fn constant(t: f64) -> Self {
+        Self { data: [[t; 1]; 4] }
+    }
+    fn linear(xys: &[(f64, f64); 2]) -> Self {
+        let dx = xys[1].0 - xys[0].0;
+        let c0 = (xys[0].1 * xys[1].0 - xys[1].1 * xys[0].0) / dx;
+        let c1 = (xys[0].1 * (xys[1].0 - 1.0) - xys[1].1 * (xys[0].0 - 1.0)) / dx;
+        let b = [[c0], [c1]];
+        eprintln!("linear:{b:?}:{xys:?}");
+        let bq = b.elevate_by_one().unwrap();
+        let bc = bq.elevate_by_one().unwrap();
+        Self { data: bc }
+    }
+    fn quad(builder: &mut BezierBuilder<f64, 1>, xys: &[(f64, f64); 3]) -> Result<Self> {
+        builder.clear();
+        builder.add_point_at(xys[0].0, [xys[0].1; 1]);
+        builder.add_point_at(xys[1].0, [xys[1].1; 1]);
+        builder.add_point_at(xys[2].0, [xys[2].1; 1]);
+        let bq = <[[f64; 1]; 3]>::of_builder(builder).map_err(|e| format!("{e:?}"))?;
+        eprintln!("quad:{bq:?}:{xys:?}");
+        let bc = bq.elevate_by_one().unwrap();
+        Ok(Self { data: bc })
+    }
+    fn cubic(builder: &mut BezierBuilder<f64, 1>, xys: &[(f64, f64); 4]) -> Result<Self> {
+        builder.clear();
+        builder.add_point_at(xys[0].0, [xys[0].1; 1]);
+        builder.add_point_at(xys[1].0, [xys[1].1; 1]);
+        builder.add_point_at(xys[2].0, [xys[2].1; 1]);
+        builder.add_point_at(xys[3].0, [xys[3].1; 1]);
+        let bc = <[[f64; 1]; 4]>::of_builder(builder).map_err(|e| format!("{e:?}"))?;
+        eprintln!("cubic:{bc:?}:{xys:?}");
+        Ok(Self { data: bc })
+    }
+    fn is_pivot_node(&self) -> bool {
+        self.data[0][0].is_nan()
+    }
+    fn evaluate(&self, t: f64) -> std::result::Result<f64, usize> {
+        if self.is_pivot_node() {
+            if t < self.data[1][0] {
+                Err(self.data[2][0] as usize)
+            } else {
+                Err(self.data[3][0] as usize)
+            }
+        } else {
+            Ok(self.data.point_at(t)[0])
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PiecewiseLensPoly {
+    tree: Vec<PiecewiseLensPolyNode>,
+}
+impl PiecewiseLensPoly {
+    pub fn evaluate(&self, t: f64) -> f64 {
+        let mut node = 0;
+        loop {
+            match self.tree[node].evaluate(t) {
+                Ok(r) => {
+                    return r;
+                }
+                Err(n) => {
+                    node += n;
+                }
+            }
+        }
+    }
+    pub fn of_xys(xys: &[(f64, f64)]) -> Result<Self> {
+        let mut builder = BezierBuilder::default();
+        match xys.len() {
+            0 => {
+                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
+            }
+            1 => Ok(Self {
+                tree: vec![PiecewiseLensPolyNode::constant(xys[0].1)],
+            }),
+            2 => Ok(Self {
+                tree: vec![PiecewiseLensPolyNode::linear(&[xys[0], xys[1]])],
+            }),
+            3 => Ok(Self {
+                tree: vec![PiecewiseLensPolyNode::quad(
+                    &mut builder,
+                    &[xys[0], xys[1], xys[2]],
+                )?],
+            }),
+            4 => Ok(Self {
+                tree: vec![PiecewiseLensPolyNode::cubic(
+                    &mut builder,
+                    &[xys[0], xys[1], xys[2], xys[3]],
+                )?],
+            }),
+            n => {
+                // n odd (such as 5) we want n/2 (0..=2, 2..=4)
+                // n even (such as 4) then n/2 will do (0..=2, 2..=3)
+                let middle = n / 2;
+                let lower = Self::of_xys(&xys[0..=middle])?;
+                let upper = Self::of_xys(&xys[middle..n])?;
+                let split_x = xys[middle].0;
+                let skip_to_lower = 1;
+                let skip_to_upper = skip_to_lower + lower.tree.len();
+                let mut result = vec![PiecewiseLensPolyNode::new_pivot_node(
+                    split_x,
+                    skip_to_lower,
+                    skip_to_upper,
+                )];
+                result.extend(lower.tree.into_iter());
+                result.extend(upper.tree.into_iter());
+                Ok(Self { tree: result })
+            }
+        }
+    }
+}
+#[test]
+fn test_piecewise() -> Result<()> {
+    let p = PiecewiseLensPoly::of_xys(&[(0., 0.), (1., 2.0)])?;
+    for i in 0..10 {
+        let t = (i as f64);
+        eprintln!("{i} {}", p.evaluate(t));
+    }
+
+    let p = PiecewiseLensPoly::of_xys(&[(0., 0.), (1., 2.0), (2., 8.)])?;
+    for i in 0..10 {
+        let t = (i as f64);
+        eprintln!("{i} {}", p.evaluate(t));
+    }
+
+    let mut d = vec![];
+    for i in 0..50 {
+        let t = (i as f64);
+        let v = t.to_radians().tan();
+        d.push((t, v));
+    }
+    let p = PiecewiseLensPoly::of_xys(&d)?;
+    for i in 0..50 {
+        let t = (i as f64);
+        eprintln!("{i} {} {}", p.evaluate(t), t.to_radians().tan());
+    }
+    eprintln!("{p:?}");
+    assert!(false, "Force fail");
+    Ok(())
+}
 
 //a LensPolys
 //tp LensPolys
@@ -358,7 +512,7 @@ impl LensPolys {
     /// Map from sensor angle to world angle
     ///
     /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    fn stw(&self, angle: f64) -> f64 {
+    pub fn stw(&self, angle: f64) -> f64 {
         angle * self.stw_poly.calc(angle.powi(2)) + angle
     }
 
@@ -366,7 +520,7 @@ impl LensPolys {
     /// Map from world angle to sensor angle
     ///
     /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    fn wts(&self, angle: f64) -> f64 {
+    pub fn wts(&self, angle: f64) -> f64 {
         angle * self.wts_poly.calc(angle.powi(2)) + angle
     }
 

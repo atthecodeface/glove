@@ -137,7 +137,7 @@ fn test_equisolid() -> Result<()> {
         &lens,
         false,
     )?;
-    assert!(false, "Force fail");
+    // assert!(false, "Force fail");
     Ok(())
 }
 
