@@ -7,8 +7,8 @@
       "px_width": 8192.0,
       "px_height": 5464.0,
       "flip_y": true,
-      "mm_sensor_width": 36.0,
-      "mm_sensor_height": 24.0
+      "mm_sensor_width": 36.042597712139795, // 25.4*8192/5773.08, with 5773.08 being the focal plane X resolution in the EXIF
+      "mm_sensor_height": 24.058203760650933 // 25.4*5465/5769.799, with 5769.799 being the focal plane Y resolution in the EXIF
     },
     {
       "name": "Canon EOS 5D mark IV",
