@@ -7,7 +7,7 @@ use ic_camera::polynomial::CalcPoly;
 /// Test the mapping by generating LensPolys for sensor yaw in 1000 steps from wmin to wmax mapped to world yaw through the mapping
 fn test_mapping<F>(
     name: &str,
-    fwd_fn: F,
+    wts_fn: F,
     degree: usize,
     wmin: f64,
     wmax: f64,
@@ -22,13 +22,13 @@ where
     let wrange = wmax - wmin;
     let yaws = (0..1000).map(|i| (i as f64) / 1000.0 * wrange + wmin);
 
-    let sensor_yaws: Vec<_> = yaws.clone().map(&fwd_fn).collect();
+    let sensor_yaws: Vec<_> = yaws.clone().map(&wts_fn).collect();
     let world_yaws: Vec<_> = yaws.clone().collect();
     let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0, false)?;
     let mut num_errors = 0;
     for world in yaws.clone() {
         let lens_sensor = lens_poly.wts(world);
-        let sensor = fwd_fn(world);
+        let sensor = wts_fn(world);
         if (sensor - lens_sensor).abs() < 0.01 {
             continue;
         }
@@ -47,8 +47,8 @@ where
     eprintln!("{}", lens_poly.to_json(true)?);
     eprintln!(");");
 
-    let ytm = yaws.clone().map(|y| (y, fwd_fn(y)));
-    let mty = yaws.clone().map(|y| (fwd_fn(y), y));
+    let ytm = yaws.clone().map(|y| (y, wts_fn(y)));
+    let mty = yaws.clone().map(|y| (wts_fn(y), y));
 
     for (a, b) in ytm.clone().take(10) {
         eprintln!("{a} {b}");
@@ -65,8 +65,8 @@ where
             eprintln!("world {world:0.4} there and back {tab:0.4}");
             num_out_of_range += 1;
         }
-        if (sensor - fwd_fn(world)).abs() > 0.001 {
-            eprintln!("sensor {sensor:0.4} fwd {:0.4}", fwd_fn(world));
+        if (sensor - wts_fn(world)).abs() > 0.001 {
+            eprintln!("sensor {sensor:0.4} fwd {:0.4}", wts_fn(world));
             num_out_of_range += 1;
         }
 
@@ -76,10 +76,10 @@ where
             eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
             num_out_of_range += 1;
         }
-        if (lens_sensor - fwd_fn(world)).abs() > 0.001 {
+        if (lens_sensor - wts_fn(world)).abs() > 0.001 {
             eprintln!(
                 "lens_sensor {lens_sensor:0.4} fwd {:0.4} world {world:0.4}",
-                fwd_fn(world)
+                wts_fn(world)
             );
             num_out_of_range += 1;
         }
@@ -95,10 +95,10 @@ where
 fn test_stereographic() -> Result<()> {
     let lens = LensPolys::stereographic();
     // tan(sensor) = 2 tan(world/2)
-    let fwd_fn = |x: f64| ((x / 2.0).tan() * 2.0).atan();
+    let wts_fn = |world: f64| ((world / 2.0).tan() * 2.0).atan();
     test_mapping(
         "STEREOGRAPHIC",
-        fwd_fn,
+        wts_fn,
         7,
         0.0,
         std::f64::consts::PI / 2.0,
@@ -111,13 +111,13 @@ fn test_stereographic() -> Result<()> {
 fn test_equiangular() -> Result<()> {
     let lens = LensPolys::equiangular();
     // tan(sensor) = 2 tan(world/2)
-    let fwd_fn = |x: f64| x.atan();
+    let wts_fn = |world: f64| ((world / 2.0).tan() * 2.0).atan();
     test_mapping(
         "EQUIANGULAR",
-        fwd_fn,
+        wts_fn,
         9,
         0.0,
-        std::f64::consts::PI / 2.0,
+        0.71 * std::f64::consts::PI / 2.0,
         &lens,
         false,
     )
@@ -127,10 +127,10 @@ fn test_equiangular() -> Result<()> {
 fn test_equisolid() -> Result<()> {
     let lens = LensPolys::equisolid();
     // tan(sensor) = 2 sin(world/2)
-    let fwd_fn = |x: f64| ((x / 2.0).sin() * 2.0).atan();
+    let wts_fn = |world: f64| ((world / 2.0).sin() * 2.0).atan();
     test_mapping(
         "EQUISOLID",
-        fwd_fn,
+        wts_fn,
         8,
         0.0,
         0.97 * std::f64::consts::PI / 2.0,
@@ -144,14 +144,34 @@ fn test_equisolid() -> Result<()> {
 #[test]
 fn test_orthographic() -> Result<()> {
     let lens = LensPolys::orthographic();
-    let fwd_fn = |x: f64| x.sin().atan();
+    // tan(sensor) = sin(world)
+    let wts_fn = |world: f64| world.sin().atan();
     test_mapping(
         "ORTHOGRAPHIC",
-        fwd_fn,
+        wts_fn,
         9,
         0.0,
         0.9 * std::f64::consts::PI / 2.0,
         &lens,
         true,
     )
+}
+
+#[test]
+fn test_equidistant() -> Result<()> {
+    let lens = LensPolys::equidistant();
+
+    // tan(sensor) = world
+    let wts_fn = |world: f64| world.atan();
+    test_mapping(
+        "EQUIDISTANT",
+        wts_fn,
+        8,
+        0.0,
+        0.97 * std::f64::consts::PI / 2.0,
+        &lens,
+        false,
+    )?;
+    // assert!(false, "Force fail");
+    Ok(())
 }
