@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
 use star_catalog::Catalog as StarCatalog;
-use thunderclap::{ArgCount, ArgDescriptor, CommandArgs, CommandBuilder};
+use thunderclap::{ArgCount, ArgDescriptor, CmdProperty, CommandArgs};
 
 use ic_base::{Error, PathSet, Result};
 
@@ -381,17 +381,16 @@ struct KeyFn(
     &'static dyn Fn(&mut CmdArgs, &str) -> Result<bool>,
 );
 
-//ci KEY_FNS
-const KEY_FNS: &[KeyFn] = &[KeyFn(
-    "num_threads",
-    &|cmd_args| cmd_args.map(|inner| Some(inner.verbose.to_string())),
-    &|mut _cmd_args, s| Err(format!("Failed to set key 'num_threads' to '{s}'").into()),
-)];
-
 impl CommandArgs for CmdArgs {
     type Error = Error;
     type Value = String;
-
+    const PROPERTIES: &[CmdProperty<'static, Self, Self::Value, Self::Error>] = &[CmdProperty {
+        name: "num_threads",
+        get_fn: &|cmd_args| cmd_args.map(|inner| Some(inner.verbose.to_string())),
+        set_value_fn: &|mut _cmd_args, s| {
+            Err(format!("Failed to set key 'num_threads' to '{s}'").into())
+        },
+    }];
     fn value_from_str(s: &str) -> Result<Self::Value> {
         Ok(s.into())
     }
@@ -406,30 +405,5 @@ impl CommandArgs for CmdArgs {
             inner.arg_f64s = vec![];
             inner.arg_usizes = vec![];
         });
-    }
-
-    /// Get the keys (elements) of the arguments - used in batch and interactive only
-    fn keys(&self) -> Box<dyn Iterator<Item = &str>> {
-        Box::new(KEY_FNS.iter().map(|k| k.0))
-    }
-
-    /// Retrieve the value of a key, in some form, from the arguments - used in batch and interactive only
-    fn value_str(&self, key: &str) -> Option<String> {
-        for k in KEY_FNS.iter() {
-            if key == k.0 {
-                return k.1(self);
-            }
-        }
-        None
-    }
-
-    /// Set the value
-    fn value_set(&mut self, key: &str, value: &String) -> Result<bool> {
-        for k in KEY_FNS.iter() {
-            if key == k.0 {
-                return k.2(self, value);
-            }
-        }
-        Ok(false)
     }
 }

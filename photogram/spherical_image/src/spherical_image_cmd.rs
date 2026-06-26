@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use geo_nd::Quaternion;
+use geo_nd::{Quaternion, Vector};
 use ic_base::{JsonParsable, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
 use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, LensPolys};
 use ic_image::{Image, ImageDrawable, ImageRgb8};
@@ -62,6 +62,7 @@ impl std::fmt::Debug for SphericalImageCommand {
 impl CommandArgs for SphericalImageCommand {
     type Error = ic_base::Error;
     type Value = String;
+    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] = &[];
     fn cmd_ok() -> std::result::Result<Self::Value, Self::Error> {
         Ok("".into())
     }
@@ -74,17 +75,6 @@ impl CommandArgs for SphericalImageCommand {
         self.xy.clear();
         self.xyz.clear();
         self.blend = 0.0;
-    }
-    fn keys(&self) -> Box<dyn Iterator<Item = &str>> {
-        const KEYS: [String; 0] = [];
-        Box::new(KEYS.iter().map(|s| s.as_str()))
-    }
-    fn value_set(
-        &mut self,
-        _key: &str,
-        _value: &Self::Value,
-    ) -> std::result::Result<bool, Self::Error> {
-        Ok((false))
     }
 }
 
@@ -609,6 +599,17 @@ impl SphericalImageCommand {
         let q = Quat::mapping_vector_pair_to_vector_pair(
             (&self.xyz[0], &self.xyz[1]),
             (&self.xyz[2], &self.xyz[3]),
+        );
+        let img0_d0: Point3D = self.xyz[0].into();
+        let img0_d1: Point3D = self.xyz[1].into();
+        let img1_d0: Point3D = self.xyz[2].into();
+        let img1_d1: Point3D = self.xyz[3].into();
+        let img0_d0_mapped = q.apply3(&img0_d0);
+        let img0_d1_mapped = q.apply3(&img0_d1);
+        eprintln!(
+            "Distances of mapped pts: {:0.6} {:0.6}",
+            img0_d0_mapped.distance(&img1_d0),
+            img0_d1_mapped.distance(&img1_d1),
         );
         let q = q * self.camera.orientation();
         Ok(serde_json::to_string(&q)?)
