@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en-US">
+    <head>
+        <meta charset="utf-8" />
+        <title>Image calibration File Browser</title>
+    </head>
+    <body>
+        <link href="main.css" rel="stylesheet" type="text/css" />
+        <script type="module" src="../javascript/photogram.js"></script>
+        <div class="floating-div get_size_of_this">
+            <!-- Will be fixed with edges at 0px on each side-->
+            <div class="flex box">
+                <div class="flex content">
+                    <div class="floating-resizable">
+                        <div id="WebCanvas"></div>
+                    </div>
+                </div>
+                <div class="flex footer"></div>
+            </div>
+        </div>
+
+        <div class="fixed-div">
+            <div id="tab-list" class="tab-list">
+                <ul>
+                    <li><a href="#tab-help">Help</a></li>
+                    <li><a href="#tab-browser">Browser</a></li>
+                    <li><a href="#tab-log">Log</a></li>
+                </ul>
+            </div>
+            <div id="tab-help" class="main content">Help goes here</div>
+            <div id="tab-browser" class="main content">
+                <div id="browser"></div>
+            </div>
+            <div id="tab-log" class="main content">
+                <table>
+                    <div id="Log"></div>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

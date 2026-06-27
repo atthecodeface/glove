@@ -1,0 +1,281 @@
+/*a Item to let JS detect CSS settings */
+#js_detect_css {
+    hidden: true;
+    color: #777;
+}
+
+@media (prefers-color-scheme: dark) {
+    #js_detect_css {
+        color: #000;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    #js_detect_css {
+        color: #fff;
+    }
+}
+
+/* Tab list layout */
+.tab-list {
+    ul {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border-top: 2px;
+        border-top-style: solid;
+        border-bottom-width: 3px;
+        border-bottom-style: solid;
+        li {
+            float: left;
+            a {
+                display: block;
+                text-align: center;
+                padding: 6px 12px;
+                text-decoration: none;
+            }
+            label {
+                display: block;
+                text-align: bottom;
+                padding: 6px 12px;
+                text-decoration: none;
+            }
+        }
+        li.active a {
+            pointer-events: none;
+        }
+    }
+}
+
+body {
+    touch-action: none;
+    overflow: hidden;
+    #tab-help {
+        touch-action: auto;
+        overflow: scroll;
+    }
+    #tab-log {
+        touch-action: auto;
+        overflow: scroll;
+    }
+}
+
+/* Sizing
+
+The layout for mobile landscape is
+
++-----------------------------------+
+| Tab | Tab | Tab | Tab | Tab       |
++-----------------------------------+
+
+Box flex flow column height 100% for sky / map / location / find
+  Content (flex grow 1 shrink 1 auto)
+
+    Div per tab
+
+     Canvas
+
+     Potential overlay with loaded photo
+
+  Footer (flex grow 0 shrink 0 0px)
+
+Div for help height 100% overflow y-scroll
+
+Div for info height 100% overflow y-scroll
+
+Div for log height 100% overflow y-scroll
+
+Overlay for elevation / direction
+
+Overlay for time / date
+
+Overlay for settings
+
+*/
+
+html {
+    margin: 0px;
+    body {
+        margin: 0px;
+    }
+    td {
+        padding: 0px;
+        margin: 0px;
+    }
+    input {
+        padding: 0px;
+        margin: 0px;
+    }
+}
+
+.floating-div {
+    /* The outer div - force it to be the *whole* frame */
+    z-index: -1;
+    position: fixed;
+    top: 0px;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+
+    .flex.box {
+        /* Inside the outder div, pack it in completely
+
+        The content may want to be larger, but if allowed to grow/shrink then all will be good
+        */
+        display: flex;
+        flex-flow: column;
+        position: absolute;
+        top: 0px;
+        bottom: 0px;
+        left: 0px;
+        right: 0px;
+
+        .flex.content {
+            /* The div where the canvas will go - this will flex to fill the whole frame
+            */
+            flex: 1 1 auto;
+        }
+
+        .flex.fixed {
+            flex: 0 1 min-content;
+        }
+
+        .flex.footer {
+            flex: 0 1 0px;
+        }
+    }
+}
+
+.fixed-div {
+    z-index: 0;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    .fixed-content {
+        /* Enable 'button' to be activated from z-index of -1 */
+        pointer-events: none;
+    }
+    .main.content {
+        position: fixed;
+        top: 35px;
+        bottom: 0px;
+        left: 0px;
+        right: 0px;
+    }
+}
+
+#tab-skyview {
+    table {
+        border-spacing: 0px;
+    }
+}
+
+#tab-help {
+    padding: 8px;
+}
+
+.tab-list ul {
+    background-color: #000;
+    /* same as li.active a */
+    border-bottom-color: #422;
+    li.active a {
+        color: #c33;
+        background: #422;
+    }
+    li a {
+        color: #722;
+    }
+    li a:hover {
+        background-color: #111;
+    }
+}
+
+.image_canvas {
+    /* This sets the size of all the subelements due to the JS */
+    width: 750px;
+    height: 500px;
+    /* Make this a relative position to define a position context for 'absolute' to be meaningful relative to this block for 'can' items */
+    position: relative;
+}
+
+.image_div {
+    overflow: scroll;
+    image-rendering: pixelated;
+}
+
+.overlap_parent {
+    /* Make this a relative position to define a position context for 'absolute' to be meaningful relative to this block for 'can' items */
+    position: relative;
+}
+
+.image_overlap {
+    image-rendering: pixelated;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.log {
+    overflow: scroll;
+    height: 100px;
+}
+
+.pos_abs {
+    /*
+    Relative is relative to its desired location
+       position: relative;
+     */
+    position: absolute;
+}
+.bg {
+    z-index: 1;
+}
+.fg {
+    z-index: 2;
+}
+#controls {
+    vertical-align: top;
+}
+
+#nps_contents {
+    height: 200px;
+    overflow: scroll;
+}
+
+.sticky_heading {
+    position: sticky;
+    top: 0;
+    background: #fff;
+}
+
+.info_heading {
+    text-align: left;
+    font-weight: bold;
+    font-size: 20px;
+    color: blue;
+}
+
+#FileBrowser h1 {
+    text-align: left;
+    font-weight: bold;
+    font-size: 20px;
+    color: blue;
+}
+
+.browser_table.cam {
+    table-layout: fixed;
+    .th0 {
+        width: 250px;
+    }
+    .th1 {
+        width: 350px;
+    }
+    .th0 {
+        width: 150px;
+    }
+}
+
+.browser_cam {
+    width: 600px;
+}

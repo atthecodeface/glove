@@ -1,0 +1,37 @@
+[package]
+name = "photogram_wasm"
+edition.workspace = true
+version.workspace = true
+description.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+image.workspace = true
+serde.workspace = true
+geo-nd.workspace = true
+indexed.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+wasm-bindgen.workspace = true
+# indent-display = "0.1"
+# lexer-rs = "0.0.3"
+js-sys.workspace = true
+# wasm-binndgen.web-sys = true
+
+ic_base.workspace = true
+ic_image.workspace = true
+ic_mapping.workspace = true
+ic_camera.workspace = true
+ic_project.workspace = true
+
+[profile.release]
+lto = true
+opt-level = 3
