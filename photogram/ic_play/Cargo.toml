@@ -16,10 +16,10 @@ ic_stars.workspace = true
 ic_image.workspace = true
 ic_camera.workspace = true
 ic_mapping.workspace = true
+
 geo-nd.workspace = true
 poloto.workspace = true
 serde.workspace = true
-postcard.workspace = true
 star-catalog.workspace = true
 clap.workspace = true
 anyhow.workspace = true

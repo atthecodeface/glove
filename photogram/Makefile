@@ -48,16 +48,19 @@ INITIAL_CAL_EQUIANGULAR = nac/lens_equiangular.json
 
 #a Generics
 all:
-	@echo "All"
+	@echo "This has many legacy cargo runs in it; they should be moved to scripts"
+
+wasm:
+	(cd photogram_wasm && ${MAKE} all)
 
 #a Image server
 .PHONY: image_server
 image_server:
-	cargo run --release --bin image_server -- --file_path ~/Git/image-calibrate-wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 16
+	cargo run --release --bin image_server -- --file_path ./photogram_wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 16
 
 .PHONY: image_server_debug
 image_server_debug:
-	cargo run --debug --bin image_server -- --file_path ~/Git/image-calibrate-wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 1
+	cargo run --debug --bin image_server -- --file_path ./photogram_wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 1
 
 #a Camera calibration
 .PHONY: cal_img_4924

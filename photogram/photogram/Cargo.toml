@@ -14,21 +14,18 @@ repository.workspace = true
 
 [dependencies]
 regex.workspace = true
-nalgebra.workspace = true
-plotters.workspace = true
-poloto.workspace = true
 star-catalog.workspace = true
 image.workspace = true
-tagu.workspace = true
-thunderclap.workspace = true
 
-bytemuck.workspace = true
-wgpu.workspace = true
-serde.workspace = true
+# Required for plotting
+poloto.workspace = true
+tagu.workspace = true
+
 serde_json.workspace = true
 geo-nd.workspace = true
 clap.workspace = true
 
+thunderclap.workspace = true
 ic_base.workspace = true
 ic_camera.workspace = true
 ic_image.workspace = true

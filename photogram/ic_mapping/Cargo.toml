@@ -13,8 +13,6 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nalgebra.workspace = true
-
 serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
@@ -23,4 +21,3 @@ ic_base.workspace = true
 ic_camera.workspace = true
 ic_image.workspace = true
 ic_mesh.workspace = true
-
