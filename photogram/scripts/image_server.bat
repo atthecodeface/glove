@@ -1,0 +1,1 @@
+--file_path photogram_web --image_path /Users/gjstark/Git/Images --project_path nac serve --num_threads 4
