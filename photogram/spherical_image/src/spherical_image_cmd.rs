@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use thunderclap::{
+    ArgCount, ArgDescriptor, CmdDescriptor, CmdProperty, CommandArgs, CommandBuilder,
+};
+
 use geo_nd::{Quaternion, Vector};
 use ic_base::{JsonParsable, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
 use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, LensPolys};
@@ -7,7 +11,6 @@ use ic_image::{Image, ImageDrawable, ImageRgb8};
 use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
 use indexed::Idx;
 use star_catalog::Catalog as StarCatalog;
-use thunderclap::{ArgCount, ArgDescriptor, CmdDescriptor, CommandArgs, CommandBuilder};
 
 #[derive(Default)]
 pub struct SphericalImageCommand {
@@ -62,7 +65,17 @@ impl std::fmt::Debug for SphericalImageCommand {
 impl CommandArgs for SphericalImageCommand {
     type Error = ic_base::Error;
     type Value = String;
-    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] = &[];
+    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] =
+        &[CmdProperty {
+            name: "orientation",
+            get_fn: &|cmd_args| serde_json::to_string(&cmd_args.camera.orientation()).ok(),
+            set_value_fn: &|cmd_args, s| {
+                QuaternionDesc::load_json(s, &()).map(|q| {
+                    cmd_args.camera.set_orientation(&q);
+                    true
+                })
+            },
+        }];
     fn cmd_ok() -> std::result::Result<Self::Value, Self::Error> {
         Ok("".into())
     }
