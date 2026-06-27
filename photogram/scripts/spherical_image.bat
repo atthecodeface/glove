@@ -34,5 +34,5 @@
 
 write_image_file
 
-set orientation ' {"LookAt": [[0,0.3,-1], [0.035,1,0]]}'
---orientation ${orientation} --use_body T2i --use_lens 50mm --use_focus 1000000 --verbose render_photo  --write c270.jpg
+# set orientation ' {"LookAt": [[0,0.3,-1], [0.035,1,0]]}'
+# --use_body T2i --use_lens 50mm --use_focus 1000000 --verbose render_photo  --write c270.jpg
