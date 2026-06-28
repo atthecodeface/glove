@@ -38,6 +38,10 @@ version = "1.0.98"
 version = "0.8"
 path = "../../bezier-nd-rs"
 
+[workspace.dependencies.bezier-wasm]
+version = "0.8"
+path = "../../bezier-wasm"
+
 # Required for ic_kernel to cast slices to/from WGPU
 [workspace.dependencies.bytemuck]
 version = ">=1.15.0"
@@ -50,6 +54,10 @@ features = ["string"]
 [workspace.dependencies.geo-nd]
 version = "0.8"
 path = "../../geo-nd-rs"
+
+[workspace.dependencies.geo-nd-wasm]
+version = "0.8"
+path = "../../geo-nd-wasm"
 
 [workspace.dependencies.image]
 version = "0.25"
