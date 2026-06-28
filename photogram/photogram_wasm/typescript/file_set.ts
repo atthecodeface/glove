@@ -1,3 +1,5 @@
+import { WasmProject } from "../pkg/photogram_wasm.js";
+
 import * as storage from "./storage.js";
 import * as utils from "./utils.js";
 
@@ -36,6 +38,10 @@ export class UnknownFile extends BaseFile {
     this.obj = obj;
   }
   static find_data_type(json: string): File {
+    let p = ProjectFile.of_json(json);
+    if (p !== null) {
+      return p;
+    }
     const obj = utils.parse_json(json) as any;
     if (CdbFile.obj_is(obj)) {
       return new CdbFile(obj);
@@ -111,6 +117,15 @@ export class ProjectFile extends BaseFile {
       if (CipsFile.obj_is(c)) {
         this.cips.push(new CipsFile(c));
       }
+    }
+  }
+  static of_json(json: string): ProjectFile | null {
+    try {
+      let _x = WasmProject.of_json(json);
+      console.log("Parsed json for x", _x);
+      return null;
+    } catch (e) {
+      return null;
     }
   }
   static obj_is(obj: Object): boolean {

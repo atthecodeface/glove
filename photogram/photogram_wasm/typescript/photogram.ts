@@ -1,4 +1,13 @@
-import photogram_init, { InitOutput } from "../pkg/photogram_wasm.js";
+import photogram_init, {
+  InitOutput,
+  // WasmProject,
+  //  WasmCameraDatabase,
+  // //  WasmCameraInstance,
+  //  WasmNamedPoint,
+  //  WasmNamedPointSet,
+  //  WasmPointMappingSet,
+  //  WasmRay,
+} from "../pkg/photogram_wasm.js";
 
 // import { WasmMemory } from "./wasm_memory.js";
 import { Tabs } from "./tabs.js";
@@ -78,9 +87,9 @@ export class Photogram {
 
 //a Top level on load...
 (window as any).star_catalog = null;
-function complete_init(star_catalog_wasm: InitOutput) {
-  (window as any).star_catalog = new Photogram(
-    star_catalog_wasm,
+function complete_init(photogram_wasm: InitOutput) {
+  (window as any).photogram = new Photogram(
+    photogram_wasm,
     new URLSearchParams(window.location.search),
   );
 }
