@@ -2,7 +2,13 @@
 //
 pub(crate) mod wasm_import;
 
-use wasm_import::{err_to_string, ToFromWasmArr};
+pub use bezier_wasm::{WasmBezier3f32, WasmBezierBuilder3f32};
+pub use geo_nd_wasm::{Quatf32, Vec2f32, Vec3f32, Vec4f32};
+pub use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, Vec4f64};
+pub use geo_nd_wasm::{WasmVec2f32, WasmVec3f32, WasmVec3f64};
+// pub use star_catalog_wasm::WasmCatalog;
+
+use wasm_import::{ToFromWasmArr, err_to_string};
 
 mod wasm_base;
 pub use wasm_base::WasmRay;

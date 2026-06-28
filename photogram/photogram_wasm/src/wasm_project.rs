@@ -5,9 +5,7 @@ use ic_base::JsonParsable;
 use ic_mapping::PointMapping;
 use ic_project::Project;
 
-use crate::{
-    WasmCameraDatabase, WasmCip, WasmNamedPointSet, err_to_string,
-};
+use crate::{WasmCameraDatabase, WasmCip, WasmNamedPointSet, err_to_string};
 
 //a WasmProject
 #[wasm_bindgen]
@@ -31,6 +29,13 @@ impl WasmProject {
     #[wasm_bindgen]
     pub fn to_json(&self, pretty: bool) -> Result<String, JsValue> {
         Ok(self.project.to_json(pretty).map_err(err_to_string)?)
+    }
+
+    //cp of_json
+    #[wasm_bindgen]
+    pub fn of_json(json: &str) -> Result<Self, JsValue> {
+        let project = Project::load_json(json, &()).map_err(err_to_string)?;
+        Ok(Self { project })
     }
 
     //cp read_json
