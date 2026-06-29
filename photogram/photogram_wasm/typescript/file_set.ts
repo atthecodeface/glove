@@ -1,4 +1,4 @@
-import { WasmProject } from "../pkg/photogram_wasm.js";
+import { WasmProject, WasmCip } from "../pkg/photogram_wasm.js";
 
 import * as storage from "./storage.js";
 import * as utils from "./utils.js";
@@ -10,7 +10,7 @@ export enum FileKind {
   Project,
   Pms,
   Nps,
-  Cips,
+  Cip,
 }
 
 export interface File {
@@ -42,6 +42,10 @@ export class UnknownFile extends BaseFile {
     if (p !== null) {
       return p;
     }
+    let c = CipFile.of_json(json);
+    if (c !== null) {
+      return c;
+    }
     const obj = utils.parse_json(json) as any;
     if (CdbFile.obj_is(obj)) {
       return new CdbFile(obj);
@@ -49,17 +53,11 @@ export class UnknownFile extends BaseFile {
     if (CameraFile.obj_is(obj)) {
       return new CameraFile(obj);
     }
-    if (ProjectFile.obj_is(obj)) {
-      return new ProjectFile(obj);
-    }
     if (PmsFile.obj_is(obj)) {
       return new PmsFile(obj);
     }
     if (NpsFile.obj_is(obj)) {
       return new NpsFile(obj);
-    }
-    if (CipsFile.obj_is(obj)) {
-      return new CipsFile(obj);
     }
     return new UnknownFile(obj);
   }
@@ -105,35 +103,17 @@ export class CameraFile extends BaseFile {
 }
 export class ProjectFile extends BaseFile {
   override file_kind: FileKind = FileKind.Project;
-  cdb: string;
-  nps: string;
-  cips: CipsFile[];
-  constructor(obj: Object) {
+  project: WasmProject;
+  constructor(project: WasmProject) {
     super();
-    this.cdb = "some cdb";
-    this.nps = "some nps";
-    this.cips = [];
-    for (const c of (obj as ProjectFile).cips) {
-      if (CipsFile.obj_is(c)) {
-        this.cips.push(new CipsFile(c));
-      }
-    }
+    this.project = project;
   }
   static of_json(json: string): ProjectFile | null {
     try {
-      let _x = WasmProject.of_json(json);
-      console.log("Parsed json for x", _x);
-      return null;
+      return new ProjectFile(WasmProject.of_json(json));
     } catch (e) {
       return null;
     }
-  }
-  static obj_is(obj: Object): boolean {
-    return (
-      obj.hasOwnProperty("cdb") &&
-      obj.hasOwnProperty("nps") &&
-      obj.hasOwnProperty("cips")
-    );
   }
 }
 
@@ -198,31 +178,19 @@ export class NpsFile extends BaseFile {
   }
 }
 
-export class CipsFile extends BaseFile {
-  override file_kind: FileKind = FileKind.Cips;
-  constructor(_obj: Object) {
+export class CipFile extends BaseFile {
+  override file_kind: FileKind = FileKind.Cip;
+  cip: WasmCip;
+  constructor(cip: WasmCip) {
     super();
+    this.cip = cip;
   }
-  static obj_is(obj: Object): boolean {
-    if (!utils.is_array(obj)) {
-      return false;
+  static of_json(json: string): CipFile | null {
+    try {
+      return new CipFile(WasmCip.try_json(json));
+    } catch (e) {
+      return null;
     }
-    const obj_a = obj as Array<Object>;
-    if (obj_a.length == 0) {
-      return false;
-    }
-    if (!utils.is_array(obj_a[0]!)) {
-      return false;
-    }
-    const obj_a2 = obj_a[0] as Array<Object>;
-    if (obj_a2.length != 3) {
-      return false;
-    }
-    return (
-      utils.is_string(obj_a2[0]!) &&
-      utils.is_string(obj_a2[1]!) &&
-      utils.is_array(obj_a2[2]!)
-    );
   }
 }
 

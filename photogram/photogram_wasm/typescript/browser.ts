@@ -49,6 +49,7 @@ export class Browser {
     this.add_table_of_cdb();
     this.add_table_of_projects();
     this.add_table_of_named_point_sets();
+    this.add_table_of_cip();
   }
 
   add_table_of_cdb() {
@@ -114,9 +115,9 @@ export class Browser {
       const link = this.file_link(filename);
       table.add_body([
         link,
-        project.cdb,
-        project.nps,
-        project.cips.length.toString(),
+        "project.project.cdb",
+        "project.project.nps",
+        project.project.ncips().toString(),
       ]);
     }
     this.browser.add_content(heading);
@@ -138,15 +139,41 @@ export class Browser {
         continue;
       }
       let nps = obj as file_set.NpsFile;
-      if (nps === null) {
-        continue;
-      }
       const link = this.file_link(filename);
       table.add_body([link, nps.points.length.toString()]);
     }
     this.browser.add_content(heading);
     this.browser.add_content(table.as_html());
   }
+
+  add_table_of_cip() {
+    const heading = HtmlElement.new_ele("h1", {
+      classes: "browser_ft_heading",
+    });
+    heading.add_content("Camera/Image/Point mapping set");
+
+    const table = new Table("cip");
+    table.add_headings(["Filename", "Camera", "Image", "Pms filename"]);
+
+    for (const filename of this.file_set.files_of_kind(file_set.FileKind.Cip)) {
+      let obj = this.file_set.load_file_as_obj(filename, file_set.FileKind.Cip);
+      if (obj === null) {
+        continue;
+      }
+      let cip = obj as file_set.CipFile;
+
+      const link = this.file_link(filename);
+      table.add_body([
+        link,
+        cip.cip.cam_file,
+        cip.cip.image_filename,
+        cip.cip.pms_file,
+      ]);
+    }
+    this.browser.add_content(heading);
+    this.browser.add_content(table.as_html());
+  }
+
   /*
 
     const nps_contents = [];

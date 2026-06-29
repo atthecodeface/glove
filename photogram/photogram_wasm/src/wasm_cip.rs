@@ -4,7 +4,7 @@ use ic_mapping::PointMapping;
 use ic_project::Cip;
 use wasm_bindgen::prelude::*;
 
-use crate::{WasmCameraInstance, WasmPointMappingSet};
+use crate::{WasmCameraInstance, WasmPointMappingSet, err_to_string};
 
 //a WasmCip
 #[wasm_bindgen]
@@ -28,7 +28,6 @@ impl WasmCip {
 //ip WasmCip
 #[wasm_bindgen]
 impl WasmCip {
-    //cp new
     /// Create a new WasmGraphCanvas attached to a Canvas HTML element,
     /// adding events to the canvas that provide the paint program
     #[wasm_bindgen(constructor)]
@@ -41,31 +40,41 @@ impl WasmCip {
         Self { cip }
     }
 
-    //ap cam_file
+    #[wasm_bindgen]
+    /// Try to parse a Json string as a CipDesc without a Project
+    pub fn try_json(json: &str) -> Result<Self, JsValue> {
+        let json = ic_base::JsonSrc::<ic_project::CipDesc>::of_json(json).map_err(err_to_string)?;
+        let (_, cip_desc) = json
+            .deserialize_as::<ic_project::CipDesc>("Cip")
+            .map_err(err_to_string)?;
+        let mut cip = Cip::default();
+        cip.set_camera_filename(cip_desc.camera_filename());
+        cip.set_image_filename(cip_desc.image_filename());
+        cip.set_pms_filename(cip_desc.pms_filename());
+        let cip = cip.into();
+        Ok(Self { cip })
+    }
+
     #[wasm_bindgen(getter)]
     pub fn cam_file(&self) -> String {
         self.cip.borrow().camera_filename().into()
     }
 
-    //ap image
     #[wasm_bindgen(getter)]
     pub fn image(&self) -> String {
         self.cip.borrow().image().to_string()
     }
 
-    //ap image_filename
     #[wasm_bindgen(getter)]
     pub fn image_filename(&self) -> String {
         self.cip.borrow().image_filename().to_string()
     }
 
-    //ap pms_file
     #[wasm_bindgen(getter)]
     pub fn pms_file(&self) -> String {
         self.cip.borrow().pms_filename().into()
     }
 
-    //ap camera
     #[wasm_bindgen(getter)]
     pub fn camera(&self) -> WasmCameraInstance {
         WasmCameraInstance::of_camera(self.cip.borrow().camera().clone())

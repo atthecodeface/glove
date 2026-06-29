@@ -25,27 +25,23 @@ impl WasmProject {
         Self { project }
     }
 
-    //mp to_json
     #[wasm_bindgen]
     pub fn to_json(&self, pretty: bool) -> Result<String, JsValue> {
         Ok(self.project.to_json(pretty).map_err(err_to_string)?)
     }
 
-    //cp of_json
     #[wasm_bindgen]
     pub fn of_json(json: &str) -> Result<Self, JsValue> {
         let project = Project::load_json(json, &()).map_err(err_to_string)?;
         Ok(Self { project })
     }
 
-    //cp read_json
     #[wasm_bindgen]
     pub fn read_json(&mut self, json: &str) -> Result<(), JsValue> {
         self.project = Project::load_json(json, &()).map_err(err_to_string)?;
         Ok(())
     }
 
-    //ap cdb
     #[wasm_bindgen(getter)]
     pub fn cdb(&self) -> WasmCameraDatabase {
         WasmCameraDatabase::of_cdb(self.project.cdb().clone())
