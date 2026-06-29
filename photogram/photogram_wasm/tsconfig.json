@@ -54,8 +54,10 @@
     "typescript/tabs.ts",
     "typescript/zoomed_window.ts",
 
+    "typescript/file_kind.ts",
     "typescript/browser.ts",
     "typescript/file_set.ts",
+    "typescript/project_set.ts",
 
     "typescript/photogram.ts"
   ]
