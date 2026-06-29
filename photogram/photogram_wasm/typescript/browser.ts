@@ -72,16 +72,17 @@ export class Browser {
       }
 
       var bodies_html = HtmlElement.new_ele("div");
-      for (const b of cdb.bodies) {
-        bodies_html.add_span(`${b.name}`);
+      for (let i = 0; i < cdb.num_bodies(); i++) {
+        bodies_html.add_span(cdb.body_name(i)!);
         bodies_html.add_ele("br");
       }
 
       var lenses_html = HtmlElement.new_ele("div");
-      for (const l of cdb.lenses) {
-        lenses_html.add_span(`${l.name}`);
+      for (let i = 0; i < cdb.num_lenses(); i++) {
+        lenses_html.add_span(cdb.lens_name(i)!);
         lenses_html.add_ele("br");
       }
+
       const link = this.file_link(filename);
       table.add_body([link, bodies_html, lenses_html]);
     }
@@ -140,7 +141,7 @@ export class Browser {
       }
       let nps = obj as file_set.NpsFile;
       const link = this.file_link(filename);
-      table.add_body([link, nps.points.length.toString()]);
+      table.add_body([link, nps.num_points().toString()]);
     }
     this.browser.add_content(heading);
     this.browser.add_content(table.as_html());
@@ -153,7 +154,13 @@ export class Browser {
     heading.add_content("Camera/Image/Point mapping set");
 
     const table = new Table("cip");
-    table.add_headings(["Filename", "Camera", "Image", "Pms filename"]);
+    table.add_headings([
+      "Filename",
+      "Image",
+      "Body",
+      "Lens",
+      "Number point-mappings",
+    ]);
 
     for (const filename of this.file_set.files_of_kind(file_set.FileKind.Cip)) {
       let obj = this.file_set.load_file_as_obj(filename, file_set.FileKind.Cip);
@@ -165,9 +172,10 @@ export class Browser {
       const link = this.file_link(filename);
       table.add_body([
         link,
-        cip.cip.cam_file,
-        cip.cip.image_filename,
-        cip.cip.pms_file,
+        cip.image(),
+        cip.camera_body(),
+        cip.camera_lens(),
+        cip.num_mappings().toString(),
       ]);
     }
     this.browser.add_content(heading);

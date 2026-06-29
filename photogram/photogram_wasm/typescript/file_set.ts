@@ -1,4 +1,10 @@
-import { WasmProject, WasmCip } from "../pkg/photogram_wasm.js";
+import {
+  WasmProject,
+  WasmCipDesc,
+  WasmCameraDatabase,
+  WasmPointMappingSet,
+  WasmNamedPointSet,
+} from "../pkg/photogram_wasm.js";
 
 import * as storage from "./storage.js";
 import * as utils from "./utils.js";
@@ -6,7 +12,6 @@ import * as utils from "./utils.js";
 export enum FileKind {
   Unknown,
   Cdb,
-  Camera,
   Project,
   Pms,
   Nps,
@@ -38,69 +43,69 @@ export class UnknownFile extends BaseFile {
     this.obj = obj;
   }
   static find_data_type(json: string): File {
-    let p = ProjectFile.of_json(json);
-    if (p !== null) {
-      return p;
+    {
+      let p = ProjectFile.of_json(json);
+      if (p !== null) {
+        return p;
+      }
     }
-    let c = CipFile.of_json(json);
-    if (c !== null) {
-      return c;
+    {
+      let c = CipFile.of_json(json);
+      if (c !== null) {
+        return c;
+      }
+    }
+    {
+      let c = CdbFile.of_json(json);
+      if (c !== null) {
+        return c;
+      }
+    }
+    {
+      let c = PmsFile.of_json(json);
+      if (c !== null) {
+        return c;
+      }
+    }
+    {
+      let c = NpsFile.of_json(json);
+      if (c !== null) {
+        return c;
+      }
     }
     const obj = utils.parse_json(json) as any;
-    if (CdbFile.obj_is(obj)) {
-      return new CdbFile(obj);
-    }
-    if (CameraFile.obj_is(obj)) {
-      return new CameraFile(obj);
-    }
-    if (PmsFile.obj_is(obj)) {
-      return new PmsFile(obj);
-    }
-    if (NpsFile.obj_is(obj)) {
-      return new NpsFile(obj);
-    }
     return new UnknownFile(obj);
   }
 }
 
-interface Body {
-  name: string;
-}
-interface Lens {
-  name: string;
-}
 export class CdbFile extends BaseFile {
   override file_kind: FileKind = FileKind.Cdb;
-  bodies: Array<Body>;
-  lenses: Array<Lens>;
-  constructor(obj: Object) {
+  cdb: WasmCameraDatabase;
+  constructor(cdb: WasmCameraDatabase) {
     super();
-    this.bodies = (obj as CdbFile).bodies!;
-    this.lenses = (obj as CdbFile).lenses!;
+    this.cdb = cdb;
   }
-  static obj_is(obj: Object): boolean {
-    return obj.hasOwnProperty("bodies") && obj.hasOwnProperty("lenses");
+  static of_json(json: string): CdbFile | null {
+    try {
+      return new CdbFile(WasmCameraDatabase.of_json(json));
+    } catch (e) {
+      return null;
+    }
+  }
+  num_bodies(): number {
+    return this.cdb.num_bodies();
+  }
+  num_lenses(): number {
+    return this.cdb.num_lenses();
+  }
+  body_name(n: number): string | undefined {
+    return this.cdb.body_name(n);
+  }
+  lens_name(n: number): string | undefined {
+    return this.cdb.lens_name(n);
   }
 }
 
-export class CameraFile extends BaseFile {
-  override file_kind: FileKind = FileKind.Camera;
-  body: string;
-  lens: string;
-  constructor(obj: Object) {
-    super();
-    this.body = (obj as CameraFile).body;
-    this.lens = (obj as CameraFile).lens;
-  }
-  static obj_is(obj: Object): boolean {
-    return (
-      obj.hasOwnProperty("body") &&
-      obj.hasOwnProperty("lens") &&
-      obj.hasOwnProperty("position") &&
-      obj.hasOwnProperty("direction")
-    );
-  }
-}
 export class ProjectFile extends BaseFile {
   override file_kind: FileKind = FileKind.Project;
   project: WasmProject;
@@ -119,78 +124,69 @@ export class ProjectFile extends BaseFile {
 
 export class PmsFile extends BaseFile {
   override file_kind: FileKind = FileKind.Pms;
-  constructor(_obj: Object) {
+  num_points: number;
+  constructor(num_points: number) {
     super();
+    this.num_points = num_points;
   }
-  static obj_is(obj: Object): boolean {
-    if (!utils.is_array(obj)) {
-      return false;
+  static of_json(json: string): PmsFile | null {
+    try {
+      return new PmsFile(WasmPointMappingSet.try_json(json));
+    } catch (e) {
+      return null;
     }
-    const obj_a = obj as Array<Object>;
-    if (obj_a.length == 0) {
-      return false;
-    }
-    if (!utils.is_array(obj_a[0]!)) {
-      return false;
-    }
-    const obj_a2 = obj_a[0] as Array<Object>;
-    if (obj_a2.length != 3) {
-      return false;
-    }
-    return (
-      utils.is_string(obj_a2[0]!) &&
-      utils.is_array(obj_a2[1]!) &&
-      utils.is_float(obj_a2[2]!)
-    );
+  }
+  npoints(): number {
+    return this.num_points;
   }
 }
 
 export class NpsFile extends BaseFile {
   override file_kind: FileKind = FileKind.Nps;
-  points: [string, string, string[]][];
-  constructor(obj: Object) {
+  nps: WasmNamedPointSet;
+  constructor(nps: WasmNamedPointSet) {
     super();
-    this.points = [];
-    for (const p of obj as [string, string, string[]][]) {
-      this.points.push(p);
+    this.nps = nps;
+  }
+  static of_json(json: string): NpsFile | null {
+    try {
+      const nps = new WasmNamedPointSet();
+      nps.read_json(json);
+      return new NpsFile(nps);
+    } catch (e) {
+      return null;
     }
   }
-  static obj_is(obj: Object): boolean {
-    if (!utils.is_array(obj)) {
-      return false;
-    }
-    const obj_a = obj as Array<Object>;
-    if (obj_a.length == 0) {
-      return false;
-    }
-    if (!utils.is_array(obj_a[0]!)) {
-      return false;
-    }
-    const obj_a2 = obj_a[0] as Array<Object>;
-    if (obj_a2.length != 3) {
-      return false;
-    }
-    return (
-      utils.is_string(obj_a2[0]!) &&
-      utils.is_string(obj_a2[1]!) &&
-      utils.is_array(obj_a2[2]!)
-    );
+  num_points(): number {
+    return this.nps.num_points();
   }
 }
 
 export class CipFile extends BaseFile {
   override file_kind: FileKind = FileKind.Cip;
-  cip: WasmCip;
-  constructor(cip: WasmCip) {
+  cip: WasmCipDesc;
+  constructor(cip: WasmCipDesc) {
     super();
     this.cip = cip;
   }
   static of_json(json: string): CipFile | null {
     try {
-      return new CipFile(WasmCip.try_json(json));
+      return new CipFile(WasmCipDesc.try_json(json));
     } catch (e) {
       return null;
     }
+  }
+  image(): string {
+    return this.cip.image;
+  }
+  camera_body(): string {
+    return this.cip.camera_body;
+  }
+  camera_lens(): string {
+    return this.cip.camera_lens;
+  }
+  num_mappings(): number {
+    return this.cip.num_mappings;
   }
 }
 
