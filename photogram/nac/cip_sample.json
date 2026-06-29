@@ -1,0 +1,25 @@
+{
+  // camera_filename: String,
+  // pms_filename: String,
+  // image_filename: String,
+  // camera: CameraInstanceDesc,
+  // image: Tag,
+  // pms: PointMappingSet,
+
+  "camera_filename": "cam_4v3a6041.json",
+  "pms_filename": "pms_all_4v3a6041.json",
+  "image_filename": "4V3A6041.JPG",
+  "image": "4V3A6041",
+  "camera": {
+    "body": "Canon EOS 5D mark IV",
+    "lens": "EF50mm f1.8",
+    "mm_focus_distance": 430.0,
+    "lens_sensor_distance": 56.578947368421055,
+    "position": [-67.0363963430136, -260.7802451826971, 275.1374159333723],
+    "orientation": [
+      -0.06728150463009822, -0.4504606961845823, 0.8820544430474073,
+      -0.12057495522677986
+    ]
+  },
+  "pms": []
+}
