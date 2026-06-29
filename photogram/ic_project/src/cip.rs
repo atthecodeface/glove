@@ -85,6 +85,30 @@ pub struct CipDesc {
     pms: PointMappingSet,
 }
 
+impl CipDesc {
+    pub fn camera_filename(&self) -> &str {
+        &self.camera_filename
+    }
+    pub fn pms_filename(&self) -> &str {
+        &self.pms_filename
+    }
+    pub fn image_filename(&self) -> &str {
+        &self.image_filename
+    }
+}
+
+impl JsonParsable for CipDesc {
+    fn reason() -> &'static str {
+        "CIP descriptor"
+    }
+    type PostParseArg = Project;
+    type PostParseResult = Cip;
+    fn post_parse(self, project: &Project) -> Result<Cip> {
+        let (cip, _) = Cip::from_desc(project, self)?;
+        Ok(cip)
+    }
+}
+
 //tp Cip
 #[derive(Debug, Default, Serialize)]
 pub struct Cip {
