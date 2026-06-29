@@ -25,18 +25,15 @@ impl WasmProject {
         Self { project }
     }
 
-    #[wasm_bindgen]
     pub fn to_json(&self, pretty: bool) -> Result<String, JsValue> {
         Ok(self.project.to_json(pretty).map_err(err_to_string)?)
     }
 
-    #[wasm_bindgen]
     pub fn of_json(json: &str) -> Result<Self, JsValue> {
         let project = Project::load_json(json, &()).map_err(err_to_string)?;
         Ok(Self { project })
     }
 
-    #[wasm_bindgen]
     pub fn read_json(&mut self, json: &str) -> Result<(), JsValue> {
         self.project = Project::load_json(json, &()).map_err(err_to_string)?;
         Ok(())
@@ -47,7 +44,6 @@ impl WasmProject {
         WasmCameraDatabase::of_cdb(self.project.cdb().clone())
     }
 
-    //ap set_cdb
     #[wasm_bindgen(setter)]
     pub fn set_cdb(&mut self, wcdb: WasmCameraDatabase) {
         // unsafe {
@@ -59,7 +55,6 @@ impl WasmProject {
         self.project.set_cdb(cdb);
     }
 
-    //ap nps
     #[wasm_bindgen(getter)]
     pub fn nps(&self) -> WasmNamedPointSet {
         WasmNamedPointSet::of_nps(self.project.nps().clone())

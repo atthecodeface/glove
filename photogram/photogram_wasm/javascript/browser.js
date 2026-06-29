@@ -1,4 +1,5 @@
 import { HtmlElement, Table } from "./html.js";
+import * as file_kind from "./file_kind.js";
 import * as file_set from "./file_set.js";
 export class Browser {
     constructor(storage, browser, log) {
@@ -34,6 +35,7 @@ export class Browser {
         this.add_table_of_cdb();
         this.add_table_of_projects();
         this.add_table_of_named_point_sets();
+        this.add_table_of_cip();
     }
     add_table_of_cdb() {
         const heading = HtmlElement.new_ele("h1", {
@@ -42,8 +44,8 @@ export class Browser {
         heading.add_content("Camera Database");
         const table = new Table("cdb");
         table.add_headings(["Filename", "Bodies", "Lenses"]);
-        for (const filename of this.file_set.files_of_kind(file_set.FileKind.Cdb)) {
-            let obj = this.file_set.load_file_as_obj(filename, file_set.FileKind.Cdb);
+        for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Cdb)) {
+            let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Cdb);
             if (obj === null) {
                 continue;
             }
@@ -52,13 +54,13 @@ export class Browser {
                 continue;
             }
             var bodies_html = HtmlElement.new_ele("div");
-            for (const b of cdb.bodies) {
-                bodies_html.add_span(`${b.name}`);
+            for (let i = 0; i < cdb.num_bodies(); i++) {
+                bodies_html.add_span(cdb.body_name(i));
                 bodies_html.add_ele("br");
             }
             var lenses_html = HtmlElement.new_ele("div");
-            for (const l of cdb.lenses) {
-                lenses_html.add_span(`${l.name}`);
+            for (let i = 0; i < cdb.num_lenses(); i++) {
+                lenses_html.add_span(cdb.lens_name(i));
                 lenses_html.add_ele("br");
             }
             const link = this.file_link(filename);
@@ -74,8 +76,8 @@ export class Browser {
         heading.add_content("Projects");
         const table = new Table("proj");
         table.add_headings(["Filename", "Cdb", "Nps", "Number CIP"]);
-        for (const filename of this.file_set.files_of_kind(file_set.FileKind.Project)) {
-            let obj = this.file_set.load_file_as_obj(filename, file_set.FileKind.Project);
+        for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Project)) {
+            let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Project);
             if (obj === null) {
                 continue;
             }
@@ -86,9 +88,9 @@ export class Browser {
             const link = this.file_link(filename);
             table.add_body([
                 link,
-                project.cdb,
-                project.nps,
-                project.cips.length.toString(),
+                "project.project.cdb",
+                "project.project.nps",
+                project.project.ncips().toString(),
             ]);
         }
         this.browser.add_content(heading);
@@ -101,74 +103,49 @@ export class Browser {
         heading.add_content("Named point sets");
         const table = new Table("nps");
         table.add_headings(["Filename", "Number of points"]);
-        for (const filename of this.file_set.files_of_kind(file_set.FileKind.Nps)) {
-            let obj = this.file_set.load_file_as_obj(filename, file_set.FileKind.Nps);
+        for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Nps)) {
+            let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Nps);
             if (obj === null) {
                 continue;
             }
             let nps = obj;
-            if (nps === null) {
-                continue;
-            }
             const link = this.file_link(filename);
-            table.add_body([link, nps.points.length.toString()]);
+            table.add_body([link, nps.num_points().toString()]);
         }
         this.browser.add_content(heading);
         this.browser.add_content(table.as_html());
     }
-    /*
-  
-      const nps_contents = [];
-      for (const f of this.file_set.dir().files_of_type("nps")) {
-        let t = this.file_set.load_file("nps", f);
-        const obj = utils.parse_json(t);
-        const num_pts = obj.length;
-        nps_contents.push([f, `${num_pts}`]);
-      }
-        nps_contents,
-      );
-  
-      const pms_contents = [];
-      for (const f of this.file_set.dir().files_of_type("pms")) {
-        let t = this.file_set.load_file("pms", f);
-        const obj = utils.parse_json(t);
-        const num_pts = obj.length;
-        pms_contents.push([f, `${num_pts}`]);
-      }
-      this.create_file_table(
-        "pms",
-        "Point-mapping Sets",
-        ["Filename", "Number of points"],
-        pms_contents,
-      );
-  
-      const cam_contents = [];
-      for (const f of window.file_set.dir().files_of_type("cam")) {
-        let t = this.file_set.load_file("cam", f);
-        const obj = utils.parse_json(t);
-        const cam_html =
-          obj.body +
-          "<br>" +
-          obj.lens +
-          "<br>Focus distance " +
-          obj.mm_focus_distance +
-          "mm";
-        const posn_html =
-          obj.position[0].toFixed(2) +
-          ", " +
-          obj.position[1].toFixed(2) +
-          ", " +
-          obj.position[2].toFixed(2);
-        cam_contents.push([f, cam_html, posn_html]);
-      }
-      this.create_file_table(
-        "cam",
-        "Camera Placements",
-        ["Filename", "Camera", "Position"],
-        cam_contents,
-      );
+    add_table_of_cip() {
+        const heading = HtmlElement.new_ele("h1", {
+            classes: "browser_ft_heading",
+        });
+        heading.add_content("Camera/Image/Point mapping set");
+        const table = new Table("cip");
+        table.add_headings([
+            "Filename",
+            "Image",
+            "Body",
+            "Lens",
+            "Number point-mappings",
+        ]);
+        for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Cip)) {
+            let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Cip);
+            if (obj === null) {
+                continue;
+            }
+            let cip = obj;
+            const link = this.file_link(filename);
+            table.add_body([
+                link,
+                cip.image(),
+                cip.camera_body(),
+                cip.camera_lens(),
+                cip.num_mappings().toString(),
+            ]);
+        }
+        this.browser.add_content(heading);
+        this.browser.add_content(table.as_html());
     }
-  */
     /**
      * Upload files, invoked by a button from the HTML page itself
      *
@@ -186,11 +163,11 @@ export class Browser {
         }
     }
     upload_file_contents(filename, contents) {
-        let file = file_set.UnknownFile.find_data_type(contents);
-        if (file.kind() !== file_set.FileKind.Unknown) {
+        let file = file_kind.UnknownFile.find_data_type(contents);
+        if (file.kind() !== file_kind.FileKind.Unknown) {
             this.log.info("upload", `Uploaded ${filename} of type ${file.kind()}`);
-            this.file_set.save_file(filename, file, contents);
-            // this.repopulate();
+            this.file_set.save_file(filename, file);
+            this.repopulate();
         }
         else {
             this.log.warning("upload", `Could not determine type of ${filename}`);

@@ -37,6 +37,9 @@ impl WasmCameraDatabase {
             .into();
         Ok(Self { cdb })
     }
+    pub fn to_json(&self, pretty: bool) -> Result<String, JsValue> {
+        Ok(self.cdb.borrow().to_json(pretty).map_err(err_to_string)?)
+    }
     pub fn num_bodies(&self) -> usize {
         self.cdb.borrow().bodies().len()
     }

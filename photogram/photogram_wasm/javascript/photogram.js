@@ -53,8 +53,8 @@ export class Photogram {
 }
 //a Top level on load...
 window.star_catalog = null;
-function complete_init(star_catalog_wasm) {
-    window.star_catalog = new Photogram(star_catalog_wasm, new URLSearchParams(window.location.search));
+function complete_init(photogram_wasm) {
+    window.photogram = new Photogram(photogram_wasm, new URLSearchParams(window.location.search));
 }
 window.addEventListener("load", (_e) => {
     photogram_init().then((x) => {

@@ -16,13 +16,23 @@
     }
 }
 
-/* Tab list layout */
+html {
+    margin: 0px;
+    background-color: slategray;
+    color: #77c;
+    body {
+        margin: 0px;
+    }
+}
+
 .tab-list {
+    background-color: slategray;
     ul {
         list-style-type: none;
         margin: 0;
         padding: 0;
         overflow: hidden;
+        border-color: slateblue;
         border-top: 2px;
         border-top-style: solid;
         border-bottom-width: 3px;
@@ -165,30 +175,8 @@ html {
     }
 }
 
-#tab-skyview {
-    table {
-        border-spacing: 0px;
-    }
-}
-
 #tab-help {
     padding: 8px;
-}
-
-.tab-list ul {
-    background-color: #000;
-    /* same as li.active a */
-    border-bottom-color: #422;
-    li.active a {
-        color: #c33;
-        background: #422;
-    }
-    li a {
-        color: #722;
-    }
-    li a:hover {
-        background-color: #111;
-    }
 }
 
 .image_canvas {
