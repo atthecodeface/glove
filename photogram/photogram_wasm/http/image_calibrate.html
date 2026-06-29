@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>Image calibration</title>
+  </head>
+  <body>
+    <link href="main.css" rel="stylesheet" type="text/css">
+    <p>
+    <script type="module" src="./image_calibrate.js"></script>
+    <div id="thumbnails"> </div>
+      <table>
+        <tr>
+          <td id="controls">
+            <table>
+              <tr>
+                <td colspan=3>
+                  <input class="widget_button" type="button" value="-" onclick="window.image_canvas.zoom_by(1/1.1);"/>
+                  <input type="range" id="zoom" name="zoom" step="0.1" min="0" max="11" oninput="window.image_canvas.zoom_by();"/>
+                  <input class="widget_button" type="button" value="+" onclick="window.image_canvas.zoom_by(1.1);"/>
+                   <label for="zoom">Zoom</label>
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3 id="cursor_info"> 
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3>
+                  <label for="project_list">Choose a project:</label>
+                  <select type="text" id="project_list" name="project_list"/>
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3>
+                  <label for="cip_list">Choose a CIP:</label>
+                  <select type="text" id="cip_list" name="cip_list"/>
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3>
+                <input class="widget_button" type="button" value="Locate 0.1" onclick="window.image_canvas.locate(0.1);"/>
+                  <input class="widget_button" type="button" value="Loc 1" onclick="window.image_canvas.locate(1.0);"/>
+                  <input class="widget_button" type="button" value="Loc 5" onclick="window.image_canvas.locate(5.0);"/>
+                  <input class="widget_button" type="button" value="L 10" onclick="window.image_canvas.locate(10.0);"/>
+                  <input class="widget_button" type="button" value="L 50" onclick="window.image_canvas.locate(50.0);"/>
+                  <input class="widget_button" type="button" value="Add NP" onclick="window.image_canvas.add_np_at_cursor_fd();"/>
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3 id="camera_info">
+                </td>
+              </tr>
+              <tr>
+                <td colspan=3>
+                      <input class="widget_button" type="button" value="Save Project" onclick="window.image_canvas.save_project();"/>
+                      <input class="widget_button" type="button" value="Locate All" onclick="window.image_canvas.locate_all();"/>
+                      <input class="widget_button" type="button" value="Derive All" onclick="window.image_canvas.derive_all_nps_locations();"/>
+                      <input class="widget_button" type="button" value="RotPms" onclick="window.image_canvas.rotate_all_pms();"/>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <div id='image_canvas'  class='image_canvas'>
+            </div>
+          </td>
+        </tr>
+      </table>
+      <textbox id='json'>
+      </textbox>
+      <div height="100px" id="nps_contents">
+      </div>
+      <div id='Log' class="log"></div>
+  </body>
+</html>
