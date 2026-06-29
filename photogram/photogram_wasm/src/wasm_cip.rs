@@ -1,31 +1,64 @@
-//a Imports
+use std::borrow::Borrow;
+
 use ic_base::Rrc;
 use ic_mapping::PointMapping;
-use ic_project::Cip;
+use ic_project::{Cip, CipDesc};
 use wasm_bindgen::prelude::*;
 
 use crate::{WasmCameraInstance, WasmPointMappingSet, err_to_string};
 
-//a WasmCip
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct WasmCipDesc(CipDesc);
+
+#[wasm_bindgen]
+impl WasmCipDesc {
+    /// Try to parse a Json string as a CipDesc without a Project
+    pub fn try_json(json: &str) -> Result<Self, JsValue> {
+        let json = ic_base::JsonSrc::<ic_project::CipDesc>::of_json(json).map_err(err_to_string)?;
+        let (_, cip_desc) = json
+            .deserialize_as::<ic_project::CipDesc>("Cip")
+            .map_err(err_to_string)?;
+        Ok(Self(cip_desc))
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn num_mappings(&self) -> usize {
+        self.0.num_mappings()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn image(&self) -> String {
+        let t: &String = self.0.image().borrow();
+        t.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn camera_body(&self) -> String {
+        self.0.camera().body().to_owned()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn camera_lens(&self) -> String {
+        self.0.camera().lens().to_owned()
+    }
+}
+
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct WasmCip {
     cip: Rrc<Cip>,
 }
 
-//ip WasmCip
 impl WasmCip {
-    //cp of_cip
     pub fn of_cip(cip: Rrc<Cip>) -> Self {
         Self { cip }
     }
-    //cp cip
+
     pub fn cip(&self) -> &Rrc<Cip> {
         &self.cip
     }
 }
 
-//ip WasmCip
 #[wasm_bindgen]
 impl WasmCip {
     /// Create a new WasmGraphCanvas attached to a Canvas HTML element,
@@ -38,21 +71,6 @@ impl WasmCip {
         cip.set_pms_filename(pms_file);
         let cip = cip.into();
         Self { cip }
-    }
-
-    #[wasm_bindgen]
-    /// Try to parse a Json string as a CipDesc without a Project
-    pub fn try_json(json: &str) -> Result<Self, JsValue> {
-        let json = ic_base::JsonSrc::<ic_project::CipDesc>::of_json(json).map_err(err_to_string)?;
-        let (_, cip_desc) = json
-            .deserialize_as::<ic_project::CipDesc>("Cip")
-            .map_err(err_to_string)?;
-        let mut cip = Cip::default();
-        cip.set_camera_filename(cip_desc.camera_filename());
-        cip.set_image_filename(cip_desc.image_filename());
-        cip.set_pms_filename(cip_desc.pms_filename());
-        let cip = cip.into();
-        Ok(Self { cip })
     }
 
     #[wasm_bindgen(getter)]

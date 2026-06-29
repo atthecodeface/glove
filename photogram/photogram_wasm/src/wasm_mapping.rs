@@ -3,7 +3,7 @@ use js_sys::Array;
 
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, Point2D, Point3D, Rrc};
+use ic_base::{JsonParsable, JsonSrc, Point2D, Point3D, Rrc};
 use ic_image::Color;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 
@@ -28,10 +28,8 @@ impl WasmPointMappingSet {
     }
 }
 
-//ip WasmPointMappingSet
 #[wasm_bindgen]
 impl WasmPointMappingSet {
-    //fp new
     /// Create a new WasmPointMappingSet from a camera database and a Json file
     #[wasm_bindgen(constructor)]
     pub fn new() -> WasmPointMappingSet {
@@ -39,7 +37,15 @@ impl WasmPointMappingSet {
         Self { pms }
     }
 
-    //mp read_json
+    /// Try to parse a Json file as a PointMappingSet, returning the number of points
+    pub fn try_json(json: &str) -> Result<usize, JsValue> {
+        let json = JsonSrc::<PointMappingSet>::of_json(json).map_err(err_to_string)?;
+        let (_, pms) = json
+            .deserialize_as::<PointMappingSet>("Pms")
+            .map_err(err_to_string)?;
+        Ok(pms.mappings().len())
+    }
+
     /// Read a json file to add to the points
     pub fn read_json(&mut self, wnps: &WasmNamedPointSet, json: &str) -> Result<(), JsValue> {
         let (_pms, _pms_not_found) = PointMappingSet::load_json(json, &wnps.nps.borrow())
@@ -51,13 +57,11 @@ impl WasmPointMappingSet {
         Ok(())
     }
 
-    //cp to_json
     #[wasm_bindgen]
     pub fn to_json(&self) -> Result<String, JsValue> {
         Ok(self.pms.borrow().to_json(false).map_err(err_to_string)?)
     }
 
-    //mp length
     /// Get the number of mappings
     #[wasm_bindgen(getter)]
     pub fn length(&self) -> usize {
@@ -241,7 +245,10 @@ impl WasmNamedPointSet {
         Ok(self.nps.borrow().to_json(false).map_err(err_to_string)?)
     }
 
-    //mp add_pt
+    pub fn num_points(&mut self) -> usize {
+        self.nps.borrow().len()
+    }
+
     #[wasm_bindgen]
     pub fn add_pt(&mut self, wnp: WasmNamedPoint) -> Result<(), JsValue> {
         let color: Color = wnp.color.as_str().try_into()?;
@@ -251,7 +258,6 @@ impl WasmNamedPointSet {
         Ok(())
     }
 
-    //mp get_pt
     #[wasm_bindgen]
     pub fn get_pt(&mut self, name: &str) -> Option<WasmNamedPoint> {
         if let Some(np) = self.nps.borrow().get_pt(name) {
