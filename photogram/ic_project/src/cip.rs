@@ -77,8 +77,11 @@ impl CipFileDesc {
 //tp CipDesc
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CipDesc {
+    // Remove me
     camera_filename: String,
+    // Remove me
     pms_filename: String,
+    // Remove me
     image_filename: String,
     camera: CameraInstanceDesc,
     image: Tag,
@@ -86,6 +89,9 @@ pub struct CipDesc {
 }
 
 impl CipDesc {
+    pub fn image(&self) -> &Tag {
+        &self.image
+    }
     pub fn camera_filename(&self) -> &str {
         &self.camera_filename
     }
@@ -94,6 +100,12 @@ impl CipDesc {
     }
     pub fn image_filename(&self) -> &str {
         &self.image_filename
+    }
+    pub fn num_mappings(&self) -> usize {
+        self.pms.len()
+    }
+    pub fn camera(&self) -> &CameraInstanceDesc {
+        &self.camera
     }
 }
 

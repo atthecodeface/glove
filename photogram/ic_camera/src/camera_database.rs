@@ -1,12 +1,9 @@
-//a Imports
 use serde::{Deserialize, Serialize};
 
 use ic_base::{Error, JsonParsable, Result};
 
 use crate::{CameraBody, CameraLens, CameraSensor};
 
-//a CameraDatabase
-//tp CameraDatabase
 /// A database of camera bodies and lenses
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct CameraDatabase {
@@ -14,7 +11,6 @@ pub struct CameraDatabase {
     lenses: Vec<CameraLens>,
 }
 
-//ip JsonParsable for CameraDatabase
 impl JsonParsable for CameraDatabase {
     type PostParseArg = ();
     type PostParseResult = Self;
@@ -27,7 +23,6 @@ impl JsonParsable for CameraDatabase {
     }
 }
 
-//ip Display for CameraDatabase
 impl std::fmt::Display for CameraDatabase {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         writeln!(fmt, "Bodies:")?;
@@ -42,33 +37,35 @@ impl std::fmt::Display for CameraDatabase {
     }
 }
 
-//ip CameraDatabase
 impl CameraDatabase {
-    //mp to_json
     pub fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(self)?)
     }
 
-    //mp derive
     pub fn derive(&mut self) {
         for b in self.bodies.iter_mut() {
             b.derive();
         }
     }
 
-    //ap get_body
+    pub fn bodies(&self) -> &[CameraBody] {
+        &self.bodies
+    }
+
+    pub fn lenses(&self) -> &[CameraLens] {
+        &self.lenses
+    }
+
     pub fn get_body(&self, name: &str) -> Option<&CameraBody> {
         self.bodies.iter().find(|&b| b.has_name(name))
     }
 
-    //ap get_body_err
     pub fn get_body_err(&self, name: &str) -> Result<&CameraBody> {
         self.get_body(name).ok_or(Error::Database(format!(
             "Body '{name}' was not in the database",
         )))
     }
 
-    //mp add_body
     pub fn add_body(&mut self, body: CameraBody) -> Result<()> {
         if self.get_body(body.name()).is_some() {
             Err(Error::Database(format!(
@@ -81,19 +78,16 @@ impl CameraDatabase {
         }
     }
 
-    //ap get_lens
     pub fn get_lens(&self, name: &str) -> Option<&CameraLens> {
         self.lenses.iter().find(|&l| l.has_name(name))
     }
 
-    //ap get_lens_err
     pub fn get_lens_err(&self, name: &str) -> Result<&CameraLens> {
         self.get_lens(name).ok_or(Error::Database(format!(
             "Lens '{name}' was not in the database",
         )))
     }
 
-    //mp add_lens
     pub fn add_lens(&mut self, lens: CameraLens) -> Result<()> {
         if self.get_lens(lens.name()).is_some() {
             Err(Error::Database(format!(
@@ -105,6 +99,4 @@ impl CameraDatabase {
             Ok(())
         }
     }
-
-    //zz All done
 }
