@@ -11,8 +11,16 @@
             <!-- Will be fixed with edges at 0px on each side-->
             <div class="flex box">
                 <div class="flex content">
-                    <div class="floating-resizable">
-                        <div id="WebCanvas"></div>
+                    <div id="tab-project-edit" class="main content">
+                        <div class="set-to-size-of-tab-list"></div>
+                        <div id="project_edit">
+                            Current project:
+                            <span class="set-project-name"></span>
+                            <p></p>
+                            Current CIP:
+                            <span class="set-cip-name"></span>
+                            <p></p>
+                        </div>
                     </div>
                 </div>
                 <div class="flex footer"></div>
@@ -24,12 +32,26 @@
                 <ul>
                     <li><a href="#tab-help">Help</a></li>
                     <li><a href="#tab-browser">Browser</a></li>
+                    <li>
+                        <a href="#tab-lens-calibration-plot">
+                            Lens calibration
+                        </a>
+                    </li>
                     <li><a href="#tab-log">Log</a></li>
                 </ul>
             </div>
             <div id="tab-help" class="main content">Help goes here</div>
             <div id="tab-browser" class="main content">
                 <div id="browser"></div>
+            </div>
+            <div id="tab-lens-calibration-plot" class="main content">
+                Current CIP:
+                <span class="set-cip-name"></span>
+                <p></p>
+                Diagonal FOV:
+                <span class="set-fovd"></span>
+                <p></p>
+                <div id="lens_calibration_plot"></div>
             </div>
             <div id="tab-log" class="main content">
                 <table>

@@ -37,6 +37,7 @@ install_tsc:
 upgrade_from_js_lib:
 	cp ${JS_LIB}/typescript/html.ts ${TS}
 	cp ${JS_LIB}/typescript/log.ts ${TS}
+	cp ${JS_LIB}/typescript/mouse.ts ${TS}
 	cp ${JS_LIB}/typescript/storage.ts ${TS}
 	cp ${JS_LIB}/typescript/tabs.ts ${TS}
 	cp ${JS_LIB}/typescript/zoomed_window.ts ${TS}
