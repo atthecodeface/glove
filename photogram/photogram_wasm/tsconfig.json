@@ -48,6 +48,8 @@
   // "include": ["pkg/*"],
 
   "files": [
+    "typescript/draw.ts",
+    "typescript/plot.ts",
     "typescript/html.ts",
     "typescript/log.ts",
     "typescript/storage.ts",
@@ -55,10 +57,14 @@
     "typescript/zoomed_window.ts",
 
     "typescript/file_kind.ts",
-    "typescript/browser.ts",
     "typescript/file_set.ts",
     "typescript/project_set.ts",
 
+    "typescript/lens_calibration_plot.ts",
+    "typescript/browser.ts",
+    "typescript/project_edit.ts",
+
+    "typescript/application.ts",
     "typescript/photogram.ts"
   ]
 }

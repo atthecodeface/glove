@@ -191,6 +191,7 @@ class ProjectKinds {
 
   decode_locator(locator: string): [Projects, string] | null {
     const local = this.local.filename_of_locator(locator);
+    console.log(locator, local);
     if (local !== null) {
       return [this.local, local];
     } else {
@@ -259,7 +260,7 @@ export class ProjectSet {
   projects: ProjectKinds;
   log: Logger;
 
-  constructor(files: file_set.FileSet, callback: () => void, log: Logger) {
+  constructor(log: Logger, files: file_set.FileSet, callback: () => void) {
     this.files = files;
     this.log = log;
     this.callback = callback;

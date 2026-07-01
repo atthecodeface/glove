@@ -1,25 +1,26 @@
 import { HtmlElement, Table } from "./html.js";
 import * as file_kind from "./file_kind.js";
 import * as file_set from "./file_set.js";
-import * as storage from "./storage.js";
 import { Logger } from "./log.js";
 
+import { Application } from "./application.js";
+
 export class Browser {
+  application: Application;
   file_set: file_set.FileSet;
   browser: HtmlElement;
   log: Logger;
 
   constructor(
-    storage: storage.LocalStorage,
-    browser: HtmlElement,
+    application: Application,
     log: Logger,
+    file_set: file_set.FileSet,
+    browser: HtmlElement,
   ) {
-    this.browser = browser;
+    this.application = application;
     this.log = log;
-
-    // This will invoke the callback, so set everything else up first
-    this.file_set = new file_set.FileSet(storage, this.repopulate.bind(this));
-    this.file_set.get_file_list();
+    this.file_set = file_set;
+    this.browser = browser;
   }
 
   file_link(f: string): HtmlElement {
