@@ -1,4 +1,10 @@
 import { Draw } from "./draw.js";
+import * as utils from "./utils.js";
+
+interface DataRangeProperties {
+  include_zero?: boolean;
+  expand_factor?: number;
+}
 
 export class DataRange {
   data: [number, number][];
@@ -6,28 +12,49 @@ export class DataRange {
   constructor(data: [number, number][] = []) {
     this.data = data;
   }
+
   push(x: number, y: number) {
     this.data.push([x, y]);
   }
 
-  get_xrange(): [number, number] {
+  private get_range(
+    min: number,
+    max: number,
+    properties: DataRangeProperties = {},
+  ): [number, number] {
+    if (properties.expand_factor !== undefined) {
+      const mid = (min + max) / 2;
+      const diff = max - min;
+      min = mid - (diff / 2) * properties.expand_factor;
+      max = mid + (diff / 2) * properties.expand_factor;
+    }
+    if (properties.include_zero !== undefined && properties.include_zero) {
+      if (min * max > 0) {
+        min = Math.min(0, min);
+        max = Math.max(0, max);
+      }
+    }
+    return [min, max];
+  }
+
+  get_xrange(properties: DataRangeProperties = {}): [number, number] {
     let min = this.data[0]![0];
     let max = this.data[0]![0];
     for (const xy of this.data) {
       min = Math.min(min, xy[0]);
       max = Math.max(max, xy[0]);
     }
-    return [min, max];
+    return this.get_range(min, max, properties);
   }
 
-  get_yrange(): [number, number] {
+  get_yrange(properties: DataRangeProperties = {}): [number, number] {
     let min = this.data[0]![1];
     let max = this.data[0]![1];
     for (const xy of this.data) {
       min = Math.min(min, xy[1]);
       max = Math.max(max, xy[1]);
     }
-    return [min, max];
+    return this.get_range(min, max, properties);
   }
 }
 
@@ -38,6 +65,7 @@ interface TicProperties {
   label?: boolean;
   id?: string;
 }
+
 export class Tics {
   spacing: number = 1;
   length: number = 1;
@@ -57,6 +85,18 @@ export class Tics {
     if (properties.label !== undefined) {
       this.label = properties.label;
     }
+  }
+  /** Set the spacing to be a power of ten such that the range will have at least min_tics */
+  set_spacing_of_range(range: [number, number], min_tics: number) {
+    const delta = range[1] - range[0];
+    const delta_spacing = delta / min_tics;
+    let spacing = Math.pow(10, Math.floor(Math.log10(delta_spacing)));
+    const min_rounded_up = Math.ceil(range[0] / spacing);
+    const max_rounded_down = Math.floor(range[1] / spacing);
+    if (max_rounded_down - min_rounded_up < min_tics - 1) {
+      spacing = spacing / 10;
+    }
+    this.spacing = spacing;
   }
 }
 
@@ -284,7 +324,9 @@ export class Plot {
     // draw.extend([["W", 4.0], ["S", "#ff3"], ["b"]]);
     this.x_iter_spacing(tics.spacing, (d, graph_rel) => {
       let x = this.map_x_graph_rel_to_abs.map(graph_rel);
-      draw.extend([["txt", x, this.graph_area[1] + 30, d.toString()]]);
+      draw.extend([
+        ["txt", x, this.graph_area[1] + 30, utils.decimal_to_sig_fig(d, 3)],
+      ]);
     });
   }
 
@@ -298,7 +340,9 @@ export class Plot {
     }
     this.y_iter_spacing(tics.spacing, (d, graph_rel) => {
       let y = this.map_y_graph_rel_to_abs.map(graph_rel);
-      draw.extend([["txt", this.graph_area[0] - 30, y, d.toString()]]);
+      draw.extend([
+        ["txt", this.graph_area[0] - 30, y, utils.decimal_to_sig_fig(d, 3)],
+      ]);
     });
   }
 

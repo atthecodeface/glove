@@ -15,6 +15,7 @@ import { Application } from "./application.js";
 enum SelectedPlotType {
   Relative,
   Absolute,
+  Difference,
   Rings,
 }
 
@@ -33,6 +34,7 @@ export class LensCalibrationPlot {
   draw_world_rings_in_frame: Draw;
   draw_relative_world_sensor_graph: Draw;
   draw_world_sensor_graphs: Draw;
+  draw_ws_difference_graph: Draw;
 
   constructor(application: Application, log: Logger, div: HtmlElement) {
     this.application = application;
@@ -46,6 +48,7 @@ export class LensCalibrationPlot {
     this.draw_world_rings_in_frame = new Draw();
     this.draw_world_sensor_graphs = new Draw();
     this.draw_relative_world_sensor_graph = new Draw();
+    this.draw_ws_difference_graph = new Draw();
   }
 
   resize(wh: [number, number]) {
@@ -86,6 +89,11 @@ export class LensCalibrationPlot {
         w,
         h,
       );
+      this.draw_ws_difference_graph = this.generate_draw_ws_difference_graph(
+        this.camera,
+        w,
+        h,
+      );
 
       this.draw_relative_world_sensor_graph =
         this.generate_draw_relative_world_sensor_graph(this.camera, w, h);
@@ -102,6 +110,10 @@ export class LensCalibrationPlot {
       }
       case SelectedPlotType.Relative: {
         this.draw_relative_world_sensor_graph.draw(context, (x) => x);
+        break;
+      }
+      case SelectedPlotType.Difference: {
+        this.draw_ws_difference_graph.draw(context, (x) => x);
         break;
       }
       case SelectedPlotType.Rings: {
@@ -129,16 +141,7 @@ export class LensCalibrationPlot {
     }
     plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
     const xr = data.get_xrange();
-    const yr = data.get_yrange();
-    let dy = yr[1] - yr[0];
-    let cy = (yr[1] + yr[0]) / 2;
-    yr[0] = cy - dy * 1.2;
-    yr[1] = cy + dy * 1.2;
-    if (yr[0] * yr[1] > 0) {
-      // if both same sign, include zero
-      yr[0] = Math.min(0, yr[0]);
-      yr[1] = Math.max(0, yr[1]);
-    }
+    const yr = data.get_yrange({ expand_factor: 1.2, include_zero: true });
 
     const xtics = new Tics({
       spacing: 10,
@@ -146,13 +149,14 @@ export class LensCalibrationPlot {
       show_grid: true,
       label: true,
     });
-    const y_spacing = Math.pow(10, Math.floor(Math.log10(yr[1] - yr[0])));
     const ytics = new Tics({
-      spacing: y_spacing,
+      spacing: 10,
       length: 10,
       show_grid: true,
       label: true,
     });
+    xtics.set_spacing_of_range(xr, 2);
+    ytics.set_spacing_of_range(yr, 2);
 
     plot.xtics.push(xtics);
     plot.ytics.push(ytics);
@@ -162,6 +166,53 @@ export class LensCalibrationPlot {
     plot.generate_tics(draw);
     plot.generate_labels(draw);
     plot.generate_plot(draw, data);
+    plot.generate_box(draw);
+    return draw;
+  }
+
+  generate_draw_ws_difference_graph(
+    camera: WasmCameraInstance,
+    w: number,
+    h: number,
+  ): Draw {
+    const draw = new Draw();
+    const size = Math.min(w, h - 230) * 0.9;
+    const plot = new Plot([size, size]);
+
+    const data0 = new DataRange();
+    for (let world_yaw = 0; world_yaw < this.yaw_max; world_yaw += 1) {
+      const sensor_yaw =
+        (camera.map_yaw_world_to_sensor((world_yaw * 3.1416) / 180) * 180) /
+        3.1416;
+      data0.push(sensor_yaw, world_yaw - sensor_yaw);
+    }
+    plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
+    const xr = data0.get_xrange();
+    const yr = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+
+    let xtics = new Tics({
+      spacing: 10,
+      length: 10,
+      show_grid: true,
+      label: true,
+    });
+    let ytics = new Tics({
+      spacing: 0.1,
+      length: 10,
+      show_grid: true,
+      label: true,
+    });
+    xtics.set_spacing_of_range(xr, 2);
+    ytics.set_spacing_of_range(yr, 2);
+
+    plot.xtics.push(xtics);
+    plot.ytics.push(ytics);
+    plot.set_data_range(xr[0], yr[0], xr[1], yr[1]);
+
+    plot.generate_grid(draw);
+    plot.generate_tics(draw);
+    plot.generate_labels(draw);
+    plot.generate_plot(draw, data0);
     plot.generate_box(draw);
     return draw;
   }
@@ -199,12 +250,7 @@ export class LensCalibrationPlot {
       show_grid: true,
       label: true,
     });
-    if (xr[1] - xr[0] < 20) {
-      tics.spacing = 1;
-    }
-    if (yr[1] - yr[0] < 20) {
-      tics.spacing = 1;
-    }
+    tics.set_spacing_of_range(xr, 2);
 
     plot.xtics.push(tics);
     plot.ytics.push(tics);

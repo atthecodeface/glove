@@ -175,9 +175,20 @@ export class Photogram implements Application {
       ? this.project_locator
       : "<no project open>";
     const cip_name = this.cip ? this.cip.image : "<no CIP>";
+    const body_name = this.cip ? this.cip.camera.body : "<no CIP>";
+    const lens_name = this.cip ? this.cip.camera.lens : "<no CIP>";
+    const focal_length = this.cip
+      ? this.cip.camera.focal_length.toString() + "mm"
+      : "<no CIP>";
     const fovd = this.cip
       ? (
           Math.floor((Math.atan(this.cip.camera.tan_fovd) * 18000) / 3.14159) /
+          100
+        ).toString() + "°"
+      : "<no CIP>";
+    const fovh = this.cip
+      ? (
+          Math.floor((Math.atan(this.cip.camera.tan_fovh) * 18000) / 3.14159) /
           100
         ).toString() + "°"
       : "<no CIP>";
@@ -190,8 +201,24 @@ export class Photogram implements Application {
       e.ele.innerHTML = cip_name;
       return a;
     });
+    HtmlElement.fold_all_of(".set-body", null, (a, e) => {
+      e.ele.innerHTML = body_name;
+      return a;
+    });
+    HtmlElement.fold_all_of(".set-lens", null, (a, e) => {
+      e.ele.innerHTML = lens_name;
+      return a;
+    });
+    HtmlElement.fold_all_of(".set-focal-length", null, (a, e) => {
+      e.ele.innerHTML = focal_length;
+      return a;
+    });
     HtmlElement.fold_all_of(".set-fovd", null, (a, e) => {
       e.ele.innerHTML = fovd;
+      return a;
+    });
+    HtmlElement.fold_all_of(".set-fovh", null, (a, e) => {
+      e.ele.innerHTML = fovh;
       return a;
     });
 
