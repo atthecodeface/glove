@@ -628,18 +628,6 @@ impl LensPolys {
         Self::new(stw_poly, wts_poly)
     }
 
-    //cp set_stw_poly
-    fn set_stw_poly(mut self, poly: &[f64]) -> Self {
-        self.stw_poly = poly.to_vec();
-        self
-    }
-
-    //cp set_wts_poly
-    fn set_wts_poly(mut self, poly: &[f64]) -> Self {
-        self.wts_poly = poly.to_vec();
-        self
-    }
-
     //mp stw
     /// Map from sensor angle to world angle
     ///

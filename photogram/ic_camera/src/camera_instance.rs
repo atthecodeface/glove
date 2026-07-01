@@ -5,9 +5,9 @@ use geo_nd::quat;
 
 use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
-use crate::{serialize_body_name, serialize_lens_name};
 use crate::{CameraBody, CameraDatabase, CameraLens};
 use crate::{CameraInstanceDesc, CameraProjection, CameraSensor};
+use crate::{serialize_body_name, serialize_lens_name};
 
 //a CameraInstance
 //tp CameraInstance
@@ -238,6 +238,11 @@ impl CameraProjection for CameraInstance {
     /// Get name of lens
     fn lens_name(&self) -> String {
         self.lens.name().into()
+    }
+
+    /// Get the focal length of the lens
+    fn focal_length(&self) -> f64 {
+        self.lens.mm_focal_length()
     }
 
     //ap focus_distance

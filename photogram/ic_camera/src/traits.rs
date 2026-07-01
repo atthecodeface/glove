@@ -44,6 +44,9 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Name of the lens, for recording in files
     fn lens_name(&self) -> String;
 
+    /// Focal length of the lens
+    fn focal_length(&self) -> f64;
+
     /// Get the distance from the sensor that the projection is focused on
     fn focus_distance(&self) -> f64;
 
@@ -67,6 +70,14 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
 
     /// Get the center of the sensor in mm
     fn sensor_center(&self) -> Point2D;
+
+    /// Get the tan of the field-of-view for horizontal and verical
+    fn tan_fov(&self) -> (f64, f64) {
+        let wh = self.sensor_size();
+        let txty0 = self.px_abs_xy_to_camera_txty(&[0., 0.].into());
+        let txty1 = self.px_abs_xy_to_camera_txty(&[wh.0, wh.1].into());
+        (txty0[0].max(txty1[0]), txty0[1].max(txty1[1]))
+    }
 
     /// Apply the lens projection, to convert from *sensor* [RollYaw] to *camera* [RollYaw]
     #[must_use]
