@@ -288,3 +288,21 @@ export class ProjectSet {
     this.projects.save_project(locator, project, callback, error_callback);
   }
 }
+
+/*
+update_thumbnails() {
+    const me = this;
+    const i = document.getElementById("thumbnails");
+    if (i && this.server_project) {
+        html.clear(i);
+        for (const n in this.server_project.thumbnails) {
+            if (this.server_project.thumbnails[n]) {
+                const a = html.add_ele(i, "a");
+                a.addEventListener('click', function(e) {me.select_cip_of_project(n);});
+                const img = html.add_ele(a, "img");
+                img.src = URL.createObjectURL(this.server_project.thumbnails[n]);
+            }
+        }
+    }
+}
+*/

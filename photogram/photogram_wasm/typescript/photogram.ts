@@ -14,6 +14,7 @@ import { FileSet } from "./file_set.js";
 import { ProjectSet } from "./project_set.js";
 import { Browser } from "./browser.js";
 import { LensCalibrationPlot } from "./lens_calibration_plot.js";
+import { StarCalibration } from "./star_calibration.js";
 import { ProjectEdit } from "./project_edit.js";
 
 import { Application } from "./application.js";
@@ -21,6 +22,7 @@ import { Application } from "./application.js";
 enum SelectedTab {
   Help,
   Browser,
+  StarCalibration,
   LensCalibrationPlot,
   ProjectEdit,
   Log,
@@ -51,6 +53,7 @@ export class Photogram implements Application {
   resize_observer: ResizeObserver;
   browser: Browser;
   lens_calibration_plot: LensCalibrationPlot;
+  star_calibration: StarCalibration;
   project_edit: ProjectEdit;
 
   constructor(_wasm_instance: InitOutput, _params: URLSearchParams) {
@@ -72,6 +75,15 @@ export class Photogram implements Application {
       new Logger(this.logger, "browser"),
       this.file_set,
       browser_div,
+    );
+
+    const star_calibration_div = new HtmlElement(
+      document.getElementById("star_calibration")!,
+    );
+    this.star_calibration = new StarCalibration(
+      this,
+      new Logger(this.logger, "star_calibrationt"),
+      star_calibration_div,
     );
 
     const lens_calibration_plot_div = new HtmlElement(
@@ -114,6 +126,11 @@ export class Photogram implements Application {
         "tab-lens-calibration-plot",
         "Lens Calibration",
         new TabType(SelectedTab.LensCalibrationPlot),
+      ],
+      [
+        "tab-star-calibration",
+        "Star Calibration",
+        new TabType(SelectedTab.StarCalibration),
       ],
       [
         "tab-project-edit",
