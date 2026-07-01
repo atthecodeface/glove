@@ -1,3 +1,4 @@
+use geo_nd_wasm::{WasmVec2f64, WasmVec3f64};
 //a Imports
 use wasm_bindgen::prelude::*;
 
@@ -99,6 +100,27 @@ impl WasmCameraInstance {
     }
 
     #[wasm_bindgen(getter)]
+    pub fn focal_length(&self) -> f64 {
+        self.camera.borrow().focal_length()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn tan_fovd(&self) -> f64 {
+        let txty = self.camera.borrow().tan_fov();
+        (txty.0 * txty.0 + txty.1 * txty.1).sqrt()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn tan_fovh(&self) -> f64 {
+        self.camera.borrow().tan_fov().0
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn tan_fovv(&self) -> f64 {
+        self.camera.borrow().tan_fov().1
+    }
+
+    #[wasm_bindgen(getter)]
     pub fn position(&self) -> Result<Box<[f64]>, String> {
         let xyz: [f64; 3] = self.camera.borrow().position().into();
         Ok(Box::new(xyz))
@@ -122,6 +144,26 @@ impl WasmCameraInstance {
             .set_focus_distance(mm_focus_distance);
     }
 
+    #[wasm_bindgen(getter)]
+    pub fn sensor_cx(&self) -> f64 {
+        self.camera.borrow().sensor_center()[0]
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn sensor_cy(&self) -> f64 {
+        self.camera.borrow().sensor_center()[1]
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn sensor_width(&self) -> f64 {
+        self.camera.borrow().sensor_size().0
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn sensor_height(&self) -> f64 {
+        self.camera.borrow().sensor_size().1
+    }
+
     //mp map_model
     pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
         Ok(Point2D::to_wasm(
@@ -131,7 +173,6 @@ impl WasmCameraInstance {
         ))
     }
 
-    //mp direction_of_pt
     pub fn direction_of_pt(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
         let txty = self
             .camera
@@ -140,6 +181,29 @@ impl WasmCameraInstance {
         Ok(Point3D::to_wasm(
             self.camera.borrow().camera_txty_to_world_dir(&txty),
         ))
+    }
+
+    pub fn set_camera_dir_of_pt(&self, pt: &WasmVec2f64, dir: &mut WasmVec3f64) {
+        let pt: Point2D = pt.into();
+        let txty = self.camera.borrow().px_abs_xy_to_camera_txty(&pt);
+        dir.set_array(txty.to_unit_vector().as_ref());
+    }
+
+    pub fn set_pt_of_camera_dir(&self, dir: &WasmVec3f64, pt: &mut WasmVec2f64) {
+        let dir: Point3D = dir.into();
+        let txty = dir.into();
+        let pxy = self.camera.borrow().camera_txty_to_px_abs_xy(&txty);
+        pt.set_array(pxy.as_ref());
+    }
+
+    pub fn map_yaw_world_to_sensor(&self, yaw: f64) -> f64 {
+        let ry = ic_base::RollYaw::of_yaw(yaw);
+        self.camera.borrow().camera_ry_to_sensor_ry(&ry).yaw()
+    }
+
+    pub fn map_yaw_sensor_to_world(&self, yaw: f64) -> f64 {
+        let ry = ic_base::RollYaw::of_yaw(yaw);
+        self.camera.borrow().sensor_ry_to_camera_ry(&ry).yaw()
     }
 
     //mp get_pm_as_ray
