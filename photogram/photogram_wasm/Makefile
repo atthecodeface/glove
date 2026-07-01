@@ -42,6 +42,9 @@ upgrade_from_js_lib:
 	cp ${JS_LIB}/typescript/tabs.ts ${TS}
 	cp ${JS_LIB}/typescript/zoomed_window.ts ${TS}
 	cp ${JS_LIB}/typescript/wasm_memory.ts ${TS}
+	cp ${JS_LIB}/typescript/web_gl.ts ${TS}
+	cp ${JS_LIB}/typescript/web_gl_flat.ts ${TS}
+	cp ${JS_LIB}/typescript/web_gl_3d_obj.ts ${TS}
 
 js:
 	npx tsc -b
