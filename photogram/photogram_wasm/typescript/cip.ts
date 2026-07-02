@@ -7,16 +7,20 @@ import { CipImage } from "./cip_image.js";
 
 export class Cip {
   log: Logger;
+  /** The name within the WasmProject used to select this CIP */
+  cip_name: string;
   wasm_cip: WasmCip | null = null;
   cip_image: CipImage;
 
   constructor(log: Logger) {
     this.log = log;
     this.wasm_cip = null;
+    this.cip_name = "";
     this.cip_image = new CipImage();
   }
 
-  set_cip(cip: WasmCip | null) {
+  set_cip(cip_name: string, cip: WasmCip | null) {
+    this.cip_name = cip_name;
     this.wasm_cip = cip;
 
     /*
@@ -34,8 +38,26 @@ export class Cip {
     */
   }
 
+  name(): string | null {
+    if (this.wasm_cip === null) {
+      return null;
+    } else {
+      return this.cip_name;
+    }
+  }
+
   cip(): WasmCip | null {
     return this.wasm_cip;
+  }
+
+  is_valid(): boolean {
+    return this.wasm_cip !== null;
+  }
+
+  set_cip_image_data(cip_name: string, data: Blob) {
+    if (this.cip_name == cip_name) {
+      this.cip_image.set_image_data(data);
+    }
   }
 
   repopulate() {

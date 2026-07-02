@@ -4,6 +4,7 @@ import { HtmlElement } from "./html.js";
 import { Logger } from "./log.js";
 
 import { Application } from "./application.js";
+import { Cip } from "./cip.js";
 import { ProjectSet } from "./project_set.js";
 
 export class Project {
@@ -13,13 +14,28 @@ export class Project {
   locator: string | null = null;
   private wasm_project: WasmProject | null = null;
   private modified: boolean = false;
+  private promise_epoch: number = 0;
+  private cip: Cip;
 
-  private thumbnails: HTMLImageElement[] = [];
-  constructor(application: Application, log: Logger, project_set: ProjectSet) {
+  /** Thumbnails loaded, one per CIP of the current project */
+  private thumbnails: Map<string, HTMLImageElement>;
+  private thumbnail_width: number = 256;
+
+  constructor(
+    application: Application,
+    log: Logger,
+    project_set: ProjectSet,
+    cip: Cip,
+  ) {
     this.application = application;
     this.log = log;
     this.project_set = project_set;
-    this.thumbnails = [];
+    this.cip = cip;
+    this.thumbnails = new Map();
+  }
+
+  get_cip(): Cip {
+    return this.cip;
   }
 
   get_cip_name(cip: number): string | null {
@@ -44,12 +60,23 @@ export class Project {
   }
 
   is_modified(): boolean {
-    return this.modified && this.thumbnails.length != 0;
+    return this.modified;
+  }
+
+  get_wasm_cip(): WasmCip | null {
+    return this.cip.wasm_cip;
+  }
+
+  cancel_all_promises() {
+    this.promise_epoch += 1;
   }
 
   load_project(locator: string) {
+    this.cancel_all_promises();
+    this.cip.set_cip("", null);
     this.locator = locator;
     this.modified = false;
+    this.thumbnails.clear();
     this.project_set.load_project(
       this.locator,
       this.project_loaded.bind(this),
@@ -60,6 +87,39 @@ export class Project {
   project_loaded(wasm_project: WasmProject): void {
     this.wasm_project = wasm_project;
     this.application.project_load_completed(true);
+    this.log.info(`Project ${this.locator} loaded`);
+
+    this.thumbnails = new Map();
+    for (let i = 0; i < this.wasm_project.ncips(); i++) {
+      const cip_name = this.wasm_project.cip_name(i)!;
+      const promise = this.project_set.promise_fetch_thumbnail(
+        this.locator!,
+        cip_name,
+        this.thumbnail_width,
+      );
+      if (promise !== null) {
+        promise
+          .then((jpg) => {
+            this.thumbnail_loaded(this.promise_epoch, cip_name, jpg);
+          })
+          .catch(this.log_exception.bind(this));
+      }
+    }
+  }
+
+  log_exception(e: Error) {
+    this.log.error(e.message);
+  }
+
+  thumbnail_loaded(epoch: number, cip_name: string, jpg: Blob) {
+    if (epoch != this.promise_epoch) {
+      return;
+    }
+    this.log.info(`Thumbnail ${cip_name} loaded for project ${this.locator}`);
+    const img = new Image();
+    img.src = URL.createObjectURL(jpg);
+    this.thumbnails.set(cip_name, img);
+    this.application.thumbnails_updated();
   }
 
   project_load_error(e: string): void {
@@ -85,6 +145,7 @@ export class Project {
 
   project_saved(): void {
     this.modified = false;
+    this.log.info(`Project ${this.locator} saved`);
     this.application.project_save_completed(true);
   }
 
@@ -102,27 +163,28 @@ export class Project {
     }
     return this.wasm_project.cip(name);
   }
-}
-/*
-//mp image_uri
-get_image_uri(cip) {
-    return `${this.uri}?image&cip=${cip}`;
-}
 
-
-update_thumbnails() {
-    const me = this;
-    const i = document.getElementById("thumbnails");
-    if (i && this.server_project) {
-        html.clear(i);
-        for (const n in this.server_project.thumbnails) {
-            if (this.server_project.thumbnails[n]) {
-                const a = html.add_ele(i, "a");
-                a.addEventListener('click', function(e) {me.select_cip_of_project(n);});
-                const img = html.add_ele(a, "img");
-                img.src = URL.createObjectURL(this.server_project.thumbnails[n]);
-            }
-        }
+  cip_image_loaded(epoch: number, cip_name: string, jpg: Blob) {
+    if (epoch == this.promise_epoch) {
+      this.log.info(`Image ${cip_name} loaded for project ${this.locator}`);
+      this.cip.set_cip_image_data(cip_name, jpg);
     }
+  }
+
+  set_cip(cip_name: string) {
+    const wasm_cip = this.get_cip_by_name(cip_name);
+    this.cip.set_cip(cip_name, wasm_cip);
+    if (this.locator !== null) {
+      const promise = this.project_set.promise_fetch_image(
+        this.locator,
+        cip_name,
+      );
+      if (promise !== null)
+        promise
+          .then((jpg) => {
+            this.cip_image_loaded(this.promise_epoch, cip_name, jpg);
+          })
+          .catch(this.log_exception.bind(this));
+    }
+  }
 }
-*/

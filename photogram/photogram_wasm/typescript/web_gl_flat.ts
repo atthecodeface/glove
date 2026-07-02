@@ -36,6 +36,7 @@ export class WebglFlatShader implements WebglShaderSrc {
   `;
 }
 
+/** A class of object that is drawn as *Lines* */
 export class WebglFlatObj implements WebglObjKind {
   positions: Float32Array;
   indices: Uint16Array;
@@ -49,6 +50,13 @@ export class WebglFlatObj implements WebglObjKind {
     this.indices = indices;
     this.num_indices = this.indices.length;
     this.num_vertices = this.positions.length / 2;
+  }
+
+  static rectangle(width: number, height: number) {
+    return new WebglFlatObj(
+      new Float32Array([0, 0, width, 0, width, height, 0, height]),
+      new Uint16Array([0, 1, 1, 2, 2, 3, 3, 0]),
+    );
   }
 
   static axis(length: number, ticks: [number, number][]): WebglFlatObj {

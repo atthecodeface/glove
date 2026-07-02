@@ -52,15 +52,16 @@
     "typescript/plot.ts",
     "typescript/html.ts",
     "typescript/log.ts",
+    "typescript/mouse.ts",
     "typescript/storage.ts",
     "typescript/tabs.ts",
     "typescript/web_gl.ts",
-    //    "typescript/web_gl_bezier.ts",
     "typescript/web_gl_flat.ts",
     "typescript/web_gl_3d_obj.ts",
     "typescript/zoomed_window.ts",
 
     "typescript/cip.ts",
+    "typescript/cip_image.ts",
     "typescript/project.ts",
     "typescript/file_kind.ts",
     "typescript/file_set.ts",
@@ -72,6 +73,7 @@
     "typescript/lens_calibration_plot.ts",
     "typescript/browser.ts",
     "typescript/project_edit.ts",
+    "typescript/star_calibration.ts",
 
     "typescript/application.ts",
     "typescript/photogram.ts"

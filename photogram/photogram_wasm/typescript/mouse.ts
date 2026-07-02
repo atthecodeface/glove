@@ -1,5 +1,6 @@
 export class MousePressActions {
   can_drag: boolean = true;
+  can_pan: boolean = false;
   can_move: boolean = true;
   can_zoom: boolean = true;
   can_rotate: boolean = true;
@@ -47,6 +48,8 @@ enum InteractionState {
   MousePressed,
   // Mouse drag in process; user_press has been cancelled, drag_start has been issued
   MouseDragging,
+  // Mouse *pan* in process; user_press has been cancelled, user_pan is being issued
+  MousePanning,
   // One touch event has occurred; user_press has been issued
   TouchedOncePressed,
   // Touch drag in process; user_press has been cancelled, drag_start has been issued
@@ -169,6 +172,24 @@ class ClientInteraction {
    */
   private has_dragged(xy: [number, number]): boolean {
     if (!this.press_actions.can_drag) {
+      return false;
+    }
+    return !(
+      Math.abs(xy[0] - this.initial_xy[0]) <
+        this.press_actions.drag_sensitivity &&
+      Math.abs(xy[1] - this.initial_xy[1]) < this.press_actions.drag_sensitivity
+    );
+  }
+
+  /**
+   * Determine if a current relative location is far enough from a starting relative location to invoke dragging
+   *
+   * @param {[number, number]} xy Client relative location
+   *
+   * @returns {boolean} True if cxy is sufficiently distant from sxy to invoke dragging
+   */
+  private has_started_mouse_pan(xy: [number, number]): boolean {
+    if (!this.press_actions.can_pan) {
       return false;
     }
     return !(
@@ -461,6 +482,9 @@ class ClientInteraction {
         this.client.drag_end(this.initial_xy, cxy);
         return false;
       }
+      case InteractionState.MousePanning: {
+        return false;
+      }
       default: {
         return this.abort();
       }
@@ -476,11 +500,25 @@ class ClientInteraction {
           this.client.drag_start(this.initial_xy, cxy);
           this.drag_xy = cxy;
           this.state = InteractionState.MouseDragging;
-        } else {
-          if (this.press_actions.can_move) {
-            this.client.user_press_move(this.initial_xy, cxy);
-          }
+        } else if (this.has_started_mouse_pan(cxy)) {
+          this.client.user_press_cancel(this.initial_xy);
+          this.client.user_pan(this.initial_xy, [
+            cxy[0] - this.initial_xy[0],
+            cxy[1] - this.initial_xy[1],
+          ]);
+          this.drag_xy = cxy;
+          this.state = InteractionState.MousePanning;
+        } else if (this.press_actions.can_move) {
+          this.client.user_press_move(this.initial_xy, cxy);
         }
+        return true;
+      }
+      case InteractionState.MousePanning: {
+        this.client.user_pan(this.initial_xy, [
+          cxy[0] - this.drag_xy[0],
+          cxy[1] - this.drag_xy[1],
+        ]);
+        this.drag_xy = cxy;
         return true;
       }
       case InteractionState.MouseDragging: {

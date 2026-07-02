@@ -173,6 +173,10 @@ html {
         left: 0px;
         right: 0px;
     }
+    .fixed-content {
+        /* Enable 'button' to be activated from z-index of -1 */
+        pointer-events: none;
+    }
 }
 
 #tab-help {

@@ -5,8 +5,8 @@ import { FileKind, ProjectFile } from "./file_kind.js";
 import * as file_set from "./file_set.js";
 import * as utils from "./utils.js";
 
-interface Projects {
-  filenames(): string[];
+interface ProjectSource {
+  project_filenames(): string[];
   filename_of_locator(locator: string): string | null;
   load_project(
     filename: string,
@@ -20,15 +20,23 @@ interface Projects {
     callback: () => void,
     error_callback: (error: string) => void,
   ): void;
+
+  promise_fetch_thumbnail(
+    filename: string,
+    cip_name: string,
+    width: number,
+  ): Promise<Blob> | null;
+
+  promise_fetch_image(filename: string, cip_name: string): Promise<Blob> | null;
 }
 
-class LocalProjects implements Projects {
+class LocalProjects implements ProjectSource {
   files: file_set.FileSet;
   constructor(files: file_set.FileSet) {
     this.files = files;
   }
 
-  filenames(): string[] {
+  project_filenames(): string[] {
     return this.files.files_of_kind(FileKind.Project);
   }
 
@@ -67,16 +75,31 @@ class LocalProjects implements Projects {
     this.files.save_file(filename, p);
     callback();
   }
+
+  promise_fetch_thumbnail(
+    _filename: string,
+    _cip_name: string,
+    _width: number,
+  ): Promise<Blob> | null {
+    return null;
+  }
+
+  promise_fetch_image(
+    _filename: string,
+    _cip_name: string,
+  ): Promise<Blob> | null {
+    return null;
+  }
 }
 
-class ServerProjects implements Projects {
+class ServerProjects implements ProjectSource {
   project_names: string[];
   constructor() {
     this.project_names = [];
     this.get_projects();
   }
 
-  filenames(): string[] {
+  project_filenames(): string[] {
     return this.project_names;
   }
 
@@ -176,28 +199,43 @@ class ServerProjects implements Projects {
     }
   }
 
-  promise_to_fetch_individual_thumbnail(
-    project_name: string,
-    cip: string,
+  promise_fetch_thumbnail(
+    filename: string,
+    cip_name: string,
     width: number,
-    callback: (jpg: Blob) => void,
-    error_callback: (error: string) => void,
-  ): Promise<void> {
+  ): Promise<Blob> | null {
     return this.fetch_for_project(
-      project_name,
-      `thumbnail&cip=${cip}&width=${width}`,
+      filename,
+      `thumbnail&cip=${cip_name}&width=${width}`,
     )
       .then((response) => {
         if (!response.ok) {
-          error_callback(`Failed to fetch thumbnail: ${response.status}`);
-          return null;
+          throw new Error(
+            `Failed to fetch thumbnail for ${filename} ${cip_name}: ${response.status}`,
+          );
         }
         return response.arrayBuffer();
       })
       .then((data) => {
-        if (data !== null) {
-          callback(new Blob([data], { type: "image/jpeg" }));
+        return new Blob([data], { type: "image/jpeg" });
+      });
+  }
+
+  promise_fetch_image(
+    filename: string,
+    cip_name: string,
+  ): Promise<Blob> | null {
+    return this.fetch_for_project(filename, `image&cip=${cip_name}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch image for ${filename} ${cip_name}: ${response.status}`,
+          );
         }
+        return response.arrayBuffer();
+      })
+      .then((data) => {
+        return new Blob([data], { type: "image/jpeg" });
       });
   }
 }
@@ -208,38 +246,35 @@ class ServerProjects implements Projects {
  *
  * Currently a single server is supported; this could be more than one
  */
-class ProjectKinds {
-  local: LocalProjects;
-  server: ServerProjects;
-  constructor(files: file_set.FileSet) {
-    this.local = new LocalProjects(files);
-    this.server = new ServerProjects();
+export class ProjectSet {
+  project_sources: ProjectSource[];
+  files: file_set.FileSet;
+  callback: () => void;
+  log: Logger;
+
+  constructor(log: Logger, files: file_set.FileSet, callback: () => void) {
+    this.files = files;
+    this.log = log;
+    this.callback = callback;
+    this.project_sources = [];
+    this.project_sources.push(new LocalProjects(files));
+    this.project_sources.push(new ServerProjects());
   }
 
-  decode_locator(locator: string): [Projects, string] | null {
-    const local = this.local.filename_of_locator(locator);
-    console.log(locator, local);
-    if (local !== null) {
-      return [this.local, local];
-    } else {
-      const server = this.server.filename_of_locator(locator);
-      if (server !== null) {
-        return [this.server, server];
+  decode_locator(locator: string): [ProjectSource, string] | null {
+    for (const p of this.project_sources) {
+      const f = p.filename_of_locator(locator);
+      if (f !== null) {
+        return [p, f];
       }
     }
     return null;
   }
 
-  /*
-  local_filename(): string[] {
-    return this.local.filenames();
-  }
-
-  server_filename(): string[] {
-    return this.server.filenames();
-  }
-*/
-
+  /**
+   * Load the project from its locator (local or server) as a Json String -
+   * invoking the callback on the data when loaded
+   */
   load_project(
     locator: string,
     callback: (project: WasmProject) => void,
@@ -268,53 +303,28 @@ class ProjectKinds {
       );
     } else {
       decode[0].save_project(decode[1], project, callback, error_callback);
-      /*       this.files.save_file(
-        "proj",
-        "server_bkp_" + locator[1],
-        project.to_json(true),
-      );
-      window.log.add_log(
-        5,
-        "project",
-        "save",
-        `Saved local backup to project server_bkp_${locator[1]}`,
-      );
- */
     }
   }
-}
 
-export class ProjectSet {
-  files: file_set.FileSet;
-  callback: () => void;
-  projects: ProjectKinds;
-  log: Logger;
-
-  constructor(log: Logger, files: file_set.FileSet, callback: () => void) {
-    this.files = files;
-    this.log = log;
-    this.callback = callback;
-    this.projects = new ProjectKinds(files);
+  promise_fetch_thumbnail(
+    locator: string,
+    cip_name: string,
+    width: number,
+  ): Promise<Blob> | null {
+    const decode = this.decode_locator(locator);
+    if (decode === null) {
+      return null;
+    } else {
+      return decode[0].promise_fetch_thumbnail(decode[1], cip_name, width);
+    }
   }
 
-  /**
-   * Load the project from its locator (local or server) as a Json String -
-   * invoking the callback on the data when loaded
-   */
-  load_project(
-    locator: string,
-    callback: (project: WasmProject) => void,
-    error_callback: (error: string) => void,
-  ) {
-    this.projects.load_project(locator, callback, error_callback);
-  }
-
-  save_project(
-    locator: string,
-    project: WasmProject,
-    callback: () => void,
-    error_callback: (error: string) => void,
-  ): void {
-    this.projects.save_project(locator, project, callback, error_callback);
+  promise_fetch_image(locator: string, cip_name: string): Promise<Blob> | null {
+    const decode = this.decode_locator(locator);
+    if (decode === null) {
+      return null;
+    } else {
+      return decode[0].promise_fetch_image(decode[1], cip_name);
+    }
   }
 }

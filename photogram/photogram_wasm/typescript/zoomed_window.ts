@@ -24,7 +24,7 @@
 //    Note this assumes that scr w/scr h is < img_w/img_h!!!
 //
 //  The screen windows shows a scr_wh sized portion of the zoomed
-//  window, with a top level at zoom_scr_ofs
+//  window, with a top left at zoom_scr_ofs
 //
 //  For convenience, this.zoom_px_of_img_px = zoom_wh / this.img_wh
 //
@@ -46,6 +46,7 @@ export class ZoomedWindow {
   zoom_scr_ofs: [number, number] = [0, 0];
   max_zoom_px_per_img_px: number = 10;
   zoom_px_of_img_px: number = 1.0;
+
   constructor(scr_wh: [number, number]) {
     this.scr_wh = [scr_wh[0], scr_wh[1]];
     this.zoom_wh = [scr_wh[0], scr_wh[1]];
@@ -155,6 +156,16 @@ export class ZoomedWindow {
     return [this.img_wh[0] / 2, this.img_wh[1] / 2];
   }
 
+  /** Get the centre of the screen as a zoomed relative img position */
+  //  The scr tl is at zoom_scr_ofs into zoomed window
+  //    which is at image offset zoom_scr_ofs * img_wh / zoom_wh = zoom_scr_ofs / zoom_px_of_img_px
+  rel_cxy(): [number, number] {
+    return [
+      (this.zoom_scr_ofs[0] + this.scr_wh[0] / 2) / this.zoom_wh[0],
+      (this.zoom_scr_ofs[1] + this.scr_wh[1] / 2) / this.zoom_wh[1],
+    ];
+  }
+
   // Get a screen XY of an image XY
   //
   // Map to the zoom space and account for the top-left of the screen window on the zoom area
@@ -202,5 +213,13 @@ export class ZoomedWindow {
     const new_zoom = this.zoom * zoom_factor;
     this.scr_wh = [w, h];
     this.zoom_set(new_zoom);
+  }
+
+  user_pan(_xy: [number, number], dxy: [number, number]): void {
+    this.zoom_scr_by(-dxy[0], -dxy[1]);
+  }
+
+  user_zoom(focus_xy: [number, number], factor: number): void {
+    this.zoom_set(this.zoom * factor, focus_xy);
   }
 }

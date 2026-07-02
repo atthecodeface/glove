@@ -46,10 +46,28 @@ export class Webgl3DObj implements WebglObjKind {
   tex_coord_buf: WebGLBuffer | null = null;
   indices_buf: WebGLBuffer | null = null;
 
-  constructor(max_vertices: number, max_indices: number) {
+  constructor(
+    max_vertices: number,
+    max_triangles: number,
+    pts?: ArrayLike<number>,
+    tex_coords?: ArrayLike<number>,
+    indices?: ArrayLike<number>,
+  ) {
     this.positions = new Float32Array(3 * max_vertices);
     this.tex_coords = new Float32Array(2 * max_vertices);
-    this.indices = new Uint16Array(3 * max_indices);
+    this.indices = new Uint16Array(3 * max_triangles);
+
+    if (pts !== undefined) {
+      this.positions.set(pts, 0);
+      this.num_vertices = this.positions.length / 3;
+    }
+    if (tex_coords !== undefined) {
+      this.tex_coords.set(tex_coords, 0);
+    }
+    if (indices !== undefined) {
+      this.indices.set(indices, 0);
+      this.num_indices = indices.length;
+    }
   }
   static tetrahedron(d: number): Webgl3DObj {
     //

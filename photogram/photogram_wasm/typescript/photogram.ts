@@ -1,4 +1,4 @@
-import photogram_init, { InitOutput, WasmCip } from "../pkg/photogram_wasm.js";
+import photogram_init, { InitOutput } from "../pkg/photogram_wasm.js";
 
 // import { WasmMemory } from "./wasm_memory.js";
 import { Tabs } from "./tabs.js";
@@ -80,6 +80,7 @@ export class Photogram implements Application {
       this,
       new Logger(this.app_logger, "project"),
       this.project_set,
+      this.cip,
     );
 
     const webgl_canvas = new HtmlElement(
@@ -168,7 +169,8 @@ export class Photogram implements Application {
 
     this.file_set.get_file_list();
 
-    this.load_project("local:nac_all_proj.json");
+    // this.load_project("local:nac_all_proj.json");
+    this.load_project("server:nac_all_proj");
   }
 
   logger(): Log {
@@ -187,32 +189,29 @@ export class Photogram implements Application {
     return this.project;
   }
 
-  current_cip(): Cip {
-    return this.cip;
-  }
-
   load_project(locator: string) {
     this.project.load_project(locator);
-    this.cip.set_cip(null);
+    this.cip.set_cip("", null);
   }
 
   project_load_completed(success: boolean): void {
     if (success) {
-      this.set_cip(this.project.get_cip_by_name("4V3A6042.JPG"));
+      this.set_cip("4V3A6042.JPG");
     } else {
     }
     this.repopulate();
   }
 
   project_save_completed(success: boolean): void {
+    // Note should backup server to local on save?
     if (success) {
       this.log.info("Saved project");
     } else {
     }
   }
 
-  set_cip(cip: WasmCip | null) {
-    this.cip.set_cip(cip);
+  set_cip(cip_name: string) {
+    this.project.set_cip(cip_name);
     this.repopulate();
   }
 
@@ -224,12 +223,14 @@ export class Photogram implements Application {
     this.project_edit.repopulate();
   }
 
+  thumbnails_updated() {}
+
   resize_canvas(e: ResizeObserverEntry[]): void {
     for (const ele of e) {
       if (ele.contentRect.width > 0 && ele.contentRect.height > 0) {
         this.pending_resize = true;
         this.resizable_size = [ele.contentRect.width, ele.contentRect.height];
-        this.lens_calibration_plot.resize(this.resizable_size);
+        this.set_view_needs_update();
       }
     }
   }
@@ -244,8 +245,12 @@ export class Photogram implements Application {
       this.webgl_canvas.mouse.set_client(
         this.selected_tab_type.web_canvas_client,
       );
+      this.selected_tab_type.web_canvas_client.resize(
+        this.resizable_size[0],
+        this.resizable_size[1],
+      );
     }
-    // this.set_view_needs_update();
+    this.set_view_needs_update();
   }
 
   /// Mark the view as needing an update
@@ -258,7 +263,25 @@ export class Photogram implements Application {
 
   /// Update the view, because of a view change, time change, etc
   update_view() {
+    if (this.selected_tab_type === null) {
+      return;
+    }
     if (this.pending_resize) {
+      const w = this.resizable_size[0];
+      const h = this.resizable_size[1];
+      this.lens_calibration_plot.resize(this.resizable_size);
+      HtmlElement.fold_all_of(".set-size-of-this", null, (a, e) => {
+        (e.ele as any).width = w;
+        (e.ele as any).height = h;
+        return a;
+      });
+      if (this.selected_tab_type.web_canvas_client !== null) {
+        this.selected_tab_type.web_canvas_client.resize(
+          this.resizable_size[0],
+          this.resizable_size[1],
+        );
+      }
+
       //      this.vp.set_resizable_content_size(this.pending_resize);
       this.pending_resize = false;
       this.view_needs_update = true;
@@ -269,9 +292,6 @@ export class Photogram implements Application {
 
     // this.controls.update();
 
-    if (this.selected_tab_type === null) {
-      return;
-    }
     if (this.selected_tab_type.web_canvas_client !== null) {
       this.webgl_canvas.redraw(this.selected_tab_type.web_canvas_client);
     }
