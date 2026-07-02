@@ -1,8 +1,4 @@
-import photogram_init, {
-  InitOutput,
-  WasmProject,
-  WasmCip,
-} from "../pkg/photogram_wasm.js";
+import photogram_init, { InitOutput, WasmCip } from "../pkg/photogram_wasm.js";
 
 // import { WasmMemory } from "./wasm_memory.js";
 import { Tabs } from "./tabs.js";
@@ -10,8 +6,11 @@ import { Log, Logger, Severity } from "./log.js";
 import { LocalStorage } from "./storage.js";
 import { HtmlElement } from "./html.js";
 
+import { Cip } from "./cip.js";
 import { FileSet } from "./file_set.js";
+import { Project } from "./project.js";
 import { ProjectSet } from "./project_set.js";
+import { WebglCanvas, WebglCanvasClient } from "./webgl_canvas.js";
 import { Browser } from "./browser.js";
 import { LensCalibrationPlot } from "./lens_calibration_plot.js";
 import { StarCalibration } from "./star_calibration.js";
@@ -30,27 +29,35 @@ enum SelectedTab {
 
 class TabType {
   selected_tab: SelectedTab;
+  web_canvas_client: WebglCanvasClient | null = null;
   constructor(selected_tab: SelectedTab) {
     this.selected_tab = selected_tab;
+  }
+  set_client(web_canvas_view: WebglCanvasClient): TabType {
+    this.web_canvas_client = web_canvas_view;
+    return this;
   }
 }
 
 export class Photogram implements Application {
-  logger: Log;
+  app_logger: Log;
   log: Logger;
 
   file_set: FileSet;
   project_set: ProjectSet;
 
-  project_locator: string | null = null;
-  project: WasmProject | null = null;
-  cip: WasmCip | null = null;
+  project: Project;
+  cip: Cip;
 
   // wasm_memory: WasmMemory;
   tabs: Tabs<TabType>;
   selected_tab_type: TabType | null = null;
-  pending_resize: [number, number] | null;
+  resizable_size: [number, number] = [50, 50];
+  pending_resize: boolean = false;
+  view_needs_update: boolean = false;
   resize_observer: ResizeObserver;
+
+  webgl_canvas: WebglCanvas;
   browser: Browser;
   lens_calibration_plot: LensCalibrationPlot;
   star_calibration: StarCalibration;
@@ -58,21 +65,36 @@ export class Photogram implements Application {
 
   constructor(_wasm_instance: InitOutput, _params: URLSearchParams) {
     // this.wasm_memory = new WasmMemory(wasm_instance.memory);
-    this.logger = new Log("Log", Severity.Info, Severity.Warning);
-    this.log = new Logger(this.logger, "main");
+    this.app_logger = new Log("Log", Severity.Info, Severity.Warning);
+    this.log = new Logger(this.app_logger, "main");
     const local_storage = new LocalStorage(window.localStorage, "photogram");
     this.file_set = new FileSet(local_storage, this.repopulate.bind(this));
+    this.cip = new Cip(new Logger(this.app_logger, "cip"));
 
     this.project_set = new ProjectSet(
-      new Logger(this.logger, "project_set"),
+      new Logger(this.app_logger, "project_set"),
       this.file_set,
       () => {},
+    );
+    this.project = new Project(
+      this,
+      new Logger(this.app_logger, "project"),
+      this.project_set,
+    );
+
+    const webgl_canvas = new HtmlElement(
+      document.getElementById("webgl-canvas")!,
+    );
+    this.webgl_canvas = new WebglCanvas(
+      this,
+      new Logger(this.app_logger, "webgl"),
+      webgl_canvas,
     );
 
     const browser_div = new HtmlElement(document.getElementById("browser")!);
     this.browser = new Browser(
       this,
-      new Logger(this.logger, "browser"),
+      new Logger(this.app_logger, "browser"),
       this.file_set,
       browser_div,
     );
@@ -82,7 +104,7 @@ export class Photogram implements Application {
     );
     this.star_calibration = new StarCalibration(
       this,
-      new Logger(this.logger, "star_calibrationt"),
+      new Logger(this.app_logger, "star_calibrationt"),
       star_calibration_div,
     );
 
@@ -91,7 +113,7 @@ export class Photogram implements Application {
     );
     this.lens_calibration_plot = new LensCalibrationPlot(
       this,
-      new Logger(this.logger, "lens_calibration_plot"),
+      new Logger(this.app_logger, "lens_calibration_plot"),
       lens_calibration_plot_div,
     );
 
@@ -100,11 +122,11 @@ export class Photogram implements Application {
     );
     this.project_edit = new ProjectEdit(
       this,
-      new Logger(this.logger, "project_edit"),
+      new Logger(this.app_logger, "project_edit"),
       project_edit_div,
     );
 
-    this.pending_resize = null;
+    this.pending_resize = false;
 
     this.resize_observer = new ResizeObserver(this.resize_canvas.bind(this));
     for (const resizable_content of document.getElementsByClassName(
@@ -130,7 +152,9 @@ export class Photogram implements Application {
       [
         "tab-star-calibration",
         "Star Calibration",
-        new TabType(SelectedTab.StarCalibration),
+        new TabType(SelectedTab.StarCalibration).set_client(
+          this.star_calibration,
+        ),
       ],
       [
         "tab-project-edit",
@@ -147,98 +171,54 @@ export class Photogram implements Application {
     this.load_project("local:nac_all_proj.json");
   }
 
-  current_project_name(): string | null {
-    return this.project_locator;
+  logger(): Log {
+    return this.app_logger;
   }
 
-  current_project(): WasmProject | null {
+  get_resizable_content_size(): [number, number] {
+    return this.resizable_size;
+  }
+
+  current_project_name(): string | null {
+    return this.project.locator;
+  }
+
+  current_project(): Project {
     return this.project;
   }
 
-  current_cip(): WasmCip | null {
+  current_cip(): Cip {
     return this.cip;
   }
 
   load_project(locator: string) {
-    this.project_locator = locator;
-    this.project = null;
-    this.cip = null;
-    this.project_set.load_project(
-      this.project_locator,
-      this.project_loaded.bind(this),
-      this.project_load_error.bind(this),
-    );
+    this.project.load_project(locator);
+    this.cip.set_cip(null);
+  }
+
+  project_load_completed(success: boolean): void {
+    if (success) {
+      this.set_cip(this.project.get_cip_by_name("4V3A6042.JPG"));
+    } else {
+    }
     this.repopulate();
   }
 
-  project_load_error(e: string) {
-    this.log.error(e);
-    this.project_locator = null;
-    this.repopulate();
+  project_save_completed(success: boolean): void {
+    if (success) {
+      this.log.info("Saved project");
+    } else {
+    }
   }
 
-  project_loaded(project: WasmProject) {
-    this.project = project;
-    this.set_cip(project.cip("4V3A6042.JPG"));
-  }
-
-  set_cip(cip: WasmCip) {
-    this.cip = cip;
+  set_cip(cip: WasmCip | null) {
+    this.cip.set_cip(cip);
     this.repopulate();
   }
 
   repopulate() {
-    const project_locator = this.project_locator
-      ? this.project_locator
-      : "<no project open>";
-    const cip_name = this.cip ? this.cip.image : "<no CIP>";
-    const body_name = this.cip ? this.cip.camera.body : "<no CIP>";
-    const lens_name = this.cip ? this.cip.camera.lens : "<no CIP>";
-    const focal_length = this.cip
-      ? this.cip.camera.focal_length.toString() + "mm"
-      : "<no CIP>";
-    const fovd = this.cip
-      ? (
-          Math.floor((Math.atan(this.cip.camera.tan_fovd) * 18000) / 3.14159) /
-          100
-        ).toString() + "°"
-      : "<no CIP>";
-    const fovh = this.cip
-      ? (
-          Math.floor((Math.atan(this.cip.camera.tan_fovh) * 18000) / 3.14159) /
-          100
-        ).toString() + "°"
-      : "<no CIP>";
-
-    HtmlElement.fold_all_of(".set-project-name", null, (a, e) => {
-      e.ele.innerHTML = project_locator;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-cip-name", null, (a, e) => {
-      e.ele.innerHTML = cip_name;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-body", null, (a, e) => {
-      e.ele.innerHTML = body_name;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-lens", null, (a, e) => {
-      e.ele.innerHTML = lens_name;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-focal-length", null, (a, e) => {
-      e.ele.innerHTML = focal_length;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-fovd", null, (a, e) => {
-      e.ele.innerHTML = fovd;
-      return a;
-    });
-    HtmlElement.fold_all_of(".set-fovh", null, (a, e) => {
-      e.ele.innerHTML = fovh;
-      return a;
-    });
-
+    this.project.repopulate();
+    this.cip.repopulate();
     this.browser.repopulate();
     this.lens_calibration_plot.repopulate();
     this.project_edit.repopulate();
@@ -247,8 +227,9 @@ export class Photogram implements Application {
   resize_canvas(e: ResizeObserverEntry[]): void {
     for (const ele of e) {
       if (ele.contentRect.width > 0 && ele.contentRect.height > 0) {
-        this.pending_resize = [ele.contentRect.width, ele.contentRect.height];
-        this.lens_calibration_plot.resize(this.pending_resize);
+        this.pending_resize = true;
+        this.resizable_size = [ele.contentRect.width, ele.contentRect.height];
+        this.lens_calibration_plot.resize(this.resizable_size);
       }
     }
   }
@@ -256,7 +237,46 @@ export class Photogram implements Application {
   tab_selected(tab_type: TabType) {
     this.selected_tab_type = tab_type;
 
+    if (this.selected_tab_type.web_canvas_client === null) {
+      this.webgl_canvas.canvas.hidden = true;
+    } else {
+      this.webgl_canvas.canvas.hidden = false;
+      this.webgl_canvas.mouse.set_client(
+        this.selected_tab_type.web_canvas_client,
+      );
+    }
     // this.set_view_needs_update();
+  }
+
+  /// Mark the view as needing an update
+  set_view_needs_update() {
+    if (!this.view_needs_update) {
+      this.view_needs_update = true;
+      requestAnimationFrame(this.update_view.bind(this));
+    }
+  }
+
+  /// Update the view, because of a view change, time change, etc
+  update_view() {
+    if (this.pending_resize) {
+      //      this.vp.set_resizable_content_size(this.pending_resize);
+      this.pending_resize = false;
+      this.view_needs_update = true;
+    }
+    if (!this.view_needs_update) {
+      return;
+    }
+
+    // this.controls.update();
+
+    if (this.selected_tab_type === null) {
+      return;
+    }
+    if (this.selected_tab_type.web_canvas_client !== null) {
+      this.webgl_canvas.redraw(this.selected_tab_type.web_canvas_client);
+    }
+
+    this.view_needs_update = false;
   }
 }
 

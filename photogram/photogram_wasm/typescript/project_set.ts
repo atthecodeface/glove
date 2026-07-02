@@ -88,12 +88,35 @@ class ServerProjects implements Projects {
     return filename;
   }
 
+  fetch_for_project(
+    project: string,
+    action: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    return fetch("/project/" + project + "?" + action, init);
+  }
+
+  get_projects() {
+    this.project_names = [];
+    fetch("/project?list")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch server projects: ${response.status}`,
+          );
+        }
+        return response.json();
+      })
+      .then(this.server_projects_json.bind(this))
+      .catch((err) => console.error(`Fetch problem: ${err.message}`));
+  }
+
   load_project(
     filename: string,
     callback: (project: WasmProject) => void,
     error_callback: (error: string) => void,
   ): void {
-    fetch("/project/" + filename + "?load")
+    this.fetch_for_project(filename, "load")
       .then((response) => {
         if (response.ok) {
           return response.text();
@@ -122,18 +145,6 @@ class ServerProjects implements Projects {
     callback: () => void,
     error_callback: (error: string) => void,
   ): void {
-    /*      this.files.save_file(
-        "proj",
-        "server_bkp_" + locator[1],
-        project.to_json(true),
-      );
-      window.log.add_log(
-        5,
-        "project",
-        "save",
-        `Saved local backup to project server_bkp_${locator[1]}`,
-      );
-      */
     const put_data: RequestInit = {
       cache: "no-store",
       credentials: "same-origin",
@@ -144,7 +155,7 @@ class ServerProjects implements Projects {
       mode: "same-origin", // cors?
       body: project.to_json(false),
     };
-    fetch("/project/" + filename + "?save", put_data).then((response) => {
+    this.fetch_for_project(filename, "save", put_data).then((response) => {
       if (!response.ok) {
         error_callback(
           `Failed to save server project ${name}: ${response.status}`,
@@ -153,21 +164,6 @@ class ServerProjects implements Projects {
         callback();
       }
     });
-  }
-
-  get_projects() {
-    this.project_names = [];
-    fetch("/project?list")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch server projects: ${response.status}`,
-          );
-        }
-        return response.json();
-      })
-      .then(this.server_projects_json.bind(this))
-      .catch((err) => console.error(`Fetch problem: ${err.message}`));
   }
 
   server_projects_json(json: Object) {
@@ -179,8 +175,39 @@ class ServerProjects implements Projects {
       }
     }
   }
+
+  promise_to_fetch_individual_thumbnail(
+    project_name: string,
+    cip: string,
+    width: number,
+    callback: (jpg: Blob) => void,
+    error_callback: (error: string) => void,
+  ): Promise<void> {
+    return this.fetch_for_project(
+      project_name,
+      `thumbnail&cip=${cip}&width=${width}`,
+    )
+      .then((response) => {
+        if (!response.ok) {
+          error_callback(`Failed to fetch thumbnail: ${response.status}`);
+          return null;
+        }
+        return response.arrayBuffer();
+      })
+      .then((data) => {
+        if (data !== null) {
+          callback(new Blob([data], { type: "image/jpeg" }));
+        }
+      });
+  }
 }
 
+/** A set of in-browser (local) and server project sources
+ *
+ * Each of the project sources must supply the 'Projects' interface
+ *
+ * Currently a single server is supported; this could be more than one
+ */
 class ProjectKinds {
   local: LocalProjects;
   server: ServerProjects;
@@ -203,12 +230,15 @@ class ProjectKinds {
     return null;
   }
 
+  /*
   local_filename(): string[] {
     return this.local.filenames();
   }
+
   server_filename(): string[] {
     return this.server.filenames();
   }
+*/
 
   load_project(
     locator: string,
@@ -288,21 +318,3 @@ export class ProjectSet {
     this.projects.save_project(locator, project, callback, error_callback);
   }
 }
-
-/*
-update_thumbnails() {
-    const me = this;
-    const i = document.getElementById("thumbnails");
-    if (i && this.server_project) {
-        html.clear(i);
-        for (const n in this.server_project.thumbnails) {
-            if (this.server_project.thumbnails[n]) {
-                const a = html.add_ele(i, "a");
-                a.addEventListener('click', function(e) {me.select_cip_of_project(n);});
-                const img = html.add_ele(a, "img");
-                img.src = URL.createObjectURL(this.server_project.thumbnails[n]);
-            }
-        }
-    }
-}
-*/
