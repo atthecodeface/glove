@@ -47,3 +47,6 @@ export function round_to_multiple(x, m, to = 0) {
         return m * Math.ceil(x / m);
     }
 }
+export function decimal_to_sig_fig(x, _max_dp) {
+    return x.toString();
+}

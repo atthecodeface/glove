@@ -1,13 +1,11 @@
 import { HtmlElement, Table } from "./html.js";
 import * as file_kind from "./file_kind.js";
-import * as file_set from "./file_set.js";
 export class Browser {
-    constructor(storage, browser, log) {
-        this.browser = browser;
+    constructor(application, log, file_set, browser) {
+        this.application = application;
         this.log = log;
-        // This will invoke the callback, so set everything else up first
-        this.file_set = new file_set.FileSet(storage, this.repopulate.bind(this));
-        this.file_set.get_file_list();
+        this.file_set = file_set;
+        this.browser = browser;
     }
     file_link(f) {
         // href is the file to fetch; donwload indicates it is to be downloaded to *that* filename

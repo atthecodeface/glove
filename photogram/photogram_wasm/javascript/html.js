@@ -174,6 +174,23 @@ export class HtmlElement {
         }
         return result;
     }
+    /** Fold over all elemenst in the document which match a selector
+     *
+     *  @param selector - such as "div" for all 'div' elements; #fred for all
+     *                    elements whos id includes 'fred'; .banana for all those elements have a
+     *                    class of 'banana'
+     *  @param init
+     *  @param f @returns
+     */
+    static fold_all_of(selector, init, f) {
+        let acc = init;
+        for (const e of document.querySelectorAll(selector)) {
+            if (e instanceof HTMLElement) {
+                acc = f(acc, new HtmlElement(e));
+            }
+        }
+        return acc;
+    }
     constructor(ele, id_classes = {}, tag_values = []) {
         this.ele = ele;
         this.range = { min: 0, max: 0, value: 0, step: 1 };

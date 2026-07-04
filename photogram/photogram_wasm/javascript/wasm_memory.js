@@ -12,6 +12,9 @@ export class WasmMemory {
     float_array_of_vec3f64(vec) {
         return this.float64_array(vec.buffer, 3);
     }
+    float_array_of_mat4f64(mat) {
+        return this.float64_array(mat.buffer, 16);
+    }
     float32_array(ptr, num_floats) {
         return new Float32Array(this.memory.buffer, ptr, num_floats);
     }
