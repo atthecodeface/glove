@@ -112,13 +112,13 @@ impl WasmCip {
 
     //mp locate
     pub fn locate(&self, max_np_error: f64, max_pairs: usize) {
-        let filter = |_, pm: &PointMapping| pm.model_error() < max_np_error;
+        let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
         self.cip.borrow_mut().locate(filter, max_pairs);
     }
 
     //mp orient_camera_using_model_directions
     pub fn orient_camera_using_model_directions(&self, max_np_error: f64) {
-        let filter = |_, pm: &PointMapping| pm.model_error() < max_np_error;
+        let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
         self.cip
             .borrow_mut()
             .orient_camera_using_model_directions(filter);

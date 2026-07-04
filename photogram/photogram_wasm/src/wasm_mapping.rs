@@ -1,3 +1,5 @@
+use crate::WasmVec3f64;
+
 //a Imports
 use js_sys::Array;
 
@@ -147,6 +149,7 @@ impl WasmPointMappingSet {
 pub struct WasmNamedPoint {
     name: String,
     color: String,
+    at_infinity: bool,
     model: [f64; 3],
     error: f64,
 }
@@ -163,9 +166,11 @@ impl WasmNamedPoint {
         let color = color.into();
         let model = [0.; 3];
         let error = 0.0;
+        let at_infinity = false;
         Ok(Self {
             name,
             color,
+            at_infinity,
             model,
             error,
         })
@@ -183,13 +188,21 @@ impl WasmNamedPoint {
         (&self.color).into()
     }
 
-    //mp model
+    #[wasm_bindgen(getter)]
+    pub fn at_infinity(&self) -> bool {
+        self.at_infinity
+    }
+
     #[wasm_bindgen(getter)]
     pub fn model(&self) -> Box<[f64]> {
         Box::new(self.model)
     }
 
-    //mp error
+    #[wasm_bindgen(getter)]
+    pub fn set_model_vec(&self, v: &mut WasmVec3f64) {
+        v.set_array(&self.model);
+    }
+
     #[wasm_bindgen(getter)]
     pub fn error(&self) -> f64 {
         self.error
@@ -254,17 +267,18 @@ impl WasmNamedPointSet {
         let color: Color = wnp.color.as_str().try_into()?;
         self.nps
             .borrow_mut()
-            .add_pt(&wnp.name, color, Some(wnp.model.into()), wnp.error);
+            .add_pt(&wnp.name, color, false, Some(wnp.model.into()), wnp.error);
         Ok(())
     }
 
     #[wasm_bindgen]
     pub fn get_pt(&mut self, name: &str) -> Option<WasmNamedPoint> {
         if let Some(np) = self.nps.borrow().get_pt(name) {
-            let (model, error) = np.model();
+            let (at_infinity, model, error) = np.model();
             let wnp = WasmNamedPoint {
                 name: name.into(),
                 color: np.color().as_string(),
+                at_infinity,
                 model: model.into(),
                 error,
             };
@@ -274,8 +288,6 @@ impl WasmNamedPointSet {
         }
     }
 
-    //mp pts
-    #[wasm_bindgen]
     pub fn pts(&mut self) -> Result<Array, JsValue> {
         let names = js_sys::Array::new();
         for np in self.nps.borrow().iter() {
@@ -285,17 +297,24 @@ impl WasmNamedPointSet {
         Ok(names)
     }
 
-    //mp set_model
-    pub fn set_model(&self, name: &str, model: &[f64], error: f64) -> Result<(), String> {
+    pub fn set_direction(&self, name: &str, model: &[f64]) -> Result<(), String> {
         if let Some(np) = self.nps.borrow().get_pt(name) {
-            np.set_model(Some((Point3D::from_wasm(model)?, error)));
+            np.set_model(Some((true, Point3D::from_wasm(model)?, 0.0)));
             Ok(())
         } else {
             Err("Could not find named point".into())
         }
     }
 
-    //mp unset_model
+    pub fn set_model(&self, name: &str, model: &[f64], error: f64) -> Result<(), String> {
+        if let Some(np) = self.nps.borrow().get_pt(name) {
+            np.set_model(Some((false, Point3D::from_wasm(model)?, error)));
+            Ok(())
+        } else {
+            Err("Could not find named point".into())
+        }
+    }
+
     pub fn unset_model(&self, name: &str) -> Result<(), String> {
         if let Some(np) = self.nps.borrow().get_pt(name) {
             np.set_model(None);
