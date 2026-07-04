@@ -115,11 +115,12 @@ impl NamedPointSet {
         &mut self,
         name: &str,
         color: Color,
+        at_infinity: bool,
         model: Option<Point3D>,
         err: f64,
     ) -> Option<Rc<NamedPoint>> {
         let tag = Tag::owned(name);
-        let model = model.map(|m| (m, err));
+        let model = model.map(|m| (at_infinity, m, err));
         self.add_np(NamedPoint::new(tag, color, model))
     }
 
@@ -198,10 +199,17 @@ impl NamedPointSet {
             }
 
             let name = np.name();
-            let (model, error) = np.model();
-            let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
-
-            println!("{name} : {model}+-{error} maps to {camera_pxy}",);
+            let (at_infinity, model, error) = np.model();
+            if at_infinity {
+                if let Some(camera_pxy) = camera.world_dir_to_opt_px_abs_xy(&model) {
+                    println!("{name} : {model} direction maps to {camera_pxy}");
+                } else {
+                    println!("{name} : {model} direction is behind camera",);
+                }
+            } else {
+                let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
+                println!("{name} : {model}+-{error} maps to {camera_pxy}");
+            }
         }
     }
 }

@@ -19,11 +19,13 @@ pub struct NamedPoint {
     color: Color,
     /// The 3D model coordinate this point corresponds to and the radius of uncertainty
     ///
+    /// The bool is 'at_infinity' - i.e this is a known direction (with no uncertainty), not a 3D position
+    ///
     /// This is known for a calibration point, with 0 uncertainty!
     ///
-    /// The units are mm (as that is what cameras focal lengths are in)
+    /// The units for a model position are mm (as that is what cameras focal lengths are in)
     // #[serde(deserialize_with = "deserialize_model")]
-    model: RefCell<Option<(Point3D, f64)>>,
+    model: RefCell<Option<(bool, Point3D, f64)>>,
 }
 
 //ip TagData for NamedPoint {
@@ -54,11 +56,20 @@ where
 impl std::fmt::Display for NamedPoint {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         if let Some(position) = self.opt_model() {
-            write!(
-                fmt,
-                "{} {} @[{:.2}, {:.2}, {:.2}] +- {:.2}",
-                self.name, self.color, position.0[0], position.0[1], position.0[2], position.1
-            )
+            let (at_infinity, xyz, error) = position;
+            if at_infinity {
+                write!(
+                    fmt,
+                    "{} {} -> [{:.2}, {:.2}, {:.2}]",
+                    self.name, self.color, xyz[0], xyz[1], xyz[2]
+                )
+            } else {
+                write!(
+                    fmt,
+                    "{} {} @[{:.2}, {:.2}, {:.2}] +- {:.2}",
+                    self.name, self.color, xyz[0], xyz[1], xyz[2], error
+                )
+            }
         } else {
             write!(fmt, "{} {} unmapped", self.name, self.color,)
         }
@@ -71,7 +82,7 @@ impl NamedPoint {
     /// Create a new NamedPoint, within a NamedPointSet
     ///
     /// The Tag must thus be Owned or Shared
-    pub fn new(name: Tag, color: Color, model: Option<(Point3D, f64)>) -> Self {
+    pub fn new(name: Tag, color: Color, model: Option<(bool, Point3D, f64)>) -> Self {
         let model = model.into();
         Self { name, color, model }
     }
@@ -91,20 +102,39 @@ impl NamedPoint {
     pub fn is_mapped(&self) -> bool {
         self.model.borrow().is_some()
     }
+
     #[inline]
-    pub fn model(&self) -> (Point3D, f64) {
+    pub fn model(&self) -> (bool, Point3D, f64) {
         (*self.model.borrow()).unwrap_or_default()
     }
+
     #[inline]
-    pub fn opt_model(&self) -> Option<(Point3D, f64)> {
+    pub fn model_is_direction(&self) -> bool {
+        (*self.model.borrow()).unwrap_or_default().0
+    }
+
+    #[inline]
+    pub fn model_pt(&self) -> Point3D {
+        (*self.model.borrow()).unwrap_or_default().1
+    }
+
+    #[inline]
+    pub fn model_uncertainty(&self) -> f64 {
+        (*self.model.borrow()).unwrap_or_default().2
+    }
+
+    #[inline]
+    pub fn opt_model(&self) -> Option<(bool, Point3D, f64)> {
         *self.model.borrow()
     }
+
     #[inline]
     pub fn color(&self) -> &Color {
         &self.color
     }
+
     #[inline]
-    pub fn set_model(&self, model: Option<(Point3D, f64)>) {
+    pub fn set_model(&self, model: Option<(bool, Point3D, f64)>) {
         *self.model.borrow_mut() = model;
     }
     #[inline]

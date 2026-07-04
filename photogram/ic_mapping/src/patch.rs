@@ -201,7 +201,7 @@ impl Patch {
 
     //mp update_data
     pub fn update_data(&mut self) -> bool {
-        self.model_pts = self.named_points.iter().map(|np| np.model().0).collect();
+        self.model_pts = self.named_points.iter().map(|np| np.model().1).collect();
         let Some(mut plane) = Plane::best_fit(self.model_pts.iter()) else {
             self.plane_ok = false;
             return false;

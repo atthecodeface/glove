@@ -21,6 +21,8 @@ pub struct PointMapping {
     screen: Point2D,
     /// Error in pixels
     error: f64,
+    /// Whether to use for initial orientation or not
+    use_for_orientation: bool,
 }
 
 //ip Serialize for PointMapping
@@ -30,10 +32,11 @@ impl Serialize for PointMapping {
         S: serde::Serializer,
     {
         use serde::ser::SerializeTuple;
-        let mut seq = serializer.serialize_tuple(3)?;
+        let mut seq = serializer.serialize_tuple(4)?;
         seq.serialize_element(self.named_point.name())?;
         seq.serialize_element(&self.screen)?;
         seq.serialize_element(&self.error)?;
+        seq.serialize_element(&self.use_for_orientation)?;
         seq.end()
     }
 }
@@ -44,17 +47,18 @@ impl<'de> Deserialize<'de> for PointMapping {
     where
         DE: serde::Deserializer<'de>,
     {
-        let (model_name, screen, error) = <(String, Point2D, f64)>::deserialize(deserializer)?;
+        let (model_name, screen, error, use_for_orientation) =
+            <(String, Point2D, f64, bool)>::deserialize(deserializer)?;
         let named_point = Rc::new(NamedPoint::reference(model_name));
         Ok(Self {
             named_point,
             screen,
             error,
+            use_for_orientation,
         })
     }
 }
 
-//ip PointMapping constructors
 impl PointMapping {
     //fp new_npt
     pub fn new_npt(named_point: Rc<NamedPoint>, screen: &Point2D, error: f64) -> Self {
@@ -62,64 +66,71 @@ impl PointMapping {
             named_point,
             screen: *screen,
             error,
+            use_for_orientation: false,
         }
     }
 
-    //mp set_np
     pub fn set_np(&mut self, named_point: Rc<NamedPoint>) {
         self.named_point = named_point;
+    }
+
+    pub fn set_use_for_orientation(&mut self, use_for_orientation: bool) {
+        self.use_for_orientation = use_for_orientation;
     }
 }
 
 //ip PointMapping accessors
 impl PointMapping {
-    //ap is_unmapped
     #[inline]
     pub fn is_unmapped(&self) -> bool {
         self.named_point.is_unmapped()
     }
 
-    //ap is_mapped
     #[inline]
     pub fn is_mapped(&self) -> bool {
         !self.named_point.is_unmapped()
     }
 
-    //mp model
     #[inline]
-    pub fn model(&self) -> Point3D {
+    pub fn maps_to_direction(&self) -> bool {
         self.named_point.model().0
     }
 
-    //mp model_error
-    #[inline]
-    pub fn model_error(&self) -> f64 {
-        self.named_point.model().1
+    pub fn model_is_direction(&self) -> bool {
+        self.named_point.model_is_direction()
     }
 
-    //ap screen
+    #[inline]
+    pub fn model(&self) -> Point3D {
+        self.named_point.model_pt()
+    }
+
+    #[inline]
+    pub fn model_uncertainty(&self) -> f64 {
+        self.named_point.model_uncertainty()
+    }
+
     #[inline]
     pub fn screen(&self) -> &Point2D {
         &self.screen
     }
 
-    //ap error
     #[inline]
     pub fn error(&self) -> f64 {
         self.error
     }
 
-    //ap name
     pub fn name(&self) -> &str {
         self.named_point.name()
     }
 
-    //ap named_point
     pub fn named_point(&self) -> &Rc<NamedPoint> {
         &self.named_point
     }
 
-    //zz All done
+    pub fn use_for_orientation(&self) -> bool {
+        self.use_for_orientation
+    }
 }
 
 //ip PointMapping camera operations
