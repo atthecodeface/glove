@@ -129,6 +129,7 @@ export class StarCalibration implements WebglCanvasClient {
     const m = WasmMat4f64.identity();
     m.set_identity();
     const m_a = this.application.wasm_memory.float_array_of_mat4f64(m);
+    webgl.projection.set(m_a);
 
     // In this rendering, model maps the points onto a z-independent XY frame
     // which has +-1 in the X for the horizontal edges of the (landscape) image,
@@ -154,6 +155,7 @@ export class StarCalibration implements WebglCanvasClient {
     m_a[5] = 1 / image_ar;
     webgl.model.set(m_a);
 
+    webgl.set_uniform_projection();
     webgl.set_uniform_model();
     webgl.set_uniform_view();
     webgl.set_color([1, 1, 1, 1]);
@@ -167,6 +169,7 @@ export class StarCalibration implements WebglCanvasClient {
     m_a[0] = 1 / tan_hfovh;
     m_a[5] = 1 / tan_hfovh;
     webgl.model.set(m_a);
+    webgl.set_uniform_projection();
     webgl.set_uniform_model();
     webgl.set_uniform_view();
     webgl.set_color([0.2, 1, 0.2, 1]);
@@ -177,6 +180,7 @@ export class StarCalibration implements WebglCanvasClient {
     m.set_identity();
     m_a[5] = 1 / image_ar;
     webgl.model.set(m_a);
+    webgl.set_uniform_projection();
     webgl.set_uniform_model();
     webgl.set_uniform_view();
     webgl.set_color([1.0, 1, 1.0, 1]);
