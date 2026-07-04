@@ -1,4 +1,4 @@
-import { WasmCip, WasmProject } from "../pkg/photogram_wasm";
+import { WasmCip, WasmNamedPoint, WasmProject } from "../pkg/photogram_wasm";
 
 import { HtmlElement } from "./html.js";
 import { Logger } from "./log.js";
@@ -21,6 +21,8 @@ export class Project {
   private thumbnails: Map<string, HTMLImageElement>;
   private thumbnail_width: number = 256;
 
+  /** Undo list */
+
   constructor(
     application: Application,
     log: Logger,
@@ -32,6 +34,16 @@ export class Project {
     this.project_set = project_set;
     this.cip = cip;
     this.thumbnails = new Map();
+  }
+
+  nps_add(name: string): boolean {
+    const current_np = this.wasm_project!.nps.get_pt(name);
+    if (current_np !== undefined) {
+      return false;
+    }
+    const np = new WasmNamedPoint(name, "yellow");
+    this.wasm_project!.nps.add_pt(np);
+    return true;
   }
 
   get_cip(): Cip {

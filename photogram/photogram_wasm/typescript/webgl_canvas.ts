@@ -1,8 +1,9 @@
 import { WasmMat4f32 } from "../pkg/photogram_wasm.js";
 
 import { HtmlElement } from "./html.js";
-import { Webgl, WebglObjKind, WebglUniform } from "./web_gl.js";
+import { Webgl, WebglObjKind, WebglUniform, WebglShaderSrc } from "./web_gl.js";
 import { Webgl3DObj } from "./web_gl_3d_obj.js";
+import { WebglFlatShader, WebglFlatObj } from "./web_gl_flat.js";
 import { Logger } from "./log.js";
 import { Application } from "./application.js";
 import { Mouse, MouseClient, MousePressActions } from "./mouse.js";
@@ -123,12 +124,16 @@ export class WebglCanvas {
   mouse: Mouse;
 
   webgl: Webgl | null = null;
+  start_webgl_failed: boolean = false;
 
   image_program: number = 0;
   star_program: number = 0;
   image_grid_line_program: number = 0;
+  flat_program: number = 0;
 
   webgl_rectangle: Webgl3DObj | null = null;
+  webgl_grid: GridLinesObj | null = null;
+  webgl_asterisk: WebglFlatObj | null = null;
 
   model: WasmMat4f32 = WasmMat4f32.identity();
   current_wh: [number, number];
@@ -155,31 +160,29 @@ export class WebglCanvas {
     }
   }
 
+  compile_program(shader: WebglShaderSrc): number {
+    const program = this.webgl!.compile_program(shader);
+    if (program === null) {
+      this.start_webgl_failed = true;
+      return 0;
+    }
+    return program;
+  }
+
   start_webgl(): boolean {
     if (!this.webgl!.start_webgl()) {
       return false;
     }
+    this.start_webgl_failed = false;
+    this.image_program = this.compile_program(new ImageShader());
+    this.star_program = this.compile_program(new StarCalibrationShader());
+    this.image_grid_line_program = this.compile_program(
+      new ImageOverlayShader(),
+    );
+    this.flat_program = this.compile_program(new WebglFlatShader());
 
-    {
-      const program = this.webgl!.compile_program(new ImageShader());
-      if (program === null) {
-        return false;
-      }
-      this.image_program = program;
-    }
-    {
-      const program = this.webgl!.compile_program(new StarCalibrationShader());
-      if (program === null) {
-        return false;
-      }
-      this.star_program = program;
-    }
-    {
-      const program = this.webgl!.compile_program(new ImageOverlayShader());
-      if (program === null) {
-        return false;
-      }
-      this.image_grid_line_program = program;
+    if (this.start_webgl_failed) {
+      return false;
     }
 
     this.webgl_rectangle = new Webgl3DObj(
@@ -189,7 +192,12 @@ export class WebglCanvas {
       [0, 0, 0, 1, 1, 1, 1, 0],
       [0, 2, 1, 2, 3, 0],
     );
+    this.webgl_grid = new GridLinesObj(2, 2);
+    this.webgl_asterisk = WebglFlatObj.asterisk(1);
+
     this.webgl!.create(this.webgl_rectangle);
+    this.webgl!.create(this.webgl_grid);
+    this.webgl!.create(this.webgl_asterisk);
 
     this.log.info(`Created full webgl content`);
     return true;
