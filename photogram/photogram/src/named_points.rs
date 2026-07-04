@@ -201,7 +201,7 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                 let e_sq = ray_list
                     .iter()
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
-                result_nps.add_pt(np.name().as_str(), *np.color(), Some(pt), e_sq.sqrt());
+                result_nps.add_pt(np.name().as_str(), *np.color(), true, Some(pt), e_sq.sqrt());
                 cmd_args.if_verbose(|| {
                     for (cip_n, r) in cip_of_ray_list.iter().zip(ray_list.iter()) {
                         eprintln!(
@@ -243,7 +243,10 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         return Err(format!("Named point {name} already exists in the set").into());
     }
 
-    cmd_args.project().nps_mut().add_pt(name, color, model, err);
+    cmd_args
+        .project()
+        .nps_mut()
+        .add_pt(name, color, true, model, err);
 
     CmdArgs::cmd_ok()
 }
@@ -255,11 +258,7 @@ fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let new_np = opt_new_np.unwrap();
         if let Some(np) = cmd_args.nps().borrow().get_pt(new_np.name().as_str()) {
             if let Some(new_np_model) = new_np.opt_model() {
-                if let Some((_np_model, np_err)) = np.opt_model() {
-                    if np_err != 0.0 {
-                        np.set_model(Some(new_np_model));
-                    }
-                } else {
+                if np.is_unmapped() || np.model_uncertainty() != 0.0 {
                     np.set_model(Some(new_np_model));
                 }
             }
