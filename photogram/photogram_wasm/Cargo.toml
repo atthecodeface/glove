@@ -28,6 +28,7 @@ js-sys.workspace = true
 
 geo-nd-wasm.workspace = true
 bezier-wasm.workspace = true
+star-catalog-wasm.workspace = true
 
 ic_base.workspace = true
 ic_image.workspace = true

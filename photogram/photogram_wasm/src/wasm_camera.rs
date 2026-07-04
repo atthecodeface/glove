@@ -105,19 +105,19 @@ impl WasmCameraInstance {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn tan_fovd(&self) -> f64 {
-        let txty = self.camera.borrow().tan_fov();
+    pub fn tan_hfovd(&self) -> f64 {
+        let txty = self.camera.borrow().tan_hfov();
         (txty.0 * txty.0 + txty.1 * txty.1).sqrt()
     }
 
     #[wasm_bindgen(getter)]
-    pub fn tan_fovh(&self) -> f64 {
-        self.camera.borrow().tan_fov().0
+    pub fn tan_hfovh(&self) -> f64 {
+        self.camera.borrow().tan_hfov().0
     }
 
     #[wasm_bindgen(getter)]
-    pub fn tan_fovv(&self) -> f64 {
-        self.camera.borrow().tan_fov().1
+    pub fn tan_hfovv(&self) -> f64 {
+        self.camera.borrow().tan_hfov().1
     }
 
     #[wasm_bindgen(getter)]
@@ -183,17 +183,47 @@ impl WasmCameraInstance {
         ))
     }
 
+    /// Take a point on the sensor and map it to the direction of a ray relative
+    /// to the outside of the camera lens
+    ///
+    /// This does use the lens mapping
     pub fn set_camera_dir_of_pt(&self, pt: &WasmVec2f64, dir: &mut WasmVec3f64) {
         let pt: Point2D = pt.into();
         let txty = self.camera.borrow().px_abs_xy_to_camera_txty(&pt);
         dir.set_array(txty.to_unit_vector().as_ref());
     }
 
+    /// Take the direction of a ray relative to the outside of the camera lens
+    /// and map it to a point on the sensor
+    ///
+    /// This does use the lens mapping
     pub fn set_pt_of_camera_dir(&self, dir: &WasmVec3f64, pt: &mut WasmVec2f64) {
         let dir: Point3D = dir.into();
         let txty = dir.into();
         let pxy = self.camera.borrow().camera_txty_to_px_abs_xy(&txty);
         pt.set_array(pxy.as_ref());
+    }
+
+    /// Take the direction of a ray relative to the outside of the camera lens
+    /// and map it to ray relative to the sensor
+    ///
+    /// This does use the lens mapping
+    pub fn set_map_sensor_dir_to_camera_dir(&self, dir: &mut WasmVec3f64) {
+        let pt: Point3D = (&*dir).into();
+        let txty = pt.into();
+        let txty = self.camera.borrow().sensor_txty_to_camera_txty(&txty);
+        dir.set_array(txty.to_unit_vector().as_ref());
+    }
+
+    /// Take the direction of a ray relative to the outside of the camera lens
+    /// and map it to ray relative to the sensor
+    ///
+    /// This does use the lens mapping
+    pub fn set_map_camera_dir_to_sensor_dir(&self, dir: &mut WasmVec3f64) {
+        let pt: Point3D = (&*dir).into();
+        let txty = pt.into();
+        let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
+        dir.set_array(txty.to_unit_vector().as_ref());
     }
 
     pub fn map_yaw_world_to_sensor(&self, yaw: f64) -> f64 {
