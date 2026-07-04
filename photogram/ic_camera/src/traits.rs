@@ -71,8 +71,8 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Get the center of the sensor in mm
     fn sensor_center(&self) -> Point2D;
 
-    /// Get the tan of the field-of-view for horizontal and verical
-    fn tan_fov(&self) -> (f64, f64) {
+    /// Get the tan of half of the field-of-view for horizontal and vertical
+    fn tan_hfov(&self) -> (f64, f64) {
         let wh = self.sensor_size();
         let txty0 = self.px_abs_xy_to_camera_txty(&[0., 0.].into());
         let txty1 = self.px_abs_xy_to_camera_txty(&[wh.0, wh.1].into());
@@ -115,6 +115,22 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
         let sensor_ry = self.camera_ry_to_sensor_ry(&camera_ry);
         let sensor_txty = sensor_ry.into();
         self.sensor_txty_to_px_abs_xy(&sensor_txty)
+    }
+
+    /// Map a camera (projected) tan(x)/tan(y) to a sensor tan(x)/tan(y)
+    ///
+    /// *Camera* [TanXTanY] map through the lens mapping to/from *Sensor* [Point2D]/[TanXTanY]
+    fn camera_txty_to_sensor_txty(&self, camera_txty: &TanXTanY) -> TanXTanY {
+        let camera_ry = camera_txty.into();
+        let sensor_ry = self.camera_ry_to_sensor_ry(&camera_ry);
+        sensor_ry.into()
+    }
+
+    /// Map a sensor tan(x)/tan(y) to a camera (projected) tan(x)/tan(y)
+    fn sensor_txty_to_camera_txty(&self, sensor_txty: &TanXTanY) -> TanXTanY {
+        let sensor_ry = sensor_txty.into();
+        let camera_ry = self.sensor_ry_to_camera_ry(&sensor_ry);
+        camera_ry.into()
     }
 
     /// *Camera* [TanXTanY] map through the lens mapping to/from *Sensor* [Point2D]/[TanXTanY]
