@@ -80,6 +80,10 @@ version = "0.3"
 features = ["postcard", "hipp_bright", "image"]
 path = "../../star-catalog-rs"
 
+[workspace.dependencies.star-catalog-wasm]
+version = "0.3"
+path = "../../star-catalog-wasm"
+
 [workspace.dependencies.tagu]
 version = "0.1.3"
 
