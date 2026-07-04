@@ -27,7 +27,7 @@ export class CipImage {
   }
 
   webgl_texture_ready(): boolean {
-    return this.webgl_texture === null || !this.image_loaded;
+    return this.webgl_texture !== null && this.image_loaded;
   }
 
   get_webgl_texture(webgl: Webgl): WebglTexture | null {

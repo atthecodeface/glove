@@ -62,7 +62,7 @@ export class LensCalibrationPlot {
     const cip = this.application.current_project().get_wasm_cip();
     if (cip !== null) {
       this.camera = cip.camera;
-      this.yaw_max = (Math.atan(cip.camera.tan_fovd) * 180) / 3;
+      this.yaw_max = (Math.atan(cip.camera.tan_hfovd) * 180) / 3;
       this.pending_regen = true;
       this.redraw();
     }

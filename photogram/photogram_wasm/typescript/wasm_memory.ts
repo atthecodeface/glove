@@ -1,4 +1,4 @@
-import { WasmVec3f64, WasmVec3f32 } from "./wasm_pkg.js";
+import { WasmVec3f64, WasmVec3f32, WasmMat4f64 } from "./wasm_pkg.js";
 
 export class WasmMemory {
   memory: WebAssembly.Memory;
@@ -15,6 +15,9 @@ export class WasmMemory {
   }
   float_array_of_vec3f64(vec: WasmVec3f64): Float64Array {
     return this.float64_array(vec.buffer, 3);
+  }
+  float_array_of_mat4f64(mat: WasmMat4f64): Float64Array {
+    return this.float64_array(mat.buffer, 16);
   }
 
   private float32_array(ptr: number, num_floats: number): Float32Array {

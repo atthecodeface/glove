@@ -78,14 +78,14 @@ export class Cip {
     const fovd = this.wasm_cip
       ? (
           Math.floor(
-            (Math.atan(this.wasm_cip.camera.tan_fovd) * 18000) / 3.14159,
+            (2 * (Math.atan(this.wasm_cip.camera.tan_hfovd) * 18000)) / 3.14159,
           ) / 100
         ).toString() + "°"
       : "<no CIP>";
     const fovh = this.wasm_cip
       ? (
           Math.floor(
-            (Math.atan(this.wasm_cip.camera.tan_fovh) * 18000) / 3.14159,
+            (2 * (Math.atan(this.wasm_cip.camera.tan_hfovh) * 18000)) / 3.14159,
           ) / 100
         ).toString() + "°"
       : "<no CIP>";

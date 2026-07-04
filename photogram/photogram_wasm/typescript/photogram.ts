@@ -1,6 +1,6 @@
 import photogram_init, { InitOutput } from "../pkg/photogram_wasm.js";
 
-// import { WasmMemory } from "./wasm_memory.js";
+import { WasmMemory } from "./wasm_memory.js";
 import { Tabs } from "./tabs.js";
 import { Log, Logger, Severity } from "./log.js";
 import { LocalStorage } from "./storage.js";
@@ -40,6 +40,7 @@ class TabType {
 }
 
 export class Photogram implements Application {
+  wasm_memory: WasmMemory;
   app_logger: Log;
   log: Logger;
 
@@ -63,8 +64,8 @@ export class Photogram implements Application {
   star_calibration: StarCalibration;
   project_edit: ProjectEdit;
 
-  constructor(_wasm_instance: InitOutput, _params: URLSearchParams) {
-    // this.wasm_memory = new WasmMemory(wasm_instance.memory);
+  constructor(wasm_instance: InitOutput, _params: URLSearchParams) {
+    this.wasm_memory = new WasmMemory(wasm_instance.memory);
     this.app_logger = new Log("Log", Severity.Info, Severity.Warning);
     this.log = new Logger(this.app_logger, "main");
     const local_storage = new LocalStorage(window.localStorage, "photogram");
@@ -169,8 +170,14 @@ export class Photogram implements Application {
 
     this.file_set.get_file_list();
 
+    for (const t of this.tabs.tabs) {
+      if (t.client.web_canvas_client !== null) {
+        this.webgl_canvas.create(t.client.web_canvas_client);
+      }
+    }
     // this.load_project("local:nac_all_proj.json");
-    this.load_project("server:nac_all_proj");
+    // this.load_project("server:nac_all_proj");
+    this.load_project("server:lens_calibrations_proj");
   }
 
   logger(): Log {
@@ -196,7 +203,8 @@ export class Photogram implements Application {
 
   project_load_completed(success: boolean): void {
     if (success) {
-      this.set_cip("4V3A6042.JPG");
+      const cip_name = this.project.get_cip_name(0)!;
+      this.set_cip(cip_name);
     } else {
     }
     this.repopulate();
@@ -245,7 +253,7 @@ export class Photogram implements Application {
       this.webgl_canvas.mouse.set_client(
         this.selected_tab_type.web_canvas_client,
       );
-      this.selected_tab_type.web_canvas_client.resize(
+      this.selected_tab_type.web_canvas_client.webgl_resize(
         this.resizable_size[0],
         this.resizable_size[1],
       );
@@ -276,7 +284,7 @@ export class Photogram implements Application {
         return a;
       });
       if (this.selected_tab_type.web_canvas_client !== null) {
-        this.selected_tab_type.web_canvas_client.resize(
+        this.selected_tab_type.web_canvas_client.webgl_resize(
           this.resizable_size[0],
           this.resizable_size[1],
         );

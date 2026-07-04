@@ -7,6 +7,10 @@ export interface WebglShaderSrc {
   fragment: string;
 }
 
+export interface WebglClearBufferOptions {
+  depth_test?: boolean;
+}
+
 export enum WebglUniform {
   Projection,
   View,
@@ -60,7 +64,7 @@ export class WebglProgram {
     }
   }
 
-  set_uniform_ivec4(uniform: WebglUniform, matrix: Int32List) {
+  set_uniform_ivec4(uniform: WebglUniform, matrix: Iterable<number>) {
     const u = this.uniforms[uniform];
     if (u !== null) {
       this.webgl.uniform4iv(u!, matrix);
@@ -94,14 +98,21 @@ export class WebglProgram {
     }
   }
 
-  set_uniform_vec2(uniform: WebglUniform, value: number[]) {
+  set_uniform_vec2(uniform: WebglUniform, value: Iterable<number>) {
     const u = this.uniforms[uniform];
     if (u !== null) {
       this.webgl.uniform2fv(u!, value);
     }
   }
 
-  set_uniform_vec4(uniform: WebglUniform, value: number[]) {
+  set_uniform_vec3(uniform: WebglUniform, value: Iterable<number>) {
+    const u = this.uniforms[uniform];
+    if (u !== null) {
+      this.webgl.uniform3fv(u!, value);
+    }
+  }
+
+  set_uniform_vec4(uniform: WebglUniform, value: Iterable<number>) {
     const u = this.uniforms[uniform];
     if (u !== null) {
       this.webgl.uniform4fv(u!, value);
@@ -298,11 +309,15 @@ export class Webgl {
     }
   }
 
-  clear_buffer() {
+  clear_buffer(options: WebglClearBufferOptions = {}) {
     if (this.webgl === null) {
       return;
     }
-    this.webgl.enable(this.webgl.DEPTH_TEST); // Enable depth testing
+    const depth_test =
+      options.depth_test !== undefined ? options.depth_test : true;
+    if (depth_test) {
+      this.webgl.enable(this.webgl.DEPTH_TEST); // Enable depth testing
+    }
     this.webgl.depthFunc(this.webgl.LEQUAL); // Near things obscure far things
     this.webgl.clear(this.webgl.COLOR_BUFFER_BIT | this.webgl.DEPTH_BUFFER_BIT);
   }
@@ -466,14 +481,21 @@ export class Webgl {
     this.current_program.set_uniform_float(uniform, value);
   }
 
-  set_uniform_vec2(uniform: WebglUniform, value: number[]) {
+  set_uniform_vec2(uniform: WebglUniform, value: Iterable<number>) {
     if (this.current_program === null) {
       return;
     }
     this.current_program.set_uniform_vec2(uniform, value);
   }
 
-  set_uniform_vec4(uniform: WebglUniform, value: number[]) {
+  set_uniform_vec3(uniform: WebglUniform, value: Iterable<number>) {
+    if (this.current_program === null) {
+      return;
+    }
+    this.current_program.set_uniform_vec3(uniform, value);
+  }
+
+  set_uniform_vec4(uniform: WebglUniform, value: Iterable<number>) {
     if (this.current_program === null) {
       return;
     }
@@ -491,7 +513,7 @@ export class Webgl {
     this.current_program.set_uniform_mat4(uniform, matrix, transpose);
   }
 
-  set_uniform_ivec4(uniform: WebglUniform, matrix: Int32List) {
+  set_uniform_ivec4(uniform: WebglUniform, matrix: Iterable<number>) {
     if (this.current_program === null) {
       return;
     }
