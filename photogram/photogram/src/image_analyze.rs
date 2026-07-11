@@ -398,14 +398,14 @@ fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             eprintln!(
                 "More than one named point with color {c} @ {:?}: {}, {}, ...",
                 r.cog(),
-                np[0].name(),
-                np[1].name(),
+                np[0].ref_tag(),
+                np[1].ref_tag(),
             );
         } else {
             let screen = r.cog();
             let screen = [screen.0, screen.1].into();
             let error = r.spread();
-            pms.add_mapping(&nps.borrow(), np[0].name(), &screen, error);
+            pms.add_mapping(&nps.borrow(), np[0].ref_tag().as_str(), &screen, error);
         }
     }
     println!("{}", serde_json::to_string_pretty(&pms).unwrap());

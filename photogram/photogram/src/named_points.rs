@@ -128,7 +128,7 @@ fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     let mut named_point_rays = HashMap::new();
     for (name, ray) in named_rays.iter() {
-        if nps.borrow().get_pt(name).is_none() {
+        if nps.borrow().get_rc_np(name).is_none() {
             eprintln!(
                 "Warning: failed to find point name '{}' in named point set",
                 &name
@@ -201,12 +201,18 @@ fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                 let e_sq = ray_list
                     .iter()
                     .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
-                result_nps.add_pt(np.name().as_str(), *np.color(), true, Some(pt), e_sq.sqrt());
+                result_nps.add_pt(
+                    np.ref_tag().as_str(),
+                    np.color(),
+                    true,
+                    Some(pt),
+                    e_sq.sqrt(),
+                );
                 cmd_args.if_verbose(|| {
                     for (cip_n, r) in cip_of_ray_list.iter().zip(ray_list.iter()) {
                         eprintln!(
                             "Ray to {} {:?} {}",
-                            np.name(),
+                            np.ref_tag(),
                             r.distances(&pt),
                             cmd_args.get_string_arg(*cip_n).unwrap()
                         );
@@ -239,7 +245,7 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         model = Some(cmd_args.arg_as_point3d(2)?);
         err = cmd_args.get_f64_arg(0).unwrap_or(0.0);
     }
-    if cmd_args.project().nps_ref().get_pt(name).is_some() {
+    if cmd_args.project().nps_ref().get_rc_np(name).is_some() {
         return Err(format!("Named point {name} already exists in the set").into());
     }
 
@@ -256,7 +262,7 @@ fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     for opt_new_np in new_nps.into_iter() {
         // All of the named points are unshared, so we can unwrap
         let new_np = opt_new_np.unwrap();
-        if let Some(np) = cmd_args.nps().borrow().get_pt(new_np.name().as_str()) {
+        if let Some(np) = cmd_args.nps().borrow().get_rc_np(new_np.ref_tag().as_str()) {
             if let Some(new_np_model) = new_np.opt_model() {
                 if np.is_unmapped() || np.model_uncertainty() != 0.0 {
                     np.set_model(Some(new_np_model));

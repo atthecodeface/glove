@@ -36,7 +36,7 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         let m = &mappings[i];
         println!(
             "{} : {} -> [{:.1}, {:.1}] @ {:.1}",
-            m.name(),
+            m.named_point().ref_tag(),
             m.model(),
             m.screen()[0],
             m.screen()[1],

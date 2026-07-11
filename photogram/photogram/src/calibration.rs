@@ -158,12 +158,12 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.show_step("Using the following mappings ([n] [world] : [pxy] : [world_dir]");
     for pm_n in &closest_n {
         let pm = &pms.mappings()[*pm_n];
-        let n = pm.name();
         let grid_xyz = pm.model();
         // Px Abs -> Px Rel -> TxTy -> lens mapping
         let pxy_abs = pm.screen();
         let txty = cmd_args.camera().px_abs_xy_to_camera_txty(pxy_abs);
         let grid_dir = txty.to_unit_vector();
+        let n = pm.named_point().as_ref();
         cmd_args.if_verbose(|| {
             eprintln!(">> {n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
         });
@@ -228,12 +228,12 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.show_step("All the following mappings ([n] [world] : [pxy] : [world_dir]");
     cmd_args.if_verbose(|| {
         for pm in pms.mappings() {
-            let n = pm.name();
             let grid_xyz = pm.model();
             // Px Abs -> Px Rel -> TxTy -> lens mapping
             let pxy_abs = pm.screen();
             let txty = camera.px_abs_xy_to_camera_txty(pxy_abs);
             let grid_dir = txty.to_unit_vector();
+            let n = pm.named_point().as_ref();
             eprintln!("{n} {grid_xyz} : {pxy_abs} : {grid_dir}",);
         }
     });

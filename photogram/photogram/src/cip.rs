@@ -293,8 +293,8 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             let mappings = pms.mappings();
             for i in pms_n.iter() {
                 let m = &mappings[*i];
-                let c = pms_color.unwrap_or(m.named_point().color());
-                img.draw_cross(m.screen(), m.error(), c);
+                let c = pms_color.copied().unwrap_or(m.named_point().color());
+                img.draw_cross(m.screen(), m.error(), &c);
             }
             Ok(())
         })?;
@@ -302,7 +302,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     if model_color.is_some() || use_nps_colors {
         let camera = cmd_args.camera();
         for p in nps_n {
-            let c = model_color.unwrap_or(p.color());
+            let c = model_color.copied().unwrap_or(p.color());
             let xyz = p.model_pt();
             let n = (xyz[2] * 2.0).abs().floor() as usize;
             let dz = xyz[2].signum() / 2.0;
@@ -318,7 +318,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                 };
                 let xyz = [xyz[0], xyz[1], (z as f64) * dz].into();
                 let mapped = camera.map_model(&xyz);
-                img.draw_cross(&mapped, sz, c);
+                img.draw_cross(&mapped, sz, &c);
             }
             if xyz[0].abs() < xyz[1].abs() {
                 let n = (xyz[0] * 2.0).abs().floor() as usize;
@@ -335,7 +335,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                     };
                     let xyz = [(x as f64) * dx, xyz[1], 0.].into();
                     let mapped = camera.map_model(&xyz);
-                    img.draw_cross(&mapped, sz, c);
+                    img.draw_cross(&mapped, sz, &c);
                 }
             } else {
                 let n = (xyz[1] * 2.0).abs().floor() as usize;
@@ -352,11 +352,11 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                     };
                     let xyz = [xyz[0], (y as f64) * dy, 0.].into();
                     let mapped = camera.map_model(&xyz);
-                    img.draw_cross(&mapped, sz, c);
+                    img.draw_cross(&mapped, sz, &c);
                 }
             }
             let mapped = camera.map_model(&xyz);
-            img.draw_cross(&mapped, 5.0, c);
+            img.draw_cross(&mapped, 5.0, &c);
         }
     }
     img.write(write_filename)?;
@@ -407,7 +407,7 @@ fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .filter(|(n, _pms_ray)| pms_n.contains(n))
     {
         let end = ray.start() + ray.direction() * camera.focus_distance();
-        eprintln!("{} {end}", pm.name());
+        eprintln!("{} {end}", pm.named_point().ref_tag());
     }
 
     CmdArgs::cmd_ok()
@@ -424,7 +424,7 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .iter_mapped_rays(camera, from_camera)
         .enumerate()
         .filter(|(n, _pm_ray)| pms_n.contains(n))
-        .map(|(_, (pm, ray))| (pm.name().to_owned(), ray))
+        .map(|(_, (pm, ray))| (pm.named_point().ref_tag().as_str().to_owned(), ray))
         .collect();
     let named_rays: NamedRayList = named_rays.into();
     named_rays.to_json(cmd_args.pretty_json())
@@ -439,7 +439,7 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .iter_mapped_rays(&camera, false)
         .enumerate()
         .filter(|(n, _pm_ray)| pms_n.contains(n))
-        .map(|(_, (pm, ray))| (pm.name().to_owned(), ray))
+        .map(|(_, (pm, ray))| (pm.named_point().ref_tag().as_str().to_owned(), ray))
         .collect();
 
     if named_rays.len() < 2 {
@@ -514,7 +514,7 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         if m.named_point().is_unmapped() {
             println!(
                 "{} : <unmapped> -> [{:.1}, {:.1}] @ {:.1}",
-                m.name(),
+                m.named_point().ref_tag(),
                 m.screen()[0],
                 m.screen()[1],
                 m.error()
@@ -522,7 +522,7 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         } else {
             println!(
                 "{} : {} -> [{:.1}, {:.1}] @ {:.1}",
-                m.name(),
+                m.named_point().ref_tag(),
                 m.model(),
                 m.screen()[0],
                 m.screen()[1],
