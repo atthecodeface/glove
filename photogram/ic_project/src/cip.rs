@@ -46,7 +46,7 @@ impl CipFileDesc {
 
     //mp load_cip
     pub fn load_cip(&self, path_set: &PathSet, project: &Project) -> Result<Cip> {
-        let image = Tag::reference(ic_base::image_name(&self.image));
+        let image = Tag::make_unresolved(ic_base::image_name(&self.image));
 
         let mut cip = Cip {
             camera_filename: self.camera_file.clone(),

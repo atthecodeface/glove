@@ -274,6 +274,7 @@ impl Project {
             0,
             "Project must have no CIPS to *set* the NPS"
         );
+        eprintln!("{self:?}, {nps:?}");
         nps.borrow_mut().set_tag_set(self.np_tag_set.clone());
         self.nps = nps;
     }
@@ -311,7 +312,7 @@ impl Project {
         for cip in &self.cips {
             let cip = cip.borrow();
             for m in cip.pms_ref().mappings() {
-                if m.name() == name {
+                if m.named_point().has_name(name) {
                     rays.push(m.get_mapped_ray(&*cip.camera_ref(), true));
                 }
             }
