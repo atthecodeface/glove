@@ -29,8 +29,8 @@ impl WasmCipDesc {
 
     #[wasm_bindgen(getter)]
     pub fn image(&self) -> String {
-        let t: &String = self.0.image().borrow();
-        t.clone()
+        let t: &str = self.0.image().borrow();
+        t.to_owned()
     }
     #[wasm_bindgen(getter)]
     pub fn camera_body(&self) -> String {

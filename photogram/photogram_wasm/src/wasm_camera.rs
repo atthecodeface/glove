@@ -164,7 +164,6 @@ impl WasmCameraInstance {
         self.camera.borrow().sensor_size().1
     }
 
-    //mp map_model
     pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
         Ok(Point2D::to_wasm(
             self.camera

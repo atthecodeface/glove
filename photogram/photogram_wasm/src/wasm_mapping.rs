@@ -1,8 +1,5 @@
 use crate::WasmVec3f64;
 
-//a Imports
-use js_sys::Array;
-
 use wasm_bindgen::prelude::*;
 
 use ic_base::{JsonParsable, JsonSrc, Point2D, Point3D, Rrc};
@@ -77,7 +74,7 @@ impl WasmPointMappingSet {
             .borrow()
             .mappings()
             .get(n)
-            .map(|m| m.name().into())
+            .map(|m| m.named_point().ref_tag().as_str().to_owned())
             .ok_or("Index out of range".into())
     }
 
@@ -103,19 +100,28 @@ impl WasmPointMappingSet {
             .ok_or("Index out of range".into())
     }
 
-    //mp mapping_of_name
+    pub fn set_xy(&mut self, n: usize, x: f64, y: f64) -> Result<(), String> {
+        self.pms
+            .borrow_mut()
+            .mappings_mut()
+            .get_mut(n)
+            .map(|m| m.set_screen([x, y].into()))
+            .ok_or("Index out of range".into())
+    }
+
+    /// Find the index of the first mapping that matches the name
     pub fn mapping_of_name(&self, name: &str) -> Option<usize> {
         self.pms
             .borrow()
             .mappings()
             .iter()
             .enumerate()
-            .find(|(_, m)| m.name() == name)
+            .find(|(_, m)| m.named_point().has_name(name))
             .map(|(n, _)| n)
             .into()
     }
 
-    //mp add_mapping
+    /// Add a mapping - this permits multiple mappings to the same np
     pub fn add_mapping(
         &mut self,
         wnps: &WasmNamedPointSet,
@@ -131,7 +137,7 @@ impl WasmPointMappingSet {
         ))
     }
 
-    //mp remove_mapping
+    /// Remove the 'nth' mapping
     pub fn remove_mapping(&mut self, n: usize) -> Result<(), String> {
         if !self.pms.borrow_mut().remove_mapping(n) {
             Err("Index out of range".into())
@@ -143,8 +149,15 @@ impl WasmPointMappingSet {
     //zz All done
 }
 
-//a WasmNamedPoint
-//tp WasmNamedPoint
+/*
+ * A WasmNamedPoint is a transient structure containing the data that is in the
+ * NamedPointSet database
+ *
+ * It is *not* a mirror onto the actual content, and its properties can be
+ * changed without updating the actual database
+ *
+ * To updated the database use ?
+ */
 #[wasm_bindgen]
 pub struct WasmNamedPoint {
     name: String,
@@ -198,7 +211,6 @@ impl WasmNamedPoint {
         Box::new(self.model)
     }
 
-    #[wasm_bindgen(getter)]
     pub fn set_model_vec(&self, v: &mut WasmVec3f64) {
         v.set_array(&self.model);
     }
@@ -209,39 +221,36 @@ impl WasmNamedPoint {
     }
 }
 
-//a WasmNamedPointSet
-//tp WasmNamedPointSet
-/// A set of named points
+/*
+ * A WasmNamedPointSet contains a reference to the contents of the actual named
+ * point set in the database
+ *
+ * Modifying the WasmNamedPointSet modifies the project
+ *
+ */
 #[wasm_bindgen]
 pub struct WasmNamedPointSet {
     nps: Rrc<NamedPointSet>,
 }
 
-//ip WasmNamedPointSet
 impl WasmNamedPointSet {
-    //cp of_nps
     pub fn of_nps(nps: Rrc<NamedPointSet>) -> Self {
         Self { nps }
     }
-    //cp nps
+
     pub fn nps(&self) -> &Rrc<NamedPointSet> {
         &self.nps
     }
 }
 
-//ip WasmNamedPointSet
 #[wasm_bindgen]
 impl WasmNamedPointSet {
-    //cp new
-    /// Create a new WasmGraphCanvas attached to a Canvas HTML element,
-    /// adding events to the canvas that provide the paint program
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<WasmNamedPointSet, JsValue> {
         let nps = Rrc::<NamedPointSet>::default();
         Ok(Self { nps })
     }
 
-    //cp read_json
     #[wasm_bindgen]
     pub fn read_json(&mut self, json: &str) -> Result<(), JsValue> {
         let nps = NamedPointSet::load_json(json, &())
@@ -252,7 +261,6 @@ impl WasmNamedPointSet {
         Ok(())
     }
 
-    //cp to_json
     #[wasm_bindgen]
     pub fn to_json(&self) -> Result<String, JsValue> {
         Ok(self.nps.borrow().to_json(false).map_err(err_to_string)?)
@@ -271,9 +279,23 @@ impl WasmNamedPointSet {
         Ok(())
     }
 
+    pub fn used_by(&mut self, name: &str) -> usize {
+        self.nps.borrow().pt_use_count(name)
+    }
+
+    pub fn delete_pt(&mut self, name: &str) -> bool {
+        let mut nps = self.nps.borrow_mut();
+        if nps.pt_use_count(name) == 0 {
+            nps.remove_pt(name);
+            true
+        } else {
+            false
+        }
+    }
+
     #[wasm_bindgen]
     pub fn get_pt(&mut self, name: &str) -> Option<WasmNamedPoint> {
-        if let Some(np) = self.nps.borrow().get_pt(name) {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
             let (at_infinity, model, error) = np.model();
             let wnp = WasmNamedPoint {
                 name: name.into(),
@@ -288,17 +310,16 @@ impl WasmNamedPointSet {
         }
     }
 
-    pub fn pts(&mut self) -> Result<Array, JsValue> {
-        let names = js_sys::Array::new();
+    pub fn pts(&mut self) -> Result<Vec<String>, JsValue> {
+        let mut names = vec![];
         for np in self.nps.borrow().iter() {
-            let name: JsValue = np.name().to_string().into();
-            names.push(&name);
+            names.push(np.ref_tag().to_string());
         }
         Ok(names)
     }
 
     pub fn set_direction(&self, name: &str, model: &[f64]) -> Result<(), String> {
-        if let Some(np) = self.nps.borrow().get_pt(name) {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
             np.set_model(Some((true, Point3D::from_wasm(model)?, 0.0)));
             Ok(())
         } else {
@@ -306,8 +327,19 @@ impl WasmNamedPointSet {
         }
     }
 
+    pub fn set_color(&self, name: &str, color: &str) -> Result<(), String> {
+        let color: Color = color.try_into()?;
+
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
+            np.set_color(color);
+            Ok(())
+        } else {
+            Err("Could not find named point".into())
+        }
+    }
+
     pub fn set_model(&self, name: &str, model: &[f64], error: f64) -> Result<(), String> {
-        if let Some(np) = self.nps.borrow().get_pt(name) {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
             np.set_model(Some((false, Point3D::from_wasm(model)?, error)));
             Ok(())
         } else {
@@ -316,7 +348,7 @@ impl WasmNamedPointSet {
     }
 
     pub fn unset_model(&self, name: &str) -> Result<(), String> {
-        if let Some(np) = self.nps.borrow().get_pt(name) {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
             np.set_model(None);
             Ok(())
         } else {
