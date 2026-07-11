@@ -10,20 +10,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-//a Tag
-//tp Tag
-/// A [Tag] is a [String] that is either Owned or Shared
+/// A [Tag] is a [String] that is either Owned, Shared, or Unresolved
 ///
-/// When created from Json or similar it is Owned; when it is resolved
-/// into a TagSet it becomes Shared, and Shared references are used by
-/// different data sets to refer to the same name. Owned tags should
+/// When created from Json by reading a [TagSet] it is 'Owned'; when it is resolved
+/// by the [TagSet] it becomes 'Shared', and 'Shared' references are used by
+/// different data sets to refer to the same name. 'Owned' tags should
 /// not be part of the data structures after initialization has
 /// completed.
 ///
-/// A Tag (de)serializes to a string; it has to Deserialize to Unresolved.
+/// A [Tag] serializes to a string. In a [TagSet] it deserializes to 'Owned',
+/// but in a [TagMap] (which is expecting to use tags from its related [TagSet])
+/// it deserializes to 'Unresolved'. When the [TagMap] is ready, it is then
+/// 'linked' to the [TagSet] to resolve the tags to 'Shared'
+///
+/// Note that in some circumstances there is an explicit 'owner' of the data for
+/// a TagMap; in those cases the tags for that tag map can be 'Owned' instead of
+/// 'Unresolved' on deserialization (as it is with NamedPointSets)
 #[derive(Debug)]
 pub enum Tag {
-    /// Owned name, but not in the official TagSet as yet
+    /// Owned name, but not in the official [TagSet] as yet (this is usually post-deserialization of the [TagSet])
     ///
     /// This state should only be valid for the tags in use by the
     /// eventual owner of the TagSet, prior to that being provided.
@@ -43,6 +48,8 @@ pub enum Tag {
 }
 
 //ip Borrow<str> for Tag
+//
+// Needed to retrieve a Tag from a HashMap by a str
 impl Borrow<str> for Tag {
     fn borrow(&self) -> &str {
         match self {
@@ -53,18 +60,9 @@ impl Borrow<str> for Tag {
     }
 }
 
-//ip Borrow<String> for Tag
-impl Borrow<String> for Tag {
-    fn borrow(&self) -> &String {
-        match self {
-            Tag::Owned(s) => s,
-            Tag::Shared(s) => s,
-            Tag::Unresolved(s) => s,
-        }
-    }
-}
-
 //ip Borrow<Rc<String>> for Tag
+//
+// Required for HashMap<Tag, > for index in TagSet and in TagMap by Rc<String>
 impl Borrow<Rc<String>> for Tag {
     #[track_caller]
     fn borrow(&self) -> &Rc<String> {
@@ -146,6 +144,7 @@ impl Serialize for Tag {
 }
 
 //ip Deref for Tag
+// Can we lose this?
 impl std::ops::Deref for Tag {
     type Target = String;
     fn deref(&self) -> &String {
@@ -193,48 +192,115 @@ impl std::default::Default for Tag {
 
 //ip Tag
 impl Tag {
+    /// Clone an Owned or Shared tag; panic if this is unresolved
     // Must only be used by TagSet
     #[track_caller]
     fn clone_allow_owned(&self) -> Self {
         match self {
             Tag::Unresolved(_s) => {
-                panic!("Attempt to clone an Unresolved tag for the TagSet which should only see Owned/Shared");
+                panic!(
+                    "Attempt to clone an Unresolved tag for the TagSet which should only see Owned/Shared"
+                );
             }
             Tag::Owned(s) => Tag::Owned(s.clone()),
             Tag::Shared(s) => Tag::Shared(s.clone()),
         }
     }
 
-    pub fn reference<S: Into<String>>(name: S) -> Self {
+    /// Clone an Owned or Shared tag; panic if this is unresolved
+    fn clone_with_new_name<S: Into<String>>(&self, name: S) -> Self {
+        match self {
+            Tag::Owned(_s) => Tag::Owned(name.into().into()),
+            Tag::Shared(_s) => Tag::Shared(name.into().into()),
+            _ => {
+                panic!("Attempt to clone a tag that ia not clonable");
+            }
+        }
+    }
+
+    /// Create an *unresolved* tag
+    pub fn make_unresolved<S: Into<String>>(name: S) -> Self {
         Tag::Unresolved(name.into())
     }
 
+    /// Create an *owned* tag
     pub fn owned<S: Into<String>>(name: S) -> Self {
         Tag::Owned(Rc::new(name.into()))
     }
 
+    /// Determins if a tag is Shared (i.e, unresolved has been mapped to a
+    /// Shared tag, or owned has been successfully moved into Shared)
     pub fn is_resolved(&self) -> bool {
         matches!(self, Tag::Shared(_))
     }
+
+    /// Take the name out of the tag
     pub fn take_name(self) -> Option<String> {
         match self {
             Tag::Owned(s) => Rc::into_inner(s),
             _ => None,
         }
     }
+
+    /// Clone the Rc<String>
+    pub fn clone_rc_string(&self) -> Option<Rc<String>> {
+        match self {
+            Tag::Owned(s) => Some(s.clone()),
+            Tag::Shared(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
+    /// If an *Owned* tag then resolve it by getting it from within the TagSet
     pub fn resolve_in(&mut self, tag_set: &TagSet) {
         if let Tag::Owned(s) = self {
-            *self = tag_set.get_tag(s);
+            *self = tag_set.get_shared_or_make_owned_tag(s);
         }
+    }
+
+    /// Return the number of users of a *Shared* tag outside the [TagSet] - so the number of [TagMap] users, etc
+    ///
+    /// Usually this is used to determine that a tag may be deleted from a TagSet
+    pub fn in_use_count(&self) -> Option<usize> {
+        let Tag::Shared(s) = self else {
+            return None;
+        };
+        Some(std::rc::Rc::strong_count(s))
     }
 }
 
-//a TagSet
-//tp TagSet
+/// A [TagSet] contains an array of `Rc<String>` that are the actual tag
+/// contents: shared strings that are used within the `Tag` and the index
+///
+/// It also contains an index which provides for finding the (offical source
+/// string) for a given tag
+///
+/// Renaming a [Tag] requires it to be removed from the index, changing the
+/// contents of its 'tags' entry in the [Vec], and then reinserting it with the
+/// new hash into the index.
+///
+/// Adding a new [Tag] (derived from a string) to the [TagSet] requires creating
+/// the `Rc<String>` for the tag, adding it to the [Vec], and then inserting a
+/// new entry into the index.
+///
+/// Removing a [Tag] requires removing it from the index, removing it from the
+/// [Vec], and the reindexing.
+///
+/// The [TagSet] has interior mutability, as it will be in use by many
+/// structures (the whole point is to share the [Tag] with named points, point
+/// mappings, etc). It is useful to be able to iterate over the entries, and a
+/// [TagSetIter] can be generated which holds a [Ref] of the data while is is
+/// alive.
+///
+/// A [TagSet] serializes to a list of strings, and deserializes to a list of
+/// Owned tags; before real use the tags must be converted to Owned tags, and if
+/// a 'user' is referencing the [TagSet] then their 'uses' have to be resolved
+/// (i.e. turned from 'Unresolved')
 #[derive(Debug, Default)]
 pub struct TagSet {
     /// The *shared* names
     tags: RefCell<Vec<Rc<String>>>,
+
     /// Mapping from text to index into tags
     index: RefCell<HashMap<Tag, usize>>,
 }
@@ -244,6 +310,7 @@ struct TagSetIter<'a> {
     n: usize,
     index: usize,
 }
+
 impl<'a> std::iter::Iterator for TagSetIter<'a> {
     type Item = Rc<String>;
     fn next(&mut self) -> Option<Rc<String>> {
@@ -259,7 +326,7 @@ impl<'a> std::iter::Iterator for TagSetIter<'a> {
 
 //ip TagSet
 impl TagSet {
-    //mi insert_name
+    /// Invoked only by [TagMap] and [TagSet], this inserts a new name into the [TagSet] as a `Shared` tag
     fn insert_name(&self, name: Rc<String>) -> Tag {
         let n = self.tags.borrow().len();
         self.tags.borrow_mut().push(name.clone());
@@ -268,13 +335,21 @@ impl TagSet {
         tag
     }
 
-    //mp resolve_tag
+    /// DEPRECATED
+    ///
+    /// Invoked when a [TagMap] is set to be associated with a specific [TagSet]
+    /// - which might have been read from JSON
+    ///
+    /// This maps Unresolved tags to Shared tag that is already in the TagSet, or None
+    ///
+    /// It maps Owned tags to Shared tags if that is already in the TagSet, else
+    /// it adds it to the TagSet and returns a Shared version of the tag
     pub fn resolve_tag(&self, tag: Tag) -> Option<Tag> {
         match tag {
             Tag::Unresolved(name) => self
                 .index
                 .borrow()
-                .get(&name)
+                .get(name.as_str())
                 .map(|index| Tag::Shared(self.tags.borrow()[*index].clone())),
             Tag::Owned(name) => {
                 if let Some(index) = self.index.borrow().get(&name) {
@@ -287,8 +362,25 @@ impl TagSet {
         }
     }
 
-    //mp get_tag
-    pub fn get_tag(&self, name: &str) -> Tag {
+    /// Invoked when a [TagMap] is set to be associated with a specific [TagSet]
+    /// - which might have been read from JSON; indeed this merges a full set
+    /// into an empty set
+    ///
+    /// This maps Unresolved tags to Shared tag that is already in the TagSet, or
+    /// to Owned
+    ///
+    /// It maps Owned tags to Shared tags if that is already in the TagSet, else
+    /// it adds it to the TagSet and returns a Shared version of the tag
+    pub fn resolve_name(&self, name: &str) -> Tag {
+        if let Some(index) = self.index.borrow().get(name) {
+            Tag::Shared(self.tags.borrow()[*index].clone())
+        } else {
+            Tag::Shared(name.to_owned().into())
+        }
+    }
+
+    /// Get the tag corresponding to the name, or create a new tag; the result *will* be Shared
+    pub fn get_shared_or_make_owned_tag(&self, name: &str) -> Tag {
         if let Some(index) = self.index.borrow().get(name) {
             Tag::Shared(self.tags.borrow()[*index].clone())
         } else {
@@ -306,20 +398,60 @@ impl TagSet {
         }
     }
 
+    /// Rename the tag (which must be Shared in the set) to a new Shared Tag
+    pub fn remove_tag(&self, name: &str) -> Option<Tag> {
+        if let Some((old_tag, idx)) = self.index.borrow_mut().remove_entry(name) {
+            self.tags.borrow_mut()[idx] = "<deleted>".to_string().into();
+            Some(old_tag)
+        } else {
+            None
+        }
+    }
+
+    fn has_name(&self, name: &str) -> bool {
+        self.index.borrow().contains_key(name)
+    }
+
+    /// Rename the tag (which must be Shared in the set) to a new Shared Tag
+    pub fn rename_tag(&self, old_name: &str, name: &str) -> Option<(Tag, Tag)> {
+        if self.has_name(name) {
+            return None;
+        }
+
+        if let Some((old_tag, idx)) = self.index.borrow_mut().remove_entry(old_name) {
+            let new_tag = old_tag.clone_with_new_name(name);
+            self.tags.borrow_mut()[idx] = new_tag.clone_rc_string().unwrap();
+            self.index.borrow_mut().insert(new_tag.clone(), idx);
+            Some((old_tag, new_tag))
+        } else {
+            None
+        }
+    }
     //zz All done
 }
 
 //a TagMap
 //tp TagData
 pub trait TagData {
-    fn tag(&self) -> &Tag;
-    fn tag_mut(&mut self) -> &mut Tag;
+    fn tag(&self) -> &RefCell<Tag>;
 }
 
-//tp TagMap
+/// A [TagMap] extends a (shared) [TagSet] to provide a map from a copy of the string of a 'Tag' to the actual Tag data
+///
+/// It is not permitted to access the private [Vec] of tags within the TagSet
+///
+/// A [TagMap] serializes its tags into strings; they deserialize into
+/// *Unresolved* tags, which require resolution with the [TagSet] (seperately
+/// deserialized) the the [TagMap] should contain tags from.
+///
+/// A tag can be renamed only by:
+///
+///   1.  *removing* the string from the map with its data
+///   2.  updating the data with the new tag
+///   3.  reinserting the new data
 #[derive(Debug)]
 pub struct TagMap<V: TagData> {
-    data: HashMap<Tag, Rc<V>>,
+    data: HashMap<String, Rc<V>>,
     tags: Rc<TagSet>,
 }
 
@@ -348,7 +480,7 @@ where
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(self.data.len()))?;
         for tag in self.map_sorted_tags(|v| v) {
-            seq.serialize_element(self.data.get(&tag).unwrap())?;
+            seq.serialize_element(self.data.get(tag.as_str()).unwrap())?;
         }
         seq.end()
     }
@@ -367,7 +499,7 @@ where
         let mut tag_map = TagMap::default();
         let array = Vec::<V>::deserialize(deserializer)?;
         for data in array {
-            tag_map.add_data_unresolved(data);
+            tag_map.add_data_owned(data);
         }
         Ok(tag_map)
     }
@@ -388,70 +520,79 @@ where
         self.data.is_empty()
     }
 
-    //mp set_tag_set
     /// Set the TagSet for this TagMap
     ///
-    /// This turns all the Owned tags into Shared tags
+    /// This turns all the Unresolved tags into Shared tags from the [TagSet], assuming that the TagMap is only using known tags.
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
         self.tags = tags;
         let old_data = std::mem::take(&mut self.data);
         for (t, mut v) in old_data.into_iter() {
-            assert!(!t.is_resolved());
-            let Some(t) = self.tags.resolve_tag(t) else {
-                panic!("Attempt to set TagSet for a TagMap that has *Unresolved* tags; as these are tags in the TagMap, these tags should either be owned or shared");
-            };
-            *Rc::get_mut(&mut v).unwrap().tag_mut() = t.clone();
-            self.data.insert(t, v);
+            // assert!(!t.is_resolved());
+            let t = self.tags.resolve_name(&t);
+            let x = Rc::get_mut(&mut v).unwrap().tag();
+            *x.borrow_mut() = t.clone();
+            self.data.insert(t.as_str().into(), v);
         }
     }
 
     //mp map_sorted_tags
     pub fn map_sorted_tags<F, T>(&self, map: F) -> T
     where
-        F: FnOnce(Vec<Tag>) -> T,
+        F: FnOnce(Vec<String>) -> T,
     {
         let mut order: Vec<_> = self.data.keys().cloned().collect();
         order.sort();
         map(order)
     }
 
-    //mp has_tag
-    pub fn has_tag(&self, t: &Tag) -> bool {
-        self.data.contains_key(t)
-    }
-
-    //mp has_name
+    /// Return true if the name is in the TagMap
     pub fn has_name(&self, s: &str) -> bool {
-        self.data.contains_key(s)
+        self.data.contains_key(&s.to_owned())
     }
 
-    //mp add_data_unresolved
-    /// Requires np to not be in the name set already
+    /// Add the data to the TagMap with an 'Unresolved' tag
     #[track_caller]
-    pub fn add_data_unresolved(&mut self, data: V) -> Option<Rc<V>> {
-        let tag = data.tag().clone_allow_owned();
+    pub fn add_data_owned(&mut self, data: V) -> Option<Rc<V>> {
+        let tag = data.tag().borrow().as_str().into();
         self.data.insert(tag, Rc::new(data))
     }
 
     //mp add_data
     /// Requires np to not be in the name set already
-    pub fn add_data(&mut self, mut data: V) -> Option<Rc<V>> {
-        data.tag_mut().resolve_in(&self.tags);
-        let tag = data.tag().clone();
+    pub fn add_data(&mut self, data: V) -> Option<Rc<V>> {
+        data.tag().borrow_mut().resolve_in(&self.tags);
+        let tag = data.tag().borrow().as_str().into();
         self.data.insert(tag, Rc::new(data))
     }
 
-    //mp get_tag
-    pub fn get_tag(&self, t: &Tag) -> Option<&Rc<V>> {
-        self.data.get(t)
+    pub fn get_tag<'a, 'b>(&'a self, tag: &'b Tag) -> Option<&'a Rc<V>> {
+        self.data.get(tag.as_str())
     }
 
-    //mp get_data
     pub fn get_data(&self, name: &str) -> Option<&Rc<V>> {
         self.data.get(name)
     }
 
-    //mp is_regex
+    pub fn get_tag_use_count(&self, name: &str) -> Option<usize> {
+        if let Some(count) = self
+            .data
+            .get(name)
+            .and_then(|v| v.tag().borrow().in_use_count())
+        {
+            debug_assert!(
+                count >= 4,
+                "tag must be in use by 'v', TagMap Data, TagSet vec, and TagSet index"
+            );
+            Some(count - 4)
+        } else {
+            None
+        }
+    }
+
+    pub fn remove_data(&mut self, name: &str) -> Option<Rc<V>> {
+        self.data.remove(name)
+    }
+
     fn is_regex(s: &str) -> bool {
         s.chars().any(|c| "^[*?".contains(c))
     }
@@ -474,7 +615,7 @@ where
                 .map_err(|e| format!("failed to compile regex '{search}': {e}"))?;
             for t in self.tags.iter() {
                 if regex.is_match(t.as_str()) {
-                    acc = fold(acc, self.data.get(&t).unwrap());
+                    acc = fold(acc, self.data.get(t.as_str()).unwrap());
                 }
             }
         } else {
