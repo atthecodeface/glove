@@ -48,6 +48,13 @@ export function round_to_multiple(x: number, m: number, to = 0): number {
   }
 }
 
-export function decimal_to_sig_fig(x: number, _max_dp: number): string {
-  return x.toString();
+export function point_to_dp(coords: Iterable<number>, dp: number): string {
+  let result = "";
+  let sep = "(";
+  for (const c of coords) {
+    result += sep;
+    result += c.toFixed(dp);
+    sep = ", ";
+  }
+  return result + ")";
 }

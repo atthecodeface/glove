@@ -3,9 +3,9 @@ import * as file_kind from "./file_kind.js";
 import * as file_set from "./file_set.js";
 import { Logger } from "./log.js";
 
-import { Application } from "./application.js";
+import { Application, ApplicationTab } from "./application.js";
 
-export class Browser {
+export class Browser implements ApplicationTab {
   application: Application;
   file_set: file_set.FileSet;
   browser: HtmlElement;
@@ -21,6 +21,19 @@ export class Browser {
     this.log = log;
     this.file_set = file_set;
     this.browser = browser;
+    application.add_tab(this, null);
+  }
+
+  tab_deselected(): void {}
+  tab_selected(): void {
+    this.repopulate();
+  }
+
+  tab_name(): string {
+    return "browser";
+  }
+  tab_text(): string {
+    return "Browser";
   }
 
   file_link(f: string): HtmlElement {
@@ -60,7 +73,7 @@ export class Browser {
     });
     heading.add_content("Camera Database");
 
-    const table = new Table("cdb");
+    const table = new Table({ classes: "cdb" });
     table.add_headings(["Filename", "Bodies", "Lenses"]);
 
     for (const filename of this.file_set.files_of_kind(
@@ -103,7 +116,7 @@ export class Browser {
     });
     heading.add_content("Projects");
 
-    const table = new Table("proj");
+    const table = new Table({ classes: "proj" });
     table.add_headings(["Filename", "Cdb", "Nps", "Number CIP"]);
 
     for (const filename of this.file_set.files_of_kind(
@@ -138,7 +151,7 @@ export class Browser {
     });
     heading.add_content("Named point sets");
 
-    const table = new Table("nps");
+    const table = new Table({ classes: "nps" });
     table.add_headings(["Filename", "Number of points"]);
 
     for (const filename of this.file_set.files_of_kind(
@@ -165,7 +178,7 @@ export class Browser {
     });
     heading.add_content("Camera/Image/Point mapping set");
 
-    const table = new Table("cip");
+    const table = new Table({ classes: "cip" });
     table.add_headings([
       "Filename",
       "Image",

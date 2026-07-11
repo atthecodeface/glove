@@ -48,6 +48,8 @@
   // "include": ["pkg/*"],
 
   "files": [
+    "typescript/animate.ts",
+    "typescript/color.ts",
     "typescript/draw.ts",
     "typescript/html.ts",
     "typescript/log.ts",
@@ -55,6 +57,8 @@
     "typescript/plot.ts",
     "typescript/storage.ts",
     "typescript/tabs.ts",
+    "typescript/tools_dialog.ts",
+    "typescript/undo.ts",
     "typescript/web_gl.ts",
     "typescript/web_gl_flat.ts",
     "typescript/web_gl_3d_obj.ts",
@@ -67,6 +71,7 @@
     "typescript/cip_image.ts",
     "typescript/file_kind.ts",
     "typescript/file_set.ts",
+    "typescript/mapped_nps.ts",
     "typescript/project.ts",
     "typescript/project_set.ts",
     "typescript/shaders.ts",
@@ -77,6 +82,7 @@
     "typescript/browser.ts",
     "typescript/project_edit.ts",
     "typescript/star_calibration.ts",
+    "typescript/undo_tab.ts",
 
     "typescript/application.ts",
     "typescript/photogram.ts"

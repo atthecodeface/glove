@@ -134,6 +134,8 @@ export class WebglCanvas {
   webgl_rectangle: Webgl3DObj | null = null;
   webgl_grid: GridLinesObj | null = null;
   webgl_asterisk: WebglFlatObj | null = null;
+  webgl_circle: WebglFlatObj | null = null;
+  webgl_cross: WebglFlatObj | null = null;
 
   model: WasmMat4f32 = WasmMat4f32.identity();
   current_wh: [number, number];
@@ -193,11 +195,15 @@ export class WebglCanvas {
       [0, 2, 1, 2, 3, 0],
     );
     this.webgl_grid = new GridLinesObj(2, 2);
+    this.webgl_cross = WebglFlatObj.cross(1, 1);
+    this.webgl_circle = WebglFlatObj.circle(1, 16);
     this.webgl_asterisk = WebglFlatObj.asterisk(1);
 
     this.webgl!.create(this.webgl_rectangle);
     this.webgl!.create(this.webgl_grid);
     this.webgl!.create(this.webgl_asterisk);
+    this.webgl!.create(this.webgl_circle);
+    this.webgl!.create(this.webgl_cross);
 
     this.log.info(`Created full webgl content`);
     return true;

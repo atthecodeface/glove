@@ -10,7 +10,7 @@ import { Logger } from "./log.js";
 import { Draw } from "./draw.js";
 import { DataRange, Plot, Tics } from "./plot.js";
 
-import { Application } from "./application.js";
+import { Application, ApplicationTab } from "./application.js";
 
 enum SelectedPlotType {
   Relative,
@@ -19,7 +19,7 @@ enum SelectedPlotType {
   Rings,
 }
 
-export class LensCalibrationPlot {
+export class LensCalibrationPlot implements ApplicationTab {
   application: Application;
   log: Logger;
   div: HtmlElement;
@@ -49,6 +49,17 @@ export class LensCalibrationPlot {
     this.draw_world_sensor_graphs = new Draw();
     this.draw_relative_world_sensor_graph = new Draw();
     this.draw_ws_difference_graph = new Draw();
+    application.add_tab(this, null);
+  }
+  tab_name(): string {
+    return "lens-calibration-plot";
+  }
+  tab_text(): string {
+    return "Lens Calibration";
+  }
+  tab_deselected(): void {}
+  tab_selected(): void {
+    this.repopulate();
   }
 
   resize(wh: [number, number]) {

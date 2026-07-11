@@ -503,8 +503,8 @@ class ClientInteraction {
         } else if (this.has_started_mouse_pan(cxy)) {
           this.client.user_press_cancel(this.initial_xy);
           this.client.user_pan(this.initial_xy, [
-            cxy[0] - this.initial_xy[0],
-            cxy[1] - this.initial_xy[1],
+            -cxy[0] + this.initial_xy[0],
+            -cxy[1] + this.initial_xy[1],
           ]);
           this.drag_xy = cxy;
           this.state = InteractionState.MousePanning;
@@ -515,8 +515,8 @@ class ClientInteraction {
       }
       case InteractionState.MousePanning: {
         this.client.user_pan(this.initial_xy, [
-          cxy[0] - this.drag_xy[0],
-          cxy[1] - this.drag_xy[1],
+          -cxy[0] + this.drag_xy[0],
+          -cxy[1] + this.drag_xy[1],
         ]);
         this.drag_xy = cxy;
         return true;

@@ -27,7 +27,7 @@ class Tab<T> {
    *
    * The div is hidden if this tab is not selected
    */
-  name: string;
+  div_name: string;
 
   /**
    *  The 'li' HTML element (which contains at least one 'a' element) for this tab
@@ -51,7 +51,7 @@ class Tab<T> {
   constructor(li: HtmlElement, div: HtmlElement, name: string, client: T) {
     this.li = li;
     this.div = div;
-    this.name = name;
+    this.div_name = name;
     this.client = client;
     this.set_hidden(true);
   }
@@ -101,7 +101,7 @@ export class Tabs<T> {
    * identifying the tab it is associated with.
    */
   constructor(
-    div_id: string,
+    div: string | HtmlElement,
     tab_select_callback: (t: T, id: string) => void,
     tabs: [string, string | HtmlElement | Node, T][],
   ) {
@@ -109,11 +109,15 @@ export class Tabs<T> {
     this.callback = tab_select_callback;
     this.selected_tab = null;
 
-    const tab_list = document.getElementById(div_id);
-    if (tab_list === null) {
-      throw new Error(`Failed to make 'Tabs' as ${div_id} was not found`);
+    if (div instanceof HtmlElement) {
+      this.ul = div.add_ele("ul");
+    } else {
+      const tab_list = document.getElementById(div);
+      if (tab_list === null) {
+        throw new Error(`Failed to make 'Tabs' as ${div} was not found`);
+      }
+      this.ul = new HtmlElement(tab_list!).clear().add_ele("ul");
     }
-    this.ul = new HtmlElement(tab_list!).clear().add_ele("ul");
 
     for (const [name, content, client] of tabs) {
       this.add_tab(name, content, client);
@@ -123,28 +127,46 @@ export class Tabs<T> {
     });
   }
 
-  add_tab(name: string, content: string | HtmlElement | Node, client: T) {
-    const href = "#" + name;
-    const div = document.querySelector(href);
-    if (div === null || !(div instanceof HTMLDivElement)) {
-      throw new Error(
-        `tab "${href}" does not have a relevant div in the document`,
-      );
+  /**
+   *
+   * @param div Usually 'tab-<thing>', the href that is used to select the tab
+   * @param label The label to use in the tab list at the top
+   * @param client The 'client' value to use when the tab_select callback is invoked
+   */
+  add_tab(
+    div: string | HtmlElement,
+    label: string | HtmlElement | Node,
+    client: T,
+  ): HtmlElement {
+    let name = "";
+    if (div instanceof HtmlElement) {
+      name = div.ele.id;
+    } else {
+      name = div;
+      const doc_div = document.querySelector("#" + name);
+      if (doc_div === null || !(doc_div instanceof HTMLDivElement)) {
+        throw new Error(
+          `tab "${name}" does not have a relevant div in the document`,
+        );
+      }
+      div = new HtmlElement(doc_div);
     }
+    const href = "#" + name;
     const li = this.ul.add_ele("li");
     const a = li.add_ele("a", {}, [["href", href]]);
-    a.add_content(content);
-    const tab = new Tab(li, new HtmlElement(div), name, client);
+    a.add_content(label);
+    const tab = new Tab(li, div, name, client);
     this.tabs.push(tab);
     a.ele.addEventListener("click", (e: Event) => {
       this.select_tab(tab);
       e.preventDefault();
     });
+    return div;
   }
 
   tab(name: string): T | null {
     for (const tab of this.tabs) {
-      if (name === tab.name) {
+      if (name === tab.div_name) {
         return tab.client;
       }
     }
@@ -163,7 +185,7 @@ export class Tabs<T> {
    */
   select(name: string): string | null {
     for (const t of this.tabs) {
-      if (name == t.name) {
+      if (name == t.div_name) {
         return this.select_tab(t);
       }
     }
@@ -175,13 +197,13 @@ export class Tabs<T> {
 
   private select_tab(tab: Tab<T>): string {
     if (tab === this.selected_tab) {
-      return tab.name;
+      return tab.div_name;
     }
     for (const t of this.tabs) {
       t.set_hidden(t !== tab);
     }
     this.selected_tab = tab;
-    this.callback(tab.client, tab.name);
-    return tab.name;
+    this.callback(tab.client, tab.div_name);
+    return tab.div_name;
   }
 }

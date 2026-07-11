@@ -1,13 +1,17 @@
 import {
   WasmCatalog,
   WasmMat4f64,
+  WasmQuatf64,
   WasmStar,
   WasmVec3f64,
 } from "../pkg/photogram_wasm.js";
 
-import { HtmlElement } from "./html.js";
+import { Animate } from "./animate.js";
+import { color_choice_as_rgb, rgb_of_color } from "./color.js";
+import { HtmlElement, Table } from "./html.js";
 import { Logger } from "./log.js";
 import { MousePressActions } from "./mouse.js";
+import { ToolsDialog, ToolsDialogClient } from "./tools_dialog.js";
 import { Webgl } from "./web_gl.js";
 import { ZoomedWindow } from "./zoomed_window.js";
 
@@ -18,44 +22,119 @@ import {
 } from "./webgl_canvas.js";
 
 import { Application } from "./application.js";
+import { Tabs } from "./tabs.js";
+import { MappedNpClient, MappedNp, MappedNps } from "./mapped_nps.js";
+import { Project } from "./project.js";
 
 class ImagePoint {
   x: number = 0;
   y: number = 0;
+  movable: boolean = true;
   distance_sq(x: number, y: number): number {
+    if (!this.movable) {
+      return 1E6;
+    }
     const dx = x - this.x;
     const dy = y - this.y;
     return dx * dx + dy * dy;
   }
-  finished_drag() {}
+  finished_drag(_parent:StarCalibration, _xy: [number, number]) {}
+  draw(_webgl: Webgl, _webgl_canvas: WebglCanvas): void {}
 }
 
-class OrientationPoint extends ImagePoint {}
+class Cursor extends ImagePoint {
+  override draw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+    webgl.set_color([1,1,1, 1]);
+    webgl.draw(webgl_canvas.webgl_asterisk!);
+  }
+  override finished_drag(parent:StarCalibration, xy: [number, number]) {
+    parent.cursor_moved(xy);
+  }
+}
 
-export class StarCalibration implements WebglCanvasClient {
+class NamedPoint extends ImagePoint {
+  project: Project;
+  np_name: string;
+  color: [number, number, number, number];
+  constructor(project: Project, mnp: MappedNp) {
+    super();
+    this.project = project;
+    this.np_name = mnp.name();
+    this.x = mnp.expected_pxy[0];
+    this.y = mnp.expected_pxy[1];
+    const color = color_choice_as_rgb({ rgb_string: mnp.color() });
+    const rgb = rgb_of_color(color);
+    this.color = [rgb[0], rgb[1], rgb[2], 1];
+    this.movable = false;
+    }
+  override draw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+    webgl.set_color(this.color);
+    webgl.draw(webgl_canvas.webgl_circle!);
+  }
+}
+
+class MappedPoint extends NamedPoint {
+  constructor(project: Project, mnp: MappedNp) {
+    super(project, mnp);
+    this.x = mnp.pms_x;
+    this.y = mnp.pms_y;
+    this.movable = true;
+    }
+  override draw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+    webgl.set_color(this.color);
+    webgl.draw(webgl_canvas.webgl_cross!);
+  }
+  override finished_drag(parent:StarCalibration, xy: [number, number]) {
+    parent.mapped_point_moved(this, xy);
+  }
+}
+
+export class StarCalibration
+  implements WebglCanvasClient, ToolsDialogClient<number>, MappedNpClient
+{
   application: Application;
   log: Logger;
+
   html_div: HtmlElement;
   zoomed_window: ZoomedWindow;
+  tools_dialog: ToolsDialog<number>;
+  tools_nps_div: HtmlElement;
+  animate: Animate;
+
   star_catalog: WasmCatalog = new WasmCatalog("hipp_bright");
   wasm_star: WasmStar;
+  wasm_mat4: WasmMat4f64;
   wasm_vec: WasmVec3f64;
+  wasm_quat: WasmQuatf64;
 
+  animation_rotation: number = 0;
+
+  mapped_nps: MappedNps | null = null;
   selected_star_indices: number[] = [];
   cached_stars: StarsWebglObj;
   img_size: [number, number] = [0, 0];
 
-  orientation_points: OrientationPoint[] = [];
+  cursor: ImagePoint;
+  image_points: ImagePoint[] = [];
   sel_pt: ImagePoint | null = null;
   drag_pt: ImagePoint | null = null;
+
+  animation_delay: number = 30;
+  animation_inactivity: number = 0;
 
   constructor(application: Application, log: Logger, html_div: HtmlElement) {
     this.application = application;
     this.log = log;
     this.html_div = html_div;
+    // Quiet typescript - this will be set later
+    this.tools_nps_div = html_div;
     this.wasm_star = this.star_catalog.star(0)!;
+    this.wasm_mat4 = WasmMat4f64.identity();
     this.wasm_vec = new WasmVec3f64(0, 0, 1);
+    this.wasm_quat = WasmQuatf64.unit();
 
+    this.cursor = new Cursor();
+    this.animate = new Animate(this.animation.bind(this));
     this.zoomed_window = new ZoomedWindow([10, 10]);
 
     this.star_catalog.clear_filter();
@@ -67,9 +146,155 @@ export class StarCalibration implements WebglCanvasClient {
       1000,
     );
     this.cached_stars = new StarsWebglObj();
-    this.orientation_points.push(new OrientationPoint());
-    this.orientation_points[0]!.x = 3000;
-    this.orientation_points[0]!.y = 1000;
+    application.add_tab(this, this);
+    this.tools_dialog = new ToolsDialog(this, this.html_div, 20 * 1000);
+    this.html_div
+      .add_button(
+        "open_tools",
+        "open_tools",
+        this.tools_dialog.open_dialog.bind(this.tools_dialog),
+        { classes: "permit-interaction" },
+      )
+      .add_content("Tools");
+  }
+
+  tools_dialog_add_tabs(tools_dialog: ToolsDialog<number>, tabs: Tabs<number>) {
+    const action_div = tabs.add_tab(
+      tools_dialog.add_tab_div("tab-sc-action"),
+      "Actions",
+      0,
+    );
+    action_div
+      .add_button("", "", this.new_np_and_pm.bind(this))
+      .add_content("New NP+PM at cursor");
+    this.tools_nps_div = tabs.add_tab(
+      tools_dialog.add_tab_div("tab-sc-nps"),
+      "Named Points",
+      1,
+    );
+  }
+
+  new_np_and_pm(): void {
+    console.log("Add new NP and PM at cursor");
+  }
+
+  tools_dialog_tab_selected(_t: number, _id: string): void {
+    this.repopulate_nps_div();
+  }
+
+  tab_name(): string {
+    return "star-calibration";
+  }
+
+  tab_text(): string {
+    return "Star Calibration";
+  }
+
+  /** Invoked when the main tab is selected by the user (or on load)
+   *
+   * Repopulate so that the UI is up-to-date
+   */
+  tab_selected(): void {
+    this.update_mapped_nps();
+    this.activity_occurred();
+  }
+
+  tab_deselected(): void {
+    this.animate.stop();
+  }
+
+  activity_occurred() {
+    this.animation_inactivity = 300;
+  }
+
+  animation_step() {
+    if (this.animation_inactivity > 0) {
+      this.animation_inactivity -= 1;
+      this.animate.schedule(this.animation_delay);
+    }
+  }
+
+  update_mapped_nps() {
+    const project = this.application.current_project();
+    const wasm_nps = project.get_wasm_nps();
+    if (wasm_nps === null) {
+      this.mapped_nps = null;
+    } else {
+      this.mapped_nps = new MappedNps(project);
+      this.mapped_nps.set_focus([this.cursor.x, this.cursor.y]);
+      this.mapped_nps.map_with_cip(project.get_cip());
+      this.image_points = [];
+      this.image_points.push(this.cursor);
+      for (const mnp of this.mapped_nps.named_points) {
+        if (mnp.has_pms) {
+          const op = new MappedPoint(project, mnp);
+          this.image_points.push(op);
+        }
+        const op = new NamedPoint(project, mnp);
+        this.image_points.push(op);
+      }
+    }
+    this.repopulate_nps_div();
+  }
+
+  /** At end of drag */
+  cursor_moved(xy: [number, number]) {
+    this.cursor.x = xy[0];
+    this.cursor.y = xy[1];
+    this.application.set_view_needs_update();
+  const project = this.application.current_project();
+  if (this.mapped_nps !== null) {
+    this.mapped_nps.set_focus(xy);
+    this.mapped_nps.map_with_cip(project.get_cip());
+    this.repopulate_nps_div();
+    }
+  }
+
+  /** At end of drag of point mapping */
+  mapped_point_moved(mp: MappedPoint, xy: [number, number]) {
+    this.application.current_project().pms_move(mp.np_name, xy);
+    this.repopulate_nps_div();
+  }
+
+  /** Dragging of cursor */
+  cursor_move(x: number, y: number): void {
+    this.cursor.x = x;
+    this.cursor.y = y;
+    this.application.set_view_needs_update();
+  }
+
+  /** NP selected in tools */
+  mapped_np_select_xy(x: number, y: number): void {
+    this.cursor_move(x, y);
+  }
+
+  /** PM add mapping selected in tools */
+  mapped_np_add_mapping_for(_np_name: string): void {}
+
+  /** PM delete mapping selected in tools */
+  mapped_np_delete_mapping_for(_np_name: string): void { }
+
+  /** *Set* the mapping for a particualr np selected in tools
+   *
+   * set it to the current cursor
+   */
+  mapped_np_set_mapping_for(_np_name: string): void {}
+
+  animation(_time: number) {
+    this.animation_rotation += 10;
+    if (this.animation_rotation > 360) {
+      this.animation_rotation -= 360;
+    }
+    this.application.set_view_needs_update();
+  }
+
+  repopulate_nps_div() {
+    this.tools_nps_div.clear();
+    if (this.mapped_nps !== null) {
+      const table = new Table({ classes: "sticky_heading" });
+      this.mapped_nps.fill_table(table, this);
+      this.tools_nps_div.add_content(table.as_html());
+    }
   }
 
   webgl_create(webgl: Webgl, _webgl_canvas: WebglCanvas): void {
@@ -136,8 +361,9 @@ export class StarCalibration implements WebglCanvasClient {
     const zoom = this.zoomed_window.get_zoom();
     const ofs = this.zoomed_window.rel_cxy();
 
-    const m = WasmMat4f64.identity();
-    const m_a = this.application.wasm_memory.float_array_of_mat4f64(m);
+    const m_a = this.application.wasm_memory.float_array_of_mat4f64(
+      this.wasm_mat4,
+    );
 
     // In this rendering, model matrix applies any transformations such as
     // rotations for animations; if these are required they operate local to the
@@ -158,14 +384,14 @@ export class StarCalibration implements WebglCanvasClient {
 
     // Map the ofs of the *texture* (in range 0 to 1) to the rectangle in space which is -1 to 1
     // View should be set to (+-1,+-1,z) to (zoom/ofs, zoom/ofs * (w/h), z)
-    m.set_identity();
+    this.wasm_mat4.set_identity();
     m_a[0] = zoom;
     m_a[5] = zoom * view_ar;
     m_a[12] = zoom * (1 - ofs[0] * 2);
     m_a[13] = zoom * view_ar * (ofs[1] * 2 - 1);
     webgl.projection.set(m_a);
 
-    m.set_identity();
+    this.wasm_mat4.set_identity();
     webgl.view.set(m_a);
 
     // Model for *image* should be set to map from (x, +-1, 0) to
@@ -173,7 +399,7 @@ export class StarCalibration implements WebglCanvasClient {
     // so that (post-model) it is a rectangle of the same shape as the image,
     // i.e. where the space is uniform (pixels are squares)
     webgl.use_program(webgl_canvas.image_program);
-    m.set_identity();
+    this.wasm_mat4.set_identity();
     m_a[5] = 1 / image_ar;
     webgl.model.set(m_a);
 
@@ -187,7 +413,7 @@ export class StarCalibration implements WebglCanvasClient {
     // Model for *stars* should be set to map from (+-1, +-1, 0) to (+-1/tanhfov, +-1/1/tanhfov)
     webgl.use_program(webgl_canvas.star_program);
     const tan_hfovh = camera.tan_hfovh;
-    m.set_identity();
+    this.wasm_mat4.set_identity();
     m_a[0] = 1 / tan_hfovh;
     m_a[5] = 1 / tan_hfovh;
     webgl.model.set(m_a);
@@ -199,7 +425,7 @@ export class StarCalibration implements WebglCanvasClient {
 
     // Plot the grid which is in image space, so needs the image-to-uniform model mapping
     webgl.use_program(webgl_canvas.image_grid_line_program);
-    m.set_identity();
+    this.wasm_mat4.set_identity();
     m_a[5] = 1 / image_ar;
     webgl.model.set(m_a);
     webgl.set_uniform_projection();
@@ -282,22 +508,26 @@ export class StarCalibration implements WebglCanvasClient {
     //
     webgl.use_program(webgl_canvas.flat_program);
     // Apply rotation for animation
+    this.wasm_quat.set_unit();
+    this.wasm_quat.set_mul_rotate_z((this.animation_rotation / 180) * 3.1415);
+
     webgl.set_uniform_projection();
-    m.set_identity();
-    m.set_scale3(0.03 / zoom);
+    this.wasm_quat.mat4_set_rotation(this.wasm_mat4);
+    this.wasm_mat4.set_scale3(0.03 / zoom);
     webgl.model.set(m_a);
     webgl.set_uniform_model();
 
-    m.set_identity();
-    webgl.set_color([1.0, 1, 0.0, 1]);
-    for (const o of this.orientation_points) {
+    this.wasm_mat4.set_identity();
+    for (const o of this.image_points) {
       const uxy = this.uniform_xy_of_img_xy(o.x, o.y);
       m_a[3] = uxy[0];
       m_a[7] = uxy[1];
       webgl.view.set(m_a);
       webgl.set_uniform_view();
-      webgl.draw(webgl_canvas.webgl_asterisk!);
+      o.draw(webgl, webgl_canvas);
     }
+
+    this.animation_step();
   }
 
   uniform_xy_of_img_xy(x: number, y: number): [number, number] {
@@ -364,7 +594,7 @@ export class StarCalibration implements WebglCanvasClient {
   ): [ImagePoint, number] | null {
     let min_dsq = 1e16;
     let pt = null;
-    for (const o of this.orientation_points) {
+    for (const o of this.image_points) {
       const dsq = o.distance_sq(img_x, img_y);
       if (dsq < min_dsq) {
         pt = o;
@@ -395,8 +625,15 @@ export class StarCalibration implements WebglCanvasClient {
     this.sel_pt = null;
     actions.can_pan = true;
     actions.can_drag = false;
+    this.activity_occurred();
   }
 
+  user_release(_start_xy: [number, number], xy: [number, number]): void {
+    const uni_xy = this.uniform_xy_of_scr_xy(xy[0], xy[1]);
+    const img_xy = this.img_xy_of_uniform_xy(uni_xy[0], uni_xy[1]);
+    this.activity_occurred();
+    this.cursor_move(img_xy[0], img_xy[1]);
+  }
   user_press_move(_start_xy: [number, number], _xy: [number, number]): void {}
   user_press_cancel(_start_xy: [number, number]): void {}
 
@@ -405,16 +642,19 @@ export class StarCalibration implements WebglCanvasClient {
   user_pan(xy: [number, number], dxy: [number, number]): void {
     this.zoomed_window.user_pan(xy, dxy);
     this.application.set_view_needs_update();
+    this.activity_occurred();
   }
   user_zoom(cxy: [number, number], factor: number): void {
     this.zoomed_window.user_zoom(cxy, factor);
     this.application.set_view_needs_update();
+    this.activity_occurred();
   }
 
   drag_start(_start_xy: [number, number], _xy: [number, number]): void {
     if (this.sel_pt !== null) {
       this.drag_pt = this.sel_pt;
       this.sel_pt = null;
+      this.activity_occurred();
     }
   }
 
@@ -429,15 +669,17 @@ export class StarCalibration implements WebglCanvasClient {
       this.drag_pt.x = img_xy[0];
       this.drag_pt.y = img_xy[1];
       this.application.set_view_needs_update();
+      this.activity_occurred();
     }
   }
 
-  drag_end(_start_xy: [number, number], _xy: [number, number]): void {
+  drag_end(_start_xy: [number, number], xy: [number, number]): void {
     if (this.drag_pt !== null) {
-      this.drag_pt.finished_drag();
+      const uni_xy = this.uniform_xy_of_scr_xy(xy[0], xy[1]);
+      const img_xy = this.img_xy_of_uniform_xy(uni_xy[0], uni_xy[1]);
+      this.drag_pt.finished_drag(this, img_xy);
+      this.activity_occurred();
     }
     this.drag_pt = null;
   }
-
-  user_release(_start_xy: [number, number], _xy: [number, number]): void {}
 }

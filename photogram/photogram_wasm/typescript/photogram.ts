@@ -16,22 +16,25 @@ import { LensCalibrationPlot } from "./lens_calibration_plot.js";
 import { StarCalibration } from "./star_calibration.js";
 import { ProjectEdit } from "./project_edit.js";
 
-import { Application } from "./application.js";
-
-enum SelectedTab {
-  Help,
-  Browser,
-  StarCalibration,
-  LensCalibrationPlot,
-  ProjectEdit,
-  Log,
-}
+import { Application, ApplicationTab } from "./application.js";
+import { UndoTab } from "./undo_tab.js";
 
 class TabType {
-  selected_tab: SelectedTab;
   web_canvas_client: WebglCanvasClient | null = null;
-  constructor(selected_tab: SelectedTab) {
-    this.selected_tab = selected_tab;
+  application_tab: ApplicationTab | null = null;
+  constructor() {}
+  set_application_tab(application_tab: ApplicationTab | null) {
+    this.application_tab = application_tab;
+  }
+  select(): void {
+    if (this.application_tab !== null) {
+      this.application_tab.tab_selected();
+    }
+  }
+  deselect(): void {
+    if (this.application_tab !== null) {
+      this.application_tab.tab_deselected();
+    }
   }
   set_client(web_canvas_view: WebglCanvasClient): TabType {
     this.web_canvas_client = web_canvas_view;
@@ -63,6 +66,7 @@ export class Photogram implements Application {
   lens_calibration_plot: LensCalibrationPlot;
   star_calibration: StarCalibration;
   project_edit: ProjectEdit;
+  undo: UndoTab;
 
   constructor(wasm_instance: InitOutput, _params: URLSearchParams) {
     this.wasm_memory = new WasmMemory(wasm_instance.memory);
@@ -93,6 +97,10 @@ export class Photogram implements Application {
       webgl_canvas,
     );
 
+    this.tabs = new Tabs("tab-list", this.tab_selected.bind(this), [
+      ["tab-help", "Help", new TabType()],
+    ]);
+
     const browser_div = new HtmlElement(document.getElementById("browser")!);
     this.browser = new Browser(
       this,
@@ -106,7 +114,7 @@ export class Photogram implements Application {
     );
     this.star_calibration = new StarCalibration(
       this,
-      new Logger(this.app_logger, "star_calibrationt"),
+      new Logger(this.app_logger, "star_calibration"),
       star_calibration_div,
     );
 
@@ -128,6 +136,15 @@ export class Photogram implements Application {
       project_edit_div,
     );
 
+    const undo_div = new HtmlElement(
+      document.getElementById("undo")!,
+    );
+    this.undo = new UndoTab (
+      this,
+      new Logger(this.app_logger, "undo"),
+      undo_div,
+    );
+
     this.pending_resize = false;
 
     this.resize_observer = new ResizeObserver(this.resize_canvas.bind(this));
@@ -143,38 +160,13 @@ export class Photogram implements Application {
       return a;
     });
 
-    this.tabs = new Tabs("tab-list", this.tab_selected.bind(this), [
-      ["tab-help", "Help", new TabType(SelectedTab.Help)],
-      ["tab-browser", "Browser", new TabType(SelectedTab.Browser)],
-      [
-        "tab-lens-calibration-plot",
-        "Lens Calibration",
-        new TabType(SelectedTab.LensCalibrationPlot),
-      ],
-      [
-        "tab-star-calibration",
-        "Star Calibration",
-        new TabType(SelectedTab.StarCalibration).set_client(
-          this.star_calibration,
-        ),
-      ],
-      [
-        "tab-project-edit",
-        "Project Edit",
-        new TabType(SelectedTab.ProjectEdit),
-      ],
-      ["tab-log", "Log", new TabType(SelectedTab.Log)],
-    ]);
+    this.file_set.get_file_list();
+
+    this.tabs.add_tab("tab-log", "Log", new TabType());
+
     this.selected_tab_type = null!;
     this.tabs.select("help");
 
-    this.file_set.get_file_list();
-
-    for (const t of this.tabs.tabs) {
-      if (t.client.web_canvas_client !== null) {
-        this.webgl_canvas.create(t.client.web_canvas_client);
-      }
-    }
     // this.load_project("local:nac_all_proj.json");
     // this.load_project("server:nac_all_proj");
     this.load_project("server:lens_calibrations_proj");
@@ -182,6 +174,23 @@ export class Photogram implements Application {
 
   logger(): Log {
     return this.app_logger;
+  }
+
+  add_tab(
+    application_tab: ApplicationTab,
+    web_canvas_client: WebglCanvasClient | null,
+  ): void {
+    const tab_type = new TabType();
+    tab_type.set_application_tab(application_tab);
+    if (web_canvas_client !== null) {
+      tab_type.set_client(web_canvas_client);
+      this.webgl_canvas.create(web_canvas_client);
+    }
+    this.tabs.add_tab(
+      "tab-" + application_tab.tab_name(),
+      application_tab.tab_text(),
+      tab_type,
+    );
   }
 
   get_resizable_content_size(): [number, number] {
@@ -226,9 +235,6 @@ export class Photogram implements Application {
   repopulate() {
     this.project.repopulate();
     this.cip.repopulate();
-    this.browser.repopulate();
-    this.lens_calibration_plot.repopulate();
-    this.project_edit.repopulate();
   }
 
   thumbnails_updated() {}
@@ -244,6 +250,11 @@ export class Photogram implements Application {
   }
 
   tab_selected(tab_type: TabType) {
+    if (this.selected_tab_type !== tab_type) {
+      if (this.selected_tab_type !== null) {
+        this.selected_tab_type.deselect();
+      }
+    }
     this.selected_tab_type = tab_type;
 
     if (this.selected_tab_type.web_canvas_client === null) {
@@ -258,10 +269,14 @@ export class Photogram implements Application {
         this.resizable_size[1],
       );
     }
+    this.selected_tab_type.select();
     this.set_view_needs_update();
   }
 
-  /// Mark the view as needing an update
+  /** Mark the view as needing an update
+   *
+   * This is lightweight as it is used in animation
+   */
   set_view_needs_update() {
     if (!this.view_needs_update) {
       this.view_needs_update = true;
@@ -269,7 +284,10 @@ export class Photogram implements Application {
     }
   }
 
-  /// Update the view, because of a view change, time change, etc
+  /** Update the view, because of a view change, time change, animation step, etc
+   *
+   * This is lightweight as it is used in animation
+   */
   update_view() {
     if (this.selected_tab_type === null) {
       return;

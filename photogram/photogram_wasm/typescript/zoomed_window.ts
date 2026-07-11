@@ -216,7 +216,7 @@ export class ZoomedWindow {
   }
 
   user_pan(_xy: [number, number], dxy: [number, number]): void {
-    this.zoom_scr_by(-dxy[0], -dxy[1]);
+    this.zoom_scr_by(dxy[0], dxy[1]);
   }
 
   user_zoom(focus_xy: [number, number], factor: number): void {
