@@ -56,6 +56,7 @@ wasm:
 #a Image server
 .PHONY: image_server
 image_server:
+	# cargo run --bin image_server -- --file_path ./photogram_wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 16
 	cargo run --release --bin image_server -- --file_path ./photogram_wasm/ --project_path ~/Git/glove/photogram/nac --image_path ~/Git/Images --verbose serve --num_threads 16
 
 .PHONY: image_server_debug
