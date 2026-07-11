@@ -49,24 +49,30 @@ impl<'de> Deserialize<'de> for NamedPointSet {
     }
 }
 
-//ip NamedPointSet
 impl NamedPointSet {
-    //ap len
+    /// Get the number of points in the [NamedPointSet]
     pub fn len(&self) -> usize {
         self.points.len()
     }
 
-    //ap is_empty
+    /// Return true if the set is empty
     pub fn is_empty(&self) -> bool {
         self.points.is_empty()
     }
 
-    //fp set_tag_set
+    /// This must be invoked with the creation of a NamedPointSet
+    ///
+    /// The TagSet may be empty; when the NamedPointSet is deserialized its tags
+    /// are set to be Owned, and so merging with another TagSet is fine
     pub fn set_tag_set(&mut self, tags: Rc<TagSet>) {
         self.points.set_tag_set(tags)
     }
 
-    //mp to_json
+    /// Create JSON for the set
+    ///
+    /// The JSON is the 'owner' of the names of the points; other types that are
+    /// serialized using the names of points do so by reference, the NPS does it
+    /// by ownership
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -75,13 +81,10 @@ impl NamedPointSet {
         }
     }
 
-    //mp merge
     /// Merge another NPS into this one
-    ///
-    /// The other NPS cannot be in use
     pub fn merge(&mut self, other: Self) {
         for other_np in other.points.into_values() {
-            if let Some(self_np) = self.points.get_data(other_np.name()) {
+            if let Some(self_np) = self.points.get_tag(&other_np.ref_tag()) {
                 let other_np_is_unmapped = other_np.is_unmapped();
                 let self_np_is_unmapped = self_np.is_unmapped();
                 if self_np_is_unmapped && !other_np_is_unmapped {
@@ -96,18 +99,17 @@ impl NamedPointSet {
         }
     }
 
-    //fp has_np
+    /// Return true if the name of the named point presented is present in the set
     pub fn has_np(&self, np: &NamedPoint) -> bool {
-        self.points.has_tag(np.name())
+        self.points.has_name(np.ref_tag().as_str())
     }
 
-    //mp add_np
-    /// Requires np to not be in the name set already
+    /// Add a named point to the set; if the name of the point is already
+    /// present then the current contents are returned (i.e. the old point)
     pub fn add_np(&mut self, np: NamedPoint) -> Option<Rc<NamedPoint>> {
         self.points.add_data(np)
     }
 
-    //mp add_pt
     /// Add a point to the named point set
     ///
     /// This must happen only after the TagSet is defined
@@ -124,28 +126,35 @@ impl NamedPointSet {
         self.add_np(NamedPoint::new(tag, color, model))
     }
 
-    //fp of_color
+    /// Create a vector of the named points with a specific color
     pub fn of_color(&self, color: &Color) -> Vec<Rc<NamedPoint>> {
         self.points
             .iter()
-            .filter(|v| color.color_eq(v.color()))
+            .filter(|v| color.color_eq(&v.color()))
             .cloned()
             .collect()
     }
 
-    //fp get_pt
-    pub fn get_pt(&self, name: &str) -> Option<Rc<NamedPoint>> {
+    pub fn resolve_pt(&self, new_np: &NamedPoint) -> Option<Rc<NamedPoint>> {
+        self.points.get_data(new_np.ref_tag().as_str()).cloned()
+    }
+
+    pub fn get_rc_np(&self, name: &str) -> Option<Rc<NamedPoint>> {
         self.points.get_data(name).cloned()
     }
 
-    //fp get_pt_err
-    pub fn get_pt_err(&self, name: &str) -> Result<Rc<NamedPoint>> {
-        self.points
-            .get_data(name)
-            .ok_or_else(|| {
-                Error::Database(format!("Named point set does not contain name '{name}'"))
-            })
-            .cloned()
+    /// Get the number of *other* users of a named point
+    pub fn pt_use_count(&self, name: &str) -> usize {
+        if !self.points.has_name(name) {
+            0
+        } else {
+            self.points.get_tag_use_count(name).unwrap() - 1
+        }
+    }
+
+    /// Remove the named point from the set, by name
+    pub fn remove_pt(&mut self, name: &str) -> Option<Rc<NamedPoint>> {
+        self.points.remove_data(name)
     }
 
     //mp select
@@ -198,7 +207,7 @@ impl NamedPointSet {
                 continue;
             }
 
-            let name = np.name();
+            let name = np.ref_tag();
             let (at_infinity, model, error) = np.model();
             if at_infinity {
                 if let Some(camera_pxy) = camera.world_dir_to_opt_px_abs_xy(&model) {

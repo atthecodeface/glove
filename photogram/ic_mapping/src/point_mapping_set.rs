@@ -5,7 +5,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{utils, JsonParsable, Point2D, Point3D, Quat, Ray, Result};
+use ic_base::{JsonParsable, Point2D, Point3D, Quat, Ray, Result, utils};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
@@ -153,7 +153,10 @@ impl PointMappingSet {
         }
     }
 
-    //mp add_mapping
+    /// Add a mapping from a name of a point in the provided NamedPointSet to a
+    /// screen location with an uncertainty
+    ///
+    /// This permits duplicate mappings
     pub fn add_mapping(
         &mut self,
         nps: &NamedPointSet,
@@ -161,7 +164,7 @@ impl PointMappingSet {
         screen: &Point2D,
         error: f64,
     ) -> bool {
-        if let Some(model) = nps.get_pt(name) {
+        if let Some(model) = nps.get_rc_np(name) {
             self.mappings
                 .push(PointMapping::new_npt(model, screen, error));
             true
@@ -170,7 +173,7 @@ impl PointMappingSet {
         }
     }
 
-    //mp remove_mapping
+    /// Remove the 'nth' mapping from the set
     pub fn remove_mapping(&mut self, n: usize) -> bool {
         if n < self.mappings.len() {
             self.mappings.remove(n);
@@ -183,11 +186,9 @@ impl PointMappingSet {
     //mp merge
     pub fn merge(&mut self, other: PointMappingSet) {
         for other_pm in other.mappings.into_iter() {
-            if let Some(pm) = self
-                .mappings
-                .iter_mut()
-                .find(|pm| pm.named_point().name() == other_pm.named_point().name())
-            {
+            if let Some(pm) = self.mappings.iter_mut().find(|pm| {
+                pm.named_point().ref_tag().as_str() == other_pm.named_point().ref_tag().as_str()
+            }) {
                 *pm = other_pm;
             } else {
                 self.mappings.push(other_pm);
@@ -204,10 +205,10 @@ impl PointMappingSet {
         let mut unmapped = vec![];
         let mut remove = vec![];
         for (n, p) in self.mappings.iter_mut().enumerate() {
-            if let Some(np) = nps.get_pt(p.name()) {
+            if let Some(np) = nps.resolve_pt(p.named_point()) {
                 p.set_np(np.clone());
             } else {
-                unmapped.push(p.name());
+                unmapped.push(p.named_point().ref_tag().as_str().to_owned());
                 remove.push(n);
             }
         }
@@ -232,9 +233,14 @@ impl PointMappingSet {
         self.mappings.is_empty()
     }
 
-    //ap mappings
+    /// Borrow the mappings
     pub fn mappings(&self) -> &[PointMapping] {
         &self.mappings
+    }
+
+    /// Borrow the mappings mutably
+    pub fn mappings_mut(&mut self) -> &mut [PointMapping] {
+        &mut self.mappings
     }
 
     //ap mapping_of_np
@@ -248,50 +254,7 @@ impl PointMappingSet {
     pub fn get_screen_pts(&self) -> Vec<Point2D> {
         self.mappings.iter().map(|x| *x.screen()).collect()
     }
-}
 
-//ip PointMappingSet - Json
-impl PointMappingSet {
-    /*
-    //mp read_json
-    pub fn read_json(
-        &mut self,
-        nps: &NamedPointSet,
-        toml: &str,
-        allow_not_found: bool,
-    ) -> Result<String> {
-        let (pms, nf) = Self::from_json(nps, toml)?;
-        if !allow_not_found && !nf.is_empty() {
-            Err(Error::Msg(nf))
-        } else {
-            self.merge(pms);
-            Ok(nf)
-        }
-    }
-
-    //cp from_json
-            pub fn from_json(nps: &NamedPointSet, json: &str) -> Result<(Self, String)> {
-                let mut pms: Self = json::from_json("point map set", json)?;
-                let pms_not_found = pms.rebuild_with_named_point_set(nps);
-                if pms_not_found.is_empty() {
-                    Ok((pms, "".into()))
-                } else {
-                    let mut r = String::new();
-                    let mut sep = "";
-                    for pms_nf in pms_not_found {
-                        r.push_str(&format!("{sep}'{}'", pms_nf.name()));
-                        sep = ", ";
-                    }
-                    Ok((
-                        pms,
-                        format!("Failed to find points {r} to map in named point set"),
-                    ))
-                }
-    }
-
-         */
-
-    //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -300,16 +263,17 @@ impl PointMappingSet {
         }
     }
 
-    //mp sorted_order
+    fn cmp_mapping_names(&self, a: &usize, b: &usize) -> std::cmp::Ordering {
+        self.mappings[*a]
+            .named_point()
+            .cmp_np_name(self.mappings[*b].named_point())
+    }
     pub fn sorted_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.mappings.len()).collect();
-        order.sort_by(|a, b| self.mappings[*a].name().cmp(self.mappings[*b].name()));
+        order.sort_by(|a, b| self.cmp_mapping_names(a, b));
         order
     }
-}
 
-//ip PointMappingSet - Operations
-impl PointMappingSet {
     //mi get_pxy_cog
     pub fn get_pxy_cog(&self) -> Point2D {
         let divider = self.mappings.len().min(1) as f64;

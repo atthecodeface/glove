@@ -22,7 +22,7 @@ pub struct PointMapping {
     /// Error in pixels
     error: f64,
     /// Whether to use for initial orientation or not
-    use_for_orientation: bool,
+    usage: u64,
 }
 
 //ip Serialize for PointMapping
@@ -33,10 +33,10 @@ impl Serialize for PointMapping {
     {
         use serde::ser::SerializeTuple;
         let mut seq = serializer.serialize_tuple(4)?;
-        seq.serialize_element(self.named_point.name())?;
+        seq.serialize_element(self.named_point.ref_tag().as_str())?;
         seq.serialize_element(&self.screen)?;
         seq.serialize_element(&self.error)?;
-        seq.serialize_element(&self.use_for_orientation)?;
+        seq.serialize_element(&self.usage)?;
         seq.end()
     }
 }
@@ -47,14 +47,14 @@ impl<'de> Deserialize<'de> for PointMapping {
     where
         DE: serde::Deserializer<'de>,
     {
-        let (model_name, screen, error, use_for_orientation) =
-            <(String, Point2D, f64, bool)>::deserialize(deserializer)?;
+        let (model_name, screen, error, usage) =
+            <(String, Point2D, f64, u64)>::deserialize(deserializer)?;
         let named_point = Rc::new(NamedPoint::reference(model_name));
         Ok(Self {
             named_point,
             screen,
             error,
-            use_for_orientation,
+            usage,
         })
     }
 }
@@ -66,16 +66,12 @@ impl PointMapping {
             named_point,
             screen: *screen,
             error,
-            use_for_orientation: false,
+            usage: 0,
         }
     }
 
     pub fn set_np(&mut self, named_point: Rc<NamedPoint>) {
         self.named_point = named_point;
-    }
-
-    pub fn set_use_for_orientation(&mut self, use_for_orientation: bool) {
-        self.use_for_orientation = use_for_orientation;
     }
 }
 
@@ -120,16 +116,24 @@ impl PointMapping {
         self.error
     }
 
-    pub fn name(&self) -> &str {
-        self.named_point.name()
-    }
-
     pub fn named_point(&self) -> &Rc<NamedPoint> {
         &self.named_point
     }
 
-    pub fn use_for_orientation(&self) -> bool {
-        self.use_for_orientation
+    pub fn useage(&self) -> u64 {
+        self.usage
+    }
+
+    pub fn set_screen(&mut self, screen: Point2D) {
+        self.screen = screen;
+    }
+
+    pub fn set_error(&mut self, error: f64) {
+        self.error = error;
+    }
+
+    pub fn set_usage(&mut self, usage: u64) {
+        self.usage = usage;
     }
 }
 
@@ -270,7 +274,7 @@ impl PointMapping {
         let esq = self.get_mapped_dpxy_error2(camera);
         eprintln!(
             "esq {esq:.2} {} {} <> {:.2}: Maps to {camera_scr_xy:.2}, dxdy {dxdy:.2}: model rot {model_axis:.2} by {model_angle:.2} dxdydz {model_dxdy:.2} dist {model_error:.3}  ",
-            self.name(),
+            self.named_point().ref_tag(),
             self.model(),
             self.screen(),
         );

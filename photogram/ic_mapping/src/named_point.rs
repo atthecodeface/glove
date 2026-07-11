@@ -1,5 +1,5 @@
 //a Imports
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 
 use serde::{Deserialize, Serialize};
 
@@ -14,9 +14,11 @@ use ic_image::Color;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NamedPoint {
     /// Name of the point
-    name: Tag,
+    ///
+    /// Can this by a RefCell? If so, it cannot be a TagData
+    name: RefCell<Tag>,
     /// Color of the point in calibration images
-    color: Color,
+    color: RefCell<Color>,
     /// The 3D model coordinate this point corresponds to and the radius of uncertainty
     ///
     /// The bool is 'at_infinity' - i.e this is a known direction (with no uncertainty), not a 3D position
@@ -30,11 +32,8 @@ pub struct NamedPoint {
 
 //ip TagData for NamedPoint {
 impl TagData for NamedPoint {
-    fn tag(&self) -> &Tag {
+    fn tag(&self) -> &RefCell<Tag> {
         &self.name
-    }
-    fn tag_mut(&mut self) -> &mut Tag {
-        &mut self.name
     }
 }
 
@@ -61,17 +60,31 @@ impl std::fmt::Display for NamedPoint {
                 write!(
                     fmt,
                     "{} {} -> [{:.2}, {:.2}, {:.2}]",
-                    self.name, self.color, xyz[0], xyz[1], xyz[2]
+                    self.name.borrow(),
+                    self.color.borrow(),
+                    xyz[0],
+                    xyz[1],
+                    xyz[2]
                 )
             } else {
                 write!(
                     fmt,
                     "{} {} @[{:.2}, {:.2}, {:.2}] +- {:.2}",
-                    self.name, self.color, xyz[0], xyz[1], xyz[2], error
+                    self.name.borrow(),
+                    self.color.borrow(),
+                    xyz[0],
+                    xyz[1],
+                    xyz[2],
+                    error
                 )
             }
         } else {
-            write!(fmt, "{} {} unmapped", self.name, self.color,)
+            write!(
+                fmt,
+                "{} {} unmapped",
+                self.name.borrow(),
+                self.color.borrow(),
+            )
         }
     }
 }
@@ -84,12 +97,14 @@ impl NamedPoint {
     /// The Tag must thus be Owned or Shared
     pub fn new(name: Tag, color: Color, model: Option<(bool, Point3D, f64)>) -> Self {
         let model = model.into();
+        let name = name.into();
+        let color = color.into();
         Self { name, color, model }
     }
 
     pub fn reference<S: Into<String>>(name: S) -> Self {
-        let name = Tag::reference(name);
-        let color = Color::black();
+        let name = Tag::make_unresolved(name).into();
+        let color = Color::black().into();
         let model = None.into();
         Self { name, color, model }
     }
@@ -98,6 +113,7 @@ impl NamedPoint {
     pub fn is_unmapped(&self) -> bool {
         self.model.borrow().is_none()
     }
+
     #[inline]
     pub fn is_mapped(&self) -> bool {
         self.model.borrow().is_some()
@@ -129,16 +145,30 @@ impl NamedPoint {
     }
 
     #[inline]
-    pub fn color(&self) -> &Color {
-        &self.color
+    pub fn color(&self) -> Color {
+        *self.color.borrow()
     }
 
     #[inline]
     pub fn set_model(&self, model: Option<(bool, Point3D, f64)>) {
         *self.model.borrow_mut() = model;
     }
+
     #[inline]
-    pub fn name(&self) -> &Tag {
-        &self.name
+    pub fn set_color(&self, color: Color) {
+        *self.color.borrow_mut() = color;
+    }
+
+    #[inline]
+    pub fn ref_tag<'a>(&'a self) -> Ref<'a, Tag> {
+        self.name.borrow()
+    }
+
+    pub fn cmp_np_name(&self, np: &NamedPoint) -> std::cmp::Ordering {
+        self.name.borrow().as_str().cmp(np.name.borrow().as_str())
+    }
+
+    pub fn has_name(&self, name: &str) -> bool {
+        self.name.borrow().as_str() == name
     }
 }
