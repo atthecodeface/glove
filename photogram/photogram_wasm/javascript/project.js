@@ -1,4 +1,201 @@
+import { WasmNamedPoint, } from "../pkg/photogram_wasm.js";
 import { HtmlElement } from "./html.js";
+import { UndoBuffer } from "./undo.js";
+/**
+ *
+ * Actions to add
+ *
+ * Add Pms
+ *
+ * Delete PMS
+ *
+ * Orient camera based on stars? (set camera orientation)
+ *
+ */
+class UndoableNpAdd {
+    constructor(project, np_name, np_color) {
+        if (project.wasm_project !== null) {
+            if (project.wasm_project.nps.get_pt(np_name) === undefined) {
+                this.np_name = np_name;
+                this.np_color = np_color;
+                return;
+            }
+        }
+        throw new Error("No WasmProject or np_name already exists");
+    }
+    fwd_text() {
+        return `NpAdd(${this.np_name}, ${this.np_color})`;
+    }
+    rev_text() {
+        return `NpDelete(${this.np_name})`;
+    }
+    fwd(p) {
+        const wasm_np = new WasmNamedPoint(this.np_name, this.np_color);
+        p.wasm_project.nps.add_pt(wasm_np);
+    }
+    rev(p) {
+        p.wasm_project.nps.delete_pt(this.np_name);
+    }
+}
+class UndoableNpDelete {
+    constructor(project, np_name) {
+        if (project.wasm_project !== null) {
+            const np = project.wasm_project.nps.get_pt(np_name);
+            if (np !== undefined) {
+                this.np_name = np_name;
+                this.np = np;
+                return;
+            }
+        }
+        throw new Error("No WasmProject or np_name does not exist");
+    }
+    fwd_text() {
+        return `NpDelete(${this.np_name})`;
+    }
+    rev_text() {
+        return `NpAdd(${this.np_name}, ${this.np.color}); NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model}, ${this.np.error});`;
+    }
+    fwd(p) {
+        p.wasm_project.nps.delete_pt(this.np_name);
+    }
+    rev(p) {
+        p.wasm_project.nps.add_pt(this.np);
+    }
+}
+class UndoableNpRename {
+    constructor(project, np_name, new_np_name) {
+        if (project.wasm_project !== null) {
+            const np = project.wasm_project.nps.get_pt(np_name);
+            const new_np = project.wasm_project.nps.get_pt(new_np_name);
+            if (np !== undefined && new_np === undefined) {
+                this.np_name = np_name;
+                this.new_np_name = new_np_name;
+                return;
+            }
+        }
+        throw new Error("No WasmProject or np_name does not exist or new np name *does* exist");
+    }
+    fwd_text() {
+        return `NpRenamge(${this.np_name}, ${this.new_np_name})`;
+    }
+    rev_text() {
+        return `NpRenamge(${this.new_np_name}, ${this.np_name})`;
+    }
+    fwd(_p) {
+        //     p.wasm_project!.nps.rename_pt(this.np_name, this.new_np_name);
+    }
+    rev(_p) {
+        //    p.wasm_project!.nps.rename_pt(this.new_np_name, this.np_name);
+    }
+}
+class UndoableNpSetModel {
+    constructor(project, np_name, at_infinity, location, error) {
+        if (project.wasm_project !== null) {
+            const np = project.wasm_project.nps.get_pt(np_name);
+            if (np !== undefined) {
+                this.np_name = np_name;
+                this.orig_data = [np.at_infinity, np.model, np.error];
+                this.new_data = [np.at_infinity, np.model, np.error];
+                if (at_infinity !== undefined) {
+                    this.new_data[0] = at_infinity;
+                }
+                if (location !== undefined) {
+                    this.new_data[1] = location.array;
+                }
+                if (error !== undefined) {
+                    this.new_data[2] = error;
+                }
+                return;
+            }
+        }
+        throw new Error("No WasmProject or np_name does not exist");
+    }
+    fwd_text() {
+        return `NpSetModel(${this.np_name}, ${this.new_data[0]}, ${this.new_data[1]}, ${this.new_data[2]})`;
+    }
+    rev_text() {
+        return `NpSetModel(${this.np_name}, ${this.orig_data[0]}, ${this.orig_data[1]}, ${this.orig_data[2]})`;
+    }
+    fwd(p) {
+        if (this.new_data[0]) {
+            p.wasm_project.nps.set_direction(this.np_name, this.new_data[1]);
+        }
+        else {
+            p.wasm_project.nps.set_model(this.np_name, this.new_data[1], this.new_data[2]);
+        }
+    }
+    rev(p) {
+        if (this.orig_data[0]) {
+            p.wasm_project.nps.set_direction(this.np_name, this.orig_data[1]);
+        }
+        else {
+            p.wasm_project.nps.set_model(this.np_name, this.orig_data[1], this.orig_data[2]);
+        }
+    }
+}
+class UndoableNpSetColor {
+    constructor(project, np_name, np_color) {
+        if (project.wasm_project !== null) {
+            const np = project.wasm_project.nps.get_pt(np_name);
+            if (np !== undefined) {
+                this.np_name = np_name;
+                this.new_np_color = np_color;
+                this.orig_np_color = np.color;
+                return;
+            }
+        }
+        throw new Error("No WasmProject or np_name does not exist");
+    }
+    fwd_text() {
+        return `NpSetColor(${this.np_name}, ${this.new_np_color})`;
+    }
+    rev_text() {
+        return `NpSetColor(${this.np_name}, ${this.orig_np_color})`;
+    }
+    fwd(p) {
+        p.wasm_project.nps.set_color(this.np_name, this.new_np_color);
+    }
+    rev(p) {
+        p.wasm_project.nps.set_color(this.np_name, this.orig_np_color);
+    }
+}
+class UndoablePmsMove {
+    constructor(project, np_name, pxy) {
+        if (project.wasm_project !== null) {
+            if (project.wasm_project.nps.get_pt(np_name) !== undefined) {
+                const cip = project.get_wasm_cip();
+                if (cip !== null) {
+                    const n = cip.pms.mapping_of_name(np_name);
+                    if (n !== undefined) {
+                        this.cip_name = project.get_cip().name();
+                        this.np_name = np_name;
+                        this.pxy = pxy;
+                        const xy = cip.pms.get_xy(n);
+                        this.prev_pxy = [xy[0], xy[1]];
+                        return;
+                    }
+                }
+            }
+        }
+        throw new Error("Project did not have cip name and np_name");
+    }
+    fwd_text() {
+        return `PmsMove(${this.cip_name}, ${this.np_name}, ${this.pxy})`;
+    }
+    rev_text() {
+        return `NpDelete(${this.np_name})`;
+    }
+    fwd(p) {
+        const pms = p.get_cip_by_name(this.cip_name).pms;
+        const n = pms.mapping_of_name(this.np_name);
+        pms.set_xy(n, this.pxy[0], this.pxy[1]);
+    }
+    rev(p) {
+        const pms = p.get_cip_by_name(this.cip_name).pms;
+        const n = pms.mapping_of_name(this.np_name);
+        pms.set_xy(n, this.prev_pxy[0], this.prev_pxy[1]);
+    }
+}
 export class Project {
     constructor(application, log, project_set, cip) {
         this.locator = null;
@@ -11,6 +208,104 @@ export class Project {
         this.project_set = project_set;
         this.cip = cip;
         this.thumbnails = new Map();
+        this.undo_buffer = new UndoBuffer();
+    }
+    get_undo_buffer() {
+        return this.undo_buffer;
+    }
+    undo() {
+        const x = this.undo_buffer.undo();
+        if (x === null) {
+            return false;
+        }
+        x.rev(this);
+        return true;
+    }
+    redo() {
+        const x = this.undo_buffer.redo();
+        if (x === null) {
+            return false;
+        }
+        x.fwd(this);
+        return true;
+    }
+    nps_add(name) {
+        try {
+            const np_add = new UndoableNpAdd(this, name, "yellow");
+            this.undo_buffer.do_action(np_add);
+            np_add.fwd(this);
+            this.log.info(`Added NP ${name}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to add NP ${name}`);
+            return false;
+        }
+    }
+    nps_delete(name) {
+        try {
+            const np_del = new UndoableNpDelete(this, name);
+            this.undo_buffer.do_action(np_del);
+            np_del.fwd(this);
+            this.log.info(`Deleted NP ${name}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to delete NP ${name}`);
+            return false;
+        }
+    }
+    nps_rename(name, new_name) {
+        try {
+            const np_set = new UndoableNpRename(this, name, new_name);
+            this.undo_buffer.do_action(np_set);
+            np_set.fwd(this);
+            this.log.info(`Renamed NP ${name} to ${new_name}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to rename NP ${name} to ${new_name}`);
+            return false;
+        }
+    }
+    nps_set_model(name, at_infinity, model, error) {
+        try {
+            const np_set = new UndoableNpSetModel(this, name, at_infinity, model, error);
+            this.undo_buffer.do_action(np_set);
+            np_set.fwd(this);
+            this.log.info(`Set NP model ${name}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to set NP model ${name}`);
+            return false;
+        }
+    }
+    nps_set_color(name, color) {
+        try {
+            const np_set = new UndoableNpSetColor(this, name, color);
+            this.undo_buffer.do_action(np_set);
+            np_set.fwd(this);
+            this.log.info(`Set NP color ${name} to ${color}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to set NP color ${name} to ${color}`);
+            return false;
+        }
+    }
+    pms_move(name, pxy) {
+        try {
+            const pms_move = new UndoablePmsMove(this, name, pxy);
+            this.undo_buffer.do_action(pms_move);
+            pms_move.fwd(this);
+            this.log.info(`Moved point mapping for ${name} to ${pxy}`);
+            return true;
+        }
+        catch (e) {
+            this.log.error(`Failed to moved point mapping for ${name} to ${pxy}`);
+            return false;
+        }
     }
     get_cip() {
         return this.cip;
@@ -36,6 +331,12 @@ export class Project {
     }
     is_modified() {
         return this.modified;
+    }
+    get_wasm_nps() {
+        if (this.wasm_project === null) {
+            return null;
+        }
+        return this.wasm_project.nps;
     }
     get_wasm_cip() {
         return this.cip.wasm_cip;

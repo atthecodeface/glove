@@ -1,4 +1,3 @@
-import * as utils from "./utils.js";
 export class DataRange {
     constructor(data = []) {
         this.data = data;
@@ -244,9 +243,7 @@ export class Plot {
         // draw.extend([["W", 4.0], ["S", "#ff3"], ["b"]]);
         this.x_iter_spacing(tics.spacing, (d, graph_rel) => {
             let x = this.map_x_graph_rel_to_abs.map(graph_rel);
-            draw.extend([
-                ["txt", x, this.graph_area[1] + 30, utils.decimal_to_sig_fig(d, 3)],
-            ]);
+            draw.extend([["txt", x, this.graph_area[1] + 30, d.toPrecision(3)]]);
         });
     }
     generate_y_labels(draw, level) {
@@ -259,9 +256,7 @@ export class Plot {
         }
         this.y_iter_spacing(tics.spacing, (d, graph_rel) => {
             let y = this.map_y_graph_rel_to_abs.map(graph_rel);
-            draw.extend([
-                ["txt", this.graph_area[0] - 30, y, utils.decimal_to_sig_fig(d, 3)],
-            ]);
+            draw.extend([["txt", this.graph_area[0] - 30, y, d.toPrecision(3)]]);
         });
     }
     generate_x_grid(draw, level) {

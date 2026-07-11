@@ -1,6 +1,7 @@
 import { WasmMat4f32 } from "../pkg/photogram_wasm.js";
 import { Webgl, WebglUniform } from "./web_gl.js";
 import { Webgl3DObj } from "./web_gl_3d_obj.js";
+import { WebglFlatShader, WebglFlatObj } from "./web_gl_flat.js";
 import { Mouse } from "./mouse.js";
 import { ImageShader, ImageOverlayShader, StarCalibrationShader, } from "./shaders.js";
 export class GridLinesObj {
@@ -77,10 +78,16 @@ export class StarsWebglObj {
 export class WebglCanvas {
     constructor(application, log, webgl_canvas) {
         this.webgl = null;
+        this.start_webgl_failed = false;
         this.image_program = 0;
         this.star_program = 0;
         this.image_grid_line_program = 0;
+        this.flat_program = 0;
         this.webgl_rectangle = null;
+        this.webgl_grid = null;
+        this.webgl_asterisk = null;
+        this.webgl_circle = null;
+        this.webgl_cross = null;
         this.model = WasmMat4f32.identity();
         this.application = application;
         this.log = log;
@@ -94,33 +101,36 @@ export class WebglCanvas {
             throw "Webgl was not created correctly; aborting webgl canvas";
         }
     }
+    compile_program(shader) {
+        const program = this.webgl.compile_program(shader);
+        if (program === null) {
+            this.start_webgl_failed = true;
+            return 0;
+        }
+        return program;
+    }
     start_webgl() {
         if (!this.webgl.start_webgl()) {
             return false;
         }
-        {
-            const program = this.webgl.compile_program(new ImageShader());
-            if (program === null) {
-                return false;
-            }
-            this.image_program = program;
-        }
-        {
-            const program = this.webgl.compile_program(new StarCalibrationShader());
-            if (program === null) {
-                return false;
-            }
-            this.star_program = program;
-        }
-        {
-            const program = this.webgl.compile_program(new ImageOverlayShader());
-            if (program === null) {
-                return false;
-            }
-            this.image_grid_line_program = program;
+        this.start_webgl_failed = false;
+        this.image_program = this.compile_program(new ImageShader());
+        this.star_program = this.compile_program(new StarCalibrationShader());
+        this.image_grid_line_program = this.compile_program(new ImageOverlayShader());
+        this.flat_program = this.compile_program(new WebglFlatShader());
+        if (this.start_webgl_failed) {
+            return false;
         }
         this.webgl_rectangle = new Webgl3DObj(4, 2, [-1, 1, 0, -1, -1, 0, 1, -1, 0, 1, 1, 0], [0, 0, 0, 1, 1, 1, 1, 0], [0, 2, 1, 2, 3, 0]);
+        this.webgl_grid = new GridLinesObj(2, 2);
+        this.webgl_cross = WebglFlatObj.cross(1, 1);
+        this.webgl_circle = WebglFlatObj.circle(1, 16);
+        this.webgl_asterisk = WebglFlatObj.asterisk(1);
         this.webgl.create(this.webgl_rectangle);
+        this.webgl.create(this.webgl_grid);
+        this.webgl.create(this.webgl_asterisk);
+        this.webgl.create(this.webgl_circle);
+        this.webgl.create(this.webgl_cross);
         this.log.info(`Created full webgl content`);
         return true;
     }

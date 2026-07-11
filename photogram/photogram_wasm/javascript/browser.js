@@ -6,6 +6,17 @@ export class Browser {
         this.log = log;
         this.file_set = file_set;
         this.browser = browser;
+        application.add_tab(this, null);
+    }
+    tab_deselected() { }
+    tab_selected() {
+        this.repopulate();
+    }
+    tab_name() {
+        return "browser";
+    }
+    tab_text() {
+        return "Browser";
     }
     file_link(f) {
         // href is the file to fetch; donwload indicates it is to be downloaded to *that* filename
@@ -40,7 +51,7 @@ export class Browser {
             classes: "browser_ft_heading",
         });
         heading.add_content("Camera Database");
-        const table = new Table("cdb");
+        const table = new Table({ classes: "cdb" });
         table.add_headings(["Filename", "Bodies", "Lenses"]);
         for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Cdb)) {
             let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Cdb);
@@ -72,7 +83,7 @@ export class Browser {
             classes: "browser_ft_heading",
         });
         heading.add_content("Projects");
-        const table = new Table("proj");
+        const table = new Table({ classes: "proj" });
         table.add_headings(["Filename", "Cdb", "Nps", "Number CIP"]);
         for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Project)) {
             let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Project);
@@ -99,7 +110,7 @@ export class Browser {
             classes: "browser_ft_heading",
         });
         heading.add_content("Named point sets");
-        const table = new Table("nps");
+        const table = new Table({ classes: "nps" });
         table.add_headings(["Filename", "Number of points"]);
         for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Nps)) {
             let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Nps);
@@ -118,7 +129,7 @@ export class Browser {
             classes: "browser_ft_heading",
         });
         heading.add_content("Camera/Image/Point mapping set");
-        const table = new Table("cip");
+        const table = new Table({ classes: "cip" });
         table.add_headings([
             "Filename",
             "Image",

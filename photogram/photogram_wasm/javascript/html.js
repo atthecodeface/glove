@@ -14,6 +14,8 @@
  * 31 March: Directory methods take files in root, suffix rather than the other ways round
  *
  */
+import { Animate } from "./animate.js";
+import { string_color, color_choice_as_rgb } from "./color.js";
 /**
  * Get the value of a float fron an HTMLInputElement, bounded by min and max,
  * with a default of the ID cannot be found
@@ -192,6 +194,9 @@ export class HtmlElement {
         return acc;
     }
     constructor(ele, id_classes = {}, tag_values = []) {
+        this.drag = null;
+        this.animate = null;
+        this.timeout = 0;
         this.ele = ele;
         this.range = { min: 0, max: 0, value: 0, step: 1 };
         HtmlElement.set_id_classes(ele, id_classes);
@@ -239,6 +244,32 @@ export class HtmlElement {
         }
         return span;
     }
+    /** Add a table (to the element) */
+    add_table(id_classes = {}) {
+        const table = new Table(id_classes);
+        this.add_content(table);
+        return table;
+    }
+    /** Add an input button (to the element)
+     *
+     */
+    add_button(name, value, callback, id_classes = {}) {
+        const html_button = this.add_ele("button", id_classes, [
+            ["type", "button"],
+            ["name", name],
+            ["value", value],
+        ]);
+        const button = html_button.ele;
+        button.addEventListener("click", callback);
+        return html_button;
+    }
+    /** Add an input button (to the element)
+     *
+     * This adds a <button> element of type button, with a specified callback
+     *
+     * The element returned can have HTML inside it
+     *
+     */
     add_input_button(value, callback, id_classes = {}) {
         const html_input = this.add_ele("input", id_classes, [
             ["type", "button"],
@@ -382,6 +413,18 @@ export class HtmlElement {
         }
         return html_select;
     }
+    /**
+     *
+     * In the callback, to retrieve multiple options, event.target.selectedOptions
+     *
+     * @param choice Initial color
+     * @param callback
+     * @param id_classes
+     * @returns
+     */
+    add_input_color(choice = {}, callback, id_classes = {}) {
+        return this.add_content(new ColorSelector(choice, callback, id_classes));
+    }
     add_label(for_input, id_classes = {}) {
         const label = document.createElement("label");
         if (for_input) {
@@ -389,6 +432,75 @@ export class HtmlElement {
         }
         this.ele.appendChild(label);
         return new HtmlElement(label, id_classes);
+    }
+    /** Add dialog, possibly with callback on 'beforetoggle' to enable repopulation before it is shown
+     */
+    add_dialog(popover, preopen_callback = null, open_timeout = 0, id_classes = {}) {
+        const tags = [];
+        if (popover) {
+            tags.push(["popover", ""]);
+        }
+        const dialog = this.add_ele("dialog", id_classes, tags);
+        const e = dialog.ele;
+        e.addEventListener("mousedown", this.dialog_mouse_down.bind(dialog));
+        e.addEventListener("mousemove", this.dialog_mouse_move.bind(dialog));
+        e.addEventListener("mouseup", this.dialog_mouse_up.bind(dialog));
+        e.addEventListener("mouseleave", this.dialog_mouse_up.bind(dialog));
+        e.addEventListener("beforetoggle", (e) => dialog.dialog_before_toggle(e, preopen_callback, open_timeout));
+        dialog.timeout = open_timeout;
+        if (open_timeout != 0) {
+            dialog.animate = new Animate((_time) => dialog.dialog_animate_close());
+        }
+        // closedBy is not supported across all browsers
+        return dialog;
+    }
+    dialog_animate_close() {
+        const e = this.ele;
+        e.close();
+        this.drag = null;
+    }
+    dialog_interacted_with() {
+        if (this.animate !== null) {
+            this.animate.schedule(this.timeout);
+        }
+    }
+    dialog_before_toggle(e, preopen_callback, open_timeout) {
+        if (this.animate !== null) {
+            this.animate.stop();
+        }
+        if (e.newState == "open") {
+            if (preopen_callback !== null) {
+                preopen_callback(this);
+            }
+            if (open_timeout != 0) {
+                this.animate.schedule(open_timeout);
+            }
+        }
+    }
+    dialog_mouse_down(e) {
+        this.drag = [e.clientX, e.clientY];
+        if (this.animate !== null) {
+            this.animate.schedule(60 * 1000);
+        }
+        e.preventDefault();
+    }
+    dialog_mouse_move(e) {
+        if (this.drag === null) {
+            return;
+        }
+        const dx = e.clientX - this.drag[0];
+        const dy = e.clientY - this.drag[1];
+        this.drag = [e.clientX, e.clientY];
+        this.ele.style.left = this.ele.offsetLeft + dx + "px";
+        this.ele.style.top = this.ele.offsetTop + dy + "px";
+        e.preventDefault();
+        if (this.animate !== null) {
+            this.animate.schedule(60 * 1000);
+        }
+    }
+    dialog_mouse_up(_e) {
+        this.drag = null;
+        this.dialog_interacted_with();
     }
     input_checked() {
         if (this.ele instanceof HTMLInputElement) {
@@ -480,9 +592,15 @@ export class HtmlElement {
         return this;
     }
 }
-export class Table {
-    constructor(classes) {
-        this.classes = classes;
+/**
+ * A Table has headings (a list of entries) and body (a list of list of entries)
+ *
+ * if the entries are HtmlElements then they will have a parent, but they will
+ * be detached from that parent and moved to the table when the HTML is created
+ */
+export class Table extends HtmlElement {
+    constructor(id_classes = {}, tag_values = []) {
+        super(document.createElement("table"), id_classes, tag_values);
         this.headings = [];
         this.heading_classes = "";
         this.body = [];
@@ -496,9 +614,8 @@ export class Table {
         this.body.push(body_elements);
     }
     as_html() {
-        const table = HtmlElement.new_ele("table", { classes: this.classes });
         if (this.headings.length > 0) {
-            const tr = table.add_ele("tr", { classes: this.heading_classes });
+            const tr = this.add_ele("tr", { classes: this.heading_classes });
             let i = 0;
             for (const h of this.headings) {
                 const th = tr.add_ele("th");
@@ -507,18 +624,17 @@ export class Table {
             }
         }
         for (const c of this.body) {
-            const tr = table.add_ele("tr");
+            const tr = this.add_ele("tr");
             for (const d of c) {
                 const td = tr.add_ele("td");
                 td.add_content(d);
             }
         }
-        return table;
+        return this;
     }
     as_vertical_html() {
-        const table = HtmlElement.new_ele("table", { classes: this.classes });
         for (let i = 0; i < this.body.length; i++) {
-            const tr = table.add_ele("tr");
+            const tr = this.add_ele("tr");
             const th = tr.add_ele("th", { classes: this.heading_classes });
             if (i < this.headings.length) {
                 th.add_content(this.headings[i]);
@@ -528,6 +644,20 @@ export class Table {
                 tr.add_ele("td").add_content(d);
             }
         }
-        return table;
+        return this;
+    }
+}
+export class ColorSelector extends HtmlElement {
+    constructor(choice = {}, callback, id_classes = {}) {
+        super(document.createElement("input"), id_classes, [
+            ["type", "color"],
+            ["value", string_color(color_choice_as_rgb(choice))],
+        ]);
+        console.log(this.ele);
+        const input = this.ele;
+        input.addEventListener("change", (e) => {
+            console.log(e, input);
+            callback(input.value);
+        });
     }
 }

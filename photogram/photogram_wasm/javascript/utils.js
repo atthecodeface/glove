@@ -47,6 +47,13 @@ export function round_to_multiple(x, m, to = 0) {
         return m * Math.ceil(x / m);
     }
 }
-export function decimal_to_sig_fig(x, _max_dp) {
-    return x.toString();
+export function point_to_dp(coords, dp) {
+    let result = "";
+    let sep = "(";
+    for (const c of coords) {
+        result += sep;
+        result += c.toFixed(dp);
+        sep = ", ";
+    }
+    return result + ")";
 }

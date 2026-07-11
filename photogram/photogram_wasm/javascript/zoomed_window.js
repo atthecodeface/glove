@@ -192,7 +192,7 @@ export class ZoomedWindow {
         this.zoom_set(new_zoom);
     }
     user_pan(_xy, dxy) {
-        this.zoom_scr_by(-dxy[0], -dxy[1]);
+        this.zoom_scr_by(dxy[0], dxy[1]);
     }
     user_zoom(focus_xy, factor) {
         this.zoom_set(this.zoom * factor, focus_xy);

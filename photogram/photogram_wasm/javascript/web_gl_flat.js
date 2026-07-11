@@ -47,6 +47,58 @@ export class WebglFlatObj {
         this.num_indices = this.indices.length;
         this.num_vertices = this.positions.length / 2;
     }
+    /** A '+' centred on the origin of the given width and height */
+    static cross(width, height) {
+        return new WebglFlatObj(new Float32Array([
+            0,
+            -height / 2,
+            0,
+            height / 2,
+            -width / 2,
+            0,
+            width / 2,
+            0,
+        ]), new Uint16Array([0, 1, 2, 3]));
+    }
+    /** An eight-pointed star centred on the origin of the given width and height */
+    static dblcross(width, height) {
+        return new WebglFlatObj(new Float32Array([
+            0,
+            -height / 2,
+            0,
+            height / 2,
+            -width / 2,
+            0,
+            width / 2,
+            0,
+            -height * 0.35,
+            -width * 0.35,
+            height * 0.35,
+            width * 0.35,
+            height * 0.35,
+            -width * 0.35,
+            -height * 0.35,
+            width * 0.35,
+        ]), new Uint16Array([0, 1, 2, 3, 4, 5, 6, 7]));
+    }
+    /** A six-pointed star centred on the origin of the given radius */
+    static asterisk(radius) {
+        return new WebglFlatObj(new Float32Array([
+            -radius,
+            0,
+            radius,
+            0,
+            -radius / 2,
+            -radius * 0.866,
+            radius / 2,
+            radius * 0.866,
+            radius / 2,
+            -radius * 0.866,
+            -radius / 2,
+            radius * 0.866,
+        ]), new Uint16Array([0, 1, 2, 3, 4, 5]));
+    }
+    /** A rectangle of given width and height with bottom left corner at the origin (!) */
     static rectangle(width, height) {
         return new WebglFlatObj(new Float32Array([0, 0, width, 0, width, height, 0, height]), new Uint16Array([0, 1, 1, 2, 2, 3, 3, 0]));
     }

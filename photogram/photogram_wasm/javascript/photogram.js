@@ -13,19 +13,24 @@ import { Browser } from "./browser.js";
 import { LensCalibrationPlot } from "./lens_calibration_plot.js";
 import { StarCalibration } from "./star_calibration.js";
 import { ProjectEdit } from "./project_edit.js";
-var SelectedTab;
-(function (SelectedTab) {
-    SelectedTab[SelectedTab["Help"] = 0] = "Help";
-    SelectedTab[SelectedTab["Browser"] = 1] = "Browser";
-    SelectedTab[SelectedTab["StarCalibration"] = 2] = "StarCalibration";
-    SelectedTab[SelectedTab["LensCalibrationPlot"] = 3] = "LensCalibrationPlot";
-    SelectedTab[SelectedTab["ProjectEdit"] = 4] = "ProjectEdit";
-    SelectedTab[SelectedTab["Log"] = 5] = "Log";
-})(SelectedTab || (SelectedTab = {}));
+import { UndoTab } from "./undo_tab.js";
 class TabType {
-    constructor(selected_tab) {
+    constructor() {
         this.web_canvas_client = null;
-        this.selected_tab = selected_tab;
+        this.application_tab = null;
+    }
+    set_application_tab(application_tab) {
+        this.application_tab = application_tab;
+    }
+    select() {
+        if (this.application_tab !== null) {
+            this.application_tab.tab_selected();
+        }
+    }
+    deselect() {
+        if (this.application_tab !== null) {
+            this.application_tab.tab_deselected();
+        }
     }
     set_client(web_canvas_view) {
         this.web_canvas_client = web_canvas_view;
@@ -48,14 +53,19 @@ export class Photogram {
         this.project = new Project(this, new Logger(this.app_logger, "project"), this.project_set, this.cip);
         const webgl_canvas = new HtmlElement(document.getElementById("webgl-canvas"));
         this.webgl_canvas = new WebglCanvas(this, new Logger(this.app_logger, "webgl"), webgl_canvas);
+        this.tabs = new Tabs("tab-list", this.tab_selected.bind(this), [
+            ["tab-help", "Help", new TabType()],
+        ]);
         const browser_div = new HtmlElement(document.getElementById("browser"));
         this.browser = new Browser(this, new Logger(this.app_logger, "browser"), this.file_set, browser_div);
         const star_calibration_div = new HtmlElement(document.getElementById("star_calibration"));
-        this.star_calibration = new StarCalibration(this, new Logger(this.app_logger, "star_calibrationt"), star_calibration_div);
+        this.star_calibration = new StarCalibration(this, new Logger(this.app_logger, "star_calibration"), star_calibration_div);
         const lens_calibration_plot_div = new HtmlElement(document.getElementById("lens_calibration_plot"));
         this.lens_calibration_plot = new LensCalibrationPlot(this, new Logger(this.app_logger, "lens_calibration_plot"), lens_calibration_plot_div);
         const project_edit_div = new HtmlElement(document.getElementById("project_edit"));
         this.project_edit = new ProjectEdit(this, new Logger(this.app_logger, "project_edit"), project_edit_div);
+        const undo_div = new HtmlElement(document.getElementById("undo"));
+        this.undo = new UndoTab(this, new Logger(this.app_logger, "undo"), undo_div);
         this.pending_resize = false;
         this.resize_observer = new ResizeObserver(this.resize_canvas.bind(this));
         for (const resizable_content of document.getElementsByClassName("get_size_of_this")) {
@@ -67,40 +77,25 @@ export class Photogram {
             e.ele.style.height = `${tab_list_height}px`;
             return a;
         });
-        this.tabs = new Tabs("tab-list", this.tab_selected.bind(this), [
-            ["tab-help", "Help", new TabType(SelectedTab.Help)],
-            ["tab-browser", "Browser", new TabType(SelectedTab.Browser)],
-            [
-                "tab-lens-calibration-plot",
-                "Lens Calibration",
-                new TabType(SelectedTab.LensCalibrationPlot),
-            ],
-            [
-                "tab-star-calibration",
-                "Star Calibration",
-                new TabType(SelectedTab.StarCalibration).set_client(this.star_calibration),
-            ],
-            [
-                "tab-project-edit",
-                "Project Edit",
-                new TabType(SelectedTab.ProjectEdit),
-            ],
-            ["tab-log", "Log", new TabType(SelectedTab.Log)],
-        ]);
+        this.file_set.get_file_list();
+        this.tabs.add_tab("tab-log", "Log", new TabType());
         this.selected_tab_type = null;
         this.tabs.select("help");
-        this.file_set.get_file_list();
-        for (const t of this.tabs.tabs) {
-            if (t.client.web_canvas_client !== null) {
-                this.webgl_canvas.create(t.client.web_canvas_client);
-            }
-        }
         // this.load_project("local:nac_all_proj.json");
         // this.load_project("server:nac_all_proj");
         this.load_project("server:lens_calibrations_proj");
     }
     logger() {
         return this.app_logger;
+    }
+    add_tab(application_tab, web_canvas_client) {
+        const tab_type = new TabType();
+        tab_type.set_application_tab(application_tab);
+        if (web_canvas_client !== null) {
+            tab_type.set_client(web_canvas_client);
+            this.webgl_canvas.create(web_canvas_client);
+        }
+        this.tabs.add_tab("tab-" + application_tab.tab_name(), application_tab.tab_text(), tab_type);
     }
     get_resizable_content_size() {
         return this.resizable_size;
@@ -139,9 +134,6 @@ export class Photogram {
     repopulate() {
         this.project.repopulate();
         this.cip.repopulate();
-        this.browser.repopulate();
-        this.lens_calibration_plot.repopulate();
-        this.project_edit.repopulate();
     }
     thumbnails_updated() { }
     resize_canvas(e) {
@@ -154,6 +146,11 @@ export class Photogram {
         }
     }
     tab_selected(tab_type) {
+        if (this.selected_tab_type !== tab_type) {
+            if (this.selected_tab_type !== null) {
+                this.selected_tab_type.deselect();
+            }
+        }
         this.selected_tab_type = tab_type;
         if (this.selected_tab_type.web_canvas_client === null) {
             this.webgl_canvas.canvas.hidden = true;
@@ -163,16 +160,23 @@ export class Photogram {
             this.webgl_canvas.mouse.set_client(this.selected_tab_type.web_canvas_client);
             this.selected_tab_type.web_canvas_client.webgl_resize(this.resizable_size[0], this.resizable_size[1]);
         }
+        this.selected_tab_type.select();
         this.set_view_needs_update();
     }
-    /// Mark the view as needing an update
+    /** Mark the view as needing an update
+     *
+     * This is lightweight as it is used in animation
+     */
     set_view_needs_update() {
         if (!this.view_needs_update) {
             this.view_needs_update = true;
             requestAnimationFrame(this.update_view.bind(this));
         }
     }
-    /// Update the view, because of a view change, time change, etc
+    /** Update the view, because of a view change, time change, animation step, etc
+     *
+     * This is lightweight as it is used in animation
+     */
     update_view() {
         if (this.selected_tab_type === null) {
             return;

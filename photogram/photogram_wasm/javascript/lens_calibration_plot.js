@@ -26,6 +26,17 @@ export class LensCalibrationPlot {
         this.draw_world_sensor_graphs = new Draw();
         this.draw_relative_world_sensor_graph = new Draw();
         this.draw_ws_difference_graph = new Draw();
+        application.add_tab(this, null);
+    }
+    tab_name() {
+        return "lens-calibration-plot";
+    }
+    tab_text() {
+        return "Lens Calibration";
+    }
+    tab_deselected() { }
+    tab_selected() {
+        this.repopulate();
     }
     resize(wh) {
         this.canvas.width = wh[0];

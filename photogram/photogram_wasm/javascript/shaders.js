@@ -33,7 +33,7 @@ export class StarCalibrationShader {
     float m_f = 1.0; // magnitude (from 0 to 15, i.e. the real magnitude)
     float t_f = 1.0; // temperature in 0..=15 using floor( (star.temperature - 2300) / 7700 * 15.9 ) clamped to 0,15
 
-    gl_Position = view * model * vec4(star.x/star.z, star.y/star.z, 0, 1);
+    gl_Position = projection * view * model * vec4(star.x/star.z, star.y/star.z, 0, 1);
 
     // Calculate 'star_color' and 'gl_PointSize'
     ${star_color_and_point_size}
@@ -85,7 +85,7 @@ export class ImageShader {
   void main() {
 
     vTextureCoord = texcoord_in;
-    gl_Position = view * model * vec4(coord, 1);
+    gl_Position = projection * view * model * vec4(coord, 1);
     }
 `;
         this.fragment = `#version 300 es
@@ -136,7 +136,7 @@ export class ImageOverlayShader {
     if ((pos.x > 1.0) || (pos.x < -1.0) || (pos.y < -1.0) || (pos.y > 1.0)) {
         pos.z = 2.0;
     }
-    gl_Position = view * model * pos;
+    gl_Position = projection * view * model * pos;
     line_color = vec3(brightness, brightness, brightness);
   }
 `;
