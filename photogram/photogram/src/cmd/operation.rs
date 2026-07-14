@@ -95,8 +95,8 @@ impl CmdArgs {
         let img = ImageRgb8::read_or_create_image::<std::path::PathBuf>(
             read_filename,
             Some((
-                self.camera.sensor_size().0 as u32,
-                self.camera.sensor_size().1 as u32,
+                self.camera.sensor_px_size().0 as u32,
+                self.camera.sensor_px_size().1 as u32,
             )),
         )?;
         Ok(img)

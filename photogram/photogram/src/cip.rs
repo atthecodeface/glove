@@ -273,18 +273,18 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                 1.0
             }
         };
-        let mapped = camera.map_model(&[xyz, 0., 0.].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[xyz, 0., 0.].into());
         img.draw_cross(&mapped, sz, &c);
-        let mapped = camera.map_model(&[0., xyz, 0.].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[0., xyz, 0.].into());
         img.draw_cross(&mapped, sz, &c);
-        let mapped = camera.map_model(&[0., 0., xyz].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[0., 0., xyz].into());
         img.draw_cross(&mapped, sz, &c);
 
-        let mapped = camera.map_model(&[-xyz, 0., 0.].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[-xyz, 0., 0.].into());
         img.draw_cross(&mapped, sz, &cn);
-        let mapped = camera.map_model(&[0., -xyz, 0.].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[0., -xyz, 0.].into());
         img.draw_cross(&mapped, sz, &cn);
-        let mapped = camera.map_model(&[0., 0., -xyz].into());
+        let mapped = camera.world_xyz_to_px_abs_xy(&[0., 0., -xyz].into());
         img.draw_cross(&mapped, sz, &cn);
     }
 
@@ -317,7 +317,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                     }
                 };
                 let xyz = [xyz[0], xyz[1], (z as f64) * dz].into();
-                let mapped = camera.map_model(&xyz);
+                let mapped = camera.world_xyz_to_px_abs_xy(&xyz);
                 img.draw_cross(&mapped, sz, &c);
             }
             if xyz[0].abs() < xyz[1].abs() {
@@ -334,7 +334,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                         }
                     };
                     let xyz = [(x as f64) * dx, xyz[1], 0.].into();
-                    let mapped = camera.map_model(&xyz);
+                    let mapped = camera.world_xyz_to_px_abs_xy(&xyz);
                     img.draw_cross(&mapped, sz, &c);
                 }
             } else {
@@ -351,11 +351,11 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
                         }
                     };
                     let xyz = [xyz[0], (y as f64) * dy, 0.].into();
-                    let mapped = camera.map_model(&xyz);
+                    let mapped = camera.world_xyz_to_px_abs_xy(&xyz);
                     img.draw_cross(&mapped, sz, &c);
                 }
             }
-            let mapped = camera.map_model(&xyz);
+            let mapped = camera.world_xyz_to_px_abs_xy(&xyz);
             img.draw_cross(&mapped, 5.0, &c);
         }
     }

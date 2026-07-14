@@ -64,15 +64,15 @@ fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let name = cmd_args.get_string_arg(0).unwrap();
     let pxy = cmd_args.arg_as_point2d(1)?;
     let error = cmd_args.get_f64_arg(0).unwrap_or(0.0);
-    if !cmd_args
-        .pms()
-        .borrow_mut()
-        .add_mapping(&cmd_args.nps().borrow(), name, &pxy, error)
-    {
-        Err(format!("Failed to add mapping for '{name}' to the point mapping set; it is probably not in the named point set").into())
-    } else {
-        CmdArgs::cmd_ok()
-    }
+    let Some(_n) =
+        cmd_args
+            .pms()
+            .borrow_mut()
+            .add_mapping(&cmd_args.nps().borrow(), name, &pxy, error)
+    else {
+        return Err(format!("Failed to add mapping for '{name}' to the point mapping set; it is probably not in the named point set").into());
+    };
+    CmdArgs::cmd_ok()
 }
 
 fn remove_cmd() -> CommandBuilder<CmdArgs> {
