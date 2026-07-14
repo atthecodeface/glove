@@ -1,9 +1,9 @@
 import * as utils from "./utils.js";
-const focus_plus_symbol = "\u{271A}"; // ✚
-const focus_circle_symbol = "\u{25ef}"; // ◯
+const plus_symbol = "\u{271A}"; // ✚
+const circle_symbol = "\u{25ef}"; // ◯
 const dustbin_symbol = "\u{1f5d1}"; // 🗑
-const plus_minus_symbol = "\u{00b1}"; // 🗑
-const up_arrow_symbol = "\u{2191}"; // 🗑
+const plus_minus_symbol = "\u{00b1}"; // ±
+const up_arrow_symbol = "\u{2191}"; // ↑
 export class MappedNp {
     constructor(mapped_nps, wasm_np) {
         /** True if this has a PMS mapping */
@@ -47,14 +47,14 @@ export class MappedNp {
     uncertainty() {
         return 0;
     }
-    map_with_camera(camera, focus) {
+    map_model_with_camera(camera, focus) {
         const np_pxy = camera.map_model(this.wasm_np.model);
         this.expected_pxy = [np_pxy[0], np_pxy[1]];
         const dx = this.expected_pxy[0] - focus[0];
         const dy = this.expected_pxy[1] - focus[1];
         this.focus_dsq = dx * dx + dy * dy;
     }
-    map_with_pm(pms, n) {
+    get_pms_mapping(pms, n) {
         const pxye = pms.get_xy_err(n);
         this.has_pms = true;
         this.pms_x = pxye[0];
@@ -64,26 +64,26 @@ export class MappedNp {
         const dy = this.expected_pxy[1] - this.pms_y;
         this.pms_dsq = dx * dx + dy * dy;
     }
-    td_location(t) {
+    span_location(t) {
         let location = utils.point_to_dp(this.wasm_np.model, 3);
         if (this.wasm_np.at_infinity) {
             location = up_arrow_symbol + location;
         }
         return t.add_span(location);
     }
-    td_uncertainty(t) {
+    span_uncertainty(t) {
         return t.add_span(this.wasm_np.error.toFixed(3));
     }
-    td_expected_at(t) {
+    span_expected_at(t) {
         return t.add_span(utils.point_to_dp([this.expected_pxy[0], this.expected_pxy[1]], 1));
     }
-    td_pms(t) {
+    span_pms(t) {
         return t.add_span(utils.point_to_dp([this.pms_x, this.pms_y], 1));
     }
-    td_pms_error(t) {
+    span_pms_uncertainty(t) {
         return t.add_span(plus_minus_symbol + this.pms_error.toString());
     }
-    td_mapping_error(t) {
+    spa_pms_dsq(t) {
         return t.add_span(this.pms_dsq.toFixed(3));
     }
 }
@@ -91,9 +91,38 @@ export class MappedNps {
     constructor(project) {
         this.center_pxy = [0, 0];
         this.focus_pxy = [0, 0];
+        this.epoch = 0;
+        this.pending_nps = true;
+        this.pending_pms = true;
+        this.pending_calcs = true;
         this.project = project;
-        const nps = project.get_wasm_nps();
         this.named_points = [];
+    }
+    update() {
+        if (this.pending_nps) {
+            this.rebuild_nps();
+            this.map_with_cip();
+            this.epoch += 1;
+        }
+        else if (this.pending_pms) {
+            this.map_with_cip();
+            this.epoch += 1;
+        }
+        else if (this.pending_calcs) {
+            this.map_with_cip();
+            this.epoch += 1;
+        }
+        this.pending_nps = false;
+        this.pending_pms = false;
+        this.pending_calcs = false;
+        return this.epoch;
+    }
+    rebuild_nps() {
+        const nps = this.project.get_wasm_nps();
+        this.named_points = [];
+        if (nps === null) {
+            return;
+        }
         for (const np_name of nps.pts()) {
             this.named_points.push(new MappedNp(this, nps.get_pt(np_name)));
         }
@@ -102,10 +131,16 @@ export class MappedNps {
      *
      * After this, 'map_with_cip' must be called to updated the points
      */
-    set_focus(focus_pxy) {
-        this.focus_pxy = focus_pxy;
+    set_focus(x, y) {
+        this.focus_pxy = [x, y];
+        this.pending_calcs = true;
     }
-    map_with_cip(cip) {
+    /** Remap the NPs with the specified Cip
+     *
+     * This should be invoked whenver the camera changes, CIP changes, etc
+     */
+    map_with_cip() {
+        const cip = this.project.get_cip();
         const wasm_cip = cip.wasm_cip;
         if (wasm_cip === null) {
             return;
@@ -114,10 +149,10 @@ export class MappedNps {
         const pms = wasm_cip.pms;
         this.center_pxy = [camera.sensor_cx, camera.sensor_cy];
         for (const np of this.named_points) {
-            np.map_with_camera(camera, this.focus_pxy);
+            np.map_model_with_camera(camera, this.focus_pxy);
             const pm_n = pms.mapping_of_name(np.name());
             if (pm_n !== undefined) {
-                np.map_with_pm(pms, pm_n);
+                np.get_pms_mapping(pms, pm_n);
             }
         }
     }
@@ -127,8 +162,8 @@ export class MappedNps {
             table.add_body([
                 np.name(),
                 np.color_select(table),
-                np.td_location(table),
-                np.td_uncertainty(table),
+                np.span_location(table),
+                np.span_uncertainty(table),
             ]);
         }
     }
@@ -139,44 +174,51 @@ export class MappedNps {
             "Location",
             "Uncertainty",
             "Expected at",
-            "Focus",
             "Mapped to",
             "Mapping error",
-            "Focus",
-            "Delete",
+            "Action",
         ]);
         for (const np of this.named_points) {
             const np_x = np.x();
             const np_y = np.y();
             const np_name = np.name();
-            const focus_np = table.add_input_button(focus_plus_symbol, () => {
+            const expected_at = table.add_button("", "", () => {
                 client.mapped_np_select_xy(np_x, np_y);
             });
-            const mapped_to = table.add_button("", "", () => {
-                client.mapped_np_set_mapping_for(np_name);
-            });
-            mapped_to.add_content(np.td_pms(table));
-            mapped_to.add_content(np.td_pms_error(table));
-            const x = np.pms_x;
-            const y = np.pms_y;
-            const focus_pm = table.add_input_button(focus_circle_symbol, () => {
-                client.mapped_np_select_xy(x, y);
-            });
-            const delete_pms = table.add_input_button(dustbin_symbol, () => {
-                client.mapped_np_delete_mapping_for(np_name);
-            });
-            //let location = `<input type='button' value='&#x1F5D1;' onclick='window.image_canvas.derive_nps_location("${np.name}")'>&nbsp;${html.position(np.model)}`;
+            expected_at.add_content(np.span_expected_at(table));
+            let mapped_to = null;
+            let action = null;
+            if (np.has_pms) {
+                const x = np.pms_x;
+                const y = np.pms_y;
+                mapped_to = table.add_button("", "", () => {
+                    client.mapped_np_select_xy(x, y);
+                });
+                mapped_to.add_content(np.span_pms(table));
+                mapped_to.add_content(np.span_pms_uncertainty(table));
+                action = table.add_ele("div");
+                action.add_input_button(circle_symbol, () => {
+                    client.mapped_np_set_mapping_for(np_name);
+                });
+                action.add_input_button(dustbin_symbol, () => {
+                    client.mapped_np_delete_mapping_for(np_name);
+                });
+            }
+            else {
+                mapped_to = table.add_span("");
+                action = table.add_input_button(plus_symbol, () => {
+                    client.mapped_np_add_mapping_for(np_name);
+                });
+            }
             table.add_body([
                 np.name(),
                 np.color_select(table),
-                np.td_location(table),
-                np.td_uncertainty(table),
-                np.td_expected_at(table),
-                focus_np,
+                np.span_location(table),
+                np.span_uncertainty(table),
+                expected_at,
                 mapped_to,
-                np.td_mapping_error(table),
-                focus_pm,
-                delete_pms,
+                np.spa_pms_dsq(table),
+                action,
             ]);
         }
     }
@@ -193,15 +235,12 @@ export class MappedNps {
             table.add_body([
                 np.name(),
                 np.color(),
-                np.td_pms(table),
-                np.td_pms_error(table),
-                np.td_expected_at(table),
+                np.span_pms(table),
+                np.span_pms_uncertainty(table),
+                np.span_expected_at(table),
             ]);
         }
     }
-    focus_on_src(_x, _y) { }
-    delete_pms(_name) { }
-    set_pms_to_cursor(_name) { }
     /** Sort by name
      *
      * Missing sort by error, pxy_err, cursor distance

@@ -368,8 +368,7 @@ export class HtmlElement {
             input.setAttribute("multiple", "true");
         }
         if (callback !== null) {
-            input.addEventListener("change", (e) => {
-                console.log(e);
+            input.addEventListener("change", (_e) => {
                 callback(input.files);
             });
         }
@@ -653,10 +652,8 @@ export class ColorSelector extends HtmlElement {
             ["type", "color"],
             ["value", string_color(color_choice_as_rgb(choice))],
         ]);
-        console.log(this.ele);
         const input = this.ele;
-        input.addEventListener("change", (e) => {
-            console.log(e, input);
+        input.addEventListener("change", (_e) => {
             callback(input.value);
         });
     }

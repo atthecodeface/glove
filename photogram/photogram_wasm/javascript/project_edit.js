@@ -1,11 +1,11 @@
 import { Table } from "./html.js";
-import { MappedNps } from "./mapped_nps.js";
 export class ProjectEdit {
     constructor(application, log, html_div) {
-        this.mapped_nps = null;
+        this.tab_is_selected = false;
         this.application = application;
         this.log = log;
         this.html_div = html_div;
+        this.html_div.add_button("", "", this.save_project.bind(this)).add_content("Save project");
         this.nps_div = this.html_div.add_ele("div", { id: "project_edit_nps" });
         this.cip_div = this.html_div.add_ele("div", { id: "project_edit_cip" });
         application.add_tab(this, null);
@@ -16,40 +16,81 @@ export class ProjectEdit {
     tab_text() {
         return "Project Edit";
     }
-    tab_deselected() { }
-    tab_selected() {
-        this.repopulate();
+    tab_deselected() {
+        this.tab_is_selected = false;
     }
-    repopulate() {
-        const project = this.application.current_project();
-        if (project.get_wasm_nps() === null) {
-            this.mapped_nps = null;
-        }
-        else {
-            this.mapped_nps = new MappedNps(project);
-            this.mapped_nps.map_with_cip(project.get_cip());
-        }
+    /** Invoked when the tab is tab_selected
+     *
+     * tab_project_updated will be invoked, which will repopulate the div
+     */
+    tab_selected() {
+        this.tab_is_selected = true;
+    }
+    tab_project_selected(p) {
+        p.add_client(this);
+    }
+    /** Invoked after the tab is selected or a project update occurs */
+    tab_project_updated() {
+        const mapped_nps = this.application.current_project().mapped_nps();
+        mapped_nps.update();
         this.repopulate_nps_div();
         this.repopulate_cip_div();
     }
+    tab_resize(_w, _h) {
+    }
+    tab_redraw() {
+    }
+    project_np_changed(_p) {
+        if (this.tab_is_selected) {
+            this.application.set_project_updated();
+        }
+    }
+    project_pm_changed(_p) {
+        if (this.tab_is_selected) {
+            this.application.set_project_updated();
+        }
+    }
+    project_camera_changed(_p) {
+        if (this.tab_is_selected) {
+            this.application.set_project_updated();
+        }
+    }
+    project_cip_changed(_p) {
+        if (this.tab_is_selected) {
+            this.application.set_project_updated();
+        }
+    }
     repopulate_nps_div() {
         this.nps_div.clear();
-        if (this.mapped_nps === null) {
-            return;
-        }
+        this.nps_div.add_button("", "", this.add_new_np.bind(this)).add_content("Add named point");
         const table = new Table({ classes: "sticky_heading" });
-        this.mapped_nps.fill_np_table(table);
+        this.application.current_project().mapped_nps().fill_np_table(table);
         this.nps_div.add_content(table.as_html());
+    }
+    save_project() {
+        const project = this.application.current_project();
+        project.save_project(null);
+    }
+    add_new_np() {
+        let i = 0;
+        let np_name = "";
+        const project = this.application.current_project();
+        const wasm_nps = project.get_wasm_nps();
+        while (true) {
+            np_name = `np_${i}`;
+            if (wasm_nps.get_pt(np_name) === undefined) {
+                break;
+            }
+            i += 1;
+        }
+        project.nps_add(np_name);
     }
     repopulate_cip_div() {
         this.cip_div.clear();
-        if (this.mapped_nps === null) {
-            return;
-        }
         const cip_name = this.application.current_project().get_cip().cip_name;
         this.cip_div.add_ele("h2").add_content(`Current CIP '${cip_name}'`);
         const table = new Table({ classes: "sticky_heading" });
-        this.mapped_nps.fill_pms_table(table);
+        this.application.current_project().mapped_nps().fill_pms_table(table);
         this.cip_div.add_content(table.as_html());
     }
 }

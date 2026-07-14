@@ -41,8 +41,12 @@ export class Photogram {
     constructor(wasm_instance, _params) {
         this.selected_tab_type = null;
         this.resizable_size = [50, 50];
+        /** If true then an update callback has been requested, don't request another */
+        this.update_requested = false;
+        /** These flags indicate what needs to be done in the update callback  */
         this.pending_resize = false;
-        this.view_needs_update = false;
+        this.pending_redraw = false;
+        this.pending_project_update = false;
         this.wasm_memory = new WasmMemory(wasm_instance.memory);
         this.app_logger = new Log("Log", Severity.Info, Severity.Warning);
         this.log = new Logger(this.app_logger, "main");
@@ -132,6 +136,12 @@ export class Photogram {
         this.repopulate();
     }
     repopulate() {
+        this.project.clear_clients();
+        for (const t of this.tabs.tabs) {
+            if (t.client.application_tab !== null) {
+                t.client.application_tab.tab_project_selected(this.project);
+            }
+        }
         this.project.repopulate();
         this.cip.repopulate();
     }
@@ -141,7 +151,8 @@ export class Photogram {
             if (ele.contentRect.width > 0 && ele.contentRect.height > 0) {
                 this.pending_resize = true;
                 this.resizable_size = [ele.contentRect.width, ele.contentRect.height];
-                this.set_view_needs_update();
+                this.request_update_callback();
+                break;
             }
         }
     }
@@ -158,53 +169,72 @@ export class Photogram {
         else {
             this.webgl_canvas.canvas.hidden = false;
             this.webgl_canvas.mouse.set_client(this.selected_tab_type.web_canvas_client);
-            this.selected_tab_type.web_canvas_client.webgl_resize(this.resizable_size[0], this.resizable_size[1]);
         }
         this.selected_tab_type.select();
-        this.set_view_needs_update();
+        this.set_project_updated();
     }
     /** Mark the view as needing an update
      *
      * This is lightweight as it is used in animation
      */
-    set_view_needs_update() {
-        if (!this.view_needs_update) {
-            this.view_needs_update = true;
-            requestAnimationFrame(this.update_view.bind(this));
-        }
+    set_project_updated() {
+        this.pending_project_update = true;
+        this.request_update_callback();
     }
-    /** Update the view, because of a view change, time change, animation step, etc
+    /** Mark the view as needing an update
      *
      * This is lightweight as it is used in animation
      */
-    update_view() {
+    set_redraw_required() {
+        this.pending_redraw = true;
+        this.request_update_callback();
+    }
+    /** Private method that manages the update_callback invocation */
+    request_update_callback() {
+        if (!this.update_requested) {
+            this.update_requested = true;
+            requestAnimationFrame(this.update_callback.bind(this));
+        }
+    }
+    /** Update the currently selected tab (only), because of a view change, time change, animation step, etc
+     *
+     * This is lightweight as it is used in animation
+     */
+    update_callback() {
+        this.update_requested = false;
         if (this.selected_tab_type === null) {
             return;
+        }
+        if (this.pending_project_update) {
+            if (this.selected_tab_type.application_tab !== null) {
+                this.selected_tab_type.application_tab.tab_project_updated();
+            }
+            this.pending_project_update = false;
         }
         if (this.pending_resize) {
             const w = this.resizable_size[0];
             const h = this.resizable_size[1];
-            this.lens_calibration_plot.resize(this.resizable_size);
             HtmlElement.fold_all_of(".set-size-of-this", null, (a, e) => {
                 e.ele.width = w;
                 e.ele.height = h;
                 return a;
             });
-            if (this.selected_tab_type.web_canvas_client !== null) {
-                this.selected_tab_type.web_canvas_client.webgl_resize(this.resizable_size[0], this.resizable_size[1]);
+            if (this.selected_tab_type.application_tab !== null) {
+                this.selected_tab_type.application_tab.tab_resize(this.resizable_size[0], this.resizable_size[1]);
             }
-            //      this.vp.set_resizable_content_size(this.pending_resize);
             this.pending_resize = false;
-            this.view_needs_update = true;
+            this.pending_redraw = true;
         }
-        if (!this.view_needs_update) {
+        if (!this.pending_redraw) {
             return;
         }
-        // this.controls.update();
+        if (this.selected_tab_type.application_tab !== null) {
+            this.selected_tab_type.application_tab.tab_redraw();
+        }
         if (this.selected_tab_type.web_canvas_client !== null) {
             this.webgl_canvas.redraw(this.selected_tab_type.web_canvas_client);
         }
-        this.view_needs_update = false;
+        this.pending_redraw = false;
     }
 }
 //a Top level on load...

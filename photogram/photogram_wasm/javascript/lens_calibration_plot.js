@@ -20,6 +20,22 @@ export class LensCalibrationPlot {
         this.div = div;
         this.div.clear();
         this.div.add_label(undefined, { classes: "set_fovh" });
+        this.div.add_button("", "", () => {
+            this.plot_type = SelectedPlotType.Relative;
+            this.redraw();
+        }).add_content("Relative");
+        this.div.add_button("", "", () => {
+            this.plot_type = SelectedPlotType.Difference;
+            this.redraw();
+        }).add_content("Difference");
+        this.div.add_button("", "", () => {
+            this.plot_type = SelectedPlotType.Absolute;
+            this.redraw();
+        }).add_content("Absolute");
+        this.div.add_button("", "", () => {
+            this.plot_type = SelectedPlotType.Rings;
+            this.redraw();
+        }).add_content("Rings");
         this.canvas = this.div.add_ele("canvas").ele;
         this.mouse = new Mouse(this, this.canvas);
         this.draw_world_rings_in_frame = new Draw();
@@ -36,22 +52,39 @@ export class LensCalibrationPlot {
     }
     tab_deselected() { }
     tab_selected() {
-        this.repopulate();
+        const wh = this.application.get_resizable_content_size();
+        this.tab_resize(wh[0], wh[1]);
     }
-    resize(wh) {
-        this.canvas.width = wh[0];
-        this.canvas.height = wh[1];
-        this.pending_regen = true;
-        this.redraw();
+    tab_project_selected(p) {
+        p.add_client(this);
     }
-    repopulate() {
+    tab_project_updated() {
         const cip = this.application.current_project().get_wasm_cip();
         if (cip !== null) {
             this.camera = cip.camera;
             this.yaw_max = (Math.atan(cip.camera.tan_hfovd) * 180) / 3;
             this.pending_regen = true;
-            this.redraw();
+            this.application.set_redraw_required();
         }
+    }
+    /** Invoked whether the selected tab is active or not, just prior to redraw */
+    tab_resize(w, h) {
+        this.canvas.width = w;
+        this.canvas.height = h;
+        this.pending_regen = true;
+    }
+    tab_redraw() {
+        this.redraw();
+    }
+    project_np_changed(_p) {
+    }
+    project_pm_changed(_p) {
+    }
+    project_camera_changed(_p) {
+        this.application.set_redraw_required();
+    }
+    project_cip_changed(_p) {
+        this.application.set_redraw_required();
     }
     redraw() {
         const context = this.canvas.getContext("2d");

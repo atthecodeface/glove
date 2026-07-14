@@ -8,16 +8,20 @@ export class Browser {
         this.browser = browser;
         application.add_tab(this, null);
     }
-    tab_deselected() { }
-    tab_selected() {
-        this.repopulate();
-    }
     tab_name() {
         return "browser";
     }
     tab_text() {
         return "Browser";
     }
+    tab_deselected() { }
+    tab_selected() {
+        this.repopulate();
+    }
+    tab_project_selected(_p) { }
+    tab_project_updated() { }
+    tab_resize(_w, _h) { }
+    tab_redraw() { }
     file_link(f) {
         // href is the file to fetch; donwload indicates it is to be downloaded to *that* filename
         const link = HtmlElement.new_ele("a", {}, [

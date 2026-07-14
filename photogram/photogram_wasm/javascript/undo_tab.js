@@ -17,4 +17,12 @@ export class UndoTab {
         this.undo_div.set_undo_buffer(this.application.current_project().get_undo_buffer());
         this.undo_div.request_fill_div();
     }
+    tab_project_selected(_p) {
+    }
+    tab_project_updated() {
+    }
+    tab_redraw() {
+    }
+    tab_resize(_w, _h) {
+    }
 }
