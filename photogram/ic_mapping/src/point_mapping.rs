@@ -146,7 +146,7 @@ impl PointMapping {
     ///
     /// This does not apply the camera orientation
     ///
-    /// used by model line set
+    /// This does apply the lens mapping
     pub fn get_mapped_unit_vector<C: CameraProjection>(&self, camera: &C) -> Point3D {
         camera
             .px_abs_xy_to_camera_txty(&self.screen)
@@ -161,7 +161,7 @@ impl PointMapping {
     /// Get the direction vector for the frame point of a mapping in
     /// the world (post-orientation of camera)
     pub fn get_mapped_world_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
-        -camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(&self.screen))
+        camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(&self.screen))
     }
 
     //mp get_mapped_ray

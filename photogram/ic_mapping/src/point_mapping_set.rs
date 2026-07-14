@@ -163,13 +163,14 @@ impl PointMappingSet {
         name: &str,
         screen: &Point2D,
         error: f64,
-    ) -> bool {
+    ) -> Option<usize> {
         if let Some(model) = nps.get_rc_np(name) {
+            let n = self.mappings.len();
             self.mappings
                 .push(PointMapping::new_npt(model, screen, error));
-            true
+            Some(n)
         } else {
-            false
+            None
         }
     }
 
