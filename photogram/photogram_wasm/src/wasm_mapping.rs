@@ -122,19 +122,10 @@ impl WasmPointMappingSet {
     }
 
     /// Add a mapping - this permits multiple mappings to the same np
-    pub fn add_mapping(
-        &mut self,
-        wnps: &WasmNamedPointSet,
-        name: &str,
-        screen: &[f64],
-        error: f64,
-    ) -> Result<bool, String> {
-        Ok(self.pms.borrow_mut().add_mapping(
-            &wnps.nps.borrow(),
-            name,
-            &Point2D::from_wasm(screen)?,
-            error,
-        ))
+    pub fn add_mapping(&mut self, wnps: &WasmNamedPointSet, name: &str) -> Option<usize> {
+        self.pms
+            .borrow_mut()
+            .add_mapping(&wnps.nps.borrow(), name, &Point2D::default(), 0.0)
     }
 
     /// Remove the 'nth' mapping

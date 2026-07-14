@@ -1,4 +1,5 @@
-use geo_nd_wasm::{WasmVec2f64, WasmVec3f64};
+use geo_nd_wasm::{Quatf64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
+use star_catalog_wasm::star_catalog::Vec3f32;
 //a Imports
 use wasm_bindgen::prelude::*;
 
@@ -121,15 +122,30 @@ impl WasmCameraInstance {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn position(&self) -> Result<Box<[f64]>, String> {
-        let xyz: [f64; 3] = self.camera.borrow().position().into();
-        Ok(Box::new(xyz))
+    pub fn position(&self) -> WasmVec3f64 {
+        self.camera.borrow().position().into()
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_position(&mut self, position: &WasmVec3f64) {
+        let position: Vec3f64 = position.into();
+        self.camera.borrow_mut().set_position(&position);
     }
 
     #[wasm_bindgen(getter)]
-    pub fn orientation(&self) -> Box<[f64]> {
-        let q: [f64; 4] = self.camera.borrow().orientation().into();
-        Box::new(q)
+    pub fn orientation(&self) -> WasmQuatf64 {
+        self.camera.borrow().orientation().into()
+    }
+
+    /// Set a WasmQuatf64 to the camera's orientation
+    pub fn orientation_set_quat(&self, q: &mut WasmQuatf64) {
+        *q.as_mut() = self.camera.borrow().orientation();
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_orientation(&mut self, orientation: &WasmQuatf64) {
+        let position: Quatf64 = orientation.into();
+        self.camera.borrow_mut().set_orientation(&position);
     }
 
     #[wasm_bindgen(getter)]
@@ -146,22 +162,22 @@ impl WasmCameraInstance {
 
     #[wasm_bindgen(getter)]
     pub fn sensor_cx(&self) -> f64 {
-        self.camera.borrow().sensor_center()[0]
+        self.camera.borrow().sensor_px_center()[0]
     }
 
     #[wasm_bindgen(getter)]
     pub fn sensor_cy(&self) -> f64 {
-        self.camera.borrow().sensor_center()[1]
+        self.camera.borrow().sensor_px_center()[1]
     }
 
     #[wasm_bindgen(getter)]
     pub fn sensor_width(&self) -> f64 {
-        self.camera.borrow().sensor_size().0
+        self.camera.borrow().sensor_px_size().0
     }
 
     #[wasm_bindgen(getter)]
     pub fn sensor_height(&self) -> f64 {
-        self.camera.borrow().sensor_size().1
+        self.camera.borrow().sensor_px_size().1
     }
 
     pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
@@ -221,6 +237,18 @@ impl WasmCameraInstance {
     pub fn set_map_camera_dir_to_sensor_dir(&self, dir: &mut WasmVec3f64) {
         let pt: Point3D = (&*dir).into();
         let txty = pt.into();
+        let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
+        dir.set_array(txty.to_unit_vector().as_ref());
+    }
+
+    /// Take the direction of a ray in world space, accounting for camera orientation,
+    /// and map it to ray relative to the sensor
+    ///
+    /// This does use the lens mapping
+    pub fn set_map_world_dir_to_sensor_dir(&self, dir: &mut WasmVec3f64) {
+        let pt: Point3D = (&*dir).into();
+        let xyz = self.camera.borrow().world_dir_to_camera_xyz(&pt);
+        let txty = xyz.into();
         let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
         dir.set_array(txty.to_unit_vector().as_ref());
     }

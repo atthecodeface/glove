@@ -9,7 +9,7 @@ pub use geo_nd_wasm::{WasmMat3f32, WasmMat3f64};
 pub use geo_nd_wasm::{WasmMat4f32, WasmMat4f64};
 pub use geo_nd_wasm::{WasmVec2f32, WasmVec3f32, WasmVec4f32};
 pub use geo_nd_wasm::{WasmVec2f64, WasmVec3f64, WasmVec4f64};
-pub use star_catalog_wasm::{WasmCatalog, WasmStar};
+pub use star_catalog_wasm::{WasmCatalog, WasmStar, star_catalog};
 
 use wasm_import::{ToFromWasmArr, err_to_string};
 
