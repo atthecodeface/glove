@@ -163,7 +163,17 @@ html {
     width: 800px;
     cursor: move;
 }
-
+.sticky-table {
+    th {
+        position: sticky;
+        top: 0;
+        background-color:white;
+    }
+}
+.dialog_inner_contents {
+    max-height: 400px;
+    overflow: scroll;
+}
 #tab-help {
     padding: 8px;
 }
