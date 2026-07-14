@@ -1,4 +1,3 @@
-//a Imports
 use serde::Serialize;
 
 use geo_nd::quat;
@@ -9,9 +8,6 @@ use crate::{CameraBody, CameraDatabase, CameraLens};
 use crate::{CameraInstanceDesc, CameraProjection, CameraSensor};
 use crate::{serialize_body_name, serialize_lens_name};
 
-//a CameraInstance
-//tp CameraInstance
-#[derive(Debug, Clone, Default, Serialize)]
 /// An instance of a camera - a body, lens, focus distance, position and orientation
 ///
 /// The sensor has a pixel count (width and height), size in mm (width
@@ -29,16 +25,20 @@ use crate::{serialize_body_name, serialize_lens_name};
 ///
 /// v is the distance from the lens to the sensor; v = u*f/(u-f)
 ///
-/// An absolute PXY position on the sensor can be mapped to one
-/// relative to the center pixel; this can be mapped to an X and Y mm.
+/// An absolute PXY position on the sensor can be mapped to one relative to the
+/// center pixel (+Y is up); this can be mapped to an X and Y mm.
 ///
-/// Then the direction vector to the sensor pixel is (X, Y, -v)
+/// The XYZ camera space is +X right, +Y up, +Z *out*, i.e. the centre pixel in
+/// an image is in the direction *(0,0,-1)*.
+///
+/// Then the direction vector for a sensor pixel is (X, Y, -v)
 ///
 /// A TanXTanY represents a vector (tx,ty,-1); hence tx = X/v, ty=Y/v.
 ///
 /// The scaling for pixel x-to-tx is:
 ///
 ///   (px - center) * sensor.mm_single_pixel_width / v
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CameraInstance {
     /// Description of the camera body
     #[serde(serialize_with = "serialize_body_name")]
@@ -65,11 +65,15 @@ pub struct CameraInstance {
     lens_sensor_distance: f64,
 
     /// Position in world coordinates of the camera
+    ///
+    /// World/Model XYZ  = Camera relative XYZ + camera position
     #[serde(default)]
     position: Point3D,
 
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
+    ///
+    /// camera space direction = orientation * (world posn - cam posn)
     #[serde(default)]
     orientation: Quat,
 
@@ -86,22 +90,23 @@ pub struct CameraInstance {
     ty_from_py_sc: f64,
 }
 
-//ip CameraInstance - Accessors
 impl CameraInstance {
-    //ap lens
+    /// Get a reference to the camera lens
     pub fn lens(&self) -> &CameraLens {
         &self.lens
     }
 
-    //ap body
+    /// Get a reference to the camera body
     pub fn body(&self) -> &CameraBody {
         &self.body
     }
 }
 
-//ip CameraInstance - Constructors and Destructors
 impl CameraInstance {
-    //cp new
+    /// Get a new camera with a given body and lens, focussed at a particular
+    /// distance with a given position and orientation
+    ///
+    /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     pub fn new(
         body: CameraBody,
         lens: CameraLens,
@@ -123,7 +128,7 @@ impl CameraInstance {
         cp
     }
 
-    //cp from_desc
+    /// Build a [CameraInstance] from a descriptor, given a camera database to retrieve the lens and body from (by name)
     pub fn from_desc(cdb: &CameraDatabase, desc: CameraInstanceDesc) -> Result<Self> {
         let body = cdb.get_body_err(desc.body())?.clone();
         let lens = cdb.get_lens_err(desc.lens())?.clone();
@@ -138,7 +143,7 @@ impl CameraInstance {
         Ok(camera)
     }
 
-    //dp to_desc
+    /// Deconstruct the [CameraInstance] into a descripton which can be serialized
     pub fn to_desc(self) -> CameraInstanceDesc {
         CameraInstanceDesc::new(
             self.body.name().to_owned(),
@@ -149,12 +154,12 @@ impl CameraInstance {
         )
     }
 
-    //dp to_desc_json
+    /// Deconstruct the [CameraInstance] into a descripton which can be serialized
     pub fn to_desc_json(self) -> Result<String> {
         self.to_desc().to_json()
     }
 
-    //fp to_json
+    /// Generate the json of the [CameraInstance]
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -164,27 +169,26 @@ impl CameraInstance {
     }
 }
 
-//ip CameraInstance - Modifiers and other
 impl CameraInstance {
-    //mp set_body
+    /// Set the body of the camera instance
     pub fn set_body(&mut self, body: CameraBody) {
         self.body = body;
         self.derive();
     }
 
-    //mp set_lens
+    /// Set the lens of the camera instance
     pub fn set_lens(&mut self, lens: CameraLens) {
         self.lens = lens;
         self.derive();
     }
 
-    //mp set_mm_focus_distance
+    /// Set the distance of focus for the camera instance
     pub fn set_mm_focus_distance(&mut self, mm_focus_distance: f64) {
         self.mm_focus_distance = mm_focus_distance;
         self.derive();
     }
 
-    //mp derive
+    /// Derive the extra data required for the [CameraInstance], from the body, lens and focus distance
     pub fn derive(&mut self) {
         let mm_focal_length = self.lens.mm_focal_length();
 
@@ -194,18 +198,8 @@ impl CameraInstance {
         self.tx_from_px_sc = self.body.mm_single_pixel_width() / self.lens_sensor_distance;
         self.ty_from_py_sc = self.body.mm_single_pixel_height() / self.lens_sensor_distance;
     }
-
-    //fp xmap_model
-    /// Map a model coordinate to an absolute XY camera coordinate
-    #[inline]
-    pub fn map_model(&self, model: &Point3D) -> Point2D {
-        self.world_xyz_to_px_abs_xy(model)
-    }
-
-    //zz All done
 }
 
-//ip Display for CameraInstance
 impl std::fmt::Display for CameraInstance {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
@@ -226,90 +220,69 @@ impl std::fmt::Display for CameraInstance {
     }
 }
 
-//ip CameraProjection for CameraInstance
 impl CameraProjection for CameraInstance {
-    //ap camera_name
-    /// Get name of camera
     fn camera_name(&self) -> String {
         self.body.name().into()
     }
 
-    //ap lens_name
-    /// Get name of lens
     fn lens_name(&self) -> String {
         self.lens.name().into()
     }
 
-    /// Get the focal length of the lens
     fn focal_length(&self) -> f64 {
         self.lens.mm_focal_length()
     }
 
-    //ap focus_distance
-    // focus_distance
     fn focus_distance(&self) -> f64 {
         self.mm_focus_distance
     }
 
-    //ap position
     fn position(&self) -> Point3D {
         self.position
     }
 
-    //ap orientation
     fn orientation(&self) -> Quat {
         self.orientation
     }
 
-    //mp set_position
     fn set_position(&mut self, p: &Point3D) {
         self.position = *p;
     }
 
-    //mp set_orientation
     fn set_orientation(&mut self, q: &Quat) {
         self.orientation = *q;
     }
 
-    //mp set_focus_distance
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {
         self.mm_focus_distance = mm_focus_distance;
         self.derive()
     }
 
-    //mp sensor_size
-    fn sensor_size(&self) -> (f64, f64) {
-        self.body.sensor_size()
+    fn sensor_px_size(&self) -> (f64, f64) {
+        self.body.sensor_px_size()
     }
 
-    //mp sensor_center
-    fn sensor_center(&self) -> Point2D {
-        self.body.sensor_center()
+    fn sensor_px_center(&self) -> Point2D {
+        self.body.sensor_px_center()
     }
 
-    //mp sensor_ry_to_camera_ry
-    /// Apply the lens projection
     #[inline]
     fn sensor_ry_to_camera_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_sensor_to_tan_world(tan_yaw))
     }
 
-    //mp camera_ry_to_sensor_ry
-    /// Apply the lens projection
     #[inline]
     fn camera_ry_to_sensor_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
         ry.with_tan_yaw(self.lens.tan_world_to_tan_sensor(tan_yaw))
     }
 
-    //mp sensor_txty_to_px_abs_xy
     fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
         let pxy_rel = [txty[0] / self.tx_from_px_sc, txty[1] / self.ty_from_py_sc].into();
         self.body.px_rel_xy_to_px_abs_xy(&pxy_rel)
     }
 
-    //mp px_abs_xy_to_sensor_txty
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {
         let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
         TanXTanY::of_tx_ty(

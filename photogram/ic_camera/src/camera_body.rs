@@ -1,12 +1,11 @@
-//a Imports
 use serde::{Deserialize, Serialize};
 
 use ic_base::Point2D;
 
 use crate::CameraSensor;
 
-//a Serialization
-//fp serialize_body_name
+/// Serialize a [CameraBody] as just its name, so a CameraBody can be reloaded
+/// from a JSON file in conjunction with a camera database
 pub fn serialize_body_name<S: serde::Serializer>(
     body: &CameraBody,
     serializer: S,
@@ -14,10 +13,26 @@ pub fn serialize_body_name<S: serde::Serializer>(
     serializer.serialize_str(body.name())
 }
 
-//a CameraBody
-//tp CameraBody
-/// A rectangular camera sensor
-////// This provides an implementation of [CameraSensor], which allows mapping from a known point on an image (captured by the sensor) to relative positions
+/// A rectangular camera sensor, within a camera body
+///
+/// Every digitial camera body contains a rectangular sensor of light sensors,
+/// with filters in front of them (for color photography). On a decent camera it
+/// will be aligned (perfectly, for the purposes of this) perpendicular to the
+/// direction of the lens.
+///
+/// Sensors tend to have a 4:3 aspect ratio; they will have an integer number of
+/// pixels in X and Y, in a 4:3 ratio, but the actual sensor size tends to be
+/// such that the pixels are not quite square. The pixel that aligns with the
+/// axis of the lens may also not be the middle pixel of the sensor (although it
+/// will be close).
+///
+/// This structure models the camera body, with the sensor size in pixels and
+/// its precise physical size; the centre pixel (i,e, the pixel that aligns with
+/// the axis of the lens).
+///
+/// Images taken with the camera are assumed to have pixel coordinates with an
+/// origin at the top left (this is really an arbitrary choice); the centre
+/// pixel is in this coordinate system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraBody {
     /// Name
@@ -27,16 +42,13 @@ pub struct CameraBody {
     aliases: Vec<String>,
 
     /// Centre pixel
-    px_centre: [f64; 2],
+    px_center: [f64; 2],
 
     /// Width of sensor in pixels (normally an int)
     px_width: f64,
 
     /// Height of sensor in pixels (normally an int)
     px_height: f64,
-
-    /// Set to true if sensor absolute pixel coords have origin at top left
-    flip_y: bool,
 
     // The width of the sensor in mm
     //
@@ -81,10 +93,9 @@ impl std::default::Default for CameraBody {
         let mut s = Self {
             name: "CameraBody".into(),
             aliases: Vec::new(),
-            px_centre: [200., 150.],
+            px_center: [200., 150.],
             px_width: 400.,
             px_height: 300.,
-            flip_y: false,
             mm_sensor_width: 36.,
             mm_sensor_height: 24.,
             pixel_aspect_ratio: 1.,
@@ -96,7 +107,6 @@ impl std::default::Default for CameraBody {
     }
 }
 
-//ip Display for CameraBody
 impl std::fmt::Display for CameraBody {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
@@ -107,102 +117,69 @@ impl std::fmt::Display for CameraBody {
     }
 }
 
-//ip CameraBody
 impl CameraBody {
-    //fp new
+    /// Createa a new [CameraBody] given a sensor size, assuming pixels are
+    /// perfetly recangular and the optical axis is at the centre
     pub fn new(mm_sensor_width: f64, px_width: usize, px_height: usize) -> Self {
         let mut s = Self::default()
             .set_px_frame(px_width, px_height)
-            .set_sensor_width(mm_sensor_width);
+            .set_sensor_width_and_height(mm_sensor_width);
         s.derive();
         s
     }
 
-    //fp new_35mm
-    pub fn new_35mm(px_width: usize, px_height: usize) -> Self {
-        let mut s = Self::new(36.0, px_width, px_height)
-            .set_name("35mm body")
-            .set_sensor_size(36.0, 24.0)
-            .set_name("35mm body")
-            .set_sensor_size(36.0, 24.0)
-            .set_flip_y(true);
-
-        s.derive();
-        s
-    }
-
-    //fp new_logitech_c270_640
-    pub fn new_logitech_c270_640() -> Self {
-        // diag fov 55.03
-        let mut s = Self::new(3.58, 640, 480) // ignore first arg
-            .set_name("Logitech C270 @ 640x480")
-            .set_sensor_size(640.0 * 2.8, 480.0 * 2.8) // 2.8umsq pixels
-            .set_flip_y(true);
-
-        s.derive();
-        s
-    }
-
-    //cp set_name
+    /// Set the name of the camera body
     pub fn set_name<S: Into<String>>(mut self, name: S) -> Self {
         self.name = name.into();
         self
     }
 
-    //cp set_flip_y
-    pub fn set_flip_y(mut self, flip_y: bool) -> Self {
-        self.flip_y = flip_y;
-        self
-    }
-
-    //cp set_sensor_size
     /// Set the sensor size
     pub fn set_sensor_size(mut self, mm_sensor_width: f64, mm_sensor_height: f64) -> Self {
         self.mm_sensor_width = mm_sensor_width;
         self.mm_sensor_height = mm_sensor_height;
+        self.derive();
         self
     }
 
-    //cp set_sensor_width
     /// Set the sensor width, and height assuming pixels are square
-    pub fn set_sensor_width(mut self, mm_sensor_width: f64) -> Self {
+    pub fn set_sensor_width_and_height(mut self, mm_sensor_width: f64) -> Self {
         self.mm_sensor_width = mm_sensor_width;
         self.mm_sensor_height = mm_sensor_width / self.px_width * self.px_height;
+        self.derive();
         self
     }
 
-    //cp set_sensor_height
-    /// Set the sensor height, and width assuming pixels are square
+    /// Set the sensor height only
     pub fn set_sensor_height(mut self, mm_sensor_height: f64) -> Self {
         self.mm_sensor_height = mm_sensor_height;
-        self.mm_sensor_width = mm_sensor_height / self.px_height * self.px_width;
+        self.derive();
         self
     }
 
-    //cp set_px_frame
     /// Set the pixel width and height, and centre to be the half-and-half
     pub fn set_px_frame(mut self, px_width: usize, px_height: usize) -> Self {
         self.px_width = px_width as f64;
         self.px_height = px_height as f64;
-        self.px_centre = [self.px_width / 2.0, self.px_height / 2.0];
+        self.px_center = [self.px_width / 2.0, self.px_height / 2.0];
+        self.derive();
         self
     }
 
-    //cp set_px_centre
     /// Set the pixel centre; invoke after set_px_frame()
     pub fn set_px_centre(mut self, px_centre: [usize; 2]) -> Self {
-        self.px_centre = [px_centre[0] as f64, px_centre[1] as f64];
+        self.px_center = [px_centre[0] as f64, px_centre[1] as f64];
         self
     }
 
-    //mp derive
+    /// Derive the data dependent on px size and sensor size (pixel size in mm, pixel aspect ratio)
     pub fn derive(&mut self) {
         self.mm_single_pixel_width = self.mm_sensor_width / self.px_width;
         self.mm_single_pixel_height = self.mm_sensor_height / self.px_height;
         self.pixel_aspect_ratio = self.mm_single_pixel_width / self.mm_single_pixel_height;
     }
 
-    //mp has_name
+    /// Determine if the name or an alias matches a search name
     pub fn has_name(&self, name: &str) -> bool {
         if name == self.name {
             true
@@ -216,88 +193,83 @@ impl CameraBody {
         }
     }
 
-    //ap mm_sensor_width
+    /// Get the sensor width in mm
     pub fn mm_sensor_width(&self) -> f64 {
         self.mm_sensor_width
     }
 
-    //ap mm_sensor_height
+    /// Get the sensor height in mm
     pub fn mm_sensor_height(&self) -> f64 {
         self.mm_sensor_height
     }
 
-    //ap mm_sensor_diagonal
+    /// Get the sensor diagonal length in mm
     pub fn mm_sensor_diagonal(&self) -> f64 {
         (self.mm_sensor_height * self.mm_sensor_height
             + self.mm_sensor_width * self.mm_sensor_width)
             .sqrt()
     }
 
-    //ap mm_single_pixel_width
+    /// Get the width of a single pixel in mm
     pub fn mm_single_pixel_width(&self) -> f64 {
         self.mm_single_pixel_width
     }
 
-    //ap mm_single_pixel_height
+    /// Get the height of a single pixel in mm
     pub fn mm_single_pixel_height(&self) -> f64 {
         self.mm_single_pixel_height
     }
 
-    //ap px_centre
+    /// Get the pixel centre
     pub fn px_centre(&self) -> Point2D {
-        self.px_centre.into()
+        self.px_center.into()
     }
 
-    //ap px_width
+    /// Get the width of the sensor in pixels
     pub fn px_width(&self) -> f64 {
         self.px_width
     }
-    //ap px_height
+
+    /// Get the height of the sensor in pixels
     pub fn px_height(&self) -> f64 {
         self.px_height
     }
 
-    //ap mm_aspect_ratio
-    pub fn mm_aspect_ratio(&self) -> f64 {
+    /// Get the *physical* aspect ratio of the sensor pixels (mm wide / mm high)
+    pub fn px_mm_aspect_ratio(&self) -> f64 {
         self.pixel_aspect_ratio
     }
-    //zz All done
 }
 
-//ip CameraSensor for CameraBody
 impl CameraSensor for CameraBody {
-    //fp name
+    /// Get the (main) name of the camera body
     fn name(&self) -> &str {
         &self.name
     }
 
-    //mp sensor_size
-    fn sensor_size(&self) -> (f64, f64) {
+    /// Get the size of the sensor in pixels
+    fn sensor_px_size(&self) -> (f64, f64) {
         (self.px_width, self.px_height)
     }
 
-    //mp sensor_center
-    fn sensor_center(&self) -> Point2D {
-        self.px_centre.into()
+    /// Get the center pixel (the pixel that aligns with the optical axis of the lens)
+    fn sensor_px_center(&self) -> Point2D {
+        self.px_center.into()
     }
 
-    //fp px_abs_xy_to_px_rel_xy
+    /// Map an *absolute* pixel value to one relative to the optical axis
+    ///
+    /// The *relative* pixel coordinates are XY positive as up/right
     #[inline]
     fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] - self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] - self.px_centre[0], xy[1] - self.px_centre[1]].into()
-        }
+        [xy[0] - self.px_center[0], -xy[1] + self.px_center[1]].into()
     }
 
-    //fp px_rel_xy_to_px_abs_xy
+    /// Map a pixel position *relative* to the optical axis to an absolute sensor position
+    ///
+    /// The *relative* pixel coordinates are XY positive as up/right
     #[inline]
     fn px_rel_xy_to_px_abs_xy(&self, xy: &Point2D) -> Point2D {
-        if self.flip_y {
-            [xy[0] + self.px_centre[0], -xy[1] + self.px_centre[1]].into()
-        } else {
-            [xy[0] + self.px_centre[0], xy[1] + self.px_centre[1]].into()
-        }
+        [xy[0] + self.px_center[0], -xy[1] + self.px_center[1]].into()
     }
 }

@@ -3,8 +3,6 @@ use geo_nd::quat;
 
 use ic_base::{Point2D, Point3D, Quat, RollYaw, TanXTanY};
 
-//a Traits
-//tt CameraSensor
 /// A trait for a sensor in a digital camera, that maps absolute to
 /// centre-of-lens-pixel relative, still in units of pixels
 ///
@@ -15,10 +13,10 @@ pub trait CameraSensor: std::fmt::Debug {
     fn name(&self) -> &str;
 
     //mp sensor_size
-    fn sensor_size(&self) -> (f64, f64);
+    fn sensor_px_size(&self) -> (f64, f64);
 
     //mp sensor_center
-    fn sensor_center(&self) -> Point2D;
+    fn sensor_px_center(&self) -> Point2D;
 
     /// Map from absolute to centre-relative pixel
     ///
@@ -31,29 +29,38 @@ pub trait CameraSensor: std::fmt::Debug {
     fn px_rel_xy_to_px_abs_xy(&self, px_xy: &Point2D) -> Point2D;
 }
 
-/// A camera projection is a combination of a camera sensor and a lens
+/// A camera projection is a combination of a camera body and a lens
 ///
 /// It provides methods that map XY points on an image taken by the
 /// camera to [TanXTanY] 'vectors' in world space relative to the
 /// camera, which will depend on the lens in the camera and the
 /// focusing distance
+///
+/// It utilizes a world space XYZ coordinate system, which maps to a
+/// camera-relative XYZ coordinate system where *(0,0,-1)* is on-axis, (1,0,0) is
+/// to the right of the image, and (0,1,0) is up the image (so it forms a
+/// right-handed-set)
 pub trait CameraProjection: std::fmt::Debug + Clone {
-    /// Name of the camera, for recording in files
+    /// Get the name of the camera body
     fn camera_name(&self) -> String;
 
-    /// Name of the lens, for recording in files
+    /// Get the name of the lens
     fn lens_name(&self) -> String;
 
-    /// Focal length of the lens
+    /// Get the focal length of the lens
     fn focal_length(&self) -> f64;
 
-    /// Get the distance from the sensor that the projection is focused on
+    /// For the image(s) in the projection, return the distance of focus
     fn focus_distance(&self) -> f64;
 
     /// Get a Point3D indicating the placement of the camera in world space
+    ///
+    /// World/Model XYZ  = Camera relative XYZ + camera position
     fn position(&self) -> Point3D;
 
     /// Get a quaternion indicating the orientation of the camera
+    ///
+    /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     fn orientation(&self) -> Quat;
 
     /// Get a Point3D indicating the placement of the camera in world space
@@ -65,15 +72,17 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
 
-    /// Get the size of the sensor in mm, width and height
-    fn sensor_size(&self) -> (f64, f64);
+    /// Get the size of the sensor in pixels, width and height
+    fn sensor_px_size(&self) -> (f64, f64);
 
-    /// Get the center of the sensor in mm
-    fn sensor_center(&self) -> Point2D;
+    /// Get the center of the sensor in pixels
+    fn sensor_px_center(&self) -> Point2D;
 
     /// Get the tan of half of the field-of-view for horizontal and vertical
+    ///
+    /// The diagonal tan-half-fov is the sqrt(sum(squares)) of these two values
     fn tan_hfov(&self) -> (f64, f64) {
-        let wh = self.sensor_size();
+        let wh = self.sensor_px_size();
         let txty0 = self.px_abs_xy_to_camera_txty(&[0., 0.].into());
         let txty1 = self.px_abs_xy_to_camera_txty(&[wh.0, wh.1].into());
         (txty0[0].max(txty1[0]), txty0[1].max(txty1[1]))
