@@ -737,7 +737,7 @@ impl SphericalImageCommand {
         let image = self.images.get(name).unwrap();
         self.if_verbose(|| eprintln!("Rendering using camera {}", self.camera));
 
-        let (w, h) = self.camera.sensor_size();
+        let (w, h) = self.camera.sensor_px_size();
         let w = w as u32;
         let h = h as u32;
         let mut jpg = ImageRgb8::new(w, h);
