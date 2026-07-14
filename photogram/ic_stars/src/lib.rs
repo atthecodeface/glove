@@ -145,4 +145,5 @@
 
 //a Modules
 mod star_mapping;
+use star_catalog::Subcube;
 pub use star_mapping::StarMapping;

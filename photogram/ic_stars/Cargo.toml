@@ -14,6 +14,7 @@ repository.workspace = true
 ic_base.workspace = true
 ic_image.workspace = true
 ic_camera.workspace = true
+ic_mapping.workspace = true
 geo-nd.workspace = true
 serde.workspace = true
 serde_json.workspace = true
