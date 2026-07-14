@@ -3,8 +3,8 @@ import { HtmlElement } from "./html.js";
 export interface UndoableAction<T> {
   fwd(t: T): void;
   rev(t: T): void;
-  fwd_text(): string;
-  rev_text(): string;
+  fwd_text(): string[];
+  rev_text(): string[];
 }
 
 /** UndoBuffer could be a tree like git, with branches which have been popped back from (by undo) and then developed further
@@ -74,11 +74,27 @@ export class UndoDiv<T> {
     const table = this.div.add_table({ id: "undo_table" });
     table.add_headings(["Action"]);
     for (const e of this.undo_buffer.undo_actions) {
-      table.add_body([table.add_span(e.fwd_text())]);
+      const text = e.fwd_text();
+      const d = table.add_ele("div");
+      let first = true;
+      for (const t of text) {
+        if (!first) {d.add_ele("br");}
+        d.add_span(t);
+        first = false;
+      }
+      table.add_body([d]);
     }
     const actions = this.undo_buffer.redo_actions;
     for (let i = actions.length - 1; i>=0; i--) {
-      table.add_body([table.add_span(actions[i]!.rev_text())]);
+      const text = actions[i]!.rev_text();
+      const d = table.add_ele("div");
+      let first = true;
+      for (const t of text) {
+        if (!first) {d.add_ele("br");}
+        d.add_span(t);
+        first = false;
+      }
+      table.add_body([d]);
     }
     table.as_html();
   }

@@ -4,6 +4,7 @@ import * as file_set from "./file_set.js";
 import { Logger } from "./log.js";
 
 import { Application, ApplicationTab } from "./application.js";
+import { Project } from "./project.js";
 
 export class Browser implements ApplicationTab {
   application: Application;
@@ -24,17 +25,20 @@ export class Browser implements ApplicationTab {
     application.add_tab(this, null);
   }
 
-  tab_deselected(): void {}
-  tab_selected(): void {
-    this.repopulate();
-  }
-
   tab_name(): string {
     return "browser";
   }
   tab_text(): string {
     return "Browser";
   }
+  tab_deselected(): void {}
+  tab_selected(): void {
+    this.repopulate();
+  }
+  tab_project_selected(_p: Project): void {  }
+  tab_project_updated(): void {  }
+  tab_resize(_w: number, _h: number): void {  }
+  tab_redraw(): void {  }
 
   file_link(f: string): HtmlElement {
     // href is the file to fetch; donwload indicates it is to be downloaded to *that* filename

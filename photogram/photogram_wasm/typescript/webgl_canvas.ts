@@ -111,7 +111,6 @@ export class StarsWebglObj implements WebglObjKind {
 }
 
 export interface WebglCanvasClient extends MouseClient {
-  webgl_resize(w: number, h: number): void;
   webgl_create(webgl: Webgl, webgl_canvas: WebglCanvas): void;
   webgl_redraw(webgl: Webgl, webgl_canvas: WebglCanvas): void;
 }

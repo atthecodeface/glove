@@ -33,10 +33,10 @@ export class StarCalibrationShader implements WebglShaderSrc {
   out vec3 star_color;
   void main() {
 
-    float m_f = 1.0; // magnitude (from 0 to 15, i.e. the real magnitude)
-    float t_f = 1.0; // temperature in 0..=15 using floor( (star.temperature - 2300) / 7700 * 15.9 ) clamped to 0,15
+    float m_f = star.z;
+    float t_f = star.w;
 
-    gl_Position = projection * view * model * vec4(star.x/star.z, star.y/star.z, 0, 1);
+    gl_Position = projection * view * model * vec4(star.x, star.y, 0, 1);
 
     // Calculate 'star_color' and 'gl_PointSize'
     ${star_color_and_point_size}

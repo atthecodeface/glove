@@ -27,4 +27,16 @@ export class UndoTab implements ApplicationTab {
     this.undo_div.set_undo_buffer(this.application.current_project().get_undo_buffer());
     this.undo_div.request_fill_div();
   }
+  tab_project_selected(_p: Project): void {
+
+  }
+  tab_project_updated(): void {
+
+  }
+  tab_redraw(): void {
+
+  }
+  tab_resize(_w: number, _h: number): void {
+
+  }
 }

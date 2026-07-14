@@ -11,6 +11,7 @@ import { Draw } from "./draw.js";
 import { DataRange, Plot, Tics } from "./plot.js";
 
 import { Application, ApplicationTab } from "./application.js";
+import { Project, ProjectClient } from "./project.js";
 
 enum SelectedPlotType {
   Relative,
@@ -19,7 +20,7 @@ enum SelectedPlotType {
   Rings,
 }
 
-export class LensCalibrationPlot implements ApplicationTab {
+export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
   application: Application;
   log: Logger;
   div: HtmlElement;
@@ -42,6 +43,20 @@ export class LensCalibrationPlot implements ApplicationTab {
     this.div = div;
     this.div.clear();
     this.div.add_label(undefined, { classes: "set_fovh" });
+
+    this.div.add_button("", "", () => {
+      this.plot_type = SelectedPlotType.Relative; this.redraw();
+    }).add_content("Relative");
+    this.div.add_button("", "", () => {
+      this.plot_type = SelectedPlotType.Difference; this.redraw();
+    }).add_content("Difference");
+    this.div.add_button("", "", () => {
+      this.plot_type = SelectedPlotType.Absolute; this.redraw();
+    }).add_content("Absolute");
+    this.div.add_button("", "", () => {
+      this.plot_type = SelectedPlotType.Rings; this.redraw();
+    }).add_content("Rings");
+
     this.canvas = this.div.add_ele("canvas").ele as HTMLCanvasElement;
     this.mouse = new Mouse(this, this.canvas);
 
@@ -51,32 +66,56 @@ export class LensCalibrationPlot implements ApplicationTab {
     this.draw_ws_difference_graph = new Draw();
     application.add_tab(this, null);
   }
+
   tab_name(): string {
     return "lens-calibration-plot";
   }
+
   tab_text(): string {
     return "Lens Calibration";
   }
-  tab_deselected(): void {}
+
+  tab_deselected(): void { }
+
   tab_selected(): void {
-    this.repopulate();
+    const wh = this.application.get_resizable_content_size();
+    this.tab_resize(wh[0], wh[1]);
   }
 
-  resize(wh: [number, number]) {
-    this.canvas.width = wh[0];
-    this.canvas.height = wh[1];
-    this.pending_regen = true;
-    this.redraw();
+  tab_project_selected(p: Project): void {
+    p.add_client(this);
   }
 
-  repopulate() {
+  tab_project_updated(): void {
     const cip = this.application.current_project().get_wasm_cip();
     if (cip !== null) {
       this.camera = cip.camera;
       this.yaw_max = (Math.atan(cip.camera.tan_hfovd) * 180) / 3;
       this.pending_regen = true;
-      this.redraw();
+      this.application.set_redraw_required();
     }
+  }
+
+  /** Invoked whether the selected tab is active or not, just prior to redraw */
+  tab_resize(w: number, h: number) {
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.pending_regen = true;
+  }
+
+  tab_redraw() {
+    this.redraw();
+  }
+
+  project_np_changed(_p: Project): void {
+  }
+  project_pm_changed(_p: Project): void {
+  }
+  project_camera_changed(_p: Project): void {
+    this.application.set_redraw_required();
+  }
+  project_cip_changed(_p: Project): void {
+    this.application.set_redraw_required();
   }
 
   redraw() {
