@@ -6,26 +6,24 @@
         "aliases": [
           "5D"
         ],
-        "px_centre": [
+        "px_center": [
           3360.0,
           2240.0
         ],
         "px_width": 6720.0,
         "px_height": 4480.0,
-        "flip_y": true,
         "mm_sensor_width": 36.0,
         "mm_sensor_height": 24.0
       },
       {
         "name": "Iphone 6",
         "aliases": [],
-        "px_centre": [
+        "px_center": [
           1124.0,
           1632.0
         ],
         "px_width": 2248.0,
         "px_height": 3264.0,
-        "flip_y": true,
         "mm_sensor_width": 3.6,
         "mm_sensor_height": 4.8
       },
@@ -34,13 +32,12 @@
         "aliases": [
           "C270"
         ],
-        "px_centre": [
+        "px_center": [
           320.0,
           240.0
         ],
         "px_width": 640.0,
         "px_height": 480.0,
-        "flip_y": true,
         "mm_sensor_width": 1.792,
         "mm_sensor_height": 1.344
       }
