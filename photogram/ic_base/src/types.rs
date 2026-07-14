@@ -43,7 +43,7 @@ impl TanXTanY {
     /// Convert to a unit vector
     #[inline]
     pub fn to_unit_vector(self) -> Point3D {
-        let p: Point3D = [self.data[0], self.data[1], 1.0].into();
+        let p: Point3D = [self.data[0], self.data[1], -1.0].into();
         p.normalize()
     }
 }
@@ -65,7 +65,7 @@ impl From<&[f64; 3]> for TanXTanY {
             z = z.signum() * 1.0E-8;
         }
         TanXTanY {
-            data: [p[0] / z, p[1] / z].into(),
+            data: [p[0] / -z, p[1] / -z].into(),
         }
     }
 }
