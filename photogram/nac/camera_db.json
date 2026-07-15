@@ -41,8 +41,8 @@
       "px_height": 3456.0,
       //            "mm_sensor_width":22.35, // exactly 1.5 times the height
       //            "mm_sensor_height":14.9
-      "mm_sensor_width": 22.33, // exactly 1.5 times the height
-      "mm_sensor_height": 14.887
+      "mm_sensor_width": 22.33,  // 25.4*5184/5728.1775.08, with 5728.1775.08 being the focal plane X resolution in the EXIF
+      "mm_sensor_height": 14.887 // 25.4*3456/5808.403, with 5808.403 being the focal plane Y resolution in the EXIF
     },
     {
       "name": "Logitech C270 640x480",
