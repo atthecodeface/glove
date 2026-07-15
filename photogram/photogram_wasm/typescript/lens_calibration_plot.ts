@@ -96,7 +96,7 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     }
   }
 
-  /** Invoked whether the selected tab is active or not, just prior to redraw */
+  /** Invoked when the tab is selected, or just prior to redraw if screen has changed size */
   tab_resize(w: number, h: number) {
     this.canvas.width = w;
     this.canvas.height = h;
@@ -215,7 +215,7 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_grid(draw);
     plot.generate_tics(draw);
     plot.generate_labels(draw);
-    plot.generate_plot(draw, data);
+    plot.generate_line_plot(draw, data);
     plot.generate_box(draw);
     return draw;
   }
@@ -262,10 +262,27 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_grid(draw);
     plot.generate_tics(draw);
     plot.generate_labels(draw);
-    plot.generate_plot(draw, data0);
+    plot.generate_line_plot(draw, data0);
+
+    const mapping_nps = this.application.current_project().mapped_nps();
+    mapping_nps.update();
+    const data1 = new DataRange();
+    for (const mnp of mapping_nps.named_points) {
+      if (!mnp.has_pms) { continue; }
+      this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+      camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+      const sensor_yaw = camera.yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
+      mnp.wasm_np.set_model_vec(this.wasm_vec3);
+      camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+      const world_yaw = camera.yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
+      data1.push(sensor_yaw, world_yaw - sensor_yaw);
+    }
+    plot.generate_pt_plot(draw, data1);
     plot.generate_box(draw);
     return draw;
   }
+  wasm_vec2: WasmVec2f64 = WasmVec2f64.zero();
+  wasm_vec3: WasmVec3f64 = WasmVec3f64.zero();
 
   generate_draw_world_sensor_graphs(
     camera: WasmCameraInstance,
@@ -309,8 +326,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_grid(draw);
     plot.generate_tics(draw);
     plot.generate_labels(draw);
-    plot.generate_plot(draw, data0);
-    plot.generate_plot(draw, data1);
+    plot.generate_line_plot(draw, data0);
+    plot.generate_line_plot(draw, data1);
     plot.generate_box(draw);
     return draw;
   }

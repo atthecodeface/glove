@@ -52,6 +52,10 @@ class Cursor extends ImagePoint {
   }
 }
 
+/** A NamedPoint is drawn as a circle at the *expected pxy* from the MappedNp
+ *
+ * It has no user interaction
+ */
 class NamedPoint extends ImagePoint {
   project: Project;
   np_name: string;
@@ -73,6 +77,10 @@ class NamedPoint extends ImagePoint {
   }
 }
 
+/** A MappedPoint is drawn as a cross, and is the *mapped* location for a named point
+ *
+ * Dragging a mapped point moves it in the database (when the drag completes)
+ */
 class MappedPoint extends NamedPoint {
   constructor(project: Project, mnp: MappedNp) {
     super(project, mnp);
@@ -114,17 +122,20 @@ class MappedPoint extends NamedPoint {
  *
  * * A Viewport that is the whole of the WebglCanvas (0,0 bottom left, 1,1 top right)
  *
+ * * A *uniform* XYZ space where X, Y and Z are in mm. Note that the image has a
+ * sensor size that is provided by the camera database in *mm* not just in
+ * pixels, as pixels are not square. Hence the image is mapped to the sensor
+ * size centred appropriately at Z=0.
+ *
  * * A projection matrix which maps *uniform* space onto the viewport,
  *   which applies the zoom, view port aspect ratio, and scroll offset
- *
- * * A uniform XYZ space where the image is mapped to a rectangle of width 1,
- *   height 1/image_ar centred on the origin (so the top left of the image is
- *   at (-1, +1/ar) and the bottom right is at (+1,-1/ar)
  *
  * * View and model matrices combine to map objects the uniform space.
  *
  * 1. For the image itself the WebGl square is a (+-1,+-1,0) and it uses an
- *    identity view matrix, and a model matrx that maps (X,Y,0) to (X, Y/image_ar, 0)
+ * identity view matrix, and a model matrx that translates image X by the
+ * (center-half pixel width), and scales it by X pixels per mm for the sensor;
+ * similarly for Y
  *
  * 2. For the selected stars, their sensor-relative directions are cached.
  *    To convert this to *uniform* space requires mapping (X,Y,-Z) to
