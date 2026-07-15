@@ -145,6 +145,9 @@ impl WasmCip {
         WasmStarMatchSet::new(&cip, &mut catalog, max_angle_delta, max_candidates)
     }
 
+    /// Find the *world* direction of a point mapping, and set the WasmVec3f64 for it
+    ///
+    /// This applies the Lens Mapping and camera orientation
     pub fn set_pms_world_dir_vec(&self, pm: usize, vec: &mut WasmVec3f64) -> bool {
         let cip = self.cip.borrow();
         let pms = cip.pms().borrow();
@@ -254,7 +257,7 @@ impl WasmStarMatchSet {
         let pms = cip.pms().borrow();
         let camera = &*cip.camera().borrow();
         for p in pms.mappings() {
-            let v = p.get_mapped_unit_vector(camera);
+            let v = p.get_mapped_camera_dir(camera);
             // let n = img_space_vectors.len() - 1;
             // img_space_vectors[n][1] *= -1.0;
             //

@@ -3,7 +3,7 @@ use star_catalog_wasm::star_catalog::Vec3f32;
 //a Imports
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, Point2D, Point3D, Rrc};
+use ic_base::{JsonParsable, Point2D, Point3D, RollYaw, Rrc, TanXTanY};
 use ic_camera::{
     CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor,
 };
@@ -251,6 +251,42 @@ impl WasmCameraInstance {
         let txty = xyz.into();
         let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
         dir.set_array(txty.to_unit_vector().as_ref());
+    }
+
+    /// Take the direction of a ray in world space, accounting for camera orientation,
+    /// and map it to the direction relative to the camera
+    ///
+    /// This does *NOT* use the lens mapping
+    pub fn set_map_world_dir_to_camera_dir(&self, dir: &mut WasmVec3f64) {
+        let pt: Point3D = (&*dir).into();
+        let xyz = self.camera.borrow().world_dir_to_camera_xyz(&pt);
+        dir.set_array(xyz.as_ref());
+    }
+
+    /// Take a point on the sensor and map it to the direction of a ray relative
+    /// to the sensor
+    ///
+    /// This does *NOT* use the lens mapping
+    pub fn set_sensor_dir_of_pt(&self, pt: &WasmVec2f64, dir: &mut WasmVec3f64) {
+        let pt: Point2D = pt.into();
+        let txty = self.camera.borrow().px_abs_xy_to_sensor_txty(&pt);
+        dir.set_array(txty.to_unit_vector().as_ref());
+    }
+
+    /// Calculate the Yaw of a direction (this does not depend on the camera data)
+    pub fn camera_yaw_of_dir(&self, dir: &WasmVec3f64) -> f64 {
+        let pt: Point3D = (&*dir).into();
+        let txty: TanXTanY = pt.into();
+        let ry: RollYaw = txty.into();
+        ry.yaw()
+    }
+
+    /// Calculate the Roll of a direction (this does not depend on the camera data)
+    pub fn camera_roll_of_dir(&self, dir: &WasmVec3f64) -> f64 {
+        let pt: Point3D = (&*dir).into();
+        let txty: TanXTanY = pt.into();
+        let ry: RollYaw = txty.into();
+        ry.roll()
     }
 
     pub fn map_yaw_world_to_sensor(&self, yaw: f64) -> f64 {
