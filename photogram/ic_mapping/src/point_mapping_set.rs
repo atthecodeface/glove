@@ -361,14 +361,14 @@ impl PointMappingSet {
         camera.set_position(pt);
         let mut qs = vec![];
         for i in pm_n.iter() {
-            let di_c = self.mappings[*i].get_mapped_unit_vector(camera);
+            let di_c = self.mappings[*i].get_mapped_camera_dir(camera);
             let di_m = (pt - self.mappings[*i].model()).normalize();
 
             for j in pm_n.iter() {
                 if i == j {
                     continue;
                 }
-                let dj_c = self.mappings[*j].get_mapped_unit_vector(camera);
+                let dj_c = self.mappings[*j].get_mapped_camera_dir(camera);
                 let dj_m = (pt - self.mappings[*j].model()).normalize();
 
                 qs.push((
@@ -496,7 +496,7 @@ impl PointMappingSet {
             .filter(|(_n, pm)| pm.is_mapped())
             .filter(|(n, pm)| filter.clone()(*n, pm))
         {
-            let di_c = pm_i.get_mapped_unit_vector(camera);
+            let di_c = pm_i.get_mapped_camera_dir(camera);
             let di_m = (camera.position() - pm_i.model()).normalize();
 
             for (_, pm_j) in self
@@ -507,7 +507,7 @@ impl PointMappingSet {
                 .filter(|(_n, pm)| pm.is_mapped())
                 .filter(|(n, pm)| filter.clone()(*n, pm))
             {
-                let dj_c = pm_j.get_mapped_unit_vector(camera);
+                let dj_c = pm_j.get_mapped_camera_dir(camera);
                 let dj_m = (camera.position() - pm_j.model()).normalize();
 
                 qs.push((

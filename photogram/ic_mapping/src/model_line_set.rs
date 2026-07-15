@@ -63,8 +63,8 @@ where
         }
         let model_p0 = pm0.model();
         let model_p1 = pm1.model();
-        let dir_p0 = pm0.get_mapped_unit_vector(&self.camera);
-        let dir_p1 = pm1.get_mapped_unit_vector(&self.camera);
+        let dir_p0 = pm0.get_mapped_camera_dir(&self.camera);
+        let dir_p1 = pm1.get_mapped_camera_dir(&self.camera);
         let cos_theta = dir_p0.dot(dir_p1);
         let angle = cos_theta.acos();
         let model_line = ModelLine::new(model_p0, model_p1);

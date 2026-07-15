@@ -147,7 +147,7 @@ impl PointMapping {
     /// This does not apply the camera orientation
     ///
     /// This does apply the lens mapping
-    pub fn get_mapped_unit_vector<C: CameraProjection>(&self, camera: &C) -> Point3D {
+    pub fn get_mapped_camera_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
         camera
             .px_abs_xy_to_camera_txty(&self.screen)
             .to_unit_vector()
