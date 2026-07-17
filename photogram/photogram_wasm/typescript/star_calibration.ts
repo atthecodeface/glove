@@ -247,12 +247,14 @@ export class StarCalibration
     action_div
       .add_button("", "", this.reorient_using_mappings.bind(this))
       .add_content("Reorient using PMS");
+    action_div.add_ele("hr");
     action_div
       .add_button("", "", () => this.refocus(2))
       .add_content("Focus +");
     action_div
       .add_button("", "", () => this.refocus(-2))
       .add_content("Focus -");
+    action_div.add_ele("hr");
     action_div
       .add_button("", "", () => this.rotate_camera(0,0.01))
       .add_content("Rot X +");
@@ -499,7 +501,7 @@ export class StarCalibration
     this.cursor.x = x;
     this.cursor.y = y;
     this.application.current_project().set_focus(x, y);
-    this.application.set_redraw_required();
+    this.application.set_project_updated();
   }
 
   /** At end of drag of point mapping */
@@ -887,7 +889,6 @@ export class StarCalibration
         (scr_rel_y / this.zoomed_window.get_zoom() +
           this.zoomed_window.rel_cxy()[1]);
 
-    console.log(x, y, uni_x_unscaled, uni_y_unscaled);
     return [uni_x_unscaled * this.mm_scr_width/2, uni_y_unscaled * this.mm_scr_width/2];
   }
 
@@ -956,7 +957,7 @@ export class StarCalibration
     const uni_xy = this.uniform_xy_of_scr_xy(xy[0], xy[1]);
     const img_xy = this.img_xy_of_uniform_xy(uni_xy[0], uni_xy[1]);
     this.activity_occurred();
-    this.cursor_move(img_xy[0], img_xy[1]);
+    this.cursor_move_complete(img_xy[0], img_xy[1]);
   }
   user_press_move(_start_xy: [number, number], _xy: [number, number]): void {}
   user_press_cancel(_start_xy: [number, number]): void {}

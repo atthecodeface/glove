@@ -26,6 +26,7 @@ enum SortByField {
   ExpectedY,
   MappedX,
   MappedY,
+  FocusDsq,
   Dsq,
   RollErr,
   YawErr,
@@ -184,7 +185,7 @@ export class MappedNp {
     this.expected_pxy = [np_pxy[0]!, np_pxy[1]!];
     const dx = this.expected_pxy[0] - focus[0];
     const dy = this.expected_pxy[1] - focus[1];
-    this.focus_dsq = dx * dx + dy * dy;
+    this.focus_dsq = Math.sqrt(dx * dx + dy * dy);
   }
 
   get_pms_mapping(camera: WasmCameraInstance, pms: WasmPointMappingSet, n: number) {
@@ -251,6 +252,9 @@ export class MappedNp {
     return t.add_span(plus_minus_symbol + this.pms_error.toString());
   }
 
+  span_focus_dsq(t: HtmlElement): HtmlElement {
+    return t.add_span(this.focus_dsq.toFixed(3));
+  }
   span_pms_dsq(t: HtmlElement): HtmlElement {
     return t.add_span(this.d_map_sq.toFixed(3));
   }
@@ -319,7 +323,8 @@ export class MappedNps {
    *
    * After this, 'map_with_cip' must be called to updated the points
    */
-  set_focus(x:number, y:number) {
+  set_focus(x: number, y: number) {
+    console.log("Napping nps set focus");
     this.focus_pxy = [x, y];
     this.pending_calcs = true;
   }
@@ -378,12 +383,14 @@ export class MappedNps {
     const exp_at = this.sort.table_heading(table, "Expected at", SortByField.ExpectedX, this.sort_by_clicked.bind(this));
     const map_to = this.sort.table_heading(table, "Mapped to", SortByField.MappedX, this.sort_by_clicked.bind(this));
     const dsq = this.sort.table_heading(table, "DXY^2", SortByField.Dsq, this.sort_by_clicked.bind(this));
+    const focus_dsq = this.sort.table_heading(table, "Focus DXY^2", SortByField.FocusDsq, this.sort_by_clicked.bind(this));
     const roll_err = this.sort.table_heading(table, "Roll Err", SortByField.RollErr, this.sort_by_clicked.bind(this));
     const yaw_err = this.sort.table_heading(table, "Yaw Err", SortByField.YawErr, this.sort_by_clicked.bind(this));
     table.add_headings([name, color,
       "Location",
       "Uncertainty",
       exp_at, map_to,
+      focus_dsq,
       dsq, roll_err, yaw_err,
       "Action",
     ]);
@@ -430,6 +437,7 @@ export class MappedNps {
         np.span_uncertainty(table),
         expected_at,
         mapped_to,
+        np.span_focus_dsq(table),
         np.span_pms_dsq(table),
         np.span_map_roll(table),
         np.span_map_yaw(table),
@@ -489,6 +497,12 @@ export class MappedNps {
         };
         break;
       }
+      case SortByField.FocusDsq: {
+        sort_fn = (a:MappedNp, b:MappedNp) => {
+          return opt_invert * (a.focus_dsq - b.focus_dsq)
+        };
+        break;
+      }
       case SortByField.RollErr: {
         sort_fn = (a:MappedNp, b:MappedNp) => {
           return opt_invert * (a.d_map_roll_err - b.d_map_roll_err)
@@ -503,12 +517,6 @@ export class MappedNps {
       }
     }
     this.named_points.sort(sort_fn);
-  }
-
-  sort_by_focus_dsq() {
-    this.named_points.sort((a, b) => {
-      return a.focus_dsq - b.focus_dsq;
-    });
   }
 
 }

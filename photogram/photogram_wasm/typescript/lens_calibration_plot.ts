@@ -184,16 +184,39 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     const draw = new Draw();
     const plot = new Plot([size, size]);
 
-    const data = new DataRange();
+    const data0 = new DataRange();
     for (let sensor_yaw = 0.1; sensor_yaw < this.yaw_max; sensor_yaw += 0.1) {
       const world_yaw =
         (camera.map_yaw_sensor_to_world((sensor_yaw * 3.1416) / 180) * 180) /
         3.1416;
-      data.push(sensor_yaw, world_yaw / sensor_yaw - 1);
+      data0.push(sensor_yaw, world_yaw);
     }
+
+    const mapping_nps = this.application.current_project().mapped_nps();
+    mapping_nps.update();
+    const data1 = new DataRange();
+    for (const mnp of mapping_nps.named_points) {
+      if (!mnp.has_pms) { continue; }
+      this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+      camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+      const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
+      mnp.wasm_np.set_model_vec(this.wasm_vec3);
+      camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+      const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
+      data1.push(sensor_yaw, world_yaw);
+    }
+    for (const d of data0.data) {
+      d[1] = d[1]/d[0] - 1;
+    }
+    for (const d of data1.data) {
+      d[1] = d[1]/d[0] - 1;
+    }
+
     plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
-    const xr = data.get_xrange();
-    const yr = data.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const xr = data0.get_xrange();
+    const yr0 = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const yr1 = data1.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const yr:[number,number] = [Math.min(yr0[0], yr1[0]), Math.max(yr0[1], yr1[1])];
 
     const xtics = new Tics({
       spacing: 10,
@@ -217,7 +240,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_grid(draw);
     plot.generate_tics(draw);
     plot.generate_labels(draw);
-    plot.generate_line_plot(draw, data);
+    plot.generate_line_plot(draw, data0);
+    plot.generate_pt_plot(draw, data1);
     plot.generate_box(draw);
     return draw;
   }
@@ -227,6 +251,7 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     w: number,
     h: number,
   ): Draw {
+
     const draw = new Draw();
     const size = Math.min(w, h - 230) * 0.9;
     const plot = new Plot([size, size]);
@@ -236,11 +261,34 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
       const sensor_yaw =
         (camera.map_yaw_world_to_sensor((world_yaw * 3.1416) / 180) * 180) /
         3.1416;
-      data0.push(sensor_yaw, world_yaw - sensor_yaw);
+      data0.push(sensor_yaw, world_yaw);
     }
+
+    const mapping_nps = this.application.current_project().mapped_nps();
+    mapping_nps.update();
+    const data1 = new DataRange();
+    for (const mnp of mapping_nps.named_points) {
+      if (!mnp.has_pms) { continue; }
+      this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+      camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+      const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
+      mnp.wasm_np.set_model_vec(this.wasm_vec3);
+      camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+      const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
+      data1.push(sensor_yaw, world_yaw);
+    }
+    for (const d of data0.data) {
+      d[1] -= d[0];
+    }
+    for (const d of data1.data) {
+      d[1] -= d[0];
+    }
+
     plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
     const xr = data0.get_xrange();
-    const yr = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const yr0 = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const yr1 = data1.get_yrange({ expand_factor: 1.2, include_zero: true });
+    const yr:[number,number] = [Math.min(yr0[0], yr1[0]), Math.max(yr0[1], yr1[1])];
 
     let xtics = new Tics({
       spacing: 10,
@@ -265,21 +313,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_tics(draw);
     plot.generate_labels(draw);
     plot.generate_line_plot(draw, data0);
-
-    const mapping_nps = this.application.current_project().mapped_nps();
-    mapping_nps.update();
-    const data1 = new DataRange();
-    for (const mnp of mapping_nps.named_points) {
-      if (!mnp.has_pms) { continue; }
-      this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
-      camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
-      const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
-      mnp.wasm_np.set_model_vec(this.wasm_vec3);
-      camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
-      const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
-      data1.push(sensor_yaw, world_yaw - sensor_yaw);
-    }
     plot.generate_pt_plot(draw, data1);
+
     plot.generate_box(draw);
     return draw;
   }
