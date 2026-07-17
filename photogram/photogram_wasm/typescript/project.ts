@@ -21,6 +21,7 @@ export interface ProjectClient {
   project_camera_changed(p: Project): void;
   project_pm_changed(p: Project): void;
   project_cip_changed(p: Project): void;
+  project_mapped_nps_changed(p: Project): void;
 }
 
 class UndoableNpAdd implements UndoableAction<Project> {
@@ -324,11 +325,16 @@ class UndoablePmsDelete implements UndoableAction<Project> {
   orig_pxy: [number, number];
   orig_uncertainty: number;
   constructor(project: Project, np_name: string) {
+    console.log("UndoablePmsDelete");
     if (project.wasm_project !== null) {
+      console.log("UndoablePmsDelete 1", np_name);
       if (project.wasm_project!.nps.get_pt(np_name) !== undefined) {
+        console.log("UndoablePmsDelete 2");
         const cip = project.get_wasm_cip();
         if (cip !== null) {
+          console.log("UndoablePmsDelete 2");
           const n = cip.pms.mapping_of_name(np_name);
+          console.log("UndoablePmsDelete 2", n);
           if (n !== undefined) {
             this.cip_name = project.get_cip().name()!;
             this.np_name = np_name;
@@ -501,6 +507,11 @@ export class Project {
   cip_changed(_data_only: boolean,) {
     this._mapped_nps.map_with_cip();
     this.invoke_clients((c) => c.project_cip_changed(this));
+  }
+
+  /** Invoked whenever the MappedNPs changes (sort order etc) */
+  mapped_changed() {
+    this.invoke_clients((c) => c.project_mapped_nps_changed(this));
   }
 
   nps_add(name: string): boolean {

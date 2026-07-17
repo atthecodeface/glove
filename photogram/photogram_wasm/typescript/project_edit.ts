@@ -80,6 +80,13 @@ export class ProjectEdit implements ProjectClient, ApplicationTab {
     if (this.tab_is_selected) { this.application.set_project_updated(); }
   }
 
+  project_mapped_nps_changed(_p: Project): void {
+    if (this.tab_is_selected) {
+      this.repopulate_nps_div();
+      this.repopulate_cip_div();
+    }
+  }
+
   repopulate_nps_div() {
     this.nps_div.clear();
 

@@ -117,6 +117,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
   project_cip_changed(_p: Project): void {
     this.application.set_redraw_required();
   }
+  project_mapped_nps_changed(_p: Project): void {
+  }
 
   redraw() {
     const context = this.canvas.getContext("2d")!;
@@ -271,10 +273,10 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
       if (!mnp.has_pms) { continue; }
       this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
       camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
-      const sensor_yaw = camera.yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
+      const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;;
       mnp.wasm_np.set_model_vec(this.wasm_vec3);
       camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
-      const world_yaw = camera.yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
+      const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3)* 180 /   3.1416;
       data1.push(sensor_yaw, world_yaw - sensor_yaw);
     }
     plot.generate_pt_plot(draw, data1);
@@ -338,8 +340,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     h: number,
   ): Draw {
     const sensor_wh: [number, number] = [
-      camera.sensor_width,
-      camera.sensor_height,
+      camera.sensor_px_width,
+      camera.sensor_px_height,
     ];
 
     const draw = new Draw();

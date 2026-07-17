@@ -60,6 +60,12 @@ export class Cip {
     }
   }
 
+  orient_camera_using_model_directions(max_np_error: number) {
+    if (this.wasm_cip !== null) {
+      this.wasm_cip.orient_camera_using_model_directions(max_np_error);
+    }
+  }
+
   repopulate() {
     /*
                 ["Focus at", focus_at],

@@ -1,3 +1,5 @@
+import { HtmlElement } from "./html";
+
 //fp is_array
 export function is_array(obj: Object): boolean {
   return Object.prototype.toString.call(obj) === "[object Array]";
@@ -46,6 +48,27 @@ export function round_to_multiple(x: number, m: number, to = 0): number {
   } else {
     return m * Math.ceil(x / m);
   }
+}
+
+export function point_div_to_dp_vertical(parent: HtmlElement, prefix: string, coords: Iterable<number>, dp: number): HtmlElement {
+  const div = parent.add_ele("div");
+  const s :string[] = [];
+  for (const c of coords) {
+    s.push(c.toFixed(dp));
+  }
+  let n = s.length;
+  for (let i = 0; i < n; i++) {
+    if (i == 0) {
+      div.add_span(prefix+"("+s[i]!);
+    } else if (i == n - 1) {
+      div.add_ele("br");
+      div.add_span(s[i]!+")");
+    } else {
+      div.add_ele("br");
+      div.add_span(s[i]!+",");
+    }
+  }
+  return div;
 }
 
 export function point_to_dp(coords: Iterable<number>, dp: number): string {
