@@ -182,13 +182,13 @@ impl WasmNamedPoint {
 
     //mp name
     #[wasm_bindgen(getter)]
-    pub fn name(&self) -> JsValue {
+    pub fn name(&self) -> String {
         (&self.name).into()
     }
 
     //mp color
     #[wasm_bindgen(getter)]
-    pub fn color(&self) -> JsValue {
+    pub fn color(&self) -> String {
         (&self.color).into()
     }
 

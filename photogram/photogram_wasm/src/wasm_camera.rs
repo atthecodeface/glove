@@ -90,69 +90,95 @@ impl WasmCameraInstance {
         Ok(Self { camera })
     }
 
+    /// Get the name of the body
     #[wasm_bindgen(getter)]
     pub fn body(&self) -> String {
         self.camera.borrow().camera_name().into()
     }
 
+    /// Get the name of the lens
     #[wasm_bindgen(getter)]
     pub fn lens(&self) -> String {
         self.camera.borrow().lens_name().into()
     }
 
+    /// Get the focal length of the lens
     #[wasm_bindgen(getter)]
     pub fn focal_length(&self) -> f64 {
         self.camera.borrow().focal_length()
     }
 
+    /// Get the tan of half of the diagonal field of view (center to corner)
+    ///
+    /// This assumes the optical axis is at the centre of the sensor, which is close enough.
     #[wasm_bindgen(getter)]
     pub fn tan_hfovd(&self) -> f64 {
         let txty = self.camera.borrow().tan_hfov();
         (txty.0 * txty.0 + txty.1 * txty.1).sqrt()
     }
 
+    /// Get the tan of half of the horizontal field of view (center to corner)
+    ///
+    /// This assumes the optical axis is at the centre of the sensor, which is close enough.
     #[wasm_bindgen(getter)]
     pub fn tan_hfovh(&self) -> f64 {
         self.camera.borrow().tan_hfov().0
     }
 
+    /// Get the tan of half of the vertical field of view (center to corner)
+    ///
+    /// This assumes the optical axis is at the centre of the sensor, which is close enough.
     #[wasm_bindgen(getter)]
     pub fn tan_hfovv(&self) -> f64 {
         self.camera.borrow().tan_hfov().1
     }
 
+    /// Get the position of the camera in world XYZ coordinates
+    ///
+    /// This creates a new WasmVec3f64
     #[wasm_bindgen(getter)]
     pub fn position(&self) -> WasmVec3f64 {
         self.camera.borrow().position().into()
     }
 
+    /// Set the position of the camera in world XYZ coordinates to a given WasmVec3f64
     #[wasm_bindgen(setter)]
     pub fn set_position(&mut self, position: &WasmVec3f64) {
         let position: Vec3f64 = position.into();
         self.camera.borrow_mut().set_position(&position);
     }
 
+    /// Get the orientation of the camera
+    ///
+    /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     #[wasm_bindgen(getter)]
     pub fn orientation(&self) -> WasmQuatf64 {
         self.camera.borrow().orientation().into()
     }
 
     /// Set a WasmQuatf64 to the camera's orientation
+    ///
+    /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     pub fn orientation_set_quat(&self, q: &mut WasmQuatf64) {
         *q.as_mut() = self.camera.borrow().orientation();
     }
 
+    /// Set the orientation of the camera from a given WasmAutf64
+    ///
+    /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     #[wasm_bindgen(setter)]
     pub fn set_orientation(&mut self, orientation: &WasmQuatf64) {
         let position: Quatf64 = orientation.into();
         self.camera.borrow_mut().set_orientation(&position);
     }
 
+    /// Get the focusing distance that the image was taken with (in mm)
     #[wasm_bindgen(getter)]
     pub fn focus_distance(&self) -> f64 {
         self.camera.borrow().focus_distance()
     }
 
+    /// Set the focusing distance that the image was taken with (in mm)
     #[wasm_bindgen(setter)]
     pub fn set_focus_distance(&mut self, mm_focus_distance: f64) {
         self.camera
@@ -160,24 +186,40 @@ impl WasmCameraInstance {
             .set_focus_distance(mm_focus_distance);
     }
 
+    /// Get the X coordinate of the optical axis has on the sensor
     #[wasm_bindgen(getter)]
     pub fn sensor_cx(&self) -> f64 {
         self.camera.borrow().sensor_px_center()[0]
     }
 
+    /// Get the Y coordinate of the optical axis has on the sensor
     #[wasm_bindgen(getter)]
     pub fn sensor_cy(&self) -> f64 {
         self.camera.borrow().sensor_px_center()[1]
     }
 
+    /// Get the sensor width in pixels
     #[wasm_bindgen(getter)]
-    pub fn sensor_width(&self) -> f64 {
+    pub fn sensor_px_width(&self) -> f64 {
         self.camera.borrow().sensor_px_size().0
     }
 
+    /// Get the sensor height in pixels
     #[wasm_bindgen(getter)]
-    pub fn sensor_height(&self) -> f64 {
+    pub fn sensor_px_height(&self) -> f64 {
         self.camera.borrow().sensor_px_size().1
+    }
+
+    /// Get the sensor width in mm
+    #[wasm_bindgen(getter)]
+    pub fn sensor_mm_width(&self) -> f64 {
+        self.camera.borrow().sensor_mm_size().0
+    }
+
+    /// Get the sensor height in mm
+    #[wasm_bindgen(getter)]
+    pub fn sensor_mm_height(&self) -> f64 {
+        self.camera.borrow().sensor_mm_size().1
     }
 
     pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
