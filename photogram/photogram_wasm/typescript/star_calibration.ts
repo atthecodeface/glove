@@ -599,12 +599,22 @@ export class StarCalibration
     return pts;
   }
 
-  redraw_image(webgl: Webgl, webgl_canvas: WebglCanvas, texture:WebglTexture): void {
+  /** Redraw the image
+   *
+   * Must map by sensor_cx/cy
+   */
+  redraw_image(webgl: Webgl, webgl_canvas: WebglCanvas, texture: WebglTexture): void {
+    if (this.camera === null) { return; }
     const m_a = this.application.wasm_memory.float_array_of_mat4f64(
       this.wasm_mat4,
     );
-    const mm_w = this.camera!.sensor_mm_width;
-    const mm_h = this.camera!.sensor_mm_height;
+
+    const mm_w = this.camera.sensor_mm_width;
+    const mm_h = this.camera.sensor_mm_height;
+    const px_w = this.camera.sensor_px_width;
+    const px_h = this.camera.sensor_px_height;
+    const px_cx = this.camera.sensor_cx;
+    const px_cy = this.camera.sensor_cy;
 
     // Model for *image* maps +-1 in X and Y to +-mm_w/2, +-mm_h/2 (and translate if sensor is not centred).
     //
@@ -618,7 +628,9 @@ export class StarCalibration
     webgl.view.set(m_a);
 
     m_a[0] = mm_w / 2;
+    m_a[3] = (0.5 - px_cx / px_w) * mm_w;
     m_a[5] = mm_h / 2;
+    m_a[7] = (0.5 - px_cy / px_h) * mm_h;
     webgl.model.set(m_a);
 
     webgl.set_uniform_projection();
@@ -629,12 +641,23 @@ export class StarCalibration
     webgl.draw(webgl_canvas.webgl_rectangle!);
   }
 
+  /**
+   * Redraw the grid, which is many lines using an Indexed draw element for the
+   * scale of grid lines required in both directions
+   *
+   * Must map by sensor_cx/cy
+   */
   redraw_grid(webgl: Webgl, webgl_canvas: WebglCanvas, mm_scr_width:number): void {
+    if (this.camera === null) { return; }
     const m_a = this.application.wasm_memory.float_array_of_mat4f64(
       this.wasm_mat4,
     );
-    const mm_w = this.camera!.sensor_mm_width;
-    const mm_h = this.camera!.sensor_mm_height;
+    const mm_w = this.camera.sensor_mm_width;
+    const mm_h = this.camera.sensor_mm_height;
+    const px_w = this.camera.sensor_px_width;
+    const px_h = this.camera.sensor_px_height;
+    const px_cx = this.camera.sensor_cx;
+    const px_cy = this.camera.sensor_cy;
 
     // Plot the grid which is in image space, so needs the image-to-uniform model mapping
     webgl.use_program(webgl_canvas.image_grid_line_program);
@@ -642,7 +665,9 @@ export class StarCalibration
     webgl.view.set(m_a);
 
     m_a[0] = mm_w / 2;
+    m_a[3] = (0.5 - px_cx / px_w) * mm_w;
     m_a[5] = mm_h / 2;
+    m_a[7] = (0.5 - px_cy / px_h) * mm_h;
     webgl.model.set(m_a);
 
     webgl.set_uniform_projection();
@@ -651,7 +676,7 @@ export class StarCalibration
     webgl.set_color([1.0, 1, 1.0, 1]);
 
     // Number of *image* pixels that are visible horizontally, so the correct grid scale can be generated
-    const img_px_visible = mm_scr_width * this.camera!.sensor_px_width / this.camera!.sensor_mm_width;
+    const img_px_visible = mm_scr_width * px_w / mm_w;
 
     let grid_line_spacing_in_px = 1;
     let grid_spacing_is_pwr_of_ten = true;
@@ -671,7 +696,7 @@ export class StarCalibration
     webgl_canvas.webgl_grid!.set_args(
       2000,
       true,
-      0.2,
+      0.45,
       (y_space_of_1000px / 1000) * grid_line_spacing_in_px,
       -1000,
     );
@@ -679,7 +704,7 @@ export class StarCalibration
     webgl_canvas.webgl_grid!.set_args(
       2000,
       false,
-      0.2,
+      0.45,
       (x_space_of_1000px / 1000) * grid_line_spacing_in_px,
       -1000,
     );
