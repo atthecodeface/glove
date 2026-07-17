@@ -78,6 +78,9 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Get the center of the sensor in pixels
     fn sensor_px_center(&self) -> Point2D;
 
+    /// Get the size of the sensor in mm, width and height
+    fn sensor_mm_size(&self) -> (f64, f64);
+
     /// Get the tan of half of the field-of-view for horizontal and vertical
     ///
     /// The diagonal tan-half-fov is the sqrt(sum(squares)) of these two values

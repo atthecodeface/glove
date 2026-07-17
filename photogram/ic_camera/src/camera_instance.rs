@@ -258,6 +258,10 @@ impl CameraProjection for CameraInstance {
         self.derive()
     }
 
+    fn sensor_mm_size(&self) -> (f64, f64) {
+        (self.body.mm_sensor_width(), self.body.mm_sensor_height())
+    }
+
     fn sensor_px_size(&self) -> (f64, f64) {
         self.body.sensor_px_size()
     }
