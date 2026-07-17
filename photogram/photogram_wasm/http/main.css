@@ -163,6 +163,10 @@ html {
     width: 800px;
     cursor: move;
 }
+.scrollable {
+    overflow: scroll;
+    height:100%;
+}
 .sticky-table {
     th {
         position: sticky;
