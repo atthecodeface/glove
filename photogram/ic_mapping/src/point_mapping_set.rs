@@ -497,7 +497,11 @@ impl PointMappingSet {
             .filter(|(n, pm)| filter.clone()(*n, pm))
         {
             let di_c = pm_i.get_mapped_camera_dir(camera);
-            let di_m = (camera.position() - pm_i.model()).normalize();
+            let di_m = if pm_i.model_is_direction() {
+                pm_i.model().normalize()
+            } else {
+                (camera.position() - pm_i.model()).normalize()
+            };
 
             for (_, pm_j) in self
                 .mappings
@@ -508,7 +512,11 @@ impl PointMappingSet {
                 .filter(|(n, pm)| filter.clone()(*n, pm))
             {
                 let dj_c = pm_j.get_mapped_camera_dir(camera);
-                let dj_m = (camera.position() - pm_j.model()).normalize();
+                let dj_m = if pm_j.model_is_direction() {
+                    pm_j.model().normalize()
+                } else {
+                    (camera.position() - pm_j.model()).normalize()
+                };
 
                 qs.push((
                     1.0,

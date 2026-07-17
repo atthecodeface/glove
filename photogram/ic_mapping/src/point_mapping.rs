@@ -87,11 +87,6 @@ impl PointMapping {
         !self.named_point.is_unmapped()
     }
 
-    #[inline]
-    pub fn maps_to_direction(&self) -> bool {
-        self.named_point.model().0
-    }
-
     pub fn model_is_direction(&self) -> bool {
         self.named_point.model_is_direction()
     }
