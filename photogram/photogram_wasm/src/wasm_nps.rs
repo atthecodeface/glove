@@ -37,7 +37,6 @@ impl WasmNamedPointSet {
         Self { nps }
     }
 
-    #[wasm_bindgen]
     pub fn read_json(&mut self, json: &str) -> Result<(), JsValue> {
         let nps = NamedPointSet::load_json(json, &())
             .map_err(err_to_string)?
@@ -47,7 +46,6 @@ impl WasmNamedPointSet {
         Ok(())
     }
 
-    #[wasm_bindgen]
     pub fn to_json(&self) -> Result<String, JsValue> {
         Ok(self.nps.borrow().to_json(false).map_err(err_to_string)?)
     }
@@ -56,13 +54,32 @@ impl WasmNamedPointSet {
         self.nps.borrow().len()
     }
 
-    #[wasm_bindgen]
-    pub fn add_pt(&mut self, wnp: WasmNamedPoint) -> Result<(), JsValue> {
-        let color: Color8 = wnp.color.as_str().try_into()?;
-        self.nps
-            .borrow_mut()
-            .add_pt(&wnp.name, color, false, Some(wnp.model.into()), wnp.error);
-        Ok(())
+    /** Returns the point it replaced, if any */
+    pub fn add_pt(&mut self, wnp: &WasmNamedPoint) -> Option<WasmNamedPoint> {
+        let mut nps = self.nps.borrow_mut();
+
+        // add_pt returns the *old* point if there was one there already.
+        let opt_replaced_point = nps.add_pt(&wnp.name, Color8::black(), false, None, 0.0);
+
+        wnp.set_np(&*nps.get_rc_np(&wnp.name).unwrap());
+        opt_replaced_point.map(|np| (&*np).into())
+    }
+
+    pub fn get_pt(&self, name: &str) -> Option<WasmNamedPoint> {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
+            Some((&*np).into())
+        } else {
+            None
+        }
+    }
+
+    pub fn set_pt(&mut self, name: &str, wnp: &WasmNamedPoint) -> bool {
+        if let Some(np) = self.nps.borrow().get_rc_np(name) {
+            wnp.set_np(&np);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn used_by(&mut self, name: &str) -> usize {
@@ -76,15 +93,6 @@ impl WasmNamedPointSet {
             true
         } else {
             false
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn get_pt(&mut self, name: &str) -> Option<WasmNamedPoint> {
-        if let Some(np) = self.nps.borrow().get_rc_np(name) {
-            Some((&*np).into())
-        } else {
-            None
         }
     }
 

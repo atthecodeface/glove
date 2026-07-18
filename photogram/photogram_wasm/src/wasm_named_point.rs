@@ -21,7 +21,7 @@ pub struct WasmNamedPoint {
     pub(crate) color: String,
     pub(crate) at_infinity: bool,
     pub(crate) model: Point3D,
-    pub(crate) error: f64,
+    pub(crate) uncertainty: f64,
 }
 
 impl std::convert::From<&NamedPoint> for WasmNamedPoint {
@@ -31,7 +31,7 @@ impl std::convert::From<&NamedPoint> for WasmNamedPoint {
             color: np.color().as_string(),
             at_infinity: np.model_is_direction(),
             model: np.model_pt().into(),
-            error: np.model_uncertainty(),
+            uncertainty: np.model_uncertainty(),
         }
     }
 }
@@ -43,14 +43,14 @@ impl WasmNamedPoint {
         let name = name.into();
         let color = color.into();
         let model = Point3D::default();
-        let error = 0.0;
+        let uncertainty = 0.0;
         let at_infinity = false;
         Self {
             name,
             color,
             at_infinity,
             model,
-            error,
+            uncertainty,
         }
     }
 
@@ -79,6 +79,15 @@ impl WasmNamedPoint {
 
     #[wasm_bindgen(getter)]
     pub fn error(&self) -> f64 {
-        self.error
+        self.uncertainty
+    }
+
+    pub(crate) fn set_np(&self, np: &NamedPoint) {
+        crate::console_log!("set np Color {}", self.color);
+        if let Ok(color) = self.color.as_str().try_into() {
+            crate::console_log!("set np Color {}", color);
+            np.set_color(color);
+        }
+        np.set_model(Some((self.at_infinity, self.model, self.uncertainty)));
     }
 }

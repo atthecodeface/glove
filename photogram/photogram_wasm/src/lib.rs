@@ -11,6 +11,7 @@ pub use geo_nd_wasm::{WasmVec2f32, WasmVec3f32, WasmVec4f32};
 pub use geo_nd_wasm::{WasmVec2f64, WasmVec3f64, WasmVec4f64};
 pub use star_catalog_wasm::{WasmCatalog, WasmStar, star_catalog};
 
+pub(crate) use wasm_import::log as wasm_log;
 use wasm_import::{ToFromWasmArr, err_to_string};
 
 mod wasm_base;
