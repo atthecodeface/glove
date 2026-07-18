@@ -3,7 +3,7 @@ use crate::WasmVec3f64;
 use wasm_bindgen::prelude::*;
 
 use ic_base::{JsonParsable, JsonSrc, Point2D, Point3D, Rrc};
-use ic_image::Color;
+use ic_image::Color8;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 
 use crate::{ToFromWasmArr, err_to_string};
@@ -163,7 +163,7 @@ impl WasmNamedPoint {
     #[wasm_bindgen(constructor)]
     pub fn new(name: &str, color: &str) -> Result<WasmNamedPoint, JsValue> {
         let name = name.into();
-        let _color: Color = color.try_into()?;
+        let _color: Color8 = color.try_into()?;
         let color = color.into();
         let model = [0.; 3];
         let error = 0.0;
@@ -260,7 +260,7 @@ impl WasmNamedPointSet {
 
     #[wasm_bindgen]
     pub fn add_pt(&mut self, wnp: WasmNamedPoint) -> Result<(), JsValue> {
-        let color: Color = wnp.color.as_str().try_into()?;
+        let color: Color8 = wnp.color.as_str().try_into()?;
         self.nps
             .borrow_mut()
             .add_pt(&wnp.name, color, false, Some(wnp.model.into()), wnp.error);
@@ -316,7 +316,7 @@ impl WasmNamedPointSet {
     }
 
     pub fn set_color(&self, name: &str, color: &str) -> Result<(), String> {
-        let color: Color = color.try_into()?;
+        let color: Color8 = color.try_into()?;
 
         if let Some(np) = self.nps.borrow().get_rc_np(name) {
             np.set_color(color);
