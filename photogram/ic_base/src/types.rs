@@ -112,7 +112,7 @@ impl std::fmt::Display for TanXTanY {
 /// To 'look at' a point in a framed image, roll around the -ve 'z'
 /// axis (in/out of the frame), putting the point on the +ve X axis,
 /// then yaw (rotate about +ve Y)
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RollYaw {
     /// Angle that the RollYaw direction is offset from [0,0,-1]
     ///
