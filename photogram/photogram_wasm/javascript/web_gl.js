@@ -108,7 +108,7 @@ export class WebglTexture {
         w.bindTexture(w.TEXTURE_2D, this.texture);
         w.texImage2D(w.TEXTURE_2D, 0, w.RGBA, 1, 1, 0, w.RGBA, w.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
         w.texParameteri(w.TEXTURE_2D, w.TEXTURE_MIN_FILTER, w.NEAREST);
-        w.texParameteri(w.TEXTURE_2D, w.TEXTURE_MAG_FILTER, w.LINEAR);
+        // w.texParameteri(w.TEXTURE_2D, w.TEXTURE_MAG_FILTER, w.LINEAR);
         w.texParameteri(w.TEXTURE_2D, w.TEXTURE_WRAP_S, w.CLAMP_TO_EDGE);
         w.texParameteri(w.TEXTURE_2D, w.TEXTURE_WRAP_T, w.CLAMP_TO_EDGE);
     }

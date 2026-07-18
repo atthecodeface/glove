@@ -239,7 +239,8 @@ class UndoablePmsAdd {
             pms.set_xy(n, this.pxy[0], this.pxy[1]);
             // pms.set_uncertainty(n, this.uncertainty);
         }
-        p.pm_changed(false, this.np_name);
+        // Adding a mapping impacts the NPs
+        p.np_changed(false, this.np_name);
     }
     rev(p) {
         const pms = p.get_cip_by_name(this.cip_name).pms;
@@ -247,7 +248,8 @@ class UndoablePmsAdd {
         if (n !== undefined) {
             pms.remove_mapping(n);
         }
-        p.pm_changed(false, this.np_name);
+        // Deleting a mapping impacts the NPs
+        p.np_changed(false, this.np_name);
     }
 }
 class UndoablePmsDelete {
@@ -282,7 +284,8 @@ class UndoablePmsDelete {
         if (n !== undefined) {
             pms.remove_mapping(n);
         }
-        p.pm_changed(false, this.np_name);
+        // Deleting a mapping impacts the NPs
+        p.np_changed(false, this.np_name);
     }
     rev(p) {
         const pms = p.get_cip_by_name(this.cip_name).pms;
@@ -291,7 +294,8 @@ class UndoablePmsDelete {
             pms.set_xy(n, this.orig_pxy[0], this.orig_pxy[1]);
             // pms.set_uncertainty(n, this.uncertainty);
         }
-        p.pm_changed(false, this.np_name);
+        // Adding a mapping impacts the NPs
+        p.np_changed(false, this.np_name);
     }
 }
 class UndoableCameraSetOrientation {
@@ -395,6 +399,26 @@ export class Project {
     cip_changed(_data_only) {
         this._mapped_nps.map_with_cip();
         this.invoke_clients((c) => c.project_cip_changed(this));
+    }
+    /** Invoked whenever the MappedNPs changes (sort order etc) */
+    mapped_changed() {
+        this.invoke_clients((c) => c.project_mapped_nps_changed(this));
+    }
+    nps_get_new_name() {
+        if (this.wasm_project === null) {
+            return "No NPS loaded";
+        }
+        const wasm_nps = this.wasm_project.nps;
+        let i = 0;
+        let np_name = "";
+        while (true) {
+            np_name = `np_${i}`;
+            if (wasm_nps.get_pt(np_name) === undefined) {
+                break;
+            }
+            i += 1;
+        }
+        return np_name;
     }
     nps_add(name) {
         try {

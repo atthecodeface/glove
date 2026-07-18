@@ -15,6 +15,8 @@ export class LensCalibrationPlot {
         this.plot_type = SelectedPlotType.Relative;
         this.yaw_max = 90;
         this.pending_regen = false;
+        this.wasm_vec2 = WasmVec2f64.zero();
+        this.wasm_vec3 = WasmVec3f64.zero();
         this.application = application;
         this.log = log;
         this.div = div;
@@ -67,7 +69,7 @@ export class LensCalibrationPlot {
             this.application.set_redraw_required();
         }
     }
-    /** Invoked whether the selected tab is active or not, just prior to redraw */
+    /** Invoked when the tab is selected, or just prior to redraw if screen has changed size */
     tab_resize(w, h) {
         this.canvas.width = w;
         this.canvas.height = h;
@@ -85,6 +87,8 @@ export class LensCalibrationPlot {
     }
     project_cip_changed(_p) {
         this.application.set_redraw_required();
+    }
+    project_mapped_nps_changed(_p) {
     }
     redraw() {
         const context = this.canvas.getContext("2d");
@@ -129,15 +133,39 @@ export class LensCalibrationPlot {
         const size = Math.min(w, h - 230) * 0.9;
         const draw = new Draw();
         const plot = new Plot([size, size]);
-        const data = new DataRange();
+        const data0 = new DataRange();
         for (let sensor_yaw = 0.1; sensor_yaw < this.yaw_max; sensor_yaw += 0.1) {
             const world_yaw = (camera.map_yaw_sensor_to_world((sensor_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data.push(sensor_yaw, world_yaw / sensor_yaw - 1);
+            data0.push(sensor_yaw, world_yaw);
+        }
+        const mapping_nps = this.application.current_project().mapped_nps();
+        mapping_nps.update();
+        const data1 = new DataRange();
+        for (const mnp of mapping_nps.named_points) {
+            if (!mnp.has_pms) {
+                continue;
+            }
+            this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+            camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+            const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
+            ;
+            mnp.wasm_np.set_model_vec(this.wasm_vec3);
+            camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+            const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
+            data1.push(sensor_yaw, world_yaw);
+        }
+        for (const d of data0.data) {
+            d[1] = d[1] / d[0] - 1;
+        }
+        for (const d of data1.data) {
+            d[1] = d[1] / d[0] - 1;
         }
         plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
-        const xr = data.get_xrange();
-        const yr = data.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const xr = data0.get_xrange();
+        const yr0 = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const yr1 = data1.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const yr = [Math.min(yr0[0], yr1[0]), Math.max(yr0[1], yr1[1])];
         const xtics = new Tics({
             spacing: 10,
             length: 10,
@@ -158,7 +186,8 @@ export class LensCalibrationPlot {
         plot.generate_grid(draw);
         plot.generate_tics(draw);
         plot.generate_labels(draw);
-        plot.generate_plot(draw, data);
+        plot.generate_line_plot(draw, data0);
+        plot.generate_pt_plot(draw, data1);
         plot.generate_box(draw);
         return draw;
     }
@@ -170,11 +199,35 @@ export class LensCalibrationPlot {
         for (let world_yaw = 0; world_yaw < this.yaw_max; world_yaw += 1) {
             const sensor_yaw = (camera.map_yaw_world_to_sensor((world_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data0.push(sensor_yaw, world_yaw - sensor_yaw);
+            data0.push(sensor_yaw, world_yaw);
+        }
+        const mapping_nps = this.application.current_project().mapped_nps();
+        mapping_nps.update();
+        const data1 = new DataRange();
+        for (const mnp of mapping_nps.named_points) {
+            if (!mnp.has_pms) {
+                continue;
+            }
+            this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+            camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+            const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
+            ;
+            mnp.wasm_np.set_model_vec(this.wasm_vec3);
+            camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+            const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
+            data1.push(sensor_yaw, world_yaw);
+        }
+        for (const d of data0.data) {
+            d[1] -= d[0];
+        }
+        for (const d of data1.data) {
+            d[1] -= d[0];
         }
         plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
         const xr = data0.get_xrange();
-        const yr = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const yr0 = data0.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const yr1 = data1.get_yrange({ expand_factor: 1.2, include_zero: true });
+        const yr = [Math.min(yr0[0], yr1[0]), Math.max(yr0[1], yr1[1])];
         let xtics = new Tics({
             spacing: 10,
             length: 10,
@@ -195,7 +248,8 @@ export class LensCalibrationPlot {
         plot.generate_grid(draw);
         plot.generate_tics(draw);
         plot.generate_labels(draw);
-        plot.generate_plot(draw, data0);
+        plot.generate_line_plot(draw, data0);
+        plot.generate_pt_plot(draw, data1);
         plot.generate_box(draw);
         return draw;
     }
@@ -231,15 +285,15 @@ export class LensCalibrationPlot {
         plot.generate_grid(draw);
         plot.generate_tics(draw);
         plot.generate_labels(draw);
-        plot.generate_plot(draw, data0);
-        plot.generate_plot(draw, data1);
+        plot.generate_line_plot(draw, data0);
+        plot.generate_line_plot(draw, data1);
         plot.generate_box(draw);
         return draw;
     }
     generate_draw_world_rings_in_frame(camera, w, h) {
         const sensor_wh = [
-            camera.sensor_width,
-            camera.sensor_height,
+            camera.sensor_px_width,
+            camera.sensor_px_height,
         ];
         const draw = new Draw();
         const context_sensor_cxy = [w / 2, h / 2];

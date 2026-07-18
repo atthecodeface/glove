@@ -150,7 +150,7 @@ export class Plot {
             ["s"],
         ]);
     }
-    generate_plot(draw, data_range) {
+    generate_line_plot(draw, data_range) {
         draw.extend([
             ["push"],
             ["W", 4.0],
@@ -170,6 +170,28 @@ export class Plot {
             draw.extend([["l", x, y]]);
         }
         draw.extend([["s"], ["pop"]]);
+    }
+    generate_pt_plot(draw, data_range) {
+        draw.extend([
+            ["push"],
+            ["W", 4.0],
+            ["S", "#ff3"],
+            [
+                "C",
+                this.graph_area[0],
+                this.graph_area[3],
+                this.graph_area[2],
+                this.graph_area[1],
+            ],
+        ]);
+        for (const [d0, d1] of data_range.data) {
+            const x = this.map_x_graph_rel_to_abs.map(this.map_x_data_to_graph_rel.map(d0));
+            const y = this.map_y_graph_rel_to_abs.map(this.map_y_data_to_graph_rel.map(d1));
+            draw.extend([["push"], ["t", x, y]]);
+            draw.extend([["b"], ["m", -5, -5], ["l", 5, 5], ["m", -5, 5], ["L", 5, -5], ["s"]]);
+            draw.extend([["pop"]]);
+        }
+        draw.extend([["pop"]]);
     }
     generate_tics(draw) {
         for (let i = 0; i < this.xtics.length; i++) {

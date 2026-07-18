@@ -60,6 +60,12 @@ export class ProjectEdit {
             this.application.set_project_updated();
         }
     }
+    project_mapped_nps_changed(_p) {
+        if (this.tab_is_selected) {
+            this.repopulate_nps_div();
+            this.repopulate_cip_div();
+        }
+    }
     repopulate_nps_div() {
         this.nps_div.clear();
         this.nps_div.add_button("", "", this.add_new_np.bind(this)).add_content("Add named point");
@@ -72,17 +78,8 @@ export class ProjectEdit {
         project.save_project(null);
     }
     add_new_np() {
-        let i = 0;
-        let np_name = "";
         const project = this.application.current_project();
-        const wasm_nps = project.get_wasm_nps();
-        while (true) {
-            np_name = `np_${i}`;
-            if (wasm_nps.get_pt(np_name) === undefined) {
-                break;
-            }
-            i += 1;
-        }
+        const np_name = project.nps_get_new_name();
         project.nps_add(np_name);
     }
     repopulate_cip_div() {

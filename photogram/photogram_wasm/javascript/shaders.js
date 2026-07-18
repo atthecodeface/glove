@@ -37,7 +37,7 @@ export class StarCalibrationShader {
 
     // Calculate 'star_color' and 'gl_PointSize'
     ${star_color_and_point_size}
-
+    gl_PointSize = 4.0;
   }
 `;
         this.fragment = `#version 300 es

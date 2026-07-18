@@ -47,6 +47,28 @@ export function round_to_multiple(x, m, to = 0) {
         return m * Math.ceil(x / m);
     }
 }
+export function point_div_to_dp_vertical(parent, prefix, coords, dp) {
+    const div = parent.add_ele("div");
+    const s = [];
+    for (const c of coords) {
+        s.push(c.toFixed(dp));
+    }
+    let n = s.length;
+    for (let i = 0; i < n; i++) {
+        if (i == 0) {
+            div.add_span(prefix + "(" + s[i]);
+        }
+        else if (i == n - 1) {
+            div.add_ele("br");
+            div.add_span(s[i] + ")");
+        }
+        else {
+            div.add_ele("br");
+            div.add_span(s[i] + ",");
+        }
+    }
+    return div;
+}
 export function point_to_dp(coords, dp) {
     let result = "";
     let sep = "(";
