@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{Error, JsonParsable, Point3D, Result, Tag, TagMap, TagSet};
 use ic_camera::CameraProjection;
-use ic_image::Color;
+use ic_image::Color8;
 
 use crate::NamedPoint;
 
@@ -116,7 +116,7 @@ impl NamedPointSet {
     pub fn add_pt(
         &mut self,
         name: &str,
-        color: Color,
+        color: Color8,
         at_infinity: bool,
         model: Option<Point3D>,
         err: f64,
@@ -127,7 +127,7 @@ impl NamedPointSet {
     }
 
     /// Create a vector of the named points with a specific color
-    pub fn of_color(&self, color: &Color) -> Vec<Rc<NamedPoint>> {
+    pub fn of_color(&self, color: &Color8) -> Vec<Rc<NamedPoint>> {
         self.points
             .iter()
             .filter(|v| color.color_eq(&v.color()))
@@ -168,7 +168,7 @@ impl NamedPointSet {
                 continue;
             }
             if np.as_bytes()[0] == b'#' {
-                let color = Color::try_from(np)?;
+                let color = Color8::try_from(np)?;
                 for np in self.of_color(&color) {
                     if !r.iter().any(|n| Rc::ptr_eq(n, &np)) {
                         r.push(np);

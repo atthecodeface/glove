@@ -4,7 +4,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{Point3D, Tag, TagData};
-use ic_image::Color;
+use ic_image::Color8;
 
 //a NamedPoint
 //tp NamedPoint
@@ -18,7 +18,7 @@ pub struct NamedPoint {
     /// Can this by a RefCell? If so, it cannot be a TagData
     name: RefCell<Tag>,
     /// Color of the point in calibration images
-    color: RefCell<Color>,
+    color: RefCell<Color8>,
     /// The 3D model coordinate this point corresponds to and the radius of uncertainty
     ///
     /// The bool is 'at_infinity' - i.e this is a known direction (with no uncertainty), not a 3D position
@@ -95,7 +95,7 @@ impl NamedPoint {
     /// Create a new NamedPoint, within a NamedPointSet
     ///
     /// The Tag must thus be Owned or Shared
-    pub fn new(name: Tag, color: Color, model: Option<(bool, Point3D, f64)>) -> Self {
+    pub fn new(name: Tag, color: Color8, model: Option<(bool, Point3D, f64)>) -> Self {
         let model = model.into();
         let name = name.into();
         let color = color.into();
@@ -104,7 +104,7 @@ impl NamedPoint {
 
     pub fn reference<S: Into<String>>(name: S) -> Self {
         let name = Tag::make_unresolved(name).into();
-        let color = Color::black().into();
+        let color = Color8::black().into();
         let model = None.into();
         Self { name, color, model }
     }
@@ -145,7 +145,7 @@ impl NamedPoint {
     }
 
     #[inline]
-    pub fn color(&self) -> Color {
+    pub fn color(&self) -> Color8 {
         *self.color.borrow()
     }
 
@@ -155,7 +155,7 @@ impl NamedPoint {
     }
 
     #[inline]
-    pub fn set_color(&self, color: Color) {
+    pub fn set_color(&self, color: Color8) {
         *self.color.borrow_mut() = color;
     }
 
