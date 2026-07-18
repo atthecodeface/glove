@@ -34,6 +34,8 @@ pub struct WasmPointMapping {
     pub(crate) expected: Point2D,
     /// Distance from cursor - only valid if has_pms
     pub(crate) cursor_distance: f64,
+    /// Roll/Yaw of mapped point
+    pub(crate) screen_ry: RollYaw,
     ///  - only valid if has_pms
     pub(crate) d_map_yaw_err: f64,
     ///  - only valid if has_pms
@@ -50,7 +52,7 @@ impl std::convert::From<&PointMapping> for WasmPointMapping {
         let mut s = Self::default();
         s.wasm_np = wasm_np;
         s.name_upper = name_upper;
-        s.has_pms = true;
+        s.has_pms = false;
         s
     }
 }
@@ -72,6 +74,12 @@ impl WasmPointMapping {
         (&self.wasm_np.name).into()
     }
 
+    /// The name of the NamedPoint in upper case
+    #[wasm_bindgen(getter)]
+    pub fn np_name_upper(&self) -> String {
+        (&self.name_upper).into()
+    }
+
     /// The color associated with the NamedPoint
     #[wasm_bindgen(getter)]
     pub fn np_color(&self) -> String {
@@ -86,7 +94,7 @@ impl WasmPointMapping {
 
     /// True if the NamedPoint maps to a direction, not a position in world space
     #[wasm_bindgen(getter)]
-    pub fn at_infinity(&self) -> bool {
+    pub fn np_at_infinity(&self) -> bool {
         self.wasm_np.at_infinity
     }
 
@@ -99,6 +107,24 @@ impl WasmPointMapping {
     #[wasm_bindgen(getter)]
     pub fn np_uncertainty(&self) -> f64 {
         self.wasm_np.uncertainty
+    }
+
+    /// Expected X coordinate on the image
+    #[wasm_bindgen(getter)]
+    pub fn expected_x(&self) -> f64 {
+        self.expected[0]
+    }
+
+    /// Expected Y coordinate on the image
+    #[wasm_bindgen(getter)]
+    pub fn expected_y(&self) -> f64 {
+        self.expected[1]
+    }
+
+    /// True if this is actually mapped
+    #[wasm_bindgen(getter)]
+    pub fn has_pms(&self) -> bool {
+        self.has_pms
     }
 
     /// The uncertainty of the placement on the image
@@ -123,7 +149,40 @@ impl WasmPointMapping {
         v.set_array(self.screen.as_ref());
     }
 
+    /// Image X coordinate on the image
+    #[wasm_bindgen(getter)]
+    pub fn image_x(&self) -> f64 {
+        if self.has_pms { self.screen[0] } else { 0.0 }
+    }
+
+    /// Image Y coordinate on the image
+    #[wasm_bindgen(getter)]
+    pub fn image_y(&self) -> f64 {
+        if self.has_pms { self.screen[1] } else { 0.0 }
+    }
+
+    /// Image Yaw (angle away from center)
+    #[wasm_bindgen(getter)]
+    pub fn image_yaw(&self) -> f64 {
+        if self.has_pms {
+            self.screen_ry.yaw()
+        } else {
+            0.0
+        }
+    }
+
+    /// Image Roll (anticlockwise angle, 0 being +x)
+    #[wasm_bindgen(getter)]
+    pub fn image_roll(&self) -> f64 {
+        if self.has_pms {
+            self.screen_ry.roll()
+        } else {
+            0.0
+        }
+    }
+
     /// Distance from cursor - only valid if has_pms
+    #[wasm_bindgen(getter)]
     pub fn cursor_distance(&self) -> f64 {
         self.cursor_distance
     }
@@ -131,19 +190,31 @@ impl WasmPointMapping {
     /// The error in 'yaw', which is a distance in unit vector space
     #[wasm_bindgen(getter)]
     pub fn d_map_yaw_err(&self) -> f64 {
-        self.d_map_yaw_err
+        if self.has_pms {
+            self.d_map_yaw_err
+        } else {
+            0.0
+        }
     }
 
     /// The error in 'roll', which is a distance in unit vector space
     #[wasm_bindgen(getter)]
     pub fn d_map_roll_err(&self) -> f64 {
-        self.d_map_roll_err
+        if self.has_pms {
+            self.d_map_roll_err
+        } else {
+            0.0
+        }
     }
 
     /// The error in 'mapping', which is a distance in image pixels
     #[wasm_bindgen(getter)]
     pub fn d_map_distance(&self) -> f64 {
-        self.d_map_distance
+        if self.has_pms {
+            self.d_map_distance
+        } else {
+            0.0
+        }
     }
 
     /// Update the cursor distance
@@ -157,7 +228,7 @@ impl WasmPointMapping {
     pub fn update(
         &mut self,
         camera: &WasmCameraInstance,
-        pms: WasmPointMappingSet,
+        pms: &WasmPointMappingSet,
         cursor_x: f64,
         cursor_y: f64,
     ) {
@@ -180,9 +251,9 @@ impl WasmPointMapping {
             // This does NOT use the lens mapping
             let screen_txty = camera.px_abs_xy_to_sensor_txty(&self.screen);
             let screen_sensor_dir = screen_txty.to_unit_vector();
-            let screen_ry: RollYaw = screen_txty.into();
-            let map_roll = screen_ry.roll();
-            let roll_quat = Quatf64::default().rotate_z(-map_roll);
+            self.screen_ry = screen_txty.into();
+            let roll_quat = Quatf64::default().rotate_z(-self.screen_ry.roll());
+
             let screen_sensor_on_roll_axis = roll_quat.apply3(&screen_sensor_dir);
             let placed_yaw = screen_sensor_on_roll_axis[0] / screen_sensor_on_roll_axis[2];
 
@@ -203,11 +274,13 @@ impl WasmPointMapping {
             self.d_map_yaw_err = expected_yaw - placed_yaw;
             self.d_map_roll_err = expected_roll; // placed_roll is 0 by definition
         } else {
-            self.has_pms = true;
+            self.has_pms = false;
         }
     }
 
     /// Update the NamedPoint details from the *actual* content of the NPS
+    ///
+    /// This invalidates the mapping
     pub fn update_np(&mut self, nps: WasmNamedPointSet) -> bool {
         let nps = nps.nps().borrow();
         if let Some(np) = nps.get_rc_np(&self.wasm_np.name) {
