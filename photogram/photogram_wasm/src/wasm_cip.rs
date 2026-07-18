@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use geo_nd_wasm::{WasmQuatf64, WasmVec3f64};
 use ic_base::{Point3D, Rrc};
-use ic_camera::CameraProjection;
 use ic_mapping::PointMapping;
 use ic_project::{Cip, CipDesc};
 use star_catalog_wasm::star_catalog::StarFilter;

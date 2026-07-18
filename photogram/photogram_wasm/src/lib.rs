@@ -19,8 +19,15 @@ pub use wasm_base::WasmRay;
 mod wasm_camera;
 pub use wasm_camera::{WasmCameraDatabase, WasmCameraInstance};
 
-mod wasm_mapping;
-pub use wasm_mapping::{WasmNamedPoint, WasmNamedPointSet, WasmPointMappingSet};
+mod wasm_named_point;
+mod wasm_nps;
+mod wasm_pms;
+pub use wasm_named_point::WasmNamedPoint;
+pub use wasm_nps::WasmNamedPointSet;
+pub use wasm_pms::WasmPointMappingSet;
+
+// mod wasm_point_mapping;
+// pub use wasm_point_mapping::WasmPointMapping;
 
 mod wasm_cip;
 pub use wasm_cip::WasmCip;

@@ -1,12 +1,156 @@
-use crate::WasmVec3f64;
-
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, JsonSrc, Point2D, Point3D, Rrc};
-use ic_image::Color8;
-use ic_mapping::{NamedPointSet, PointMappingSet};
+use ic_mapping::{PointMapping};
 
-use crate::{ToFromWasmArr, err_to_string};
+use crate::{WasmVec3f64, WasmNamedPoint};
+
+/*
+ * A WasmNamedPoint is a transient structure containing the data that is in the
+ * NamedPointSet database
+ *
+ * It is *not* a mirror onto the actual content, and its properties can be
+ * changed without updating the actual database
+ *
+ * To updated the database use ?
+ */
+#[wasm_bindgen]
+#[derive(Debug, Clone, Default)]
+pub struct WasmPointMapping {
+    pub(crate) wasm_np: WasmNamedPoint,
+    pub(crate) name_upper: String,
+    /// True if the PMS details are valid is has a PMS mapping */
+    pub(crate) has_pms: bool,
+    /// Screen coordinate - only valid if has_pms
+    pub(crate) screen: Point2D,
+    /// Error in pixels - only valid if has_pms
+    pub(crate) error: f64,
+    /// Whether to use for initial orientation or not - only valid if has_pms
+    pub(crate) usage: u64,
+    /// Named point mapped onto the sensor pxy through the camera
+    pub(crate) expected: Point2D,
+    /// Distance from focus - only valid if has_pms
+    pub(crate) focus_distance: f64,
+    ///  - only valid if has_pms
+  pub(crate) d_map_yaw_err: f64,
+  ///  - only valid if has_pms
+  pub(crate) d_map_roll_err: f64,
+  ///  - only valid if has_pms
+  pub(crate) d_map_distance: f64,
+}
+
+impl std::convert::From<&PointMapping> for WasmPointMapping {
+    fn from(pm: &PointMapping) -> Self {
+        let np = pm.named_point();
+        let wasm_np = (&*np).into();
+        let name_upper = &np.ref_tag().as_str().to_uppercase();
+        Self { wasm_np,
+            name_upper,
+            has_pms: true,
+        }
+    }
+}
+
+impl WasmPointMapping {
+    /// Create a new WasmPointMapping from a WasmNamedPoint with no mapping
+    #[wasm_bindgen(constructor)]
+    pub fn new(wasm_np: &WasmNamedPoint) {
+        let mut s = Self::default();
+        s.wasm_np = wasm_np.clone();
+        s.name_upper = wasm_np.name.to_uppercase();
+
+    this.mapped_nps = mapped_nps;
+    this.wasm_np = wasm_np;
+    this.name_upper = this.wasm_np.name.toUpperCase();
+    this.expected_pxy = [0, 0];
+    this.focus_dsq = 0;
+  }
+
+  /** Accessor */
+  x(): number {
+    return this.expected_pxy[0];
+  }
+  /** Accessor */
+  y(): number {
+    return this.expected_pxy[1];
+  }
+    /** Accessor */
+  name(): string {
+    return this.wasm_np.name;
+  }
+    /** Accessor */
+  color(): string {
+    return this.wasm_np.color;
+  }
+
+  color_select(parent: HtmlElement): HtmlElement {
+    const div = parent.add_ele("div");
+    div.add_input_color({ rgb_string: this.wasm_np.color }, this.set_color.bind(this));
+    div.add_ele("br");
+    div.add_span(this.wasm_np.color);
+    return div;
+  }
+
+  set_color(color: string) {
+    this.mapped_nps.project.nps_set_color(this.wasm_np.name, color);
+  }
+
+  uncertainty(): number {
+    return 0;
+  }
+
+  map_model_with_camera(camera: WasmCameraInstance, focus: [number, number]) {
+    const np_pxy = camera.map_model(this.wasm_np.model);
+    this.expected_pxy = [np_pxy[0]!, np_pxy[1]!];
+    const dx = this.expected_pxy[0] - focus[0];
+    const dy = this.expected_pxy[1] - focus[1];
+    this.focus_dsq = Math.sqrt(dx * dx + dy * dy);
+  }
+
+  get_pms_mapping(camera: WasmCameraInstance, pms: WasmPointMappingSet, n: number) {
+    const pxye = pms.get_xy_err(n)!;
+    this.has_pms = true;
+    this.pms_x = pxye[0]!;
+    this.pms_y = pxye[1]!;
+    this.pms_error = pxye[2]!;
+    const dx = this.expected_pxy[0] - this.pms_x;
+    const dy = this.expected_pxy[1] - this.pms_y;
+    this.d_map_sq = Math.sqrt(dx * dx + dy * dy);
+
+    const wasm_vec2 = this.mapped_nps.wasm_vec2;
+    const wasm_vec3 = this.mapped_nps.wasm_vec3;
+    const wasm_quat = this.mapped_nps.wasm_quat;
+
+    // Convert the placed mapped position to a roll/yaw
+    //
+    // Note that the sensor_dir_of_pt uses the sensor centre and pixel aspect
+    // ratio to map to a pure positionq
+    //
+    // This does NOT use the lens mapping
+    wasm_vec2.x = pxye[0]!;
+    wasm_vec2.y = pxye[1]!;
+    camera.set_sensor_dir_of_pt(wasm_vec2, wasm_vec3);
+    const map_roll = camera.camera_roll_of_dir(wasm_vec3);
+    wasm_quat.set_unit();
+    wasm_quat.set_mul_rotate_z(-map_roll);
+    wasm_vec3.set_apply_q3(wasm_quat);
+    const placed_yaw = wasm_vec3.x / wasm_vec3.z;
+
+    // Convert the NP expected position, given orientation and lens calibration,
+    // to a yaw for yaw error
+    //
+    // This does NOT use the lens mapping - but the expected position did
+    wasm_vec2.x = this.expected_pxy[0];
+    wasm_vec2.y = this.expected_pxy[1];
+    camera.set_sensor_dir_of_pt(wasm_vec2, wasm_vec3);
+
+    // Rotate the direction for the NP expected position by -map_roll around -Z to
+    // generate an (x,y,z) whose x is 'yaw' error, y is 'roll' error, scaled down by
+    // z (which should be 1-epsilon)
+    wasm_vec3.set_apply_q3(wasm_quat);
+
+    this.d_map_yaw_err = 1000 * (wasm_vec3.x / wasm_vec3.z - placed_yaw);
+    this.d_map_roll_err = 1000 * wasm_vec3.y / wasm_vec3.z;
+  }
 
 //a WasmPointMappingSet
 //tp WasmPointMappingSet

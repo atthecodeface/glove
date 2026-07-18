@@ -1,6 +1,4 @@
 use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
-use star_catalog_wasm::star_catalog::Vec3f32;
-//a Imports
 use wasm_bindgen::prelude::*;
 
 use ic_base::{JsonParsable, Point2D, Point3D, RollYaw, Rrc, TanXTanY};
