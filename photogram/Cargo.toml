@@ -77,7 +77,7 @@ version = "1.11"
 
 [workspace.dependencies.star-catalog]
 version = "0.3"
-features = ["postcard", "hipp_bright", "image"]
+features = ["postcard", "hipp_full", "image"]
 path = "../../star-catalog-rs"
 
 [workspace.dependencies.star-catalog-wasm]
