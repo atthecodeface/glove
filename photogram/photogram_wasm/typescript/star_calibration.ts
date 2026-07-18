@@ -504,7 +504,7 @@ export class StarCalibration
       if (angle < max_angle) {
         // If NP is already pointing at this star then don't change it!
         const wasm_np = this.application.current_project().get_wasm_nps()!.get_pt(np_name)!;
-        wasm_np.set_model_vec(this.wasm_vec);
+        wasm_np.model_set_vec(this.wasm_vec);
         if (this.wasm_vec.distance(this.wasm_vec_b) > 1E-10) {
         this.application.current_project().nps_set_model(np_name, true, this.wasm_vec_b, 0);
           console.log("Moved np to star", np_name, pts[0], this.wasm_star.id, angle);
