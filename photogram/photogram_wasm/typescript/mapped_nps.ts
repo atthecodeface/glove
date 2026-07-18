@@ -181,7 +181,8 @@ export class MappedNp {
   }
 
   map_model_with_camera(camera: WasmCameraInstance, focus: [number, number]) {
-    const np_pxy = camera.map_model(this.wasm_np.model);
+    // GJS FIXME
+    const np_pxy = camera.map_model(this.wasm_np.model_as_array());
     this.expected_pxy = [np_pxy[0]!, np_pxy[1]!];
     const dx = this.expected_pxy[0] - focus[0];
     const dy = this.expected_pxy[1] - focus[1];
@@ -235,7 +236,7 @@ export class MappedNp {
   }
 
   div_location(t: HtmlElement): HtmlElement {
-    return utils.point_div_to_dp_vertical(t, up_arrow_symbol, this.wasm_np.model, 3);
+    return utils.point_div_to_dp_vertical(t, up_arrow_symbol, this.wasm_np.model_as_array(), 3);
   }
 
   span_uncertainty(t: HtmlElement): HtmlElement {
