@@ -70,6 +70,10 @@ pub struct CameraInstance {
     #[serde(default)]
     position: Point3D,
 
+    /// The correction for the optical axis centre
+    #[serde(default)]
+    optical_axis_offset: Point2D,
+
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
     ///
@@ -113,6 +117,7 @@ impl CameraInstance {
         mm_focus_distance: f64,
         position: Point3D,
         orientation: Quat,
+        optical_axis_offset: Point2D,
     ) -> Self {
         let mut cp = Self {
             body,
@@ -120,6 +125,7 @@ impl CameraInstance {
             mm_focus_distance,
             position,
             orientation,
+            optical_axis_offset,
             lens_sensor_distance: 1., // derived
             tx_from_px_sc: 1.,        // derived
             ty_from_py_sc: 1.,        // derived
@@ -138,6 +144,7 @@ impl CameraInstance {
             desc.mm_focus_distance(),
             *desc.position(),
             *desc.orientation(),
+            *desc.optical_axis_offset(),
         );
         camera.derive();
         Ok(camera)
@@ -180,6 +187,23 @@ impl CameraInstance {
     pub fn set_lens(&mut self, lens: CameraLens) {
         self.lens = lens;
         self.derive();
+    }
+
+    /// Map a pixel position *relative* to the optical axis to an absolute sensor position
+    ///
+    /// The *relative* pixel coordinates are XY positive as up/right
+    #[inline]
+    fn px_rel_xy_to_px_abs_xy(&self, xy: &Point2D) -> Point2D {
+        self.body.px_rel_xy_to_px_abs_xy(xy) + self.optical_axis_offset
+    }
+
+    /// Map an *absolute* pixel value to one relative to the optical axis
+    ///
+    /// The *relative* pixel coordinates are XY positive as up/right
+    #[inline]
+    fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
+        self.body
+            .px_abs_xy_to_px_rel_xy(&(xy - self.optical_axis_offset))
     }
 
     /// Set the distance of focus for the camera instance
@@ -245,12 +269,20 @@ impl CameraProjection for CameraInstance {
         self.orientation
     }
 
+    fn optical_axis_offset(&self) -> Point2D {
+        self.optical_axis_offset
+    }
+
     fn set_position(&mut self, p: &Point3D) {
         self.position = *p;
     }
 
     fn set_orientation(&mut self, q: &Quat) {
         self.orientation = *q;
+    }
+
+    fn set_optical_axis_offset(&mut self, p: &Point2D) {
+        self.optical_axis_offset = *p;
     }
 
     fn set_focus_distance(&mut self, mm_focus_distance: f64) {
@@ -267,7 +299,7 @@ impl CameraProjection for CameraInstance {
     }
 
     fn sensor_px_center(&self) -> Point2D {
-        self.body.sensor_px_center()
+        self.body.sensor_px_center() + self.optical_axis_offset
     }
 
     #[inline]
@@ -284,11 +316,11 @@ impl CameraProjection for CameraInstance {
 
     fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
         let pxy_rel = [txty[0] / self.tx_from_px_sc, txty[1] / self.ty_from_py_sc].into();
-        self.body.px_rel_xy_to_px_abs_xy(&pxy_rel)
+        self.px_rel_xy_to_px_abs_xy(&pxy_rel)
     }
 
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {
-        let pxy_rel = self.body.px_abs_xy_to_px_rel_xy(pxy_abs);
+        let pxy_rel = self.px_abs_xy_to_px_rel_xy(pxy_abs);
         TanXTanY::of_tx_ty(
             pxy_rel[0] * self.tx_from_px_sc,
             pxy_rel[1] * self.ty_from_py_sc,

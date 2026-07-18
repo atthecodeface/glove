@@ -63,11 +63,19 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     /// Orientation is the world-to-camera quaternion; its conjugate is camera-to-world
     fn orientation(&self) -> Quat;
 
+    /// Get the optical axis offset for a lens on this body in this instance
+    ///
+    /// This is in pixels; it is added to the sensor center
+    fn optical_axis_offset(&self) -> Point2D;
+
     /// Get a Point3D indicating the placement of the camera in world space
     fn set_position(&mut self, position: &Point3D);
 
     /// Set a quaternion indicating the orientation of the camera
     fn set_orientation(&mut self, orientation: &Quat);
+
+    /// Set the optical axis offset for a lens on this body in this instance
+    fn set_optical_axis_offset(&mut self, p: &Point2D);
 
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
@@ -76,6 +84,8 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     fn sensor_px_size(&self) -> (f64, f64);
 
     /// Get the center of the sensor in pixels
+    ///
+    /// This accounts for the optical axis offset
     fn sensor_px_center(&self) -> Point2D;
 
     /// Get the size of the sensor in mm, width and height

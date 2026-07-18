@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use geo_nd::Quaternion;
+use geo_nd::{Quaternion, Vector};
 
-use ic_base::{JsonParsable, Point3D, Quat, Result};
+use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result};
 
 use crate::{CameraDatabase, CameraInstance};
 
@@ -33,6 +33,10 @@ pub struct CameraInstanceDesc {
     /// Orientation to be applied to camera-relative world coordinates
     /// to convert to camera-space coordinates
     orientation: Quat,
+
+    /// The correction for the optical axis centre
+    #[serde(default)]
+    optical_axis_offset: Point2D,
 }
 
 impl JsonParsable for CameraInstanceDesc {
@@ -48,14 +52,26 @@ impl JsonParsable for CameraInstanceDesc {
 
 impl std::fmt::Display for CameraInstanceDesc {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(
-            fmt,
-            "CameraInstanceDesc[{} + {} @ {}mm] at {}",
-            self.body,
-            self.lens,
-            self.mm_focus_distance(),
-            utils::show_pos_orient(&self.position, &self.orientation)
-        )
+        if self.optical_axis_offset.is_zero() {
+            write!(
+                fmt,
+                "CameraInstanceDesc[{} + {} @ {}mm] at {}",
+                self.body,
+                self.lens,
+                self.mm_focus_distance(),
+                utils::show_pos_orient(&self.position, &self.orientation)
+            )
+        } else {
+            write!(
+                fmt,
+                "CameraInstanceDesc[{} + {} @ {}mm] at {} cxy offset {}",
+                self.body,
+                self.lens,
+                self.mm_focus_distance(),
+                utils::show_pos_orient(&self.position, &self.orientation),
+                self.optical_axis_offset,
+            )
+        }
     }
 }
 
@@ -84,6 +100,11 @@ impl CameraInstanceDesc {
     /// Get the focusing distance for this camera instance
     pub fn mm_focus_distance(&self) -> f64 {
         self.mm_focus_distance
+    }
+
+    /// Get the optical axis offset
+    pub fn optical_axis_offset(&self) -> &Point2D {
+        &self.optical_axis_offset
     }
 
     /// Get the direction the camera was pointing
@@ -119,6 +140,7 @@ impl CameraInstanceDesc {
             mm_focus_distance,
             position,
             orientation,
+            optical_axis_offset: Point2D::default(),
         }
     }
 
@@ -135,6 +157,11 @@ impl CameraInstanceDesc {
     /// Set the world-to-camera orientation quaterion for the camera instance
     pub fn set_orientation(&mut self, orientation: Quat) {
         self.orientation = orientation;
+    }
+
+    /// Set the optical axis offset
+    pub fn set_optical_axis_offset(&mut self, offset: Point2D) {
+        self.optical_axis_offset = offset;
     }
 
     /// Set the distance of focus for the image
