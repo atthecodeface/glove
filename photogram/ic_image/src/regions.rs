@@ -2,7 +2,7 @@
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::{Color, ImageDrawable, ImageRgb8};
+use crate::{Color8, ImageDrawable, ImageRgb8};
 
 //a Regions
 //tp Region
@@ -24,33 +24,33 @@ pub struct Region {
     /// Sum of square of Y coords
     y2_sum: usize,
     /// Color
-    color: Color,
+    color: Color8,
 }
 
 //ip Region
 impl Region {
     //ap color
     /// Get the color of the region
-    pub fn color(&self) -> Color {
+    pub fn color(&self) -> Color8 {
         self.color
     }
 
     //bp with_color
     /// Build the region with a new color
-    pub fn with_color(mut self, color: Color) -> Self {
+    pub fn with_color(mut self, color: Color8) -> Self {
         self.color = color;
         self
     }
 
     //cp of_color
     /// Construct an empty region with a color
-    pub fn of_color(color: Color) -> Self {
+    pub fn of_color(color: Color8) -> Self {
         Self::default().with_color(color)
     }
 
     //mp is_of_color
     /// Return true if the region is of the color
-    pub fn is_of_color(&self, color: &Color) -> bool {
+    pub fn is_of_color(&self, color: &Color8) -> bool {
         self.color.color_eq(color)
     }
 
@@ -132,8 +132,8 @@ impl Region {
         colors_close_enough: &G,
     ) -> (Vec<Region>, Vec<(usize, usize)>)
     where
-        F: Fn(Color) -> bool,
-        G: Fn(&Color, &Color) -> bool,
+        F: Fn(Color8) -> bool,
+        G: Fn(&Color8, &Color8) -> bool,
     {
         let (xsz, ysz) = img.size();
         let xsz = xsz as usize;
@@ -240,8 +240,8 @@ impl Region {
         colors_close_enough: &G,
     ) -> Vec<Region>
     where
-        F: Fn(Color) -> bool,
-        G: Fn(&Color, &Color) -> bool,
+        F: Fn(Color8) -> bool,
+        G: Fn(&Color8, &Color8) -> bool,
     {
         let (regions, regions_to_merge) =
             Region::scan_image_to_regions(img, is_region, colors_close_enough);

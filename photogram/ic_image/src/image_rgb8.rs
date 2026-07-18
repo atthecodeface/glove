@@ -5,7 +5,7 @@ use image::{DynamicImage, GenericImageView, ImageReader};
 
 use ic_base::Result;
 
-use crate::{Color, Image, ImageDrawable, ImageGray16};
+use crate::{Color8, Image, ImageDrawable, ImageGray16};
 
 //a ImageRbg8
 #[derive(Debug, Clone)]
@@ -75,15 +75,15 @@ impl ImageRgb8 {
 
 //ip ImageDrawable for ImageRgb8
 impl ImageDrawable for ImageRgb8 {
-    type Pixel = Color;
+    type Pixel = Color8;
 
-    fn put(&mut self, x: u32, y: u32, color: &Color) {
+    fn put(&mut self, x: u32, y: u32, color: &Color8) {
         image::GenericImage::put_pixel(&mut self.0, x, y, color.0);
     }
-    fn get(&self, x: u32, y: u32) -> Color {
-        Color(self.0.get_pixel(x, y))
+    fn get(&self, x: u32, y: u32) -> Color8 {
+        Color8(self.0.get_pixel(x, y))
     }
-    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Color) {
+    fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Color8) {
         let img = self.0.as_mut_rgb8().unwrap();
         let pixel = img.get_pixel_mut(x, y);
         let r = (color.0[0] as f64) * (1.0 - blend) + (blend * (pixel[0] as f64));

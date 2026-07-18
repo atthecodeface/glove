@@ -10,7 +10,7 @@ mod traits;
 mod patch;
 pub use patch::{FromPatchFn, ImagePatch};
 
-pub use color::{Color, Gray16};
+pub use color::{Color8, Gray16};
 pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
 pub use traits::{Image, ImageColor, ImageDrawable};

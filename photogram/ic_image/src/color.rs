@@ -115,57 +115,55 @@ impl<'de> Deserialize<'de> for Gray16 {
     }
 }
 
-//a Color
-//ip ImageColor for Color
-impl ImageColor for Color {
+impl ImageColor for Color8 {
     fn rgb(r: u8, g: u8, b: u8) -> Self {
         [r, g, b, 255].into()
     }
 }
 
-//tp Color - Rgba<u8>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Color(pub Rgba<u8>);
-impl std::default::Default for Color {
+pub struct Color8(pub Rgba<u8>);
+
+impl std::default::Default for Color8 {
     fn default() -> Self {
-        Color([0, 0, 0, 0].into())
+        Color8([0, 0, 0, 0].into())
     }
 }
 
 //ip Display for Color {
-impl std::fmt::Display for Color {
+impl std::fmt::Display for Color8 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "{}", self.as_string())
     }
 }
 
 //ip From<&[u8; 4]> for Color
-impl From<&[u8; 4]> for Color {
-    fn from(c: &[u8; 4]) -> Color {
-        Color((*c).into())
+impl From<&[u8; 4]> for Color8 {
+    fn from(c: &[u8; 4]) -> Color8 {
+        Color8((*c).into())
     }
 }
 
 //ip From<[u8; 4]> for Color
-impl From<[u8; 4]> for Color {
-    fn from(c: [u8; 4]) -> Color {
-        Color(c.into())
+impl From<[u8; 4]> for Color8 {
+    fn from(c: [u8; 4]) -> Color8 {
+        Color8(c.into())
     }
 }
 
 //ip From<u8> for Color
-impl From<u8> for Color {
-    fn from(c: u8) -> Color {
+impl From<u8> for Color8 {
+    fn from(c: u8) -> Color8 {
         [c, c, c, 255].into()
     }
 }
 
 //ip TryFrom<&str> for Color
-impl TryFrom<&str> for Color {
+impl TryFrom<&str> for Color8 {
     type Error = String;
-    fn try_from(s: &str) -> Result<Color, String> {
+    fn try_from(s: &str) -> Result<Color8, String> {
         if s == "None" {
-            Ok(Color::none())
+            Ok(Color8::none())
         } else if s.starts_with('#') {
             let l = s.len();
             if l != 4 && l != 5 && l != 7 && l != 9 {
@@ -178,13 +176,7 @@ impl TryFrom<&str> for Color {
                 match u32::from_str_radix(s.split_at(1).1, 16) {
                     Ok(rgb) => {
                         if short_rgb {
-                            let a = {
-                                if has_alpha {
-                                    (rgb >> 12) & 0xf
-                                } else {
-                                    15
-                                }
-                            };
+                            let a = { if has_alpha { (rgb >> 12) & 0xf } else { 15 } };
                             let r = (rgb >> 8) & 0xf;
                             let g = (rgb >> 4) & 0xf;
                             let b = rgb & 0xf;
@@ -221,17 +213,17 @@ impl TryFrom<&str> for Color {
 }
 
 //ip Color
-impl Color {
+impl Color8 {
     //cp none
     #[inline]
     pub fn none() -> Self {
-        Color([0, 0, 0, 0].into())
+        Color8([0, 0, 0, 0].into())
     }
 
     //cp black
     #[inline]
     pub fn black() -> Self {
-        Color([0, 0, 0, 255].into())
+        Color8([0, 0, 0, 255].into())
     }
 
     //cp color_eq
@@ -259,10 +251,71 @@ impl Color {
             )
         }
     }
+
+    pub fn to_hls(&self) -> (f32, f32, f32) {
+        let red = (self.0[0] as f32) / 255.0;
+        let green = (self.0[1] as f32) / 255.0;
+        let blue = (self.0[2] as f32) / 255.0;
+        let rgb_min = red.min(green.min(blue));
+        let rgb_max = red.max(green.max(blue));
+
+        let lightness = (rgb_max + rgb_min) / 2.0;
+        if rgb_min == rgb_max {
+            (0.0, lightness, 0.0)
+        } else {
+            let chroma = rgb_max - rgb_min;
+            let saturation = chroma / (1.0 - (lightness * 2.0 - 1.0).abs());
+            let mut hue = {
+                if rgb_max == red {
+                    (green - blue) / chroma
+                } else if rgb_max == green {
+                    (blue - red) / chroma + 2.0
+                } else {
+                    (red - green) / chroma + 4.0
+                }
+            };
+            hue = (hue + 6.0) * 60.0;
+            if hue > 360.0 {
+                hue -= 360.0;
+            }
+            (hue, lightness, saturation)
+        }
+    }
+
+    pub fn of_hls((hue, lightness, saturation): (f32, f32, f32)) -> Self {
+        let chroma = saturation * (1.0 - (lightness * 2.0 - 1.0).abs());
+        if chroma < 1E-6 {
+            return ((lightness * 255.0) as u8).into();
+        }
+        // lightness = (Max + Min)/2
+        // Chroma = Max - min
+        let rgb_max = lightness + chroma * 0.5;
+        // sector_hue is 1..7
+        let sector_hue = hue / 60.0 + 1.0;
+        // sector is 0/3 (red is max), 1 (green is max), 2 (blue is max)
+        let sector = (sector_hue * 0.5).floor();
+        // subhue is -0.5 to 0.5
+        let subhue = (sector_hue * 0.5).fract() - 0.5;
+        // rgb0 is min -> max as hue increases
+        let rgb0 = lightness + subhue * chroma;
+        // rgb1 is max -> min as hue increases
+        let rgb1 = lightness - subhue * chroma;
+
+        let (red, green, blue) = {
+            match sector as u8 {
+                1 => (rgb1, rgb_max, rgb0),
+                2 => (rgb0, rgb1, rgb_max),
+                _ => (rgb_max, rgb0, rgb1),
+            }
+        };
+        let red = (red * 255.0) as u8;
+        let green = (green * 255.0) as u8;
+        let blue = (blue * 255.0) as u8;
+        [red, green, blue, 255].into()
+    }
 }
 
-//ip Serialize for Color
-impl Serialize for Color {
+impl Serialize for Color8 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -272,7 +325,7 @@ impl Serialize for Color {
 }
 
 //ip Deserialize for Color
-impl<'de> Deserialize<'de> for Color {
+impl<'de> Deserialize<'de> for Color8 {
     fn deserialize<DE>(deserializer: DE) -> Result<Self, DE::Error>
     where
         DE: serde::Deserializer<'de>,
