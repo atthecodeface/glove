@@ -115,7 +115,7 @@ impl PointMapping {
         &self.named_point
     }
 
-    pub fn useage(&self) -> u64 {
+    pub fn usage(&self) -> u64 {
         self.usage
     }
 

@@ -224,12 +224,12 @@ impl PointMappingSet {
 
 //ip PointMappingSet - accessors
 impl PointMappingSet {
-    //ap len
+    /// Get the number of mappings in the set
     pub fn len(&self) -> usize {
         self.mappings.len()
     }
 
-    //ap is_empty
+    /// Return true if there are no mappings
     pub fn is_empty(&self) -> bool {
         self.mappings.is_empty()
     }
@@ -244,11 +244,20 @@ impl PointMappingSet {
         &mut self.mappings
     }
 
-    //ap mapping_of_np
+    /// Get a mapping that matches the named point (specifically the Rc itself)
+    ///
+    /// This is faster than using a name, when within a fixed NamedPointSet
     pub fn mapping_of_np(&self, np: &Rc<NamedPoint>) -> Option<&PointMapping> {
         self.mappings
             .iter()
             .find(|pm| Rc::ptr_eq(np, pm.named_point()))
+    }
+
+    /// Get a mapping that matches the name; for use from (e.g.) the Wasm
+    pub fn mapping_of_np_name(&self, np_name: &str) -> Option<&PointMapping> {
+        self.mappings
+            .iter()
+            .find(|pm| pm.named_point().has_name(np_name))
     }
 
     //mp get_screen_pts
