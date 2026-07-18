@@ -1,4 +1,4 @@
-use geo_nd_wasm::{Quatf64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
+use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
 use star_catalog_wasm::star_catalog::Vec3f32;
 //a Imports
 use wasm_bindgen::prelude::*;
@@ -146,6 +146,29 @@ impl WasmCameraInstance {
     pub fn set_position(&mut self, position: &WasmVec3f64) {
         let position: Vec3f64 = position.into();
         self.camera.borrow_mut().set_position(&position);
+    }
+
+    /// Set a WasmVec2f64 to the camera's world XYZ coordinates
+    pub fn position_set_vec(&self, v: &mut WasmVec3f64) {
+        v.set_array(self.camera.borrow().position().as_ref());
+    }
+
+    /// Get the optical axis offset of the camera in sensor XYZ coordinates as a WasmVec2f64
+    #[wasm_bindgen(getter)]
+    pub fn optical_axis_offset(&self) -> WasmVec2f64 {
+        self.camera.borrow().optical_axis_offset().into()
+    }
+
+    /// Set the optical axis offset of the camera in sensor XYZ coordinates to a given WasmVec2f64
+    #[wasm_bindgen(setter)]
+    pub fn set_optical_axis_offset(&mut self, offset: &WasmVec2f64) {
+        let offset: Vec2f64 = offset.into();
+        self.camera.borrow_mut().set_optical_axis_offset(&offset);
+    }
+
+    /// Set a WasmVec2f64 to the camera's optical axis offset
+    pub fn optical_axis_offset_set_vec(&self, v: &mut WasmVec2f64) {
+        v.set_array(self.camera.borrow().optical_axis_offset().as_ref());
     }
 
     /// Get the orientation of the camera

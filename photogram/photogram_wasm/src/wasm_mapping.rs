@@ -69,35 +69,32 @@ impl WasmPointMappingSet {
 
     //mp get_name
     /// Get the nth point mapping
-    pub fn get_name(&self, n: usize) -> Result<String, String> {
+    pub fn get_name(&self, n: usize) -> Option<String> {
         self.pms
             .borrow()
             .mappings()
             .get(n)
             .map(|m| m.named_point().ref_tag().as_str().to_owned())
-            .ok_or("Index out of range".into())
     }
 
     //mp get_xy
     /// Get the XY coords
-    pub fn get_xy(&self, n: usize) -> Result<Box<[f64]>, String> {
+    pub fn get_xy(&self, n: usize) -> Option<Box<[f64]>> {
         self.pms
             .borrow()
             .mappings()
             .get(n)
             .map(|m| [m.screen()[0], m.screen()[1]].into())
-            .ok_or("Index out of range".into())
     }
 
     //mp get_xy_err
     /// Get the XY coords and error
-    pub fn get_xy_err(&self, n: usize) -> Result<Box<[f64]>, String> {
+    pub fn get_xy_err(&self, n: usize) -> Option<Box<[f64]>> {
         self.pms
             .borrow()
             .mappings()
             .get(n)
             .map(|m| [m.screen()[0], m.screen()[1], m.error()].into())
-            .ok_or("Index out of range".into())
     }
 
     pub fn set_xy(&mut self, n: usize, x: f64, y: f64) -> Result<(), String> {
