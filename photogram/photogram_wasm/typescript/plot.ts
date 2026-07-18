@@ -5,15 +5,53 @@ interface DataRangeProperties {
   expand_factor?: number;
 }
 
-export class DataRange {
-  data: [number, number][];
+export interface DataPoint {
+  x(): number;
+  y(): number;
+  color(): string;
+  set_x(x:number):void;
+  set_y(y:number):void;
+}
 
-  constructor(data: [number, number][] = []) {
+export class DataXY implements DataPoint {
+  xy: [number, number];
+  constructor(x: number, y: number) {
+    this.xy = [x, y];
+  }
+  x(): number { return this.xy[0]; }
+  y(): number { return this.xy[1]; }
+  color(): string {
+    return "#FF0";
+  }
+  set_x(x: number): void { this.xy[0] = x; }
+  set_y(y: number): void { this.xy[1] = y; }
+}
+
+export class DataXYC implements DataPoint {
+  xy: [number, number];
+  pt_color: string;
+  constructor(x: number, y: number, color:string) {
+    this.xy = [x, y];
+    this.pt_color = color;
+  }
+  x(): number { return this.xy[0]; }
+  y(): number { return this.xy[1]; }
+  color(): string {
+    return this.pt_color;
+  }
+  set_x(x: number): void { this.xy[0] = x; }
+  set_y(y: number): void { this.xy[1] = y; }
+}
+
+export class DataRange<T extends DataPoint> {
+  data: T[];
+
+  constructor(data: T[] = []) {
     this.data = data;
   }
 
-  push(x: number, y: number) {
-    this.data.push([x, y]);
+  push(pt: T) {
+    this.data.push(pt);
   }
 
   private get_range(
@@ -37,21 +75,21 @@ export class DataRange {
   }
 
   get_xrange(properties: DataRangeProperties = {}): [number, number] {
-    let min = this.data[0]![0];
-    let max = this.data[0]![0];
+    let min = this.data[0]!.x();
+    let max = this.data[0]!.x();
     for (const xy of this.data) {
-      min = Math.min(min, xy[0]);
-      max = Math.max(max, xy[0]);
+      min = Math.min(min, xy.x());
+      max = Math.max(max, xy.x());
     }
     return this.get_range(min, max, properties);
   }
 
   get_yrange(properties: DataRangeProperties = {}): [number, number] {
-    let min = this.data[0]![1];
-    let max = this.data[0]![1];
+    let min = this.data[0]!.y();
+    let max = this.data[0]!.y();
     for (const xy of this.data) {
-      min = Math.min(min, xy[1]);
-      max = Math.max(max, xy[1]);
+      min = Math.min(min, xy.y());
+      max = Math.max(max, xy.y());
     }
     return this.get_range(min, max, properties);
   }
@@ -117,6 +155,7 @@ class LinearMap {
     return (mapped_x - this.ofs) / this.scale;
   }
 }
+
 export class Plot {
   /** Origin in the drawing space at which to put the bottom left of the graph */
   graph_origin: [number, number] = [0, 0];
@@ -207,7 +246,7 @@ export class Plot {
     ]);
   }
 
-  generate_line_plot(draw: Draw, data_range: DataRange) {
+  generate_line_plot<T extends DataPoint>(draw: Draw, data_range: DataRange<T>) {
     draw.extend([
       ["push"],
       ["W", 4.0],
@@ -221,23 +260,22 @@ export class Plot {
       ],
       ["b"],
     ]);
-    for (const [d0, d1] of data_range.data) {
+    for (const d of data_range.data) {
       const x = this.map_x_graph_rel_to_abs.map(
-        this.map_x_data_to_graph_rel.map(d0),
+        this.map_x_data_to_graph_rel.map(d.x()),
       );
       const y = this.map_y_graph_rel_to_abs.map(
-        this.map_y_data_to_graph_rel.map(d1),
+        this.map_y_data_to_graph_rel.map(d.y()),
       );
       draw.extend([["l", x, y]]);
     }
     draw.extend([["s"], ["pop"]]);
   }
 
-  generate_pt_plot(draw: Draw, data_range: DataRange) {
+  generate_pt_plot<T extends DataPoint>(draw: Draw, data_range: DataRange<T>) {
     draw.extend([
       ["push"],
-      ["W", 4.0],
-      ["S", "#ff3"],
+      ["W", 2.0],
       [
         "C",
         this.graph_area[0],
@@ -246,15 +284,16 @@ export class Plot {
         this.graph_area[1],
       ],
     ]);
-    for (const [d0, d1] of data_range.data) {
+    for (const d of data_range.data) {
       const x = this.map_x_graph_rel_to_abs.map(
-        this.map_x_data_to_graph_rel.map(d0),
+        this.map_x_data_to_graph_rel.map(d.x()),
       );
       const y = this.map_y_graph_rel_to_abs.map(
-        this.map_y_data_to_graph_rel.map(d1),
+        this.map_y_data_to_graph_rel.map(d.y()),
       );
+      const color = d.color();
       draw.extend([["push"], ["t", x, y]]);
-      draw.extend([["b"], ["m", -5, -5], ["l", 5,5], ["m", -5,5], ["L", 5,-5], ["s"]]);
+      draw.extend([["b"], ["S", color], ["m", -5, -5], ["l", 5,5], ["m", -5,5], ["L", 10,-10], ["s"]]);
       draw.extend([["pop"]]);
     }
     draw.extend([["pop"]]);

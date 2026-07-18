@@ -66,8 +66,8 @@ class NamedPoint extends ImagePoint {
     super();
     this.project = project;
     this.np_name = mnp.name();
-    this.x = mnp.expected_pxy[0];
-    this.y = mnp.expected_pxy[1];
+    this.x = mnp.wasm_pms.expected_x;
+    this.y = mnp.wasm_pms.expected_y;
     const color = color_choice_as_rgb({ rgb_string: mnp.color() });
     const rgb = rgb_of_color(color);
     this.color = [rgb[0], rgb[1], rgb[2], 1];
@@ -86,8 +86,8 @@ class NamedPoint extends ImagePoint {
 class MappedPoint extends NamedPoint {
   constructor(project: Project, mnp: MappedNp) {
     super(project, mnp);
-    this.x = mnp.pms_x;
-    this.y = mnp.pms_y;
+    this.x = mnp.wasm_pms.image_x;
+    this.y = mnp.wasm_pms.image_y;
     this.movable = true;
     }
   override draw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
@@ -250,6 +250,9 @@ export class StarCalibration
     action_div
       .add_button("", "", this.reorient_using_mappings.bind(this))
       .add_content("Reorient using PMS");
+    action_div
+      .add_button("", "", () => this.application.current_project().mapped_nps().recolor_nps())
+      .add_content("Recolor NPs");
     action_div.add_ele("hr");
     action_div
       .add_button("", "", () => this.refocus(2))
@@ -535,7 +538,7 @@ export class StarCalibration
     this.image_points = [];
     this.image_points.push(this.cursor);
     for (const mnp of mapped_nps.named_points) {
-      if (mnp.has_pms) {
+      if (mnp.wasm_pms.has_pms) {
         const op = new MappedPoint(project, mnp);
         this.image_points.push(op);
       }
