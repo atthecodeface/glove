@@ -4,6 +4,7 @@ import {
   WasmMat4f64,
   WasmQuatf64,
   WasmStar,
+  WasmVec2f64,
   WasmVec3f64,
 } from "../pkg/photogram_wasm.js";
 
@@ -157,11 +158,12 @@ export class StarCalibration
   tools_stats_div: HtmlElement;
   animate: Animate;
 
-  star_catalog: WasmCatalog = new WasmCatalog("hipp_bright");
+  star_catalog: WasmCatalog = new WasmCatalog("hipp_full");
   camera: WasmCameraInstance | null = null;
 
   wasm_star: WasmStar;
   wasm_mat4: WasmMat4f64;
+  wasm_vec2: WasmVec2f64;
   wasm_vec: WasmVec3f64;
   wasm_vec_b: WasmVec3f64;
   wasm_quat: WasmQuatf64;
@@ -184,8 +186,8 @@ export class StarCalibration
   animation_delay: number = 30;
   animation_inactivity: number = 0;
 
-  max_magnitude: number = 7;
-  max_stars: number = 2000;
+  max_magnitude: number = 9;
+  max_stars: number = 5000;
   image_brightness: number = 0.6;
 
   tab_is_selected: boolean = false;
@@ -201,6 +203,7 @@ export class StarCalibration
     this.tools_stats_div = html_div;
     this.wasm_star = this.star_catalog.star(0)!;
     this.wasm_mat4 = WasmMat4f64.identity();
+    this.wasm_vec2 = new WasmVec2f64(0, 0);
     this.wasm_vec = new WasmVec3f64(0, 0, 1);
     this.wasm_vec_b = new WasmVec3f64(0, 0, 1);
     this.wasm_quat = WasmQuatf64.unit();
@@ -242,7 +245,7 @@ export class StarCalibration
       .add_button("", "", this.new_np_and_pm.bind(this))
       .add_content("New NP+PM at cursor");
     action_div
-      .add_button("", "", this.find_star_closest_to_pm.bind(this))
+      .add_button("", "", this.find_star_closest_to_all_pms.bind(this))
       .add_content("Find closest stars");
     action_div
       .add_button("", "", this.reorient_using_mappings.bind(this))
@@ -273,6 +276,19 @@ export class StarCalibration
     action_div
       .add_button("", "", () => this.rotate_camera(2,-0.01))
       .add_content("Rot Z -");
+    action_div.add_ele("hr");
+    action_div
+      .add_button("", "", () => this.move_optical_axis_camera(-10, 0))
+      .add_content("Opt axis X -");
+    action_div
+      .add_button("", "", () => this.move_optical_axis_camera(10, 0))
+      .add_content("Opt axis X +");
+    action_div
+      .add_button("", "", () => this.move_optical_axis_camera(0,-10))
+      .add_content("Opt axis Y -");
+    action_div
+      .add_button("", "", () => this.move_optical_axis_camera(0,10))
+      .add_content("Opt axis Y +");
 
     this.tools_stats_div = action_div.add_ele("div");
 
@@ -285,7 +301,11 @@ export class StarCalibration
   }
 
   new_np_and_pm(): void {
-    console.log("Add new NP and PM at cursor");
+    const project = this.application.current_project();
+    const np_name = project.nps_get_new_name();
+    project.nps_add(np_name);
+    this.application.current_project().pms_add(np_name, [this.cursor.x, this.cursor.y], 0);
+    this.find_star_closest_to_pm(np_name, 0.1);
   }
 
   tools_dialog_tab_selected(_t: number, _id: string): void {
@@ -331,6 +351,7 @@ export class StarCalibration
     this.repopulate_nps_div();
     this.update_selected_stars();
     this.update_after_pms_change()
+    this.update_map_of_selected_stars();
     this.activity_occurred();
     this.application.set_redraw_required();
   }
@@ -376,10 +397,9 @@ export class StarCalibration
 
   /** Update the selected stars whenever tha camera has changed */
   update_selected_stars(): void {
-    this.star_catalog.clear_filter();
-    this.star_catalog.filter_max_magnitude(this.max_magnitude);
-
-    this.wasm_vec.set_array(new Float64Array([0, 0, -1]));
+    this.wasm_vec.x = 0;
+    this.wasm_vec.y = 0;
+    this.wasm_vec.z = -1;
     const wasm_cip = this.application.current_project().get_wasm_cip();
     let hfovh = 0.1;
     if (wasm_cip !== null) {
@@ -389,6 +409,8 @@ export class StarCalibration
     }
     this.wasm_quat.apply_set_vec3(this.wasm_vec);
 
+    this.star_catalog.clear_filter();
+    this.star_catalog.filter_max_magnitude(this.max_magnitude);
     this.selected_star_indices = this.star_catalog.find_stars_around(
       this.wasm_vec,
       hfovh,
@@ -400,6 +422,16 @@ export class StarCalibration
   refocus(amount: number) {
     if (this.camera === null) { return; }
     this.camera.focus_distance = this.camera.focus_distance + amount;
+    this.application.current_project().camera_changed(true);
+  }
+
+  move_optical_axis_camera(dx:number, dy:number) {
+    if (this.camera === null) { return; }
+    this.camera.optical_axis_offset_set_vec(this.wasm_vec2);
+    this.wasm_vec2.x += dx;
+    this.wasm_vec2.y += dy;
+    this.camera.optical_axis_offset = this.wasm_vec2;
+    console.log("Optical axis offset now", this.wasm_vec2.array);
     this.application.current_project().camera_changed(true);
   }
 
@@ -426,6 +458,8 @@ export class StarCalibration
     const wasm_cip = project.get_wasm_cip();
     if (wasm_cip === null) { return; }
 
+    this.star_catalog.clear_filter();
+    this.star_catalog.filter_max_magnitude(this.max_magnitude);
     const result = wasm_cip.stars_of_pms(
       this.star_catalog,
       0.5, 10000000);
@@ -451,24 +485,45 @@ export class StarCalibration
     }
   }
 
-  find_star_closest_to_pm(): void {
+  find_star_closest_to_pm(np_name:string, max_angle:number): boolean {
+    const wasm_cip = this.application.current_project().get_wasm_cip();
+    if (wasm_cip === null) { return false; }
+    const pm = wasm_cip.pms.mapping_of_name(np_name);
+    if (pm === undefined) { return false; }
+
+    this.star_catalog.clear_filter();
+    this.star_catalog.filter_max_magnitude(this.max_magnitude);
+    if (!wasm_cip.set_pms_world_dir_vec(pm, this.wasm_vec)) {
+      return false;
+    }
+    let pts = this.star_catalog.find_stars_around(this.wasm_vec, max_angle / 180 * 3.1415, 0, 10);
+    if (pts.length === 1) {
+      this.star_catalog.set_star(this.wasm_star, pts[0]);
+      this.wasm_star.set_vector(this.wasm_vec_b);
+      const angle = Math.acos(this.wasm_vec.dot(this.wasm_vec_b)) * 180 / 3.14159;
+      if (angle < max_angle) {
+        // If NP is already pointing at this star then don't change it!
+        const wasm_np = this.application.current_project().get_wasm_nps()!.get_pt(np_name)!;
+        wasm_np.set_model_vec(this.wasm_vec);
+        if (this.wasm_vec.distance(this.wasm_vec_b) > 1E-10) {
+        this.application.current_project().nps_set_model(np_name, true, this.wasm_vec_b, 0);
+          console.log("Moved np to star", np_name, pts[0], this.wasm_star.id, angle);
+        }
+      }
+    }
+    return true;
+  }
+
+  find_star_closest_to_all_pms(): void {
+    const max_angle = 0.1;
     const wasm_cip = this.application.current_project().get_wasm_cip();
     if (wasm_cip === null) { return; }
+
     for (let i = 0; i < 100000; i++) {
-      if (!wasm_cip.set_pms_world_dir_vec(i, this.wasm_vec)) {
+      const np_name = wasm_cip.pms.get_name(i);
+      if (np_name === undefined) { break; }
+      if (!this.find_star_closest_to_pm(np_name, max_angle)) {
         break;
-      }
-      let pts = this.star_catalog.find_stars_around(this.wasm_vec, 0.1 / 180 * 3.1415, 0, 10);
-      if (pts.length === 1) {
-        this.star_catalog.set_star(this.wasm_star, pts[0]);
-        this.wasm_star.set_vector(this.wasm_vec_b);
-        const angle = Math.acos(this.wasm_vec.dot(this.wasm_vec_b)) * 180 / 3.14159;
-        const np_name = wasm_cip.pms.get_name(i);
-        console.log(i, np_name, pts[0], this.wasm_star.id, angle);
-        if (angle < 0.1) {
-          // If NP is already pointing at this star then don't change it!
-          this.application.current_project().nps_set_model(np_name, true, this.wasm_vec_b, 0);
-        }
       }
     }
   }
@@ -492,8 +547,6 @@ export class StarCalibration
     this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_roll_error.toFixed(3));
     this.tools_stats_div.add_span(" ");
     this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_yaw_error.toFixed(3));
-
-
   }
 
   /** At end of drag - update the whole project */
@@ -576,15 +629,19 @@ export class StarCalibration
     this.cached_stars.webgl_create(webgl.webgl!);
   }
 
-  /** Map the selected stars through the camera orientation and calibration to sensor space x,y,1 */
-  map_of_selected_stars(): Float32Array {
-    const pts = new Float32Array(this.selected_star_indices.length * 4);
+  /** Map the selected stars through the camera orientation and calibration to sensor space x,y,1
+   *
+   * Invoke this if the camera changes or the max magnitude changes
+   */
+  selected_star_pts: Float32Array = new Float32Array(0);
+  selected_star_pts_epoch: number = 0;
+  cached_stars_epoch: number = 0;
+  update_map_of_selected_stars() {
+    this.selected_star_pts = new Float32Array(this.selected_star_indices.length * 4);
+    this.selected_star_pts_epoch += 1;
     if (this.camera === null) {
-      return pts;
+      return;
     }
-    const vxyz = this.application.wasm_memory.float_array_of_vec3f64(
-      this.wasm_vec,
-    );
     let i = 0;
     for (const s of this.selected_star_indices) {
       this.star_catalog.set_star(this.wasm_star, s);
@@ -593,10 +650,13 @@ export class StarCalibration
       const m = this.wasm_star.magnitude;
       const t = Math.min(Math.max(Math.floor((this.wasm_star.temperature - 2300) / 7700 * 15.9), 0), 15);
       // wasm_vec is a unit world direction, with (0,0,-1) being a star at the center of the image
-      pts.set([vxyz[0]!/-vxyz[2]!, vxyz[1]!/-vxyz[2]!, m, t], i * 4);
+      this.selected_star_pts.set([this.wasm_vec.x / -this.wasm_vec.z,
+        this.wasm_vec.y / -this.wasm_vec.z,
+        m,
+        t],
+        i * 4);
       i += 1;
     }
-    return pts;
   }
 
   /** Redraw the image
@@ -644,8 +704,6 @@ export class StarCalibration
   /**
    * Redraw the grid, which is many lines using an Indexed draw element for the
    * scale of grid lines required in both directions
-   *
-   * Must map by sensor_cx/cy
    */
   redraw_grid(webgl: Webgl, webgl_canvas: WebglCanvas, mm_scr_width:number): void {
     if (this.camera === null) { return; }
@@ -742,10 +800,77 @@ export class StarCalibration
 
   }
 
-  webgl_redraw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+  /**
+   * Redraw the grid, which is many lines using an Indexed draw element for the
+   * scale of grid lines required in both directions
+   */
+  redraw_stars(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+    if (this.camera === null) { return; }
+    const m_a = this.application.wasm_memory.float_array_of_mat4f64(
+      this.wasm_mat4,
+    );
+    // Model for *stars* should be set to map from (+-1, +-1, 0) to (+-sensor_mm_width/2/tanhfov, +-sensor_mm_width/2/tanhfov)
+    webgl.use_program(webgl_canvas.star_program);
+    const tan_hfovh = this.camera.tan_hfovh;
+    const scale = this.camera.sensor_mm_width / 2 / tan_hfovh;
+    this.wasm_mat4.set_identity();
+    m_a[0] = scale;
+    m_a[5] = scale;
+    webgl.model.set(m_a);
+    webgl.set_uniform_projection();
+    webgl.set_uniform_model();
+    webgl.set_uniform_view();
+    webgl.set_color([0.2, 1, 0.2, 1]);
 
-    const pts = this.map_of_selected_stars();
-    this.cached_stars.set_position_data(webgl.webgl!, pts.length / 4, pts);
+    webgl.draw(this.cached_stars);
+  }
+
+  /**
+   * Redraw the grid, which is many lines using an Indexed draw element for the
+   * scale of grid lines required in both directions
+   */
+  redraw_interesting_points(webgl: Webgl, webgl_canvas: WebglCanvas, projection_zoom:number): void {
+    if (this.camera === null) { return; }
+    const m_a = this.application.wasm_memory.float_array_of_mat4f64(
+      this.wasm_mat4,
+    );
+    // Plot the interesting points etc
+    //
+    // The animations must occur in 'uniform' space (1 pixel to 1 pixel), so
+    // that rotations appear correctly. This means that any subsequent
+    // translation (to put the animated points at the correct positions) is in
+    // uniform +-1,+-1/image_ar space.
+    //
+    // The subsequent translation is accomplished here with the view matrix (as otherwise it is the identity)
+    //
+    webgl.use_program(webgl_canvas.flat_program);
+
+    // Apply rotation for animation
+    this.wasm_quat.set_unit();
+    this.wasm_quat.set_mul_rotate_z((this.animation_rotation / 180) * 3.1415);
+
+    webgl.set_uniform_projection();
+    this.wasm_quat.mat4_set_rotation(this.wasm_mat4);
+    this.wasm_mat4.set_scale3(0.03 / projection_zoom);
+    webgl.model.set(m_a);
+    webgl.set_uniform_model();
+
+    this.wasm_mat4.set_identity();
+    for (const o of this.image_points) {
+      const uxy = this.uniform_xy_of_img_xy(o.x, o.y);
+      m_a[3] = uxy[0];
+      m_a[7] = uxy[1];
+      webgl.view.set(m_a);
+      webgl.set_uniform_view();
+      o.draw(webgl, webgl_canvas);
+    }
+  }
+
+  webgl_redraw(webgl: Webgl, webgl_canvas: WebglCanvas): void {
+    if (this.cached_stars_epoch != this.selected_star_pts_epoch) {
+      this.cached_stars.set_position_data(webgl.webgl!, this.selected_star_pts.length / 4, this.selected_star_pts);
+      this.cached_stars_epoch = this.selected_star_pts_epoch;
+    }
 
     const size = webgl_canvas.size();
     const view_ar = size[0] / size[1];
@@ -816,51 +941,11 @@ export class StarCalibration
 
     this.redraw_image(webgl, webgl_canvas, texture);
 
-    // Model for *stars* should be set to map from (+-1, +-1, 0) to (+-sensor_mm_width/2/tanhfov, +-sensor_mm_width/2/tanhfov)
-    webgl.use_program(webgl_canvas.star_program);
-    const tan_hfovh = this.camera.tan_hfovh;
-    const scale = this.camera.sensor_mm_width / 2 / tan_hfovh;
-    this.wasm_mat4.set_identity();
-    m_a[0] = scale;
-    m_a[5] = scale;
-    webgl.model.set(m_a);
-    webgl.set_uniform_projection();
-    webgl.set_uniform_model();
-    webgl.set_uniform_view();
-    webgl.set_color([0.2, 1, 0.2, 1]);
-    webgl.draw(this.cached_stars);
+    this.redraw_stars(webgl, webgl_canvas);
 
     this.redraw_grid(webgl, webgl_canvas, mm_scr_width);
 
-    // Plot the interesting points etc
-    //
-    // The animations must occur in 'uniform' space (1 pixel to 1 pixel), so
-    // that rotations appear correctly. This means that any subsequent
-    // translation (to put the animated points at the correct positions) is in
-    // uniform +-1,+-1/image_ar space.
-    //
-    // The subsequent translation is accomplished here with the view matrix (as otherwise it is the identity)
-    //
-    webgl.use_program(webgl_canvas.flat_program);
-    // Apply rotation for animation
-    this.wasm_quat.set_unit();
-    this.wasm_quat.set_mul_rotate_z((this.animation_rotation / 180) * 3.1415);
-
-    webgl.set_uniform_projection();
-    this.wasm_quat.mat4_set_rotation(this.wasm_mat4);
-    this.wasm_mat4.set_scale3(0.03 / projection_zoom);
-    webgl.model.set(m_a);
-    webgl.set_uniform_model();
-
-    this.wasm_mat4.set_identity();
-    for (const o of this.image_points) {
-      const uxy = this.uniform_xy_of_img_xy(o.x, o.y);
-      m_a[3] = uxy[0];
-      m_a[7] = uxy[1];
-      webgl.view.set(m_a);
-      webgl.set_uniform_view();
-      o.draw(webgl, webgl_canvas);
-    }
+    this.redraw_interesting_points(webgl, webgl_canvas, projection_zoom);
 
     this.animation_step();
   }

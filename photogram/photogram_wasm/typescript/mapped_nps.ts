@@ -196,7 +196,7 @@ export class MappedNp {
     this.pms_error = pxye[2]!;
     const dx = this.expected_pxy[0] - this.pms_x;
     const dy = this.expected_pxy[1] - this.pms_y;
-    this.d_map_sq = dx * dx + dy * dy;
+    this.d_map_sq = Math.sqrt(dx * dx + dy * dy);
 
     const wasm_vec2 = this.mapped_nps.wasm_vec2;
     const wasm_vec3 = this.mapped_nps.wasm_vec3;
@@ -212,6 +212,10 @@ export class MappedNp {
     wasm_vec2.y = pxye[1]!;
     camera.set_sensor_dir_of_pt(wasm_vec2, wasm_vec3);
     const map_roll = camera.camera_roll_of_dir(wasm_vec3);
+    wasm_quat.set_unit();
+    wasm_quat.set_mul_rotate_z(-map_roll);
+    wasm_vec3.set_apply_q3(wasm_quat);
+    const placed_yaw = wasm_vec3.x / wasm_vec3.z;
 
     // Convert the NP expected position, given orientation and lens calibration,
     // to a yaw for yaw error
@@ -224,11 +228,9 @@ export class MappedNp {
     // Rotate the direction for the NP expected position by -map_roll around -Z to
     // generate an (x,y,z) whose x is 'yaw' error, y is 'roll' error, scaled down by
     // z (which should be 1-epsilon)
-    wasm_quat.set_unit();
-    wasm_quat.set_mul_rotate_z(-map_roll);
     wasm_vec3.set_apply_q3(wasm_quat);
 
-    this.d_map_yaw_err = 1000 * wasm_vec3.x / wasm_vec3.z;
+    this.d_map_yaw_err = 1000 * (wasm_vec3.x / wasm_vec3.z - placed_yaw);
     this.d_map_roll_err = 1000 * wasm_vec3.y / wasm_vec3.z;
   }
 

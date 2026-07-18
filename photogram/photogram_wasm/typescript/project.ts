@@ -242,7 +242,7 @@ class UndoablePmsMove implements UndoableAction<Project> {
             this.cip_name = project.get_cip().name()!;
             this.np_name = np_name;
             this.pxy = pxy;
-            const xy = cip.pms.get_xy(n);
+            const xy = cip.pms.get_xy(n)!;
             this.prev_pxy = [xy[0]!, xy[1]!];
             return;
           }
@@ -307,7 +307,8 @@ class UndoablePmsAdd implements UndoableAction<Project> {
       pms.set_xy(n, this.pxy[0], this.pxy[1]);
       // pms.set_uncertainty(n, this.uncertainty);
     }
-    p.pm_changed(false, this.np_name);
+    // Adding a mapping impacts the NPs
+    p.np_changed(false, this.np_name);
   }
   rev(p: Project): void {
     const pms = p.get_cip_by_name(this.cip_name)!.pms;
@@ -315,7 +316,8 @@ class UndoablePmsAdd implements UndoableAction<Project> {
     if (n!==undefined) {
       pms.remove_mapping(n);
     }
-    p.pm_changed(false, this.np_name);
+    // Deleting a mapping impacts the NPs
+    p.np_changed(false, this.np_name);
   }
 }
 
@@ -325,16 +327,11 @@ class UndoablePmsDelete implements UndoableAction<Project> {
   orig_pxy: [number, number];
   orig_uncertainty: number;
   constructor(project: Project, np_name: string) {
-    console.log("UndoablePmsDelete");
     if (project.wasm_project !== null) {
-      console.log("UndoablePmsDelete 1", np_name);
       if (project.wasm_project!.nps.get_pt(np_name) !== undefined) {
-        console.log("UndoablePmsDelete 2");
         const cip = project.get_wasm_cip();
         if (cip !== null) {
-          console.log("UndoablePmsDelete 2");
           const n = cip.pms.mapping_of_name(np_name);
-          console.log("UndoablePmsDelete 2", n);
           if (n !== undefined) {
             this.cip_name = project.get_cip().name()!;
             this.np_name = np_name;
@@ -360,7 +357,8 @@ class UndoablePmsDelete implements UndoableAction<Project> {
     if (n!==undefined) {
       pms.remove_mapping(n);
     }
-    p.pm_changed(false, this.np_name);
+    // Deleting a mapping impacts the NPs
+    p.np_changed(false, this.np_name);
   }
   rev(p: Project): void {
     const pms = p.get_cip_by_name(this.cip_name)!.pms;
@@ -369,7 +367,8 @@ class UndoablePmsDelete implements UndoableAction<Project> {
       pms.set_xy(n, this.orig_pxy[0], this.orig_pxy[1]);
       // pms.set_uncertainty(n, this.uncertainty);
     }
-    p.pm_changed(false, this.np_name);
+    // Adding a mapping impacts the NPs
+    p.np_changed(false, this.np_name);
   }
 }
 
@@ -512,6 +511,22 @@ export class Project {
   /** Invoked whenever the MappedNPs changes (sort order etc) */
   mapped_changed() {
     this.invoke_clients((c) => c.project_mapped_nps_changed(this));
+  }
+
+  nps_get_new_name(): string {
+    if (this.wasm_project === null) { return "No NPS loaded"; }
+    const wasm_nps = this.wasm_project.nps;
+    let i = 0;
+      let np_name = "";
+
+      while (true) {
+        np_name = `np_${i}`;
+        if (wasm_nps.get_pt(np_name) === undefined) {
+          break;
+        }
+        i += 1;
+      }
+    return np_name;
   }
 
   nps_add(name: string): boolean {

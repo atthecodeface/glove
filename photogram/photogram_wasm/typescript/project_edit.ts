@@ -103,17 +103,8 @@ export class ProjectEdit implements ProjectClient, ApplicationTab {
   }
 
   add_new_np() {
-    let i = 0;
-    let np_name = "";
     const project = this.application.current_project();
-    const wasm_nps = project.get_wasm_nps()!;
-    while (true) {
-      np_name = `np_${i}`;
-      if (wasm_nps.get_pt(np_name) === undefined) {
-        break;
-      }
-      i += 1;
-    }
+    const np_name = project.nps_get_new_name();
     project.nps_add(np_name);
   }
 

@@ -40,7 +40,7 @@ export class StarCalibrationShader implements WebglShaderSrc {
 
     // Calculate 'star_color' and 'gl_PointSize'
     ${star_color_and_point_size}
-
+    gl_PointSize = 4.0;
   }
 `;
 
