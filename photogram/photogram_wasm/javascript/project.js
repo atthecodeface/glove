@@ -47,7 +47,7 @@ class UndoableNpDelete {
     rev_text() {
         return [
             `NpAdd(${this.np_name}, ${this.np.color})`,
-            `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model}, ${this.np.error})`
+            `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`
         ];
     }
     fwd(p) {
@@ -57,10 +57,10 @@ class UndoableNpDelete {
     rev(p) {
         p.wasm_project.nps.add_pt(this.np);
         if (this.np.at_infinity) {
-            p.wasm_project.nps.set_direction(this.np_name, this.np.model);
+            p.wasm_project.nps.set_direction(this.np_name, this.np.model_as_array());
         }
         else {
-            p.wasm_project.nps.set_model(this.np_name, this.np.model, this.np.error);
+            p.wasm_project.nps.set_model(this.np_name, this.np.model_as_array(), this.np.error);
         }
         p.np_changed(false, this.np_name);
     }
@@ -99,8 +99,8 @@ class UndoableNpSetModel {
             const np = project.wasm_project.nps.get_pt(np_name);
             if (np !== undefined) {
                 this.np_name = np_name;
-                this.orig_data = [np.at_infinity, np.model, np.error];
-                this.new_data = [np.at_infinity, np.model, np.error];
+                this.orig_data = [np.at_infinity, np.model_as_array(), np.error];
+                this.new_data = [np.at_infinity, np.model_as_array(), np.error];
                 if (at_infinity !== undefined) {
                     this.new_data[0] = at_infinity;
                 }

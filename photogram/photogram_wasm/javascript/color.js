@@ -38,40 +38,61 @@ export function hls_of_rgb(red, green, blue) {
     return [hue, sat, lightness];
 }
 export function rgb_of_hls(hue, saturation, lightness) {
+    // RGB of 0,1,5 should be rgb (1,0,0)
     const chroma = saturation * (1 - Math.abs(2 * lightness - 1));
     if (chroma == 0) {
         return [lightness, lightness, lightness];
     }
     // lightness = (Max + min)/2
     // Chroma = Max - min
+    let sector = Math.floor(hue / 60);
+    let in_sector = hue / 60 - sector;
+    if ((sector % 2) == 1) {
+        in_sector = 1 - in_sector;
+    }
+    let rgb_min = lightness - chroma / 2;
     let rgb_max = lightness + chroma / 2;
-    let sector_hue = hue / 60 + 1;
-    if (sector_hue < 0) {
-        sector_hue += 6;
-    }
-    if (sector_hue > 6) {
-        sector_hue -= 6;
-    }
-    // sector is 0 (red is max), 1 (green is max), 2 (blue is max)
-    let sector = Math.floor(sector_hue / 2);
-    // subhue is -0.5 to 0.5
-    let subhue = sector_hue / 2 - sector - 0.5;
-    // rgb0 is min -> max as hue increases
-    let rgb0 = lightness + subhue * chroma;
-    // rgb1 is max -> min as hue increases
-    let rgb1 = lightness - subhue * chroma;
-    let red = rgb_max;
-    let green = rgb0;
-    let blue = rgb1;
-    if (sector == 1) {
-        green = rgb_max;
-        red = rgb1;
-        blue = rgb0;
-    }
-    if (sector == 2) {
-        blue = rgb_max;
-        green = rgb1;
-        red = rgb0;
+    let rgb_other = rgb_min + chroma * in_sector;
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    switch (sector) {
+        case 0: {
+            red = rgb_max;
+            green = rgb_other;
+            blue = rgb_min;
+            break;
+        }
+        case 1: {
+            red = rgb_other;
+            green = rgb_max;
+            blue = rgb_min;
+            break;
+        }
+        case 2: {
+            red = rgb_min;
+            green = rgb_max;
+            blue = rgb_other;
+            break;
+        }
+        case 3: {
+            red = rgb_min;
+            green = rgb_other;
+            blue = rgb_max;
+            break;
+        }
+        case 4: {
+            red = rgb_other;
+            green = rgb_min;
+            blue = rgb_max;
+            break;
+        }
+        default: {
+            red = rgb_max;
+            green = rgb_min;
+            blue = rgb_other;
+            break;
+        }
     }
     return [red, green, blue];
 }

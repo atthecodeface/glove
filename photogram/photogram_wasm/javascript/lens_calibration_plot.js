@@ -1,7 +1,7 @@
 import { WasmVec2f64, WasmVec3f64, } from "../pkg/photogram_wasm.js";
 import { Mouse } from "./mouse.js";
 import { Draw } from "./draw.js";
-import { DataRange, Plot, Tics } from "./plot.js";
+import { DataRange, DataXY, DataXYC, Plot, Tics } from "./plot.js";
 var SelectedPlotType;
 (function (SelectedPlotType) {
     SelectedPlotType[SelectedPlotType["Relative"] = 0] = "Relative";
@@ -79,16 +79,21 @@ export class LensCalibrationPlot {
         this.redraw();
     }
     project_np_changed(_p) {
+        this.pending_regen = true;
     }
     project_pm_changed(_p) {
+        this.pending_regen = true;
     }
     project_camera_changed(_p) {
+        this.pending_regen = true;
         this.application.set_redraw_required();
     }
     project_cip_changed(_p) {
+        this.pending_regen = true;
         this.application.set_redraw_required();
     }
     project_mapped_nps_changed(_p) {
+        this.pending_regen = true;
     }
     redraw() {
         const context = this.canvas.getContext("2d");
@@ -137,29 +142,29 @@ export class LensCalibrationPlot {
         for (let sensor_yaw = 0.1; sensor_yaw < this.yaw_max; sensor_yaw += 0.1) {
             const world_yaw = (camera.map_yaw_sensor_to_world((sensor_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data0.push(sensor_yaw, world_yaw);
+            data0.push(new DataXY(sensor_yaw, world_yaw));
         }
         const mapping_nps = this.application.current_project().mapped_nps();
         mapping_nps.update();
         const data1 = new DataRange();
         for (const mnp of mapping_nps.named_points) {
-            if (!mnp.has_pms) {
+            if (!mnp.has_pms()) {
                 continue;
             }
-            this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+            mnp.wasm_pms.set_image_vec(this.wasm_vec2);
             camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
             const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
             ;
-            mnp.wasm_np.set_model_vec(this.wasm_vec3);
+            mnp.wasm_pms.np_model_set_vec(this.wasm_vec3);
             camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
             const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
-            data1.push(sensor_yaw, world_yaw);
+            data1.push(new DataXYC(sensor_yaw, world_yaw, mnp.wasm_pms.np_color));
         }
         for (const d of data0.data) {
-            d[1] = d[1] / d[0] - 1;
+            d.set_y(d.y() / d.x() - 1);
         }
         for (const d of data1.data) {
-            d[1] = d[1] / d[0] - 1;
+            d.set_y(d.y() / d.x() - 1);
         }
         plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
         const xr = data0.get_xrange();
@@ -199,29 +204,29 @@ export class LensCalibrationPlot {
         for (let world_yaw = 0; world_yaw < this.yaw_max; world_yaw += 1) {
             const sensor_yaw = (camera.map_yaw_world_to_sensor((world_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data0.push(sensor_yaw, world_yaw);
+            data0.push(new DataXY(sensor_yaw, world_yaw));
         }
         const mapping_nps = this.application.current_project().mapped_nps();
         mapping_nps.update();
         const data1 = new DataRange();
         for (const mnp of mapping_nps.named_points) {
-            if (!mnp.has_pms) {
+            if (!mnp.has_pms()) {
                 continue;
             }
-            this.wasm_vec2.set_array(new Float64Array([mnp.pms_x, mnp.pms_y]));
+            mnp.wasm_pms.set_image_vec(this.wasm_vec2);
             camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
             const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
             ;
-            mnp.wasm_np.set_model_vec(this.wasm_vec3);
+            mnp.wasm_pms.np_model_set_vec(this.wasm_vec3);
             camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
             const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3) * 180 / 3.1416;
-            data1.push(sensor_yaw, world_yaw);
+            data1.push(new DataXYC(sensor_yaw, world_yaw, mnp.wasm_pms.np_color));
         }
         for (const d of data0.data) {
-            d[1] -= d[0];
+            d.set_y(d.y() - d.x());
         }
         for (const d of data1.data) {
-            d[1] -= d[0];
+            d.set_y(d.y() - d.x());
         }
         plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
         const xr = data0.get_xrange();
@@ -261,13 +266,13 @@ export class LensCalibrationPlot {
         for (let world_yaw = 0; world_yaw < this.yaw_max; world_yaw += 1) {
             const sensor_yaw = (camera.map_yaw_world_to_sensor((world_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data0.push(sensor_yaw, world_yaw);
+            data0.push(new DataXY(sensor_yaw, world_yaw));
         }
         const data1 = new DataRange();
         for (let sensor_yaw = 0.1; sensor_yaw < this.yaw_max; sensor_yaw += 0.1) {
             const world_yaw = (camera.map_yaw_sensor_to_world((sensor_yaw * 3.1416) / 180) * 180) /
                 3.1416;
-            data1.push(sensor_yaw, world_yaw);
+            data1.push(new DataXY(sensor_yaw, world_yaw));
         }
         plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
         const xr = data0.get_xrange();
