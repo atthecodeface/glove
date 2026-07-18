@@ -5,7 +5,7 @@ use ic_base::Result;
 use ic_base::{JsonParsable, NamedRayList};
 use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
 use ic_camera::{CameraInstance, CameraInstanceDesc};
-use ic_image::Color;
+use ic_image::Color8;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Project, ProjectFileDesc};
 use ic_stars::StarMapping;
@@ -225,21 +225,21 @@ impl CmdArgs {
 
     //mi set_bg_color
     pub(crate) fn set_bg_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
+        let c: Color8 = s.try_into()?;
         self.bg_color = Some(c);
         Ok(())
     }
 
     //mi set_pms_color
     pub(crate) fn set_pms_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
+        let c: Color8 = s.try_into()?;
         self.pms_color = Some(c);
         Ok(())
     }
 
     //mi set_model_color
     pub(crate) fn set_model_color(&mut self, s: &str) -> Result<()> {
-        let c: Color = s.try_into()?;
+        let c: Color8 = s.try_into()?;
         self.model_color = Some(c);
         Ok(())
     }

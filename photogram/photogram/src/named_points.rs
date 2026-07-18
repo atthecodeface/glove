@@ -8,7 +8,7 @@ use thunderclap::{CommandArgs, CommandBuilder};
 
 use ic_base::{JsonParsable, Point3D, Ray, TagSet};
 use ic_camera::CameraProjection;
-use ic_image::Color;
+use ic_image::Color8;
 use ic_mapping::NamedPointSet;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -238,7 +238,7 @@ fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
 fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let name = cmd_args.get_string_arg(0).unwrap();
-    let color: Color = cmd_args.get_string_arg(1).unwrap().try_into()?;
+    let color: Color8 = cmd_args.get_string_arg(1).unwrap().try_into()?;
     let mut model = None;
     let mut err = 0.0;
     if cmd_args.arg_strings.len() > 2 {

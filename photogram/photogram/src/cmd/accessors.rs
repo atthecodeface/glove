@@ -5,7 +5,7 @@ use star_catalog::Catalog;
 use ic_base::{NamedRayList, Point2D, Point3D, Result, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
-use ic_image::Color;
+use ic_image::Color8;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
 use ic_stars::StarMapping;
@@ -139,17 +139,17 @@ impl CmdArgs {
     }
 
     //mi bg_color
-    pub fn bg_color(&self) -> Option<&Color> {
+    pub fn bg_color(&self) -> Option<&Color8> {
         self.bg_color.as_ref()
     }
 
     //mi pms_color
-    pub fn pms_color(&self) -> Option<&Color> {
+    pub fn pms_color(&self) -> Option<&Color8> {
         self.pms_color.as_ref()
     }
 
     //mi model_color
-    pub fn model_color(&self) -> Option<&Color> {
+    pub fn model_color(&self) -> Option<&Color8> {
         self.model_color.as_ref()
     }
 

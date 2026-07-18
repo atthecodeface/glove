@@ -7,7 +7,7 @@ use thunderclap::{CommandArgs, CommandBuilder};
 use ic_base::{Point3D, Quat, RollYaw};
 use ic_camera::polynomial;
 use ic_camera::{CameraProjection, LensPolys};
-use ic_image::{Color, Image, ImageDrawable};
+use ic_image::{Color8, Image, ImageDrawable};
 use ic_mapping::ModelLineSet;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -591,7 +591,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let n = 30;
     let n_f = n as f64;
     let c_f = n_f / 2.0;
-    let rgba: Color = { [0, 0, 0, 255] }.into();
+    let rgba: Color8 = { [0, 0, 0, 255] }.into();
     for y in 0..=n {
         let y_f = (y as f64 - c_f) * 10.;
         for x in 0..=n {
@@ -600,7 +600,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             pts.push((pt, rgba));
         }
     }
-    let rgba: Color = { [100, 255, 100, 255] }.into();
+    let rgba: Color8 = { [100, 255, 100, 255] }.into();
     for pm in pms.mappings().iter().take(num_pts) {
         pts.push((pm.model(), rgba));
     }

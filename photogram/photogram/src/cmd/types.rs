@@ -5,7 +5,7 @@ use star_catalog::Catalog;
 use ic_base::{NamedRayList, PathSet, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
-use ic_image::Color;
+use ic_image::Color8;
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
 use ic_stars::StarMapping;
@@ -75,9 +75,9 @@ pub struct CmdArgs {
     pub(crate) arg_f64s: Vec<f64>,
     pub(crate) arg_usizes: Vec<usize>,
 
-    pub(crate) bg_color: Option<Color>,
-    pub(crate) pms_color: Option<Color>,
-    pub(crate) model_color: Option<Color>,
+    pub(crate) bg_color: Option<Color8>,
+    pub(crate) pms_color: Option<Color8>,
+    pub(crate) model_color: Option<Color8>,
 
     pub(crate) named_rays: NamedRayList,
 

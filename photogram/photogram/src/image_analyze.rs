@@ -7,7 +7,7 @@ use thunderclap::{CommandArgs, CommandBuilder};
 use ic_base::Result;
 use ic_camera::polynomial;
 use ic_camera::polynomial::CalcPoly;
-use ic_image::{Color, Image, ImageDrawable, Region};
+use ic_image::{Color8, Image, ImageDrawable, Region};
 use ic_mapping::PointMappingSet;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -285,7 +285,7 @@ impl PolyGrid {
 fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut img = cmd_args.get_image_read_or_create()?;
 
-    let _bg = cmd_args.bg_color().copied().unwrap_or(Color::black());
+    let _bg = cmd_args.bg_color().copied().unwrap_or(Color8::black());
 
     let min_brightness = 0.05;
     // let regions = Region::regions_of_image(img, &|c| !c.color_eq(&bg));
@@ -294,7 +294,7 @@ fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
             (c0.brightness() - c1.brightness()).abs() < 0.6
         });
     let regions: Vec<_> = regions.into_iter().filter(|r| r.count() > 15).collect();
-    let cogs: Vec<(Color, (f64, f64))> =
+    let cogs: Vec<(Color8, (f64, f64))> =
         regions.into_iter().map(|x| (x.color(), x.cog())).collect();
 
     if let Some(write_filename) = cmd_args.write_img() {
@@ -333,7 +333,7 @@ fn find_regions_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
 fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let mut img = cmd_args.get_image_read_or_create()?;
-    let bg = cmd_args.bg_color().copied().unwrap_or(Color::black());
+    let bg = cmd_args.bg_color().copied().unwrap_or(Color8::black());
 
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg), &|c0, c1| {
         (c0.brightness() - c1.brightness()).abs() < 0.1
@@ -383,7 +383,7 @@ fn find_grid_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 fn get_point_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let nps = cmd_args.nps();
     let img = cmd_args.get_image_read_or_create()?;
-    let bg_color = cmd_args.bg_color().copied().unwrap_or(Color::black());
+    let bg_color = cmd_args.bg_color().copied().unwrap_or(Color8::black());
 
     let regions = Region::regions_of_image(&img, &|c| !c.color_eq(&bg_color), &|c0, c1| {
         (c0.brightness() - c1.brightness()).abs() < 0.1
