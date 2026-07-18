@@ -91,7 +91,6 @@ impl std::fmt::Display for NamedPoint {
 
 //ip NamedPoint
 impl NamedPoint {
-    //cp new
     /// Create a new NamedPoint, within a NamedPointSet
     ///
     /// The Tag must thus be Owned or Shared
