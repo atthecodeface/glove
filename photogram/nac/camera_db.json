@@ -39,8 +39,20 @@
       //           "px_center":[2680.0,1728.0],
       "px_width": 5184.0,
       "px_height": 3456.0,
+
+      // The sensor is actually 5196 x 3464 in an apparent physical size of 22.3 x 14.9
+      //
       //            "mm_sensor_width":22.35, // exactly 1.5 times the height
       //            "mm_sensor_height":14.9
+      // For the width height values of 22.67 and 15.113 seem to calibrate *much* better than 22.987/15.113
+      //
+      // This is 1.4% narrower then the px/in provided by the TIFF. This cannot
+      // be a 'sensor tilt' as acos(1/1.014) is 9 degrees, and the sensor is not
+      // tilted by that much.
+      //
+      // Indeed, this corresponds to 25.4*5184/5808.403, which implies the image pixels *are* actually square.
+      //
+      ///         "mm_sensor_width": 22.67,// 22.65 gives 1.83; 22.66 gives 1.54,6.4; 22.67 gives 1.439, 6.1; 22.68 give 1.5, 5.8; 22.69 gives 1.76,5.6
       "mm_sensor_width": 22.987,  // 25.4*5184/5728.1775, with 5728.1775 being the focal plane X resolution in the EXIF
       "mm_sensor_height": 15.113 // 25.4*3456/5808.403, with 5808.403 being the focal plane Y resolution in the EXIF
     },
