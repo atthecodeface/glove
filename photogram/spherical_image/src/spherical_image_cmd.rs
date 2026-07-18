@@ -709,7 +709,7 @@ impl SphericalImageCommand {
         )?;
 
         let ps: Vec<_> = image.iter_patch_indices().collect();
-        fn pix_map(v: Point3D) -> Option<ic_image::Color> {
+        fn pix_map(v: Point3D) -> Option<ic_image::Color8> {
             let r = ((v[0] + 1.) * 127.) as u8;
             let g = ((v[1] + 1.) * 127.) as u8;
             let b = ((v[2] + 1.) * 127.) as u8;
@@ -803,7 +803,7 @@ impl SphericalImageCommand {
             w: u32,
             h: u32,
             v: Point3D,
-        ) -> Option<ic_image::Color> {
+        ) -> Option<ic_image::Color8> {
             if let Some(pxy) = camera.world_dir_to_opt_px_abs_xy(&v) {
                 if pxy[0] < 0.0 || pxy[0] >= (w as f64) || pxy[1] < 0.0 || pxy[1] >= (h as f64) {
                     None
