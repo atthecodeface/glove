@@ -20,3 +20,4 @@ serde.workspace = true
 serde_json.workspace = true
 geo-nd.workspace = true
 star-catalog.workspace = true
+bezier-nd.workspace = true

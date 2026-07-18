@@ -23,6 +23,9 @@ pub use tag::{Tag, TagData, TagMap, TagSet};
 mod word_xy;
 pub use word_xy::WordXy;
 
+mod piecewise_bezier;
+pub use piecewise_bezier::PiecewiseBezier;
+
 pub use plane::Plane;
 pub use triangle3d::{GcTriangle3D, Triangle3D};
 pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
