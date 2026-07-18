@@ -11,7 +11,10 @@ pub use geo_nd_wasm::{WasmVec2f32, WasmVec3f32, WasmVec4f32};
 pub use geo_nd_wasm::{WasmVec2f64, WasmVec3f64, WasmVec4f64};
 pub use star_catalog_wasm::{WasmCatalog, WasmStar, star_catalog};
 
+// wasm_log is used by console_log; it may be unused as an import if console_log is not used
+#[allow(unused_imports)]
 pub(crate) use wasm_import::log as wasm_log;
+
 use wasm_import::{ToFromWasmArr, err_to_string};
 
 mod wasm_base;
@@ -27,8 +30,8 @@ pub use wasm_named_point::WasmNamedPoint;
 pub use wasm_nps::WasmNamedPointSet;
 pub use wasm_pms::WasmPointMappingSet;
 
-// mod wasm_point_mapping;
-// pub use wasm_point_mapping::WasmPointMapping;
+mod wasm_point_mapping;
+pub use wasm_point_mapping::WasmPointMapping;
 
 mod wasm_cip;
 pub use wasm_cip::WasmCip;
