@@ -32,10 +32,13 @@ mapping is not impacted by moving the lens, of course.
 pub mod polynomial;
 pub mod utils;
 
+mod lens_polys;
+pub use lens_polys::LensPolys;
+
 mod camera_body;
 mod camera_lens;
-pub use camera_body::{serialize_body_name, CameraBody};
-pub use camera_lens::{serialize_lens_name, CameraLens, LensPolys};
+pub use camera_body::{CameraBody, serialize_body_name};
+pub use camera_lens::{CameraLens, serialize_lens_name};
 
 mod camera_database;
 pub use camera_database::CameraDatabase;

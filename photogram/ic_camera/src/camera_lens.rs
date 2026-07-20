@@ -103,16 +103,11 @@
 
 !*/
 
-//a Imports
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Error, JsonParsable, Result};
+use crate::LensPolys;
 
-use crate::polynomial;
-use crate::polynomial::CalcPoly;
-
-//a Serialization
-//fp serialize_lens_name
+/// Serialize a lens name
 pub fn serialize_lens_name<S: serde::Serializer>(
     lens: &CameraLens,
     serializer: S,
@@ -120,648 +115,6 @@ pub fn serialize_lens_name<S: serde::Serializer>(
     serializer.serialize_str(lens.name())
 }
 
-//a Constants for standard lens types
-//cp LP_EQUISOLID (e.g. Canon 15mm) (wts, stw)
-pub const LP_EQUISOLID: ([f64; 8], [f64; 8]) = (
-    [
-        -8.789983667156775e-6,
-        -0.37458023821091047,
-        0.23724022298119962,
-        -0.16315358644351363,
-        0.09640247269999236,
-        -0.04054515733150765,
-        0.010141726874280721,
-        -0.0011073389541707002,
-    ],
-    [
-        1.074486590368906e-6,
-        0.37527500541182235,
-        0.17323485715314746,
-        0.1492935959249735,
-        -0.18428166955709457,
-        0.5444365739822388,
-        -0.5545806586742401,
-        0.2795114889740944,
-    ],
-);
-
-//cp LP_STEREOGRAPHIC (wts, stw)
-pub const LP_STEREOGRAPHIC: ([f64; 7], [f64; 7]) = (
-    [
-        -0.000015352771598031723,
-        -0.24938816116127782,
-        0.12021242600530968,
-        -0.058944843673089053,
-        0.02249782230501296,
-        -0.0052735659719473915,
-        0.0005416791311745328,
-    ],
-    [
-        2.455288012015444e-6,
-        0.2499975276623445,
-        0.06248133700864855,
-        0.011589706235099584,
-        0.00011813757009804249,
-        -0.00009418785339221358,
-        -0.0008547995239496231,
-    ],
-);
-
-//cp LP_EQUIANGULAR (wts, stw)
-pub const LP_EQUIANGULAR: ([f64; 9], [f64; 9]) = (
-    [
-        3.3375613384123426e-9,
-        -0.2500002600863809,
-        0.12500567035749555,
-        -0.07401005178689957,
-        0.047872841358184814,
-        -0.03255724906921387,
-        0.021524906158447266,
-        -0.011299610137939453,
-        0.003137946128845215,
-    ],
-    [
-        -1.9368826542631723e-9,
-        0.25000020072911866,
-        0.0624939389526844,
-        0.011540308594703674,
-        -0.00007176399230957031,
-        0.0016851425170898438,
-        -0.0059032440185546875,
-        0.0066432952880859375,
-        -0.0034112930297851562,
-    ],
-);
-//cp LP_EQUIDISTANT (wts, stw)
-pub const LP_EQUIDISTANT: ([f64; 8], [f64; 8]) = (
-    [
-        -6.245739427868102e-6,
-        -0.3329305147908599,
-        0.19563180801924318,
-        -0.12390683847479522,
-        0.06703756377100945,
-        -0.025692816270748153,
-        0.005838584285811521,
-        -0.000578111554204952,
-    ],
-    [
-        -1.0586097687337315e-7,
-        0.3333466609910829,
-        0.1330573179293424,
-        0.05613156966865063,
-        0.013663463294506073,
-        0.025303520262241364,
-        -0.013640619814395905,
-        0.009544547647237778,
-    ],
-);
-
-//cp LP_ORTHOGRAPHIC
-pub const LP_ORTHOGRAPHIC: ([f64; 9], [f64; 9]) = (
-    [
-        -0.00010724715571086563,
-        -0.4939921871846309,
-        0.3082124108914286,
-        -0.05700050573796034,
-        -0.2811782229691744,
-        0.4273285996168852,
-        -0.2843161644414067,
-        0.0922634624876082,
-        -0.011822454980574548,
-    ],
-    [
-        0.0007894445770944003,
-        0.32264182274229825,
-        7.223541863262653,
-        -100.59029793739319,
-        729.6587820053101,
-        -2855.4288902282715,
-        6187.322406768799,
-        -6975.573333740234,
-        3200.9576625823975,
-    ],
-);
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-struct PiecewiseLensPolyNode {
-    data: [[f64; 1]; 4],
-}
-use bezier_nd::{BezierBuilder, BezierConstruct, BezierElevate, BezierEval};
-impl PiecewiseLensPolyNode {
-    fn new_pivot_node(t: f64, lt: usize, gt: usize) -> Self {
-        Self {
-            data: [[f64::NAN; 1], [t; 1], [lt as f64; 1], [gt as f64; 1]],
-        }
-    }
-    fn set_link(&mut self, for_gt: bool, delta: usize) {
-        if for_gt {
-            self.data[3] = [delta as f64; 1];
-        } else {
-            self.data[3] = [delta as f64; 1];
-        }
-    }
-
-    fn constant(t: f64) -> Self {
-        Self { data: [[t; 1]; 4] }
-    }
-    fn linear(xys: &[(f64, f64); 2]) -> Self {
-        let dx = xys[1].0 - xys[0].0;
-        let c0 = (xys[0].1 * xys[1].0 - xys[1].1 * xys[0].0) / dx;
-        let c1 = (xys[0].1 * (xys[1].0 - 1.0) - xys[1].1 * (xys[0].0 - 1.0)) / dx;
-        let b = [[c0], [c1]];
-        let bq = b.elevate_by_one().unwrap();
-        let bc = bq.elevate_by_one().unwrap();
-        Self { data: bc }
-    }
-    fn quad(builder: &mut BezierBuilder<f64, 1>, xys: &[(f64, f64); 3]) -> Result<Self> {
-        builder.clear();
-        builder.add_point_at(xys[0].0, [xys[0].1; 1]);
-        builder.add_point_at(xys[1].0, [xys[1].1; 1]);
-        builder.add_point_at(xys[2].0, [xys[2].1; 1]);
-        let bq = <[[f64; 1]; 3]>::of_builder(builder).map_err(|e| format!("{e:?}"))?;
-        let bc = bq.elevate_by_one().unwrap();
-        Ok(Self { data: bc })
-    }
-    fn cubic(builder: &mut BezierBuilder<f64, 1>, xys: &[(f64, f64); 4]) -> Result<Self> {
-        builder.clear();
-        builder.add_point_at(xys[0].0, [xys[0].1; 1]);
-        builder.add_point_at(xys[1].0, [xys[1].1; 1]);
-        builder.add_point_at(xys[2].0, [xys[2].1; 1]);
-        builder.add_point_at(xys[3].0, [xys[3].1; 1]);
-        let bc = <[[f64; 1]; 4]>::of_builder(builder).map_err(|e| format!("{e:?}"))?;
-        Ok(Self { data: bc })
-    }
-    fn of_fn<F>(builder: &mut BezierBuilder<f64, 1>, t0: f64, t3: f64, f: &F) -> Result<(Self, f64)>
-    where
-        F: Fn(f64) -> f64,
-    {
-        let t1 = (t0 * 2.0 + t3) / 3.0;
-        let t2 = (t0 + t3 * 2.0) / 3.0;
-        let s = Self::cubic(
-            builder,
-            &[(t0, f(t0)), (t1, f(t1)), (t2, f(t2)), (t3, f(t3))],
-        )?;
-        let mut max_error_sq = 0.0_f64;
-        for i in 0..=100 {
-            let t = (i as f64) / 100.0 * (t3 - t0) + t0;
-            let delta = f(t) - s.data.point_at(t)[0];
-            max_error_sq = max_error_sq.max(delta * delta);
-        }
-        Ok((s, max_error_sq))
-    }
-    fn is_pivot_node(&self) -> bool {
-        self.data[0][0].is_nan()
-    }
-    fn evaluate(&self, t: f64) -> std::result::Result<f64, usize> {
-        if self.is_pivot_node() {
-            if t < self.data[1][0] {
-                Err(self.data[2][0] as usize)
-            } else {
-                Err(self.data[3][0] as usize)
-            }
-        } else {
-            Ok(self.data.point_at(t)[0])
-        }
-    }
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PiecewiseLensPoly {
-    tree: Vec<PiecewiseLensPolyNode>,
-}
-impl PiecewiseLensPoly {
-    pub fn evaluate(&self, t: f64) -> f64 {
-        let mut node = 0;
-        loop {
-            match self.tree[node].evaluate(t) {
-                Ok(r) => {
-                    return r;
-                }
-                Err(n) => {
-                    node += n;
-                }
-            }
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        for (i, n) in self.tree.iter().enumerate() {
-            if let Err(next) = n.evaluate(0.0) {
-                if next == 0 || i + next >= self.tree.len() {
-                    return Err(format!("PiecewiseBezier has invalid node {i}").into());
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn build(
-        builder: &mut BezierBuilder<f64, 1>,
-        mut tree: Vec<PiecewiseLensPolyNode>,
-        xys: &[(f64, f64)],
-    ) -> Result<Vec<PiecewiseLensPolyNode>> {
-        match xys.len() {
-            0 => {
-                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
-            }
-            1 => {
-                tree.push(PiecewiseLensPolyNode::constant(xys[0].1));
-                Ok(tree)
-            }
-            2 => {
-                tree.push(PiecewiseLensPolyNode::linear(&[xys[0], xys[1]]));
-                Ok(tree)
-            }
-            3 => {
-                tree.push(PiecewiseLensPolyNode::quad(
-                    builder,
-                    &[xys[0], xys[1], xys[2]],
-                )?);
-                Ok(tree)
-            }
-            4 => {
-                tree.push(PiecewiseLensPolyNode::cubic(
-                    builder,
-                    &[xys[0], xys[1], xys[2], xys[3]],
-                )?);
-                Ok(tree)
-            }
-            n => {
-                // n odd (such as 5) we want n/2 (0..=2, 2..=4)
-                // n even (such as 4) then n/2 will do (0..=2, 2..=3)
-                let this_node = tree.len();
-                let middle = n / 2;
-                let split_x = xys[middle].0;
-                tree.push(PiecewiseLensPolyNode::new_pivot_node(split_x, 1, 0));
-                let mut tree = Self::build(builder, tree, &xys[0..=middle])?;
-                let skip_to_upper = tree.len() - this_node;
-                tree[this_node].set_link(true, skip_to_upper);
-                Self::build(builder, tree, &xys[middle..n])
-            }
-        }
-    }
-    pub fn of_xys(xys: &[(f64, f64)]) -> Result<Self> {
-        let mut builder = BezierBuilder::default();
-        let tree = Self::build(&mut builder, vec![], xys)?;
-        Ok(Self { tree })
-    }
-
-    fn of_node_ranges(
-        mut tree: Vec<PiecewiseLensPolyNode>,
-        node_ranges: &[(f64, f64, PiecewiseLensPolyNode)],
-    ) -> Vec<PiecewiseLensPolyNode> {
-        let this_node = tree.len();
-        match node_ranges.len() {
-            0 => {
-                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
-            }
-            1 => {
-                tree.push(node_ranges[0].2);
-                tree
-            }
-            n => {
-                let middle = n / 2;
-                let split_x = node_ranges[middle].0;
-                tree.push(PiecewiseLensPolyNode::new_pivot_node(split_x, 1, 0));
-                let mut tree = Self::of_node_ranges(tree, &node_ranges[0..middle]);
-                let skip_to_upper = tree.len() - this_node;
-                tree[this_node].set_link(true, skip_to_upper);
-                Self::of_node_ranges(tree, &node_ranges[middle..n])
-            }
-        }
-    }
-
-    pub fn of_fn<F>(mut min_t: f64, max_t: f64, f: &F, max_err: f64) -> Result<Self>
-    where
-        F: Fn(f64) -> f64,
-    {
-        let mut builder = BezierBuilder::default();
-        let mut node_ranges = vec![];
-        while min_t < max_t {
-            let mut last_t = max_t;
-            loop {
-                let (node, error_sq) =
-                    PiecewiseLensPolyNode::of_fn(&mut builder, min_t, last_t, f)?;
-                if error_sq < max_err * max_err {
-                    node_ranges.push((min_t, last_t, node));
-                    min_t = last_t;
-                    break;
-                }
-                last_t = (min_t + last_t) / 2.0;
-            }
-        }
-        let tree = Self::of_node_ranges(vec![], &node_ranges);
-        Ok(Self { tree })
-    }
-}
-
-#[test]
-fn test_piecewise() -> Result<()> {
-    let p = PiecewiseLensPoly::of_xys(&[(0., 0.), (1., 2.0)])?;
-    for i in 0..10 {
-        let t = (i as f64);
-        eprintln!("{i} {}", p.evaluate(t));
-    }
-
-    let p = PiecewiseLensPoly::of_xys(&[(0., 0.), (1., 2.0), (2., 8.)])?;
-    for i in 0..10 {
-        let t = (i as f64);
-        eprintln!("{i} {}", p.evaluate(t));
-    }
-
-    let mut d = vec![];
-    for i in 0..50 {
-        let t = (i as f64);
-        let v = t.to_radians().tan();
-        d.push((t, v));
-    }
-    let p = PiecewiseLensPoly::of_xys(&d)?;
-    for i in 0..50 {
-        let t = (i as f64);
-        eprintln!("{i} {} {}", p.evaluate(t), t.to_radians().tan());
-    }
-    eprintln!("{p:?}");
-    // assert!(false, "Force fail");
-    Ok(())
-}
-
-#[test]
-fn test_piecewise_fn() -> Result<()> {
-    let p = PiecewiseLensPoly::of_fn(0.0, 1.4, &f64::tan, 1E-4)?;
-    for i in 0..40 {
-        let i = i * 2;
-        let t = (i as f64).to_radians();
-        eprintln!("{i} {} {}", p.evaluate(t), t.tan());
-    }
-    eprintln!("{p:?}");
-    // assert!(false, "Force fail");
-    Ok(())
-}
-
-//a LensPolys
-//tp LensPolys
-/// Polynomials that map (in some manner) sensor yaw to and from world
-/// yaw for a spherical lens
-///
-/// The simplest polynomial mapping P(yaw) is from yaw angle to yaw
-/// angle (in radians). However, the mapping has two properties: it
-/// maps yaw of 0 to yaw of 0, and it is antisymmetric. i.e. P(0)=0,
-/// P(-yaw)=-P(yaw).
-///
-/// If this is encoded as a polynomial (as it is here) this means that
-/// the *even* coefficients *must* be zero.
-///
-///  i.e. P(x) = p1.x + p3.x^3 + p5.x^5 + ... (p even are zero)
-///
-/// So encoding this as a simple polynomial will waste half of the
-/// coefficients
-///
-/// Hence this actually encodes the polynomial as Q(x), where:
-///
-///    P(yaw) = yaw*Q(yaw^2)
-///
-///    x * Q(x^2) = p1.x + p3.x^3 + p5.x^5 + ...
-///
-///    Q(x^2) = p1 + p3.x^2 + p5.x^4 + ...
-///
-///    q0 = p1, q1 = p3, q2 = p5, q3 = p7, ...
-///
-/// To calculate P(yaw), then, this is just yaw * Q(yaw^2)
-///
-/// The default *linear* polynomial is P(yaw) = yaw => Q(yaw^2)=1
-///
-/// Now, for most lenses P(x) is near x for most reasonable x; hence Q(yaw^2) = 1+R(yaw^2)
-///
-///    R(x^2) = p1-1 + p3.x^2 + p5.x^4 + ...
-///
-///    r0 = p1-1, r1 = p3, r2 = p5, r3 = p7, ...
-///
-/// The calibration could take advantage of this
-///
-///
-///
-/// Want to change this to piecewise bezier_nd
-///
-/// This is effectively a tree of  Bezier | (pivot, less Node, Greater Node)
-///
-/// This can be stored as Vec<LPNode>, with LPNode being [f64;3] or (f64, usize, usize)
-///
-/// Or [f64;4] where if first is NAN then 1 and 2 are node pointers
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LensPolys {
-    /// Function of fractional X-offset (0 center, 1 RH of sensor) to angle
-    ///
-    /// fractional Y-offset is px_rel_y / (px_height/2) / pixel_aspect_ratio
-    stw_poly: Vec<f64>,
-
-    /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
-    wts_poly: Vec<f64>,
-}
-
-//ip Default for LensPolys
-impl std::default::Default for LensPolys {
-    fn default() -> Self {
-        Self {
-            stw_poly: vec![0.],
-            wts_poly: vec![0.],
-        }
-    }
-}
-
-//ip Display for LensPolys
-impl std::fmt::Display for LensPolys {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(
-            fmt,
-            "wts:{:0.4?}; stw:{:0.4?}",
-            self.wts_poly, self.stw_poly
-        )
-    }
-}
-
-//ip JsonParsable for LensPolys
-impl JsonParsable for LensPolys {
-    type PostParseArg = ();
-    type PostParseResult = Self;
-    fn reason() -> &'static str {
-        "lens polynomials"
-    }
-    fn post_parse(self, _args: &Self::PostParseArg) -> Result<Self> {
-        Ok(self)
-    }
-}
-
-//ip LensPolys
-impl LensPolys {
-    //cp stereographic
-    pub fn stereographic() -> Self {
-        let wts_poly = LP_STEREOGRAPHIC.0.to_vec();
-        let stw_poly = LP_STEREOGRAPHIC.1.to_vec();
-        Self::new(stw_poly, wts_poly)
-    }
-
-    //cp equisolid
-    pub fn equisolid() -> Self {
-        let wts_poly = LP_EQUISOLID.0.to_vec();
-        let stw_poly = LP_EQUISOLID.1.to_vec();
-        Self::new(stw_poly, wts_poly)
-    }
-
-    //cp equiangular
-    pub fn equiangular() -> Self {
-        let wts_poly = LP_EQUIANGULAR.0.to_vec();
-        let stw_poly = LP_EQUIANGULAR.1.to_vec();
-        Self::new(stw_poly, wts_poly)
-    }
-
-    //cp equidistant
-    pub fn equidistant() -> Self {
-        let wts_poly = LP_EQUIDISTANT.0.to_vec();
-        let stw_poly = LP_EQUIDISTANT.1.to_vec();
-        Self::new(stw_poly, wts_poly)
-    }
-
-    //cp orthographic
-    pub fn orthographic() -> Self {
-        let wts_poly = LP_ORTHOGRAPHIC.0.to_vec();
-        let stw_poly = LP_ORTHOGRAPHIC.1.to_vec();
-        Self::new(stw_poly, wts_poly)
-    }
-
-    //mp stw
-    /// Map from sensor angle to world angle
-    ///
-    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    pub fn stw(&self, angle: f64) -> f64 {
-        angle * self.stw_poly.calc(angle.powi(2)) + angle
-    }
-
-    //mp wts
-    /// Map from world angle to sensor angle
-    ///
-    /// Use the fact that P(yaw) = yaw * poly(yaw^2)
-    pub fn wts(&self, angle: f64) -> f64 {
-        angle * self.wts_poly.calc(angle.powi(2)) + angle
-    }
-
-    //cp new
-    pub fn new(stw_poly: Vec<f64>, wts_poly: Vec<f64>) -> Self {
-        Self { stw_poly, wts_poly }
-    }
-
-    //mp to_json
-    pub fn to_json(&self, pretty: bool) -> Result<String> {
-        if pretty {
-            Ok(serde_json::to_string_pretty(self)?)
-        } else {
-            Ok(serde_json::to_string(self)?)
-        }
-    }
-
-    //cp calibration
-    /// Calculate polynomials of best-fit for a given set of sensor
-    /// and world yaws
-    ///
-    /// This generates first a sensor-to-world mapping, and then a
-    /// world-to-sensor mapping that is a good inverse of that.
-    ///
-    /// The initial generation sorts the sensor/world pairs according
-    /// to the sensor value, and then applies a median filter to
-    /// remove outliers. This filter consides 2N+1 consecutive
-    /// world/sensor values (centred on sensor value S) and ignores
-    /// the largest and smallest values (if N were one this would just
-    /// taken the median); it uses the mean of the remaining 2N-1
-    /// values as the actual world/sensor value for the sensor value
-    /// S.
-    ///
-    /// The polynomial generated is a best fit for X values of
-    /// sensor^2 and Y values of world/sensor, as required by the
-    /// compressed polynomials used in the LensPoly type.
-    pub fn calibration(
-        poly_degree: usize,
-        sensor_yaws: &[f64],
-        world_yaws: &[f64],
-        yaw_range_min: f64,
-        yaw_range_max: f64,
-        apply_filter: bool,
-    ) -> Result<Self> {
-        // Create a vec of (world, sensor) yaw pairs where sensor yaw is > yaw_range_min
-        let mut ws_yaws: Vec<_> = sensor_yaws
-            .iter()
-            .zip(world_yaws.iter())
-            .filter(|(s, _)| **s > yaw_range_min)
-            .map(|(s, w)| (*w, *s))
-            .collect();
-        ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
-
-        // Map vec of (world,sensor) yaw pairs to (local mean world, sensor)
-        // values using a windowed filter
-        let mean_median_ws_yaws = {
-            if apply_filter {
-                polynomial::filter_ws_yaws(&ws_yaws)
-            } else {
-                ws_yaws.clone()
-            }
-        };
-
-        // Generate an array (sensor^2, (world/sensor-1))
-        let sy_gwy: Vec<_> = mean_median_ws_yaws
-            .iter()
-            .filter(|(_, s)| *s < yaw_range_max)
-            .map(|(w, s)| {
-                if *s < 0.001 {
-                    (s.powi(2), 0.)
-                } else {
-                    (s.powi(2), (w - s) / s)
-                }
-            })
-            .collect();
-
-        // Generate polynomial-of-best-fit p(sensor^2) = (world/sensor)-1
-        let stw =
-            polynomial::min_squares_dyn(poly_degree, sy_gwy.iter().copied()).map_err(|e| {
-                Error::SelfError(
-                    "failed to derive sensor-to-world polynomial".to_string(),
-                    e.into(),
-                )
-            })?;
-
-        // Generate an array (world^2, (sensor/world-1))
-        let wy_gsy = sensor_yaws.iter().map(|s| {
-            let w = *s * stw.calc(s.powi(2)) + *s;
-            if w.abs() < 0.001 {
-                (w.powi(2), 0.)
-            } else {
-                (w.powi(2), (*s - w) / w)
-            }
-        });
-
-        // Generate polynomial-of-best-fit p(world^2) = (sensor/world)-1
-        let wts = polynomial::min_squares_dyn(poly_degree, wy_gsy).map_err(|e| {
-            Error::SelfError(
-                "failed to derive world-to-sensor polynomial".to_string(),
-                e.into(),
-            )
-        })?;
-
-        for max_rel_err in [0.01_f64, 0.001_f64, 0.0001_f64] {
-            let last_coeff = *(stw.last().unwrap());
-            let max_angle = (max_rel_err / last_coeff)
-                .abs()
-                .powf(0.5 / (stw.len() as f64));
-            eprintln!(
-                "Max usable angle for {}% angle error is stw: {}",
-                max_rel_err * 100.0,
-                max_angle.to_degrees()
-            );
-        }
-        // eprintln!("{stw:?} {wts:?}");
-        Ok(Self::new(stw, wts))
-    }
-}
-
-//a CameraLens
-//tp CameraLens
 /// A lens projection implemented with a polynomial mapping of
 /// tan(incoming angle) to tan(outgoing angle) of the ray
 ///
@@ -806,8 +159,8 @@ pub struct CameraLens {
     polys: LensPolys,
 }
 
-//ip Default for CameraLens
 impl std::default::Default for CameraLens {
+    /// Creates a new Rectilinear lens with focal length of 20mm
     fn default() -> Self {
         Self {
             name: "".into(),
@@ -818,45 +171,43 @@ impl std::default::Default for CameraLens {
     }
 }
 
-//ip Display for CameraLens
 impl std::fmt::Display for CameraLens {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "{}: {}mm", self.name, self.mm_focal_length)
     }
 }
 
-//ip CameraLens
 impl CameraLens {
-    //fp new
+    /// Create a new rectilinear lens of focal length 20mm
     pub fn new(name: &str, mm_focal_length: f64) -> Self {
         Self::default()
             .set_name(name)
             .set_focal_length(mm_focal_length)
     }
 
-    //mp set_polys
+    /// Set the LensPolys that map the lens
     pub fn set_polys(&mut self, polys: LensPolys) {
         self.polys = polys;
     }
 
-    //ap polys
+    /// Get the lens polys that map the lens
     pub fn polys(&self) -> &LensPolys {
         &self.polys
     }
 
-    //cp set_name
+    /// Set the name of the lense
     pub fn set_name<S: Into<String>>(mut self, name: S) -> Self {
         self.name = name.into();
         self
     }
 
-    //cp set_focal_length
+    /// Set the focal length of the lens (note, not the distance an image is focused at)
     pub fn set_focal_length(mut self, mm_focal_length: f64) -> Self {
         self.mm_focal_length = mm_focal_length;
         self
     }
 
-    //mp has_name
+    /// Return true if the name or any of the lens aliases match the name provided
     pub fn has_name(&self, name: &str) -> bool {
         if name == self.name {
             true
@@ -870,116 +221,26 @@ impl CameraLens {
         }
     }
 
-    //ap name
+    /// Get the name of the lens (not any of its aliases)
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    //ap mm_focal_length
+    /// Get the focal length of the lens in mm
     #[inline]
     pub fn mm_focal_length(&self) -> f64 {
         self.mm_focal_length
     }
 
-    //ap tan_sensor_to_tan_world - map tan to tan
+    /// Map a tan(sensor angle) to a tan(world angle)
     #[inline]
     pub fn tan_sensor_to_tan_world(&self, tan: f64) -> f64 {
-        self.polys.stw(tan.atan()).tan()
+        self.polys.map_sensor_to_world(tan.atan()).tan()
     }
 
-    //ap tan_world_to_tan_sensor - map tan to tan
+    /// Map a tan(world angle) to a tan(sensor angle)
     #[inline]
     pub fn tan_world_to_tan_sensor(&self, tan: f64) -> f64 {
-        self.polys.wts(tan.atan()).tan()
+        self.polys.map_world_to_sensor(tan.atan()).tan()
     }
-
-    //zz All done
 }
-//a Plotting
-/*
-    //cb stw plot
-    {
-        use poloto::prelude::*;
-        use tagu::prelude::*;
-        let theme = poloto::render::Theme::light();
-        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
-        let theme = theme.append(tagu::build::raw(
-            ".poloto_text.poloto_legend{font-size:10px;}",
-        ));
-        let theme = theme.append(tagu::build::raw(
-            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
-        ));
-
-        let plots = poloto::build::origin();
-        let plots = plots.chain(
-            poloto::build::plot("Poly").line(
-                (0..300)
-                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
-                    .map(|s| (s.to_degrees(), stw_clone.calc(s.tan()) / s.tan() - 1.0)),
-            ),
-        );
-        let plots = plots.chain(
-            poloto::build::plot("Original").scatter(
-                world_yaws
-                    .iter().zip(sensor_yaws.iter())
-                    .map(|(w, s)| (s.to_degrees(), w / s - 1.0)),
-            ),
-        );
-        let plot_initial = poloto::frame_build()
-            .data(plots)
-            .build_and_label(("Lens Cal Sensor-to-world", "Sensor", "(tan w)/(tan s) - 1"))
-            .append_to(poloto::header().append(theme))
-            .render_string()
-            .map_err(|e| format!("{e:?}"))?;
-
-        let mut f = std::fs::File::create("lc_stw.svg")?;
-        f.write_all(plot_initial.to_string().as_bytes())?;
-    }
-
-    //cb wts plot
-    {
-        use poloto::prelude::*;
-        use tagu::prelude::*;
-        let theme = poloto::render::Theme::light();
-        let theme = theme.append(tagu::build::raw(".poloto_scatter{stroke-width:1px;}"));
-        let theme = theme.append(tagu::build::raw(
-            ".poloto_text.poloto_legend{font-size:10px;}",
-        ));
-        let theme = theme.append(tagu::build::raw(
-            ".poloto_line{stroke-dasharray:1;stroke-width:1px;}",
-        ));
-
-        let plots = poloto::build::origin();
-        let plots = plots.chain(
-            poloto::build::plot("Original").scatter(
-                ws_tan_yaws
-                    .iter()
-                    .map(|(w, s)| (w.atan().to_degrees(), s / w - 1.0)),
-            ),
-        );
-        let plots = plots.chain(
-            poloto::build::plot("Poly source").scatter(
-                world_tan_yaw
-                    .iter()
-                    .zip(grad_sensor_tan_yaw.iter())
-                    .map(|(w, gs)| (w.atan().to_degrees(), gs)),
-            ),
-        );
-        let plots = plots.chain(
-            poloto::build::plot("Poly").line(
-                (0..300)
-                    .map(|n| (n as f64) / 300.0 * yaw_range_max * 1.2)
-                    .map(|w| (w.to_degrees(), wts_clone.calc(w.tan()) / w.tan() - 1.0)),
-            ),
-        );
-        let plot_initial = poloto::frame_build()
-            .data(plots)
-            .build_and_label(("Lens Cal World-to-sensor", "World", "(tan s)/(tan w) - 1"))
-            .append_to(poloto::header().append(theme))
-            .render_string()
-            .map_err(|e| format!("{e:?}"))?;
-
-        let mut f = std::fs::File::create("lc_wts.svg")?;
-        f.write_all(plot_initial.to_string().as_bytes())?;
-    }
-*/

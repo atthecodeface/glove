@@ -11,7 +11,7 @@ fn test_mapping<F>(
     degree: usize,
     wmin: f64,
     wmax: f64,
-    lens: &LensPolys,
+    test_lens_poly: &LensPolys,
     ignore_tab: bool,
 ) -> Result<()>
 where
@@ -22,17 +22,20 @@ where
     let wrange = wmax - wmin;
     let yaws = (0..1000).map(|i| (i as f64) / 1000.0 * wrange + wmin);
 
-    let sensor_yaws: Vec<_> = yaws.clone().map(&wts_fn).collect();
-    let world_yaws: Vec<_> = yaws.clone().collect();
-    let lens_poly = LensPolys::calibration(degree, &sensor_yaws, &world_yaws, 0.0, 10000.0, false)?;
+    let lens_poly = LensPolys::of_wts_fn(&wts_fn, wmin, wmax).unwrap();
+
+    // First test world-to-swnsoe mapping
     let mut num_errors = 0;
     for world in yaws.clone() {
-        let lens_sensor = lens_poly.wts(world);
+        let lens_sensor = lens_poly.map_world_to_sensor(world);
         let sensor = wts_fn(world);
         if (sensor - lens_sensor).abs() < 0.01 {
             continue;
         }
-        eprintln!("{world} {sensor} {lens_sensor} {}", sensor - lens_sensor);
+        eprintln!(
+            "world:{world} sensor:{sensor} poly(world):{lens_sensor} delta:{}",
+            sensor - lens_sensor
+        );
         num_errors += 1;
     }
 
@@ -43,47 +46,55 @@ where
         .into());
     }
 
-    eprintln!("pub const LP_{name}: ([f64; {degree}], [f64; {degree}]) = (");
-    eprintln!("{}", lens_poly.to_json(true)?);
-    eprintln!(");");
-
-    let ytm = yaws.clone().map(|y| (y, wts_fn(y)));
-    let mty = yaws.clone().map(|y| (wts_fn(y), y));
-
-    for (a, b) in ytm.clone().take(10) {
-        eprintln!("{a} {b}");
-    }
-    let mut wts = polynomial::min_squares_dyn(degree, ytm)?;
-    let mut stw = polynomial::min_squares_dyn(degree, mty)?;
-    eprintln!("{wts:?}");
-    wts[0] = 0.0;
-    stw[0] = 0.0;
+    // Now test sensor-to-world mapping of wts_fn(world) so round-tripping is ok
     for world in yaws.clone() {
-        let sensor = wts.calc(world);
-        let tab = stw.calc(sensor);
-        if !ignore_tab && (world - tab).abs() > 0.001 {
-            eprintln!("world {world:0.4} there and back {tab:0.4}");
-            num_out_of_range += 1;
-        }
-        if (sensor - wts_fn(world)).abs() > 0.001 {
-            eprintln!("sensor {sensor:0.4} fwd {:0.4}", wts_fn(world));
-            num_out_of_range += 1;
-        }
-
-        let lens_sensor = lens.wts(world);
-        let lens_tab = lens.stw(sensor);
-        if !ignore_tab && (world - lens_tab).abs() > 0.001 {
-            eprintln!("world {world:0.4} lens there and back {lens_tab:0.4}");
-            num_out_of_range += 1;
-        }
-        if (lens_sensor - wts_fn(world)).abs() > 0.001 {
+        let sensor = wts_fn(world);
+        let lens_world = lens_poly.map_sensor_to_world(sensor);
+        if (world - lens_world).abs() > 0.001 {
             eprintln!(
-                "lens_sensor {lens_sensor:0.4} fwd {:0.4} world {world:0.4}",
-                wts_fn(world)
+                "world {world:0.4} lens there and back {lens_world:0.4} error {}",
+                (world - lens_world)
             );
             num_out_of_range += 1;
         }
     }
+
+    if num_out_of_range > 0 {
+        return Err(format!("Failed with {num_out_of_range} out of range").into());
+    }
+
+    // Now test the provided poly matches
+    for world in yaws.clone() {
+        let sensor = wts_fn(world);
+
+        let test_lens_sensor = test_lens_poly.map_world_to_sensor(world);
+        let test_lens_world = test_lens_poly.map_sensor_to_world(sensor);
+
+        if (test_lens_world - world).abs() > 0.001 {
+            eprintln!(
+                "world {world:0.4} test_lens_world {test_lens_world:0.4} error {}",
+                (test_lens_world - world)
+            );
+            num_out_of_range += 1;
+        }
+
+        if (test_lens_sensor - sensor).abs() > 0.001 {
+            eprintln!(
+                "sensor {sensor:0.4} test_lens_sensor {test_lens_sensor:0.4} error {}",
+                (test_lens_sensor - sensor)
+            );
+            num_out_of_range += 1;
+        }
+    }
+
+    eprintln!(
+        "pub const LP_{name}_WTS: &'static [f64] = &{:?};",
+        lens_poly.wts_poly_as_f64s()
+    );
+    eprintln!(
+        "pub const LP_{name}_STW: &'static [f64] = &{:?};",
+        lens_poly.stw_poly_as_f64s()
+    );
 
     if num_out_of_range > 0 {
         return Err(format!("Failed with {num_out_of_range} out of range").into());
@@ -117,10 +128,28 @@ fn test_equiangular() -> Result<()> {
         wts_fn,
         9,
         0.0,
-        0.71 * std::f64::consts::PI / 2.0,
+        std::f64::consts::PI / 2.0 * 1.5,
         &lens,
         false,
     )
+}
+
+#[test]
+fn test_rectilinear() -> Result<()> {
+    let lens = LensPolys::rectilinear();
+    // tan(sensor) = tan(world)
+    let wts_fn = |world: f64| world;
+    test_mapping(
+        "RECTILINEAR",
+        wts_fn,
+        8,
+        0.0,
+        std::f64::consts::PI / 2.0,
+        &lens,
+        false,
+    )?;
+    // assert!(false, "Force fail");
+    Ok(())
 }
 
 #[test]
@@ -151,7 +180,7 @@ fn test_orthographic() -> Result<()> {
         wts_fn,
         9,
         0.0,
-        0.9 * std::f64::consts::PI / 2.0,
+        0.93 * std::f64::consts::PI / 2.0,
         &lens,
         true,
     )

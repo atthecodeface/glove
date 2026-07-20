@@ -34,7 +34,9 @@ pub fn serialize_body_name<S: serde::Serializer>(
 /// origin at the top left (this is really an arbitrary choice); the centre
 /// pixel is in this coordinate system.
 ///
-///         "mm_sensor_width": 22.67,// 22.65 gives 1.83; 22.66 gives 1.54,6.4; 22.67 gives 1.439, 6.1; 22.68 give 1.5, 5.8; 22.69 gives 1.76,5.6
+/// ``ignore
+///  "mm_sensor_width": 22.67,// 22.65 gives 1.83; 22.66 gives 1.54,6.4; 22.67 gives 1.439, 6.1; 22.68 give 1.5, 5.8; 22.69 gives 1.76,5.6
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraBody {
     /// Name
