@@ -416,27 +416,28 @@ impl PiecewiseBezier {
     }
 
     /// Find the 'best' value of t given a value v, and a set of (t,v) pairs that are monotonic in v
-    fn find_t_of_v(t_v_pairs: &[(f64, f64)], v: f64) -> f64 {
-        match t_v_pairs.binary_search_by(|(_t_test, v_test)| v_test.partial_cmp(&v).unwrap()) {
-            Ok(idx) => t_v_pairs[idx].0,
+    fn find_y_of_x(x_y_pairs: &[(f64, f64)], x: f64) -> f64 {
+        match x_y_pairs.binary_search_by(|(x_test, _y_test)| x_test.partial_cmp(&x).unwrap()) {
+            Ok(idx) => x_y_pairs[idx].1,
             Err(idx) => {
-                // idx of 0 means v < v_of_t[0].1
+                // idx of 0 means x < x_y_pairs[0].0
                 if idx == 0 {
-                    t_v_pairs[0].0
-                } else if let Some(nxt) = t_v_pairs.get(idx) {
-                    // v is between v_of_t[idx-1].1 and v_of_t[idx].1
-                    let prev = t_v_pairs[idx - 1];
-                    let dt = nxt.0 - prev.0;
-                    let dv = nxt.1 - prev.1;
-                    let t = prev.0 + (v - prev.1) * dt / dv;
-                    t
+                    x_y_pairs[0].1
+                } else if let Some(nxt) = x_y_pairs.get(idx) {
+                    // x is between < x_y_pairs[idx-1].0 and < x_y_pairs[idx].0
+                    let prev = x_y_pairs[idx - 1];
+                    let dx = nxt.0 - prev.0;
+                    let dy = nxt.1 - prev.1;
+                    let y = prev.1 + (x - prev.0) * dy / dx;
+                    y
                 } else {
-                    // idx == length means v > v_of_t[last].1
-                    t_v_pairs.last().unwrap().0
+                    // idx == length means v > x_y_pairs[last].0
+                    x_y_pairs.last().unwrap().1
                 }
             }
         }
     }
+
     /// Build a PiecewiseBezier of the inverse of a function between min_t and max_t
     ///
     /// Create a Vec of (min_t, max_t, BezierBetweenThem), where the Beziers are
@@ -448,14 +449,14 @@ impl PiecewiseBezier {
         );
 
         let dt = max_t - min_t;
-        let v_of_t: Vec<_> = (0..=num_steps)
+        let t_of_v: Vec<_> = (0..=num_steps)
             .map(|i| min_t + dt * (i as f64) / ((num_steps - 1) as f64))
-            .map(|t| (t, self.evaluate(t)))
+            .map(|t| (self.evaluate(t), t))
             .collect();
 
-        let min_v = v_of_t.first().unwrap().1;
-        let max_v = v_of_t.last().unwrap().1;
-        let fn_t_of_v = |v| Self::find_t_of_v(&v_of_t, v);
+        let min_v = t_of_v.first().unwrap().0;
+        let max_v = t_of_v.last().unwrap().0;
+        let fn_t_of_v = |v| Self::find_y_of_x(&t_of_v, v);
         Self::of_fn(min_v, max_v, &fn_t_of_v, max_err)
     }
 }

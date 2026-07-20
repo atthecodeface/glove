@@ -580,10 +580,10 @@ where
             .and_then(|v| v.tag().borrow().in_use_count())
         {
             debug_assert!(
-                count >= 4,
-                "tag must be in use by 'v', TagMap Data, TagSet vec, and TagSet index"
+                count >= 3,
+                "tag must be in use by 'v', TagMap Data, self TagSet index"
             );
-            Some(count - 4)
+            Some(count - 3)
         } else {
             None
         }

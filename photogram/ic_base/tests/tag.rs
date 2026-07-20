@@ -24,8 +24,9 @@ fn test_tagset() -> Result<(), Box<dyn std::error::Error>> {
 
     let t = tm.get_data("t0").expect("Must be able to find tag t0");
     assert_eq!(t.n, "data_t0");
-    // Tag use count is TagSet vec, TagSet index, TagMap data, and 't'.
-    assert_eq!(t.tag.borrow().in_use_count(), Some(4));
+
+    // Tag use count is TagSet index, TagMap data, and 't'.
+    assert_eq!(t.tag.borrow().in_use_count(), Some(3));
     let _ = t;
     assert_eq!(tm.get_tag_use_count("t0"), Some(0));
 
