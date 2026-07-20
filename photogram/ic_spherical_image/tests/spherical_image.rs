@@ -50,6 +50,6 @@ fn test_sph_image_tetra() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("{t:?}");
     image.set_image_path(image_file, &t);
     image.write_image(image_file)?;
-    assert!(false, "Force fail");
+    //    assert!(false, "Force fail");
     Ok(())
 }
