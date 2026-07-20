@@ -128,7 +128,7 @@ fn test_equiangular() -> Result<()> {
         wts_fn,
         9,
         0.0,
-        std::f64::consts::PI / 2.0 * 1.5,
+        std::f64::consts::PI / 2.0,
         &lens,
         false,
     )
