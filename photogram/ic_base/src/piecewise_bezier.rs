@@ -1,3 +1,5 @@
+use std::sync::PoisonError;
+
 use bezier_nd::{BezierBuilder, BezierConstruct, BezierElevate, BezierEval};
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +17,13 @@ struct PiecewiseBezierNode {
 }
 
 impl PiecewiseBezierNode {
+    /// For creating from constants use only, really
+    fn of_f64s(f64s: &[f64; 4]) -> Self {
+        Self {
+            data: [[f64s[0]], [f64s[1]], [f64s[2]], [f64s[3]]],
+        }
+    }
+
     /// Create a pivot node - i.e. one with element[0] as a NAN, element[1]
     /// being the pivot, element[2] and [3] being the delta indices for the
     /// lt/gt directions
@@ -29,7 +38,7 @@ impl PiecewiseBezierNode {
         if for_gt {
             self.data[3] = [delta as f64; 1];
         } else {
-            self.data[3] = [delta as f64; 1];
+            self.data[2] = [delta as f64; 1];
         }
     }
 
@@ -78,10 +87,8 @@ impl PiecewiseBezierNode {
     {
         let t1 = (t0 * 2.0 + t3) / 3.0;
         let t2 = (t0 + t3 * 2.0) / 3.0;
-        let s = Self::cubic(
-            builder,
-            &[(t0, f(t0)), (t1, f(t1)), (t2, f(t2)), (t3, f(t3))],
-        )?;
+        let pts = [(t0, f(t0)), (t1, f(t1)), (t2, f(t2)), (t3, f(t3))];
+        let s = Self::cubic(builder, &pts)?;
         let mut max_error_sq = 0.0_f64;
         for i in 0..=100 {
             let t = (i as f64) / 100.0 * (t3 - t0) + t0;
@@ -94,6 +101,28 @@ impl PiecewiseBezierNode {
     /// Return tru if this is a pivot node - i.e. [1] is a pivot value for the parameter
     fn is_pivot_node(&self) -> bool {
         self.data[0][0].is_nan()
+    }
+
+    /// Get the pivot_value for a pivot node
+    fn pivot_value(&self) -> Option<f64> {
+        if self.is_pivot_node() {
+            Some(self.data[1][0])
+        } else {
+            None
+        }
+    }
+
+    /// Get a link for a pivot node
+    fn link(&self, for_gt: bool) -> Option<usize> {
+        if self.is_pivot_node() {
+            if for_gt {
+                Some(self.data[3][0] as usize)
+            } else {
+                Some(self.data[2][0] as usize)
+            }
+        } else {
+            None
+        }
     }
 
     /// Evaluate the code, returning Ok(v) if this is a Bezier node, Err(delta)
@@ -111,13 +140,142 @@ impl PiecewiseBezierNode {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PBIter<'a> {
+    pb: &'a PiecewiseBezier,
+    /// True if the iteration has been started
+    started: bool,
+    /// Minimum value
+    min_t: f64,
+    /// Maximum value
+    max_t: f64,
+    /// Stack of node ids (which should only be pivoy nodes), with the one to handle next at the top.
+    /// If this is empty and !completed then the *first* node should be handled (assuming there is one...)
+    ///
+    /// If this is a pivot node, then follow its gt branch; the lt branch will already have been handled
+    stack: Vec<(usize, f64)>,
+}
+
+impl<'a> std::iter::Iterator for PBIter<'a> {
+    type Item = (f64, f64, PiecewiseBezierNode);
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut node = 0;
+        let mut min_t = self.min_t;
+        let mut max_t = self.max_t;
+        if !self.started {
+            self.started = true;
+            if self.pb.tree.is_empty() {
+                return None;
+            }
+        } else {
+            let Some((n, m)) = self.stack.pop() else {
+                return None;
+            };
+            let x = &self.pb.tree[n];
+            node = n + x.link(true).unwrap();
+            min_t = x.pivot_value().unwrap();
+            max_t = m;
+        }
+        // While node is a pivot node then push it and follow its lt branch
+        while self.pb.tree[node].is_pivot_node() {
+            let pivot = self.pb.tree[node].pivot_value().unwrap();
+            self.stack.push((node, max_t));
+            node += self.pb.tree[node].link(false).unwrap();
+            max_t = pivot;
+        }
+        // node must be a leaf node; return it!
+        Some((min_t, max_t, self.pb.tree[node].clone()))
+    }
+}
+
 /// A Piecewise Bezier curve, which consists of a Vec of nodes, with the root at [0]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct PiecewiseBezier {
     tree: Vec<PiecewiseBezierNode>,
 }
 
+impl serde::Serialize for PiecewiseBezier {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_f64s().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PiecewiseBezier {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v = Vec::<f64>::deserialize(deserializer)?;
+        let s = PiecewiseBezier::of_f64s(&v)
+            .map_err(|e| serde::de::Error::custom(format!("invalid PiecewiseBezier: {e}")))?;
+        Ok(s)
+    }
+}
+
+/// Default is a pure linear Bezier
+impl std::default::Default for PiecewiseBezier {
+    fn default() -> Self {
+        Self {
+            tree: vec![PiecewiseBezierNode::of_f64s(&[
+                0.0,
+                0.3333333333333334,
+                0.6666666666666665,
+                1.0,
+            ])],
+        }
+    }
+}
+
+/// Display for humans
+impl std::fmt::Display for PiecewiseBezier {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(fmt, "PiecewiseBezier{{")?;
+        for (min_t, max_t, pbn) in self.iter() {
+            write!(
+                fmt,
+                "({min_t:0.4}->{max_t:0.4}:[{:0.4},{:0.4},{:0.4},{:0.4}], ",
+                pbn.data[0][0], pbn.data[1][0], pbn.data[2][0], pbn.data[3][0],
+            )?;
+        }
+        write!(fmt, "}}")
+    }
+}
+
 impl PiecewiseBezier {
+    /// Get an iterator over all the nodes in order
+    fn iter<'a>(&'a self) -> PBIter<'a> {
+        PBIter {
+            pb: self,
+            started: false,
+            stack: vec![],
+            min_t: f64::NAN,
+            max_t: f64::NAN,
+        }
+    }
+
+    /// For constants use only, really; export the nodes
+    pub fn as_f64s(&self) -> Vec<f64> {
+        let mut result = vec![];
+        for n in self.tree.iter() {
+            result.extend_from_slice(&[n.data[0][0], n.data[1][0], n.data[2][0], n.data[3][0]]);
+        }
+        result
+    }
+
+    /// For creating from constants use only, really
+    pub fn of_f64s(f64s: &[f64]) -> Result<Self> {
+        let mut tree = vec![];
+        for n in f64s.as_chunks::<4>().0 {
+            tree.push(PiecewiseBezierNode::of_f64s(n));
+        }
+        let s = Self { tree };
+        s.validate()?;
+        Ok(s)
+    }
+
     /// Evaluate at a parameter value of t
     ///
     /// This will evaluate each node - if it indicates a branch in the tree,
@@ -138,6 +296,9 @@ impl PiecewiseBezier {
 
     /// Validate the tree - ensure that all of the deltas map within the [PiecewiseBezier]
     pub fn validate(&self) -> Result<()> {
+        if self.tree.is_empty() {
+            return Err(format!("PiecewiseBezier has no nodes!").into());
+        }
         for (i, n) in self.tree.iter().enumerate() {
             if let Err(next) = n.evaluate(0.0) {
                 if next == 0 || i + next >= self.tree.len() {
@@ -253,6 +414,50 @@ impl PiecewiseBezier {
         let tree = Self::of_node_ranges(vec![], &node_ranges);
         Ok(Self { tree })
     }
+
+    /// Find the 'best' value of t given a value v, and a set of (t,v) pairs that are monotonic in v
+    fn find_t_of_v(t_v_pairs: &[(f64, f64)], v: f64) -> f64 {
+        match t_v_pairs.binary_search_by(|(_t_test, v_test)| v_test.partial_cmp(&v).unwrap()) {
+            Ok(idx) => t_v_pairs[idx].0,
+            Err(idx) => {
+                // idx of 0 means v < v_of_t[0].1
+                if idx == 0 {
+                    t_v_pairs[0].0
+                } else if let Some(nxt) = t_v_pairs.get(idx) {
+                    // v is between v_of_t[idx-1].1 and v_of_t[idx].1
+                    let prev = t_v_pairs[idx - 1];
+                    let dt = nxt.0 - prev.0;
+                    let dv = nxt.1 - prev.1;
+                    let t = prev.0 + (v - prev.1) * dt / dv;
+                    t
+                } else {
+                    // idx == length means v > v_of_t[last].1
+                    t_v_pairs.last().unwrap().0
+                }
+            }
+        }
+    }
+    /// Build a PiecewiseBezier of the inverse of a function between min_t and max_t
+    ///
+    /// Create a Vec of (min_t, max_t, BezierBetweenThem), where the Beziers are
+    /// within the maximum error; then construct the tree from this array
+    pub fn inv(&self, min_t: f64, max_t: f64, max_err: f64, num_steps: usize) -> Result<Self> {
+        debug_assert!(
+            num_steps >= 2,
+            "Number of steps for inv PiecewiseBezier must be >=2"
+        );
+
+        let dt = max_t - min_t;
+        let v_of_t: Vec<_> = (0..=num_steps)
+            .map(|i| min_t + dt * (i as f64) / ((num_steps - 1) as f64))
+            .map(|t| (t, self.evaluate(t)))
+            .collect();
+
+        let min_v = v_of_t.first().unwrap().1;
+        let max_v = v_of_t.last().unwrap().1;
+        let fn_t_of_v = |v| Self::find_t_of_v(&v_of_t, v);
+        Self::of_fn(min_v, max_v, &fn_t_of_v, max_err)
+    }
 }
 
 #[test]
@@ -287,13 +492,38 @@ fn test_piecewise() -> Result<()> {
 
 #[test]
 fn test_piecewise_fn() -> Result<()> {
-    let p = PiecewiseBezier::of_fn(0.0, 1.4, &f64::tan, 1E-4)?;
-    for i in 0..40 {
-        let i = i * 2;
-        let t = (i as f64).to_radians();
-        eprintln!("{i} {} {}", p.evaluate(t), t.tan());
+    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4)?;
+    let mut errors = 0;
+    for i in 0..400 {
+        let t = (i as f64).to_radians() / 5.0;
+        let delta = p.evaluate(t) - t.tan();
+        eprintln!("{i} {} {} {}", p.evaluate(t), t.tan(), delta);
+        if delta.abs() > 1E-4 {
+            errors += 1;
+        }
     }
     eprintln!("{p:?}");
-    // assert!(false, "Force fail");
+    eprintln!("Total errors {errors}");
+    assert!(errors == 0, "Errors in PiecewiseBezier of_fn");
+    Ok(())
+}
+
+#[test]
+fn test_piecewise_inv_fn() -> Result<()> {
+    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4)?;
+
+    let p_i = p.inv(-0.1_f64, 1.4_f64, 1E-4, 1000)?;
+    let mut errors = 0;
+    for i in 0..400 {
+        let t = (i as f64).to_radians() / 5.0;
+        let delta = p_i.evaluate(t.tan()) - t;
+        eprintln!("{i} p_i(t.tan()):{} {t} {delta}", p_i.evaluate(t.tan()));
+        if delta.abs() > 1E-4 {
+            errors += 1;
+        }
+    }
+    eprintln!("{p:?}");
+    eprintln!("Total errors {errors}");
+    assert!(errors == 0, "Errors in PiecewiseBezier inv of_fn");
     Ok(())
 }
