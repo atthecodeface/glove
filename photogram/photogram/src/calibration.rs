@@ -341,7 +341,6 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
 
     let lens_poly = LensPolys::calibration(
-        cmd_args.poly_degree(),
         &sensor_yaws,
         &world_yaws,
         yaw_range_min,
@@ -412,7 +411,7 @@ fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     }
     ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
 
-    let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws);
+    let mean_median_ws_yaws = polynomial::filter_ws_yaws(&ws_yaws, 8);
 
     for (w, s) in mean_median_ws_yaws.iter() {
         pts[0].push(plot_f(*w, *s));
