@@ -1,16 +1,196 @@
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap, num};
 
 use thunderclap::{
     ArgCount, ArgDescriptor, CmdDescriptor, CmdProperty, CommandArgs, CommandBuilder,
 };
 
 use geo_nd::{Quaternion, Vector};
-use ic_base::{JsonParsable, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
+use ic_base::{JsonParsable, JsonSrc, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
 use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, LensPolys};
 use ic_image::{Image, ImageDrawable, ImageRgb8};
 use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
 use indexed::Idx;
 use star_catalog::Catalog as StarCatalog;
+
+/// The mapping is x,y to λ (lambda), φ (phi)
+///
+/// The spherical coords λ and φ
+/// map to a direction (relative to the camera orientation) of (sin(λ), tan(φ), cos(λ)) normalized,
+/// i.e. a rotation of (0,0,1) about the X axis by φ (latitude) then about the Y axis by λ (longitude).
+///
+/// x_relative is in the range -1 to +1 for left to right of the image; y_relative +1 to -1 for bottom to top
+///
+/// All cylindrical projections use x = λ, or rather λ = x; this is the 'main' axis
+///
+/// The minor axis (y) can map the actual y value in the range +-1 to +-hfov_v; this is the equirectangular projection with phi = y
+///
+/// The minor axis (y) can map the actual y value with phi = atan(y), with
+/// phi in the range +-hfov_v; then y must map to a range of tan(-hfovh) to
+/// tan(hfovh) (linearly)
+///
+///
+/// "Equirectangular projection" uses x = λ, y = φ
+/// "Central cylindrical projection" uses x = λ, y = tan(φ) [ hence φ = atan(y) ]
+/// "Lambert cylindrical projection (equal area) " uses x = λ, y = sin(φ)  [ hence φ = asin(y) ]
+/// "Gall stereographic projection " uses x = λ, y = tan(φ/2) [ hence φ = 2*atan(y) ]
+trait CylindricalProjection: std::fmt::Debug {
+    fn name(&self) -> &str;
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64);
+    /// Map y in range 0 to 1 (max to min) to phi
+    ///
+    ///
+    fn phi_of_y(&self, y: f64) -> f64;
+    /// Map y in range 0 to 1 (max to min) to phi
+    fn tan_phi_of_y(&self, y: f64) -> f64 {
+        self.phi_of_y(y).tan()
+    }
+    /// Map phi to y, with (v_ofs+fov_v/2) mapping 0 and (v_ofs-fov_v/2 ) to 1
+    ///
+    /// This must use the inverse mapping for phi(y)
+    fn y_of_phi(&self, phi: f64) -> f64;
+}
+
+#[derive(Debug)]
+pub struct Cylinder {
+    projection: Box<dyn CylindricalProjection>,
+}
+impl std::default::Default for Cylinder {
+    fn default() -> Self {
+        Self {
+            projection: Box::new(CylindricalCentral::default()),
+        }
+    }
+}
+impl Cylinder {
+    fn set_projection(&mut self, projection: &str) -> Result<()> {
+        self.projection = {
+            match projection {
+                "equirectangular" => Box::new(CylindricalEquirectangular::default()),
+                "lambert" => Box::new(CylindricalLambert::default()),
+                "central" => Box::new(CylindricalCentral::default()),
+                "stereographic" => Box::new(CylindricalStereographic::default()),
+                _ => Box::new(CylindricalCentral::default()),
+            }
+        };
+        Ok(())
+    }
+}
+impl CylindricalProjection for Cylinder {
+    fn name(&self) -> &str {
+        self.projection.name()
+    }
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+        self.projection.set_vfov(fov_v, v_ofs)
+    }
+    fn phi_of_y(&self, y_relative: f64) -> f64 {
+        self.projection.phi_of_y(y_relative)
+    }
+    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
+        self.projection.tan_phi_of_y(y_relative)
+    }
+    fn y_of_phi(&self, phi: f64) -> f64 {
+        self.projection.y_of_phi(phi)
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+struct CylindricalEquirectangular {
+    max_minus_min_y: f64,
+    max_y: f64,
+}
+impl CylindricalProjection for CylindricalEquirectangular {
+    fn name(&self) -> &str {
+        "equirectangular"
+    }
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+        self.max_y = v_ofs + fov_v / 2.0;
+        let min_y = v_ofs - fov_v / 2.0;
+        self.max_minus_min_y = self.max_y - min_y;
+    }
+    fn phi_of_y(&self, y_relative: f64) -> f64 {
+        self.max_y - y_relative * (self.max_minus_min_y)
+    }
+    fn y_of_phi(&self, phi: f64) -> f64 {
+        (self.max_y - phi) / self.max_minus_min_y
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+struct CylindricalLambert {
+    max_minus_min_y: f64,
+    max_y: f64,
+}
+impl CylindricalProjection for CylindricalLambert {
+    fn name(&self) -> &str {
+        "lambert"
+    }
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+        let min_y = (v_ofs - fov_v / 2.0).sin();
+        let max_y = (v_ofs + fov_v / 2.0).sin();
+        self.max_y = max_y;
+        self.max_minus_min_y = max_y - min_y;
+    }
+    fn phi_of_y(&self, y_relative: f64) -> f64 {
+        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
+        y_angle.asin()
+    }
+    fn y_of_phi(&self, phi: f64) -> f64 {
+        let y_angle = phi.sin();
+        (self.max_y - y_angle) / self.max_minus_min_y
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+struct CylindricalCentral {
+    max_minus_min_y: f64,
+    max_y: f64,
+}
+impl CylindricalProjection for CylindricalCentral {
+    fn name(&self) -> &str {
+        "central"
+    }
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+        let min_y = (v_ofs - fov_v / 2.0).tan();
+        let max_y = (v_ofs + fov_v / 2.0).tan();
+        self.max_y = max_y;
+        self.max_minus_min_y = max_y - min_y;
+    }
+    fn phi_of_y(&self, y_relative: f64) -> f64 {
+        self.tan_phi_of_y(y_relative).atan()
+    }
+    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
+        self.max_y - y_relative * self.max_minus_min_y
+    }
+    fn y_of_phi(&self, phi: f64) -> f64 {
+        let y_angle = phi.tan();
+        (self.max_y - y_angle) / self.max_minus_min_y
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+struct CylindricalStereographic {
+    max_minus_min_y: f64,
+    max_y: f64,
+}
+impl CylindricalProjection for CylindricalStereographic {
+    fn name(&self) -> &str {
+        "stereographic"
+    }
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+        let min_y = ((v_ofs - fov_v / 2.0) / 2.0).tan();
+        let max_y = ((v_ofs + fov_v / 2.0) / 2.0).tan();
+        self.max_y = max_y;
+        self.max_minus_min_y = max_y - min_y;
+    }
+    fn phi_of_y(&self, y_relative: f64) -> f64 {
+        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
+        2.0 * y_angle.atan()
+    }
+    fn y_of_phi(&self, phi: f64) -> f64 {
+        let y_angle = (phi / 2.0).tan();
+        (self.max_y - y_angle) / self.max_minus_min_y
+    }
+}
 
 #[derive(Default)]
 pub struct SphericalImageCommand {
@@ -23,6 +203,12 @@ pub struct SphericalImageCommand {
 
     fov_h: f64,
     fov_v: f64,
+    h_ofs: f64,
+    v_ofs: f64,
+    x_grid: f64,
+    y_grid: f64,
+    cylindrical_projection: Cylinder,
+    render_vertical: bool,
 
     active_image_name: Option<String>,
     shape: SphericalImageShape,
@@ -65,8 +251,8 @@ impl std::fmt::Debug for SphericalImageCommand {
 impl CommandArgs for SphericalImageCommand {
     type Error = ic_base::Error;
     type Value = String;
-    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] =
-        &[CmdProperty {
+    const PROPERTIES: &[thunderclap::CmdProperty<'static, Self, Self::Value, Self::Error>] = &[
+        CmdProperty {
             name: "orientation",
             get_fn: &|cmd_args| serde_json::to_string(&cmd_args.camera.orientation()).ok(),
             set_value_fn: &|cmd_args, s| {
@@ -75,7 +261,43 @@ impl CommandArgs for SphericalImageCommand {
                     true
                 })
             },
-        }];
+        },
+        CmdProperty {
+            name: "verbose",
+            get_fn: &|cmd_args| serde_json::to_string(&cmd_args.verbose).ok(),
+            set_value_fn: &|cmd_args, s| {
+                cmd_args.verbose = JsonSrc::<bool>::load_json(s, &())?;
+                Ok(true)
+            },
+        },
+        CmdProperty {
+            name: "grid_x",
+            get_fn: &|cmd_args| serde_json::to_string(&cmd_args.x_grid).ok(),
+            set_value_fn: &|cmd_args, s| {
+                cmd_args.x_grid = JsonSrc::<f64>::load_json(s, &())?;
+                Ok(true)
+            },
+        },
+        CmdProperty {
+            name: "grid_y",
+            get_fn: &|cmd_args| serde_json::to_string(&cmd_args.x_grid).ok(),
+            set_value_fn: &|cmd_args, s| {
+                cmd_args.y_grid = JsonSrc::<f64>::load_json(s, &())?;
+                Ok(true)
+            },
+        },
+        CmdProperty {
+            name: "cylindrical",
+            get_fn: &|cmd_args| {
+                let projection_name = cmd_args.cylindrical_projection.name();
+                serde_json::to_string(projection_name).ok()
+            },
+            set_value_fn: &|cmd_args, s| {
+                cmd_args.set_cylindrical_projection(s)?;
+                Ok(true)
+            },
+        },
+    ];
     fn cmd_ok() -> std::result::Result<Self::Value, Self::Error> {
         Ok("".into())
     }
@@ -88,6 +310,8 @@ impl CommandArgs for SphericalImageCommand {
         self.xy.clear();
         self.xyz.clear();
         self.blend = 0.0;
+        self.h_ofs = 0.0;
+        self.v_ofs = 0.0;
     }
 }
 
@@ -100,34 +324,35 @@ impl SphericalImageCommand {
             f()
         }
     }
+    pub fn verbose(&self) -> bool {
+        self.verbose
+    }
+    pub fn pretty_json(&self) -> bool {
+        self.pretty_json
+    }
+    fn set_cylindrical_projection(&mut self, projection: &str) -> Result<()> {
+        self.cylindrical_projection.set_projection(projection)
+    }
 
     const ARG_VERBOSE: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_flag(
         "verbose",
         Some('v'),
         "Enable verbose output",
-        &SphericalImageCommand::set_verbose,
+        &|s: &mut SphericalImageCommand, v: bool| {
+            s.verbose = v;
+            Ok(())
+        },
     );
-    fn set_verbose(&mut self, verbose: bool) -> Result<()> {
-        self.verbose = verbose;
-        Ok(())
-    }
-    pub fn verbose(&self) -> bool {
-        self.verbose
-    }
 
     const ARG_PRETTY_JSON: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_flag(
         "pretty_json",
         None,
         "Use pretty-printing for Json output",
-        &SphericalImageCommand::set_pretty_json,
+        &|s: &mut SphericalImageCommand, v: bool| {
+            s.pretty_json = v;
+            Ok(())
+        },
     );
-    fn set_pretty_json(&mut self, pretty_json: bool) -> Result<()> {
-        self.pretty_json = pretty_json;
-        Ok(())
-    }
-    pub fn pretty_json(&self) -> bool {
-        self.pretty_json
-    }
 
     const ARG_WIDTH: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_u32(
         "width",
@@ -135,45 +360,42 @@ impl SphericalImageCommand {
         "Set the width for the operation",
         ArgCount::Required,
         None,
-        &SphericalImageCommand::set_width,
+        &|s: &mut SphericalImageCommand, v: u32| {
+            s.width = v;
+            Ok(())
+        },
     );
-    fn set_width(&mut self, v: u32) -> Result<()> {
-        self.width = v;
-        Ok(())
-    }
     const ARG_HEIGHT: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_u32(
         "height",
         None,
         "Set the height for the operation",
         ArgCount::Required,
         None,
-        &SphericalImageCommand::set_height,
+        &|s: &mut SphericalImageCommand, v: u32| {
+            s.height = v;
+            Ok(())
+        },
     );
-    fn set_height(&mut self, v: u32) -> Result<()> {
-        self.height = v;
-        Ok(())
-    }
     const ARG_PATCH_SIZE: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_u32(
         "patch_size",
         Some('p'),
         "Set the patch size for the operation",
         ArgCount::Required,
         None,
-        &SphericalImageCommand::set_patch_size,
+        &|s: &mut SphericalImageCommand, v: u32| {
+            s.patch_size = v;
+            Ok(())
+        },
     );
-    fn set_patch_size(&mut self, v: u32) -> Result<()> {
-        self.patch_size = v;
-        Ok(())
-    }
 
     const ARG_FOVH: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f64(
         "fovh",
         None,
-        "Set the hoizontal FOV to use, in degrees",
+        "Set the horizontal FOV to use, in degrees",
         ArgCount::Required,
         None,
         &|s: &mut SphericalImageCommand, v: f64| {
-            s.fov_h = v;
+            s.fov_h = v.abs();
             Ok(())
         },
     );
@@ -184,10 +406,65 @@ impl SphericalImageCommand {
         ArgCount::Required,
         None,
         &|s: &mut SphericalImageCommand, v: f64| {
-            s.fov_v = v;
+            s.fov_v = v.abs();
             Ok(())
         },
     );
+
+    const ARG_H_OFS: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f64(
+        "hofs",
+        None,
+        "Set the horizontal offset angle to use, in degrees (defaults to 0)",
+        ArgCount::Optional,
+        Some("0.0"),
+        &|s: &mut SphericalImageCommand, v: f64| {
+            s.h_ofs = v;
+            Ok(())
+        },
+    );
+    const ARG_V_OFS: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f64(
+        "vofs",
+        None,
+        "Set the vertical offset angle to use, in degrees (defaults to 0)",
+        ArgCount::Optional,
+        Some("0.0"),
+        &|s: &mut SphericalImageCommand, v: f64| {
+            s.v_ofs = v;
+            Ok(())
+        },
+    );
+    const ARG_X_GRID: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f64(
+        "grid_x",
+        None,
+        "Set the X grid spacing (0=none)",
+        ArgCount::Optional,
+        None,
+        &|s: &mut SphericalImageCommand, v: f64| {
+            s.x_grid = v.abs();
+            Ok(())
+        },
+    );
+    const ARG_Y_GRID: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f64(
+        "grid_y",
+        None,
+        "Set the Y grid spacing (0=none)",
+        ArgCount::Optional,
+        None,
+        &|s: &mut SphericalImageCommand, v: f64| {
+            s.y_grid = v.abs();
+            Ok(())
+        },
+    );
+
+    const ARG_CYLINDRICAL_PROJECTION: ArgDescriptor<SphericalImageCommand> =
+        ArgDescriptor::arg_string(
+            "cylinder",
+            None,
+            "Set the cylindrical projection to use",
+            ArgCount::Optional,
+            None,
+            &Self::set_cylindrical_projection,
+        );
 
     const ARG_ADD_XY: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_string(
         "xy",
@@ -509,6 +786,11 @@ impl SphericalImageCommand {
             Self::ARG_HEIGHT,
             Self::ARG_FOVH,
             Self::ARG_FOVV,
+            Self::ARG_H_OFS,
+            Self::ARG_V_OFS,
+            Self::ARG_X_GRID,
+            Self::ARG_Y_GRID,
+            Self::ARG_CYLINDRICAL_PROJECTION,
             Self::ARG_LOOK_AT,
             Self::ARG_SET_WRITE_FILE_REQUIRED,
         ])
@@ -757,30 +1039,112 @@ impl SphericalImageCommand {
         Self::cmd_ok()
     }
 
-    fn render_panorama_cmd(&mut self) -> Result<String> {
-        self.validate_active_image_name()?;
+    fn render_panorama_horizontal(&mut self, jpg: &mut ImageRgb8) {
+        let q = self.camera.orientation();
         let name = self.active_image_name.as_deref().unwrap();
-        let image = self.images.get(name).unwrap();
         self.if_verbose(|| eprintln!("Rendering panorama of horizontal FOV {} degrees and vertical FOV {} degrees using camera orientation {}", self.fov_h, self.fov_v, self.camera));
-
-        // half field-of-view vertically
-        let hfov_v = self.fov_v.to_radians() / 2.0;
+        let image = self.images.get(name).unwrap();
         let hfov_h = self.fov_h.to_radians() / 2.0;
+        let h_ofs = self.h_ofs.to_radians();
 
-        let mut jpg = ImageRgb8::new(self.width, self.height);
-        let q = self.camera.orientation(); // .conjugate();
         for y in 0..self.height {
-            let phi = ((y as f64) / ((self.height - 1) as f64) * 2.0 - 1.0) * hfov_v;
-            let cos_phi = phi.cos();
-            let sin_phi = phi.sin();
+            self.cylindrical_projection
+                .set_vfov(self.fov_v.to_radians(), self.v_ofs.to_radians());
+            let y_relative = (y as f64) / (self.height as f64);
+            let tan_phi = self.cylindrical_projection.tan_phi_of_y(y_relative);
             for x in 0..self.width {
-                let theta = (((x as f64) / (self.width - 1) as f64) * 2.0 - 1.0) * hfov_h;
-                let cos_theta = theta.cos();
-                let sin_theta = theta.sin();
-                let p: Point3D = [sin_theta * cos_phi, -sin_phi, cos_theta * cos_phi].into();
-                let d = q.apply3(&p);
+                let x_relative = (x as f64) / (self.width as f64) * 2.0 - 1.0;
+                let lambda = x_relative * hfov_h + h_ofs;
+                let cos_lambda = lambda.cos();
+                let sin_lambda = lambda.sin();
+                let p: Point3D = [sin_lambda, tan_phi, cos_lambda].into();
+                let d = q.apply3(&p.normalize());
                 if let Some(color) = image.get_pixel_of_direction(&d) {
                     jpg.put(x, y, &color);
+                }
+            }
+        }
+    }
+
+    fn render_panorama_vertical(&mut self, jpg: &mut ImageRgb8) {
+        let name = self.active_image_name.as_deref().unwrap();
+        self.if_verbose(|| eprintln!("Rendering panorama of horizontal FOV {} degrees and vertical FOV {} degrees using camera orientation {}", self.fov_h, self.fov_v, self.camera));
+        let q = self.camera.orientation();
+        let image = self.images.get(name).unwrap();
+        let hfov_v = self.fov_v.to_radians() / 2.0;
+        let v_ofs = self.v_ofs.to_radians();
+
+        self.cylindrical_projection
+            .set_vfov(self.fov_h.to_radians(), self.h_ofs.to_radians());
+        for x in 0..self.width {
+            let x_relative = (x as f64) / (self.width as f64);
+            let tan_phi = self.cylindrical_projection.tan_phi_of_y(1.0 - x_relative);
+            for y in 0..self.height {
+                let y_relative = 1.0 - (y as f64) / (self.height as f64) * 2.0;
+                let lambda = y_relative * hfov_v + v_ofs;
+                let cos_lambda = lambda.cos();
+                let sin_lambda = lambda.sin();
+                let p: Point3D = [tan_phi, sin_lambda, cos_lambda].into();
+                let d = q.apply3(&p.normalize());
+                if let Some(color) = image.get_pixel_of_direction(&d) {
+                    jpg.put(x, y, &color);
+                }
+            }
+        }
+    }
+
+    /// Renders a panorama as a cylindrical projection, with y being +-half fov vertical, h being +- half fov horizontal
+    ///
+    fn render_panorama_cmd(&mut self) -> Result<String> {
+        self.validate_active_image_name()?;
+
+        let mut jpg = ImageRgb8::new(self.width, self.height);
+        if self.render_vertical {
+            self.render_panorama_vertical(&mut jpg);
+        } else {
+            self.render_panorama_horizontal(&mut jpg);
+            let white = 255_u8.into();
+            let black = 0.into();
+            if self.x_grid > 0.0 {
+                for theta_i in 0..=100 {
+                    let color = { if theta_i == 0 { &white } else { &black } };
+                    let theta = (theta_i as f64) * self.x_grid;
+                    let x = ((theta / self.fov_h) * (self.width as f64)) as u32;
+                    if x >= self.width / 2 {
+                        break;
+                    }
+                    for y in 0..self.height {
+                        jpg.put(self.width / 2 + x, y, &color);
+                        jpg.put(self.width / 2 - x, y, &color);
+                    }
+                }
+            }
+            if self.y_grid > 0.0 {
+                for phi_i in 0..=100 {
+                    let color = { if phi_i == 0 { &white } else { &black } };
+                    let phi = (self.v_ofs + (phi_i as f64) * self.y_grid).to_radians();
+                    // y = 0.0 -> 0, 1.0 -> height
+                    let y = self.cylindrical_projection.y_of_phi(phi) * (self.height as f64);
+                    if y < 0.0 || y >= (self.height as f64) {
+                        break;
+                    }
+                    let y = y as u32;
+                    for x in 0..self.width {
+                        jpg.put(x, y, &color);
+                    }
+                }
+                for phi_i in 1..=100 {
+                    let color = { if phi_i == 0 { &white } else { &black } };
+                    let phi = (self.v_ofs - (phi_i as f64) * self.y_grid).to_radians();
+                    // y = 0.0 -> 0, 1.0 -> height
+                    let y = self.cylindrical_projection.y_of_phi(phi) * (self.height as f64);
+                    if y < 0.0 || y >= (self.height as f64) {
+                        break;
+                    }
+                    let y = y as u32;
+                    for x in 0..self.width {
+                        jpg.put(x, y, &color);
+                    }
                 }
             }
         }
