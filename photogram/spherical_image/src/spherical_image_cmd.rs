@@ -602,7 +602,7 @@ impl SphericalImageCommand {
             sensor_yaws.push(s);
             world_yaws.push(s * (1.0 + dw));
         }
-        let lens_polys = LensPolys::calibration(8, &sensor_yaws, &world_yaws, 0.0, 10000.0, false)?;
+        let lens_polys = LensPolys::calibration(&sensor_yaws, &world_yaws, 0.2, 60.0, false)?;
         let mut lens = self.camera.lens().clone();
         lens.set_polys(lens_polys.clone());
         self.camera.set_lens(lens);
@@ -816,6 +816,7 @@ impl SphericalImageCommand {
                 None
             }
         }
+
         let (w, h) = jpg.size();
         for p in ps {
             image.fill_image_patch(self.blend, p, &|v| pix_map(&self.camera, &jpg, w, h, v));
