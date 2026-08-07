@@ -1,9 +1,7 @@
-use std::sync::PoisonError;
-
 use bezier_nd::{BezierBuilder, BezierConstruct, BezierElevate, BezierEval};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, JsonParsable, Result};
+use crate::Result;
 
 /// A node in a Piecewise Bezier curve
 ///
@@ -17,10 +15,17 @@ struct PiecewiseBezierNode {
 }
 
 impl PiecewiseBezierNode {
-    /// For creating from constants use only, really
+    /// For creating from constants and deserializing use only, really
     fn of_f64s(f64s: &[f64; 4]) -> Self {
+        let mk_data = |f| {
+            if f > 1.0e29 { [f64::NAN] } else { [f] }
+        };
+        let d0 = mk_data(f64s[0]);
+        let d1 = mk_data(f64s[1]);
+        let d2 = mk_data(f64s[2]);
+        let d3 = mk_data(f64s[3]);
         Self {
-            data: [[f64s[0]], [f64s[1]], [f64s[2]], [f64s[3]]],
+            data: [d0, d1, d2, d3],
         }
     }
 
@@ -81,7 +86,13 @@ impl PiecewiseBezierNode {
     }
 
     /// Create a Bezier node of a function between two argument values, and return the max sq error
-    fn of_fn<F>(builder: &mut BezierBuilder<f64, 1>, t0: f64, t3: f64, f: &F) -> Result<(Self, f64)>
+    fn of_fn<F>(
+        builder: &mut BezierBuilder<f64, 1>,
+        t0: f64,
+        t3: f64,
+        f: &F,
+        steps_per_bezier: usize,
+    ) -> Result<(Self, f64)>
     where
         F: Fn(f64) -> f64,
     {
@@ -90,8 +101,8 @@ impl PiecewiseBezierNode {
         let pts = [(t0, f(t0)), (t1, f(t1)), (t2, f(t2)), (t3, f(t3))];
         let s = Self::cubic(builder, &pts)?;
         let mut max_error_sq = 0.0_f64;
-        for i in 0..=100 {
-            let t = (i as f64) / 100.0 * (t3 - t0) + t0;
+        for i in 0..=steps_per_bezier {
+            let t = (i as f64) / (steps_per_bezier as f64) * (t3 - t0) + t0;
             let delta = f(t) - s.data.point_at(t)[0];
             max_error_sq = max_error_sq.max(delta * delta);
         }
@@ -276,6 +287,62 @@ impl PiecewiseBezier {
         Ok(s)
     }
 
+    /// Build on to a tree (of Vec PiecewiseBezierNode), from a slice of (min_t,
+    /// max_t, BezierForBetween)
+    ///
+    /// This is used recursively to create trees, and can be invoked with
+    /// (vec![], nodes) to create a complete PiecewiseBezier
+    fn tree_of_node_ranges(
+        mut tree: Vec<PiecewiseBezierNode>,
+        node_ranges: &[(f64, PiecewiseBezierNode)],
+    ) -> Vec<PiecewiseBezierNode> {
+        let this_node = tree.len();
+        match node_ranges.len() {
+            0 => {
+                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
+            }
+            1 => {
+                tree.push(node_ranges[0].1);
+                tree
+            }
+            n => {
+                let middle = n / 2;
+                let split_x = node_ranges[middle].0;
+                tree.push(PiecewiseBezierNode::new_pivot_node(split_x, 1, 0));
+                let mut tree = Self::tree_of_node_ranges(tree, &node_ranges[0..middle]);
+                let skip_to_upper = tree.len() - this_node;
+                tree[this_node].set_link(true, skip_to_upper);
+                Self::tree_of_node_ranges(tree, &node_ranges[middle..n])
+            }
+        }
+    }
+
+    /// Create a Piecewise Bezier of node ranges
+    fn of_node_ranges(node_ranges: Vec<(f64, PiecewiseBezierNode)>) -> Result<Self> {
+        let tree = Self::tree_of_node_ranges(vec![], &node_ranges);
+        Ok(Self { tree })
+    }
+
+    /// Iterate over the tree as Beziers as (min, max, 1D bezier)
+    pub fn iter_beziers<'a>(&'a self) -> impl Iterator<Item = (f64, f64, [[f64; 1]; 4])> + 'a {
+        self.iter().map(|(min, max, pb)| (min, max, pb.data))
+    }
+
+    /// Build a PiecewiseBezier from a list of (min, max, 1D bezier)
+    ///
+    /// In theory min of n+1 should be max of n; however, only the min are used,
+    /// and the max need not be supplied.
+    pub fn of_beziers<I: Iterator<Item = (f64, f64, [[f64; 1]; 4])>>(iter: I) -> Result<Self> {
+        let mut node_ranges = vec![];
+        for (i, (min, _max, b)) in iter.enumerate() {
+            node_ranges.push((
+                min,
+                PiecewiseBezierNode::of_f64s(&[b[0][0], b[1][0], b[2][0], b[3][0]]),
+            ));
+        }
+        Self::of_node_ranges(node_ranges)
+    }
+
     /// Evaluate at a parameter value of t
     ///
     /// This will evaluate each node - if it indicates a branch in the tree,
@@ -357,43 +424,23 @@ impl PiecewiseBezier {
     }
 
     /// Build a tree from a list of (x,y) values - used in testing
-    pub fn of_xys(xys: &[(f64, f64)]) -> Result<Self> {
+    pub fn of_xy_pairs_for_test(xys: &[(f64, f64)]) -> Result<Self> {
         let mut builder = BezierBuilder::default();
         let tree = Self::build(&mut builder, vec![], xys)?;
         Ok(Self { tree })
     }
 
-    /// Build on to a tree (of Vec PiecewiseBezierNode), from a slice of (min_t, max_t, BezierForBetween)
-    fn of_node_ranges(
-        mut tree: Vec<PiecewiseBezierNode>,
-        node_ranges: &[(f64, f64, PiecewiseBezierNode)],
-    ) -> Vec<PiecewiseBezierNode> {
-        let this_node = tree.len();
-        match node_ranges.len() {
-            0 => {
-                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
-            }
-            1 => {
-                tree.push(node_ranges[0].2);
-                tree
-            }
-            n => {
-                let middle = n / 2;
-                let split_x = node_ranges[middle].0;
-                tree.push(PiecewiseBezierNode::new_pivot_node(split_x, 1, 0));
-                let mut tree = Self::of_node_ranges(tree, &node_ranges[0..middle]);
-                let skip_to_upper = tree.len() - this_node;
-                tree[this_node].set_link(true, skip_to_upper);
-                Self::of_node_ranges(tree, &node_ranges[middle..n])
-            }
-        }
-    }
-
     /// Build a PiecewiseBezier that between min_t and max_t matches a function with a maximum error
     ///
-    /// Create a Vec of (min_t, max_t, BezierBetweenThem), where the Beziers are
+    /// Create a Vec of (min_t, BezierBetweenThem), where the Beziers are
     /// within the maximum error; then construct the tree from this array
-    pub fn of_fn<F>(mut min_t: f64, max_t: f64, f: &F, max_err: f64) -> Result<Self>
+    pub fn of_fn<F>(
+        mut min_t: f64,
+        max_t: f64,
+        f: &F,
+        max_err: f64,
+        steps_per_bezier: usize,
+    ) -> Result<Self>
     where
         F: Fn(f64) -> f64,
     {
@@ -402,38 +449,38 @@ impl PiecewiseBezier {
         while min_t < max_t {
             let mut last_t = max_t;
             loop {
-                let (node, error_sq) = PiecewiseBezierNode::of_fn(&mut builder, min_t, last_t, f)?;
+                let (node, error_sq) =
+                    PiecewiseBezierNode::of_fn(&mut builder, min_t, last_t, f, steps_per_bezier)?;
                 if error_sq < max_err * max_err {
-                    node_ranges.push((min_t, last_t, node));
+                    node_ranges.push((min_t, node));
                     min_t = last_t;
                     break;
                 }
                 last_t = (min_t + last_t) / 2.0;
             }
         }
-        let tree = Self::of_node_ranges(vec![], &node_ranges);
-        Ok(Self { tree })
+        Self::of_node_ranges(node_ranges)
     }
 
     /// Find the 'best' value of t given a value v, and a set of (t,v) pairs that are monotonic in v
     fn find_y_of_x(x_y_pairs: &[(f64, f64)], x: f64) -> f64 {
+        assert!(x_y_pairs.len() >= 2, "Only works with 2 or more points");
         match x_y_pairs.binary_search_by(|(x_test, _y_test)| x_test.partial_cmp(&x).unwrap()) {
             Ok(idx) => x_y_pairs[idx].1,
-            Err(idx) => {
-                // idx of 0 means x < x_y_pairs[0].0
-                if idx == 0 {
-                    x_y_pairs[0].1
-                } else if let Some(nxt) = x_y_pairs.get(idx) {
-                    // x is between < x_y_pairs[idx-1].0 and < x_y_pairs[idx].0
-                    let prev = x_y_pairs[idx - 1];
-                    let dx = nxt.0 - prev.0;
-                    let dy = nxt.1 - prev.1;
-                    let y = prev.1 + (x - prev.0) * dy / dx;
-                    y
-                } else {
-                    // idx == length means v > x_y_pairs[last].0
-                    x_y_pairs.last().unwrap().1
+            Err(mut idx) => {
+                // Linear interpolation between the two closest values
+                if idx > 0 {
+                    idx -= 1;
                 }
+                if idx + 1 >= x_y_pairs.len() {
+                    idx = x_y_pairs.len() - 2;
+                }
+                let (x0, y0) = x_y_pairs[idx];
+                let (x1, y1) = x_y_pairs[idx + 1];
+                let dx = x1 - x0;
+                let dy = y1 - y0;
+                let y = y0 + (x - x0) * dy / dx;
+                y
             }
         }
     }
@@ -442,7 +489,14 @@ impl PiecewiseBezier {
     ///
     /// Create a Vec of (min_t, max_t, BezierBetweenThem), where the Beziers are
     /// within the maximum error; then construct the tree from this array
-    pub fn inv(&self, min_t: f64, max_t: f64, max_err: f64, num_steps: usize) -> Result<Self> {
+    pub fn inv(
+        &self,
+        min_t: f64,
+        max_t: f64,
+        max_err: f64,
+        num_steps: usize,
+        steps_per_bezier: usize,
+    ) -> Result<Self> {
         debug_assert!(
             num_steps >= 2,
             "Number of steps for inv PiecewiseBezier must be >=2"
@@ -457,19 +511,36 @@ impl PiecewiseBezier {
         let min_v = t_of_v.first().unwrap().0;
         let max_v = t_of_v.last().unwrap().0;
         let fn_t_of_v = |v| Self::find_y_of_x(&t_of_v, v);
-        Self::of_fn(min_v, max_v, &fn_t_of_v, max_err)
+        Self::of_fn(min_v, max_v, &fn_t_of_v, max_err, steps_per_bezier)
+    }
+
+    /// Build a PiecewiseBezier of a set of (x,y) pairs such that it has a
+    /// minimal specified error from the *linear* interpolation between the data
+    /// points
+    ///
+    pub fn of_x_y_pairs(
+        x_y_pairs: &[(f64, f64)],
+        min_t: f64,
+        max_t: f64,
+        max_err: f64,
+        steps_per_bezier: usize,
+    ) -> Result<Self> {
+        debug_assert!(x_y_pairs.len() >= 2, "Number of points must be >=2");
+
+        let fn_y_of_x = |v| Self::find_y_of_x(x_y_pairs, v);
+        Self::of_fn(min_t, max_t, &fn_y_of_x, max_err, steps_per_bezier)
     }
 }
 
 #[test]
 fn test_piecewise() -> Result<()> {
-    let p = PiecewiseBezier::of_xys(&[(0., 0.), (1., 2.0)])?;
+    let p = PiecewiseBezier::of_xy_pairs_for_test(&[(0., 0.), (1., 2.0)])?;
     for i in 0..10 {
         let t = (i as f64);
         eprintln!("{i} {}", p.evaluate(t));
     }
 
-    let p = PiecewiseBezier::of_xys(&[(0., 0.), (1., 2.0), (2., 8.)])?;
+    let p = PiecewiseBezier::of_xy_pairs_for_test(&[(0., 0.), (1., 2.0), (2., 8.)])?;
     for i in 0..10 {
         let t = (i as f64);
         eprintln!("{i} {}", p.evaluate(t));
@@ -481,7 +552,7 @@ fn test_piecewise() -> Result<()> {
         let v = t.to_radians().tan();
         d.push((t, v));
     }
-    let p = PiecewiseBezier::of_xys(&d)?;
+    let p = PiecewiseBezier::of_xy_pairs_for_test(&d)?;
     for i in 0..50 {
         let t = (i as f64);
         eprintln!("{i} {} {}", p.evaluate(t), t.to_radians().tan());
@@ -493,7 +564,7 @@ fn test_piecewise() -> Result<()> {
 
 #[test]
 fn test_piecewise_fn() -> Result<()> {
-    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4)?;
+    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4, 100)?;
     let mut errors = 0;
     for i in 0..400 {
         let t = (i as f64).to_radians() / 5.0;
@@ -511,9 +582,9 @@ fn test_piecewise_fn() -> Result<()> {
 
 #[test]
 fn test_piecewise_inv_fn() -> Result<()> {
-    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4)?;
+    let p = PiecewiseBezier::of_fn(-0.1, 1.4, &f64::tan, 1E-4, 100)?;
 
-    let p_i = p.inv(-0.1_f64, 1.4_f64, 1E-4, 1000)?;
+    let p_i = p.inv(-0.1_f64, 1.4_f64, 1E-4, 1000, 100)?;
     let mut errors = 0;
     for i in 0..400 {
         let t = (i as f64).to_radians() / 5.0;
