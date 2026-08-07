@@ -506,23 +506,20 @@ impl LensPolys {
     /// Calculate polynomials of best-fit for a given set of sensor
     /// and world yaws
     ///
-    /// This generates first a sensor-to-world mapping, and then a
-    /// world-to-sensor mapping that is a good inverse of that.
+    /// Most lenses map world 0 to 90 to sensor 0 to <90; the calibration is
+    /// also likely to have come from a sensor, with a map to the world yaw
     ///
-    /// The initial generation sorts the sensor/world pairs according
-    /// to the sensor value, and then applies a median filter to
-    /// remove outliers. This filter consides 2N+1 consecutive
-    /// world/sensor values (centred on sensor value S) and ignores
-    /// the largest and smallest values (if N were one this would just
-    /// taken the median); it uses the mean of the remaining 2N-1
-    /// values as the actual world/sensor value for the sensor value
-    /// S.
+    /// As such we can filter the values to remove outliers; generate a set of
+    /// points for sensor values of 0, and yaw_min to yaw_max
     ///
-    /// The polynomial generated is a best fit for X values of
-    /// sensor^2 and Y values of world/sensor, as required by the
-    /// compressed polynomials used in the LensPoly type.
+    /// The sets are ensured to be monotonic by separately sorting the world and
+    /// sensor yaws in ascending order; then when they are paired they will be monotoinc.
+    /// Duplicates or near duplicates are also removed.
+    ///
+    /// This list of pairs of points form a set of line segments, which are then
+    /// approximated to with a certain degree of accuracy using
+    /// piecewise-cubic-Bezier curves
     pub fn calibration(
-        poly_degree: usize,
         sensor_yaws: &[f64],
         world_yaws: &[f64],
         yaw_range_min: f64,
@@ -542,21 +539,48 @@ impl LensPolys {
         // values using a windowed filter
         let mean_median_ws_yaws = {
             if apply_filter {
-                polynomial::filter_ws_yaws(&ws_yaws)
+                polynomial::filter_ws_yaws(&ws_yaws, 8)
             } else {
                 ws_yaws.clone()
             }
         };
 
-        Ok(Self::default())
+        let mut mm_w_yaws: Vec<_> = mean_median_ws_yaws.iter().map(|(w, _s)| *w).collect();
+        let mut mm_s_yaws: Vec<_> = mean_median_ws_yaws.iter().map(|(_w, s)| *s).collect();
+        mm_w_yaws.push(0.0);
+        mm_s_yaws.push(0.0);
+        mm_w_yaws.sort_by(|a, b| (a).partial_cmp(&b).unwrap());
+        mm_s_yaws.sort_by(|a, b| (a).partial_cmp(&b).unwrap());
+        let min_yaw_step = 0.01;
+        let mut last_ok_sw = (0.0, 0.0);
+        let mut mm_sw_yaws = vec![];
+        for (i, sw) in mm_s_yaws.into_iter().zip(mm_w_yaws.into_iter()).enumerate() {
+            if i == 0 {
+                mm_sw_yaws.push(last_ok_sw);
+            } else {
+                if sw.0 < last_ok_sw.0 + min_yaw_step {
+                    continue;
+                }
+                if sw.1 < last_ok_sw.1 + min_yaw_step {
+                    continue;
+                }
+                last_ok_sw = sw;
+                mm_sw_yaws.push(sw);
+            }
+        }
+
+        let stw_poly = PiecewiseBezier::of_x_y_pairs(&mm_sw_yaws, 0.0, yaw_range_max, 1E-4, 1000)?;
+        let wts_poly = stw_poly.inv(0.0, yaw_range_max, 1E-5, 1000, 100)?;
+
+        Ok(Self { wts_poly, stw_poly })
     }
 
     pub fn of_wts_fn<F>(wts_fn: &F, yaw_range_min: f64, yaw_range_max: f64) -> Result<Self>
     where
         F: Fn(f64) -> f64,
     {
-        let wts_poly = PiecewiseBezier::of_fn(yaw_range_min, yaw_range_max, wts_fn, 1E-4)?;
-        let stw_poly = wts_poly.inv(yaw_range_min, yaw_range_max, 1E-4, 10000)?;
+        let wts_poly = PiecewiseBezier::of_fn(yaw_range_min, yaw_range_max, wts_fn, 1E-4, 100)?;
+        let stw_poly = wts_poly.inv(yaw_range_min, yaw_range_max, 1E-6, 10000, 100)?;
 
         Ok(Self { wts_poly, stw_poly })
     }

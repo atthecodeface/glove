@@ -82,12 +82,12 @@ impl CalcPoly for Vec<f64> {
 /// So for every region of N successive points find the N values of yi/xi,
 /// discard the largest and smallest values, and calculate the mean of the
 /// remaining N-2; use the pair (x(N/2)*mean, x(N/2)) as the result
-pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)]) -> Vec<(f64, f64)> {
+pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)], length: usize) -> Vec<(f64, f64)> {
     // world, sensor
     let mut mean_median_wc_yaws = vec![];
 
     // sensor, grad at sensor
-    let mut filter: VecDeque<_> = vec![(0.0, 1.0); 8].into();
+    let mut filter: VecDeque<_> = vec![(0.0, 1.0); length].into();
     let n = (filter.len() + 1) as f64;
     let mid = filter.len().div_ceil(2);
     for (i, (w, c)) in ws_yaws.iter().enumerate() {
