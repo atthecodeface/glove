@@ -28,16 +28,25 @@ pub trait JsonParsable: serde::de::DeserializeOwned {
     }
 }
 
-impl JsonParsable for () {
+macro_rules! json_parsable {
+{ $t:ty, $reason:expr } => {
+    impl JsonParsable for $t {
     type PostParseArg = ();
-    type PostParseResult = ();
+    type PostParseResult = $t;
     fn reason() -> &'static str {
-        "general"
+        $reason
     }
-    fn post_parse(self, _args: &()) -> Result<()> {
-        Ok(())
+    fn post_parse(self, _args: &()) -> Result<Self> {
+        Ok(self)
     }
 }
+}
+}
+json_parsable!((), "general");
+json_parsable!(f32, "f32");
+json_parsable!(f64, "f64");
+json_parsable!(bool, "bool");
+json_parsable!(usize, "usize");
 
 impl<T: JsonParsable> JsonParsable for Vec<T> {
     type PostParseArg = T::PostParseArg;
