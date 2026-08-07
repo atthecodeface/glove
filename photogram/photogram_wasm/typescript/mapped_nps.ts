@@ -21,95 +21,180 @@ const plus_minus_symbol = "\u{00b1}"; // ±
 const up_arrow_symbol = "\u{2191}"; // ↑
 const down_arrow_symbol = "\u{2193}"; // ↓
 
-enum SortByField {
-  Name,
-  Color,
-  ExpectedX,
-  ExpectedY,
-  MappedX,
-  MappedY,
-  MappedRoll,
-  MappedYaw,
-  CursorDistance,
-  Dsq,
-  RollErr,
-  YawErr,
+interface SortByFieldKind {
+  sort_class: string;
+  sort_subclass: string;
+  next_field_kind_in_class(): SortByFieldKind;
+  symbols(ascending: boolean): string;
+  sort_fn(a: WasmPointMapping, b: WasmPointMapping): number;
+  matches_class(table_field: SortByFieldKind): boolean;
+  metric(pm: WasmPointMapping): number;
+}
+
+class SortByFieldBase implements SortByFieldKind {
+  sort_class: string = "";
+  sort_subclass: string = "";
+  next_field_kind_in_class(): SortByFieldKind {
+    return this;
+  }
+  symbols(ascending:boolean): string {
+    if (!ascending) {
+      return this.sort_subclass+down_arrow_symbol;
+    } else {
+      return this.sort_subclass+up_arrow_symbol;
+    }
+  }
+  metric(_pm: WasmPointMapping): number { return 0; }
+  matches_class(table_field: SortByFieldKind): boolean {
+    return this.sort_class == table_field.sort_class;
+  }
+  sort_fn(a: WasmPointMapping, b: WasmPointMapping): number {
+    return this.metric(a) - this.metric(b);
+  };
+}
+
+class SortByFieldName extends SortByFieldBase implements SortByFieldKind
+{
+  override sort_class: string = "Name";
+  static singleton: SortByFieldKind = new SortByFieldName();
+  override sort_fn(a:WasmPointMapping, b: WasmPointMapping): number {
+    return utils.strcmp(a.np_name_upper, b.np_name_upper);
+  }
+}
+
+class SortByFieldExpectedX extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldExpectedX();
+  override sort_class: string = "Expected";
+  override sort_subclass: string = "X";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldExpectedY.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.expected_x;
+  }
+}
+
+class SortByFieldExpectedY extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldExpectedY();
+  override sort_class: string = "Expected";
+  override sort_subclass: string = "Y";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldExpectedX.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.expected_y;
+  }
+}
+
+class SortByFieldMappedX extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldMappedX();
+  override sort_class: string = "Mapped";
+  override sort_subclass: string = "X";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldMappedY.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.image_x;
+  }
+}
+
+class SortByFieldMappedY extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldMappedY();
+  override sort_class: string = "Mapped";
+  override sort_subclass: string = "Y";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldMappedX.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.image_y;
+  }
+}
+
+class SortByFieldColor extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldColor();
+  override sort_class: string = "Color";
+  override  sort_fn(a:WasmPointMapping, b: WasmPointMapping): number {
+    return utils.strcmp(a.np_color, b.np_color);
+  }
+}
+
+class SortByFieldDsq extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldDsq();
+  override sort_class: string = "Dsq";
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.d_map_distance;
+  }
+}
+
+class SortByFieldCursorDistance extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldCursorDistance();
+  override sort_class: string = "CursorDistance";
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.cursor_distance;
+  }
+}
+
+class SortByFieldMappedRoll extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldMappedRoll();
+  override sort_class: string = "MappedRollYaw";
+  override sort_subclass: string = "R";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldMappedYaw.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.image_roll;
+  }
+}
+
+class SortByFieldMappedYaw extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldMappedYaw();
+  override sort_class: string = "MappedRollYaw";
+  override sort_subclass: string = "Y";
+  override next_field_kind_in_class(): SortByFieldKind { return SortByFieldMappedRoll.singleton; }
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.image_yaw;
+  }
+}
+
+class SortByFieldRollErr extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldRollErr();
+  override sort_class: string = "RollErr";
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.d_map_roll_err;
+  }
+}
+
+class SortByFieldYawErr extends SortByFieldBase implements SortByFieldKind
+{
+  static singleton: SortByFieldKind = new SortByFieldYawErr();
+  override sort_class: string = "YawErr";
+  override metric(wpm: WasmPointMapping): number {
+    return wpm.d_map_yaw_err;
+  }
 }
 
 class SortBy {
-  field: SortByField = SortByField.Name;
+  field: SortByFieldKind = SortByFieldName.singleton;
   ascending: boolean = true;
-  table_heading(table: HtmlElement, text:string, field: SortByField, callback: (field: SortByField) => void): HtmlElement {
-    const field_matches = this.matches(field);
+  table_heading(table: HtmlElement, text:string, field: SortByFieldKind, callback: (field: SortByFieldKind) => void): HtmlElement {
     const button = table.add_button("", "", () => { callback(field); });
-    if (field_matches) {
-      button.add_content(SortBy.symbols(this.ascending, this.field));
+    if (this.field.matches_class(field)) {
+      button.add_content(this.field.symbols(this.ascending));
     } else {
-      button.add_content(SortBy.symbols(true, field));
+      button.add_content(field.symbols(true));
     }
     button.add_content(text);
     return button;
   }
-  matches(field: SortByField): boolean {
-    switch (this.field) {
-      case SortByField.ExpectedX:
-      case SortByField.ExpectedY: { return field == SortByField.ExpectedX || field == SortByField.ExpectedY; }
-      case SortByField.MappedX:
-      case SortByField.MappedY: { return field == SortByField.MappedX || field == SortByField.MappedY; }
-      default: { return this.field == field; }
-    }
-  }
-  clicked(field: SortByField) {
-    if (!this.matches(field)) {
+  clicked(field: SortByFieldKind) {
+    if (!this.field.matches_class(field)) {
       this.ascending = true;
       this.field = field;
-      return;
-    }
-    if (this.ascending) {
+    } else if (this.ascending) {
       this.ascending = false;
-      return;
-    }
-    this.ascending = true;
-    switch (this.field) {
-      case SortByField.ExpectedX: {
-        this.field = SortByField.ExpectedY;
-        return;
-      }
-      case SortByField.MappedX: {
-        this.field = SortByField.MappedY;
-        return;
-      }
-      case SortByField.ExpectedY: {
-        this.field = SortByField.ExpectedX;
-        return;
-      }
-      case SortByField.MappedY: {
-        this.field = SortByField.MappedX;
-        return;
-      }
-      default: {
-        return;
-      }
-    }
-  }
-
-  static symbols(ascending:boolean, field:SortByField): string {
-    let symbol = up_arrow_symbol;
-    if (!ascending) {
-      symbol = down_arrow_symbol;
-    }
-    switch (field) {
-      case SortByField.ExpectedX:
-      case SortByField.MappedX: {
-        return "X" + symbol;
-      }
-      case SortByField.ExpectedY:
-      case SortByField.MappedY: {
-        return "Y" + symbol;
-      }
-      default: {
-        return symbol;
-      }
+    } else {
+      this.ascending = true;
+      this.field = this.field.next_field_kind_in_class();
     }
   }
 }
@@ -219,12 +304,12 @@ export class MappedNps {
   pending_pms: boolean = true;
   pending_calcs: boolean = true;
 
-  total_sq_roll_error: number= 0;
-  total_sq_yaw_error: number= 0;
+  total_sq_roll_error: number = 0;
+  total_sq_yaw_error: number = 0;
 
-  wasm_quat : WasmQuatf64= WasmQuatf64.unit();
-  wasm_vec2 : WasmVec2f64= WasmVec2f64.zero();
-  wasm_vec3 : WasmVec3f64= WasmVec3f64.zero();
+  wasm_quat: WasmQuatf64 = WasmQuatf64.unit();
+  wasm_vec2: WasmVec2f64 = WasmVec2f64.zero();
+  wasm_vec3: WasmVec3f64 = WasmVec3f64.zero();
 
   constructor(project: Project) {
     this.project = project;
@@ -297,7 +382,7 @@ export class MappedNps {
    *
    * If currently on that field then toggle ascending/descending or similar
    */
-  sort_by_clicked(field: SortByField) {
+  sort_by_clicked(field: SortByFieldKind) {
     this.sort.clicked(field);
     this.sort_named_points();
     this.project.mapped_changed();
@@ -307,8 +392,8 @@ export class MappedNps {
    *
    */
   fill_np_table(table: Table) {
-    const name = this.sort.table_heading(table, "Name", SortByField.Name, this.sort_by_clicked.bind(this));
-    const color = this.sort.table_heading(table, "Color", SortByField.Color, this.sort_by_clicked.bind(this));
+    const name = this.sort.table_heading(table, "Name", SortByFieldName.singleton, this.sort_by_clicked.bind(this));
+    const color = this.sort.table_heading(table, "Color", SortByFieldColor.singleton, this.sort_by_clicked.bind(this));
     table.add_headings([name, color, "Location", "Uncertainty"]);
 
     for (const np of this.named_points) {
@@ -322,15 +407,15 @@ export class MappedNps {
   }
 
   fill_table(table: Table, client: MappedNpClient) {
-    const name = this.sort.table_heading(table, "Name", SortByField.Name, this.sort_by_clicked.bind(this));
-    const color = this.sort.table_heading(table, "Color", SortByField.Color, this.sort_by_clicked.bind(this));
-    const exp_at = this.sort.table_heading(table, "Expected at", SortByField.ExpectedX, this.sort_by_clicked.bind(this));
-    const map_to = this.sort.table_heading(table, "Mapped to", SortByField.MappedX, this.sort_by_clicked.bind(this));
-    const dsq = this.sort.table_heading(table, "E-M-DXY", SortByField.Dsq, this.sort_by_clicked.bind(this));
-    const cursor_distance = this.sort.table_heading(table, "Cursor-DXY", SortByField.CursorDistance, this.sort_by_clicked.bind(this));
-    const roll = this.sort.table_heading(table, "Roll", SortByField.MappedRoll, this.sort_by_clicked.bind(this));
-    const roll_err = this.sort.table_heading(table, "Roll Err", SortByField.RollErr, this.sort_by_clicked.bind(this));
-    const yaw_err = this.sort.table_heading(table, "Yaw Err", SortByField.YawErr, this.sort_by_clicked.bind(this));
+    const name = this.sort.table_heading(table, "Name", SortByFieldName.singleton, this.sort_by_clicked.bind(this));
+    const color = this.sort.table_heading(table, "Color",  SortByFieldColor.singleton, this.sort_by_clicked.bind(this));
+    const exp_at = this.sort.table_heading(table, "Expected at",  SortByFieldExpectedX.singleton, this.sort_by_clicked.bind(this));
+    const map_to = this.sort.table_heading(table, "Mapped to",  SortByFieldMappedX.singleton, this.sort_by_clicked.bind(this));
+    const dsq = this.sort.table_heading(table, "E-M-DXY",  SortByFieldDsq.singleton, this.sort_by_clicked.bind(this));
+    const cursor_distance = this.sort.table_heading(table, "Cursor-DXY",  SortByFieldCursorDistance.singleton, this.sort_by_clicked.bind(this));
+    const roll = this.sort.table_heading(table, "Roll,Yaw",  SortByFieldMappedRoll.singleton, this.sort_by_clicked.bind(this));
+    const roll_err = this.sort.table_heading(table, "Roll Err",  SortByFieldRollErr.singleton, this.sort_by_clicked.bind(this));
+    const yaw_err = this.sort.table_heading(table, "Yaw Err",  SortByFieldYawErr.singleton, this.sort_by_clicked.bind(this));
     table.add_headings([name, color,
       "Location",
       "Uncertainty",
@@ -350,8 +435,8 @@ export class MappedNps {
       });
       expected_at.add_content(mnp.div_expected_at(table));
 
-      let mapped_to :HtmlElement | null= null;
-      let action:HtmlElement | null = null;
+      let mapped_to: HtmlElement | null = null;
+      let action: HtmlElement | null = null;
 
       if (mnp.has_pms()) {
         mnp.wasm_pms.set_image_vec(this.wasm_vec2);
@@ -360,20 +445,20 @@ export class MappedNps {
         mapped_to = table.add_button("", "", () => {
           client.mapped_np_select_xy(x, y)
         });
-            mapped_to.add_content(mnp.div_pms(table));
-            mapped_to.add_content(mnp.span_pms_uncertainty(table));
-            action = table.add_ele("div");
-            action.add_input_button(circle_symbol, () => {
-              client.mapped_np_set_mapping_for(np_name);
-            });
-            action.add_input_button(dustbin_symbol, () => {
-              client.mapped_np_delete_mapping_for(np_name);
-            });
-        } else {
-          mapped_to = table.add_span("");
-          action = table.add_input_button(plus_symbol, () => {
-            client.mapped_np_add_mapping_for(np_name);
-          });
+        mapped_to.add_content(mnp.div_pms(table));
+        mapped_to.add_content(mnp.span_pms_uncertainty(table));
+        action = table.add_ele("div");
+        action.add_input_button(circle_symbol, () => {
+          client.mapped_np_set_mapping_for(np_name);
+        });
+        action.add_input_button(dustbin_symbol, () => {
+          client.mapped_np_delete_mapping_for(np_name);
+        });
+      } else {
+        mapped_to = table.add_span("");
+        action = table.add_input_button(plus_symbol, () => {
+          client.mapped_np_add_mapping_for(np_name);
+        });
       }
 
       table.add_body([
@@ -417,60 +502,20 @@ export class MappedNps {
   /** Sort the named points using the current sort order */
   sort_named_points() {
     const opt_invert = this.sort.ascending ? 1 : -1;
-    let sort_fn = (a:MappedNp, b:MappedNp) => {
-      return opt_invert * utils.strcmp(a.wasm_pms.np_name_upper, b.wasm_pms.np_name_upper);
+    let sort_fn = (a: MappedNp, b: MappedNp) => {
+      return opt_invert * this.sort.field.sort_fn(a.wasm_pms, b.wasm_pms);
     };
-    switch (this.sort.field) {
-      case SortByField.ExpectedX: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert *(a.wasm_pms.expected_x - b.wasm_pms.expected_x);
-        };
-        break;
-      }
-      case SortByField.ExpectedY: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert *(a.wasm_pms.expected_y - b.wasm_pms.expected_y);
-        };
-        break;
-      }
-      case SortByField.Color: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * utils.strcmp(a.wasm_pms.np_color, b.wasm_pms.np_color);
-        };
-        break;
-      }
-      case SortByField.Dsq: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * (a.wasm_pms.d_map_distance - b.wasm_pms.d_map_distance)
-        };
-        break;
-      }
-      case SortByField.CursorDistance: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * (a.wasm_pms.cursor_distance - b.wasm_pms.cursor_distance)
-        };
-        break;
-      }
-      case SortByField.MappedRoll: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * (a.wasm_pms.image_roll - b.wasm_pms.image_roll)
-        };
-        break;
-      }
-      case SortByField.RollErr: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * (a.wasm_pms.d_map_roll_err - b.wasm_pms.d_map_roll_err)
-        };
-        break;
-      }
-      case SortByField.YawErr: {
-        sort_fn = (a:MappedNp, b:MappedNp) => {
-          return opt_invert * (a.wasm_pms.d_map_yaw_err - b.wasm_pms.d_map_yaw_err)
-        };
-        break;
-      }
-    }
     this.named_points.sort(sort_fn);
+  }
+
+  /** Get a relative distance (0 to 1) of named point index 'n' from the first named point using the sort order
+   */
+  relative_distance(mnp: MappedNp): number {
+    const m_mnp_0 = this.sort.field.metric(this.named_points[0]!.wasm_pms);
+    const m_mnp_last = this.sort.field.metric(this.named_points[this.named_points.length-1]!.wasm_pms);
+    const m_mnp = this.sort.field.metric(mnp.wasm_pms);
+    return (m_mnp_last == m_mnp_0) ? 0 : ((m_mnp - m_mnp_0) / (m_mnp_last - m_mnp_0));
+
   }
 
   /** Recolor the named points given the current order */
@@ -490,9 +535,9 @@ export class MappedNps {
         lig_step += 1;
       }
     }
+
     const hue_step = Math.floor(360 / hue_deg);
 
-    console.log(sat_step, lig_step, hue_step);
     let sat_min = 1;
     let sat_sc = 0;
     let lig_min = 0.5;
@@ -513,9 +558,19 @@ export class MappedNps {
       let saturation = s * sat_sc + sat_min;
       let lightness = l * lig_sc + lig_min;
       const rgb = rgb_of_hls(hue, saturation, lightness);
-      console.log(hue, saturation, lightness, rgb);
       const color = string_color(color_of_rgb(rgb[0], rgb[1], rgb[2]));
-      this.project.nps_set_color(this.named_points[i]!.name(), color);
+      this.project.wasm_project!.nps.set_color(this.named_points[i]!.name(), color);
+    }
+    this.project.np_changed(true);
+  }
+
+  /** Recolor the named points given the current order */
+  recolor_nps_by_distance() {
+    for (const mnp of this.named_points) {
+      let hue = this.relative_distance(mnp) * 240;
+      const rgb = rgb_of_hls(hue, 1.0, 0.5);
+      const color = string_color(color_of_rgb(rgb[0], rgb[1], rgb[2]));
+      this.project.wasm_project!.nps.set_color(mnp.name(), color);
     }
     this.project.np_changed(true);
   }

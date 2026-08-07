@@ -250,9 +250,13 @@ export class StarCalibration
     action_div
       .add_button("", "", this.reorient_using_mappings.bind(this))
       .add_content("Reorient using PMS");
+    action_div.add_ele("hr");
     action_div
       .add_button("", "", () => this.application.current_project().mapped_nps().recolor_nps())
-      .add_content("Recolor NPs");
+      .add_content("Recolor NPs in order");
+    action_div
+      .add_button("", "", () => this.application.current_project().mapped_nps().recolor_nps_by_distance())
+      .add_content("Recolor NPs by distance");
     action_div.add_ele("hr");
     action_div
       .add_button("", "", () => this.refocus(2))

@@ -95,6 +95,33 @@ export class LensCalibrationPlot {
     project_mapped_nps_changed(_p) {
         this.pending_regen = true;
     }
+    generate_lens_calibration() {
+        if (this.camera === null) {
+            return;
+        }
+        const camera = this.camera;
+        const mapping_nps = this.application.current_project().mapped_nps();
+        mapping_nps.update();
+        const world_yaws = [];
+        const sensor_yaws = [];
+        for (const mnp of mapping_nps.named_points) {
+            if (!mnp.has_pms()) {
+                continue;
+            }
+            mnp.wasm_pms.set_image_vec(this.wasm_vec2);
+            camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
+            const sensor_yaw = camera.camera_yaw_of_dir(this.wasm_vec3);
+            mnp.wasm_pms.np_model_set_vec(this.wasm_vec3);
+            camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
+            const world_yaw = camera.camera_yaw_of_dir(this.wasm_vec3);
+            world_yaws.push(world_yaw);
+            sensor_yaws.push(sensor_yaw);
+        }
+        console.log(world_yaws);
+        console.log(sensor_yaws);
+        camera.blah(new Float64Array(sensor_yaws), new Float64Array(world_yaws), 0.2 * 3.1415 / 180, 14 * 3.1415 / 180);
+        this.application.current_project().camera_changed(false);
+    }
     redraw() {
         const context = this.canvas.getContext("2d");
         context.fillStyle = "black";

@@ -3,10 +3,10 @@ use wasm_bindgen::prelude::*;
 
 use ic_base::{JsonParsable, Point2D, Point3D, RollYaw, Rrc, TanXTanY};
 use ic_camera::{
-    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor,
+    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, LensPolys,
 };
 
-use crate::{ToFromWasmArr, WasmPointMappingSet, WasmRay, err_to_string};
+use crate::{ToFromWasmArr, WasmPointMappingSet, WasmRay, console_log, err_to_string};
 
 #[wasm_bindgen]
 pub struct WasmCameraDatabase {
@@ -392,10 +392,24 @@ impl WasmCameraInstance {
     }
 
     //cp to_json
-    #[wasm_bindgen]
     pub fn to_json(&self) -> Result<String, JsValue> {
         Ok(self.camera.borrow().to_json(false).map_err(err_to_string)?)
     }
 
+    pub fn blah(
+        &mut self,
+        sensor: &[f64],
+        world: &[f64],
+        yaw_min: f64,
+        yaw_max: f64,
+    ) -> Result<(), String> {
+        let polys =
+            LensPolys::calibration(sensor, world, yaw_min, yaw_max, true).map_err(err_to_string)?;
+        console_log!("{:?}", polys);
+        let mut lens = self.camera.borrow_mut().lens().clone();
+        lens.set_polys(polys);
+        self.camera.borrow_mut().set_lens(lens);
+        Ok(())
+    }
     //zz All done
 }
