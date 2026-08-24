@@ -369,6 +369,7 @@ fn lens_calibrate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_polynomials()
 }
 
+/*
 fn yaw_plot_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     let pms = cmd_args.calibration_mapping_to_pms();
     let camera = cmd_args.camera();
@@ -625,6 +626,7 @@ fn grid_image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
 
     CmdArgs::cmd_ok()
 }
+*/
 fn locate_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("locate")
         .about("Determine an optimal location from a calibration description")
@@ -664,6 +666,7 @@ fn lens_calibrate_cmd() -> CommandBuilder<CmdArgs> {
 
     build
 }
+/*
 fn yaw_plot_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("yaw_plot")
         .about("Plot yaw")
@@ -707,7 +710,7 @@ fn grid_image_cmd() -> CommandBuilder<CmdArgs> {
     CmdArgs::add_arg_num_pts(&mut build);
     build
 }
-
+*/
 pub fn calibration_cmd() -> CommandBuilder<CmdArgs> {
     let command = Command::new("calibration")
         .about("Use a calibration mapping to calibrate a lens")
@@ -719,9 +722,10 @@ pub fn calibration_cmd() -> CommandBuilder<CmdArgs> {
     build.add_subcommand(locate_cmd());
     build.add_subcommand(orient_cmd());
     build.add_subcommand(lens_calibrate_cmd());
-    build.add_subcommand(yaw_plot_cmd());
-    build.add_subcommand(roll_plot_cmd());
-    build.add_subcommand(grid_image_cmd());
-
+    /*
+        build.add_subcommand(yaw_plot_cmd());
+        build.add_subcommand(roll_plot_cmd());
+        build.add_subcommand(grid_image_cmd());
+    */
     build
 }

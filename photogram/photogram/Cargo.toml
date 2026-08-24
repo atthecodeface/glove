@@ -18,7 +18,7 @@ star-catalog.workspace = true
 image.workspace = true
 
 # Required for plotting
-poloto.workspace = true
+# poloto.workspace = true
 tagu.workspace = true
 
 serde_json.workspace = true
