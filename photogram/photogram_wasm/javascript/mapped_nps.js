@@ -470,12 +470,15 @@ export class MappedNps {
     }
     /** Recolor the named points given the current order */
     recolor_nps() {
+        const hue_range_min = 0;
+        const hue_range_max = 240;
+        const hue_range = hue_range_max - hue_range_min;
         const n = this.named_points.length;
         let sat_step = 1;
         let lig_step = 1;
         let hue_deg = 0;
         while (true) {
-            hue_deg = 360 / Math.ceil(n / sat_step / lig_step);
+            hue_deg = hue_range / Math.ceil(n / sat_step / lig_step);
             if (hue_deg >= 5) {
                 break;
             }
@@ -486,7 +489,7 @@ export class MappedNps {
                 lig_step += 1;
             }
         }
-        const hue_step = Math.floor(360 / hue_deg);
+        const hue_step = Math.floor(hue_range / hue_deg);
         let sat_min = 1;
         let sat_sc = 0;
         let lig_min = 0.5;
@@ -503,7 +506,7 @@ export class MappedNps {
             const s = i % sat_step;
             const l = Math.floor(i / sat_step) % lig_step;
             const h = Math.floor(Math.floor(i / sat_step) / lig_step) % hue_step;
-            let hue = h * 360 / hue_step;
+            let hue = h * hue_range / hue_step + hue_range_min;
             let saturation = s * sat_sc + sat_min;
             let lightness = l * lig_sc + lig_min;
             const rgb = rgb_of_hls(hue, saturation, lightness);

@@ -574,6 +574,14 @@ export class HtmlElement {
         }
         return this;
     }
+    set_styles(styles) {
+        let style = "";
+        for (const sv of styles) {
+            style += `${sv[0]}: ${sv[1]}; `;
+        }
+        this.ele.style = style;
+        return this;
+    }
     set_style(style, value) {
         /* This is not supported by FireFox
         if (value) {

@@ -1,11 +1,11 @@
 import { HtmlElement, Table } from "./html.js";
 import * as file_kind from "./file_kind.js";
 export class Browser {
-    constructor(application, log, file_set, browser) {
+    constructor(application, log, file_set, div) {
         this.application = application;
         this.log = log;
         this.file_set = file_set;
-        this.browser = browser;
+        this.div = div;
         application.add_tab(this, null);
     }
     tab_name() {
@@ -22,8 +22,8 @@ export class Browser {
     tab_project_updated() { }
     tab_resize(_w, _h) { }
     tab_redraw() { }
-    file_link(f) {
-        // href is the file to fetch; donwload indicates it is to be downloaded to *that* filename
+    add_download_file_link(f) {
+        // href is the file to fetch; download indicates it is to be downloaded to *that* filename
         const link = HtmlElement.new_ele("a", {}, [
             ["href", f],
             ["download", f],
@@ -40,32 +40,35 @@ export class Browser {
         return link;
     }
     repopulate() {
-        this.browser.clear();
-        this.browser.add_label("upload").add_content("Upload (Json)");
-        this.browser.add_input_files(".json", true, this.upload_files.bind(this), {
+        this.div.clear();
+        const upload_div = this.div.add_ele("div", { classes: "file_upload" });
+        upload_div.add_label("upload").add_content("Select JSON files to upload");
+        upload_div.add_ele("br");
+        upload_div.add_input_files(".json", true, this.upload_files.bind(this), {
             id: "upload",
         });
-        this.add_table_of_cdb();
+        this.add_table_of_cdb(this.div.add_ele("div", { classes: "camera_db" }));
         this.add_table_of_projects();
-        this.add_table_of_named_point_sets();
-        this.add_table_of_cip();
+        //     this.add_table_of_named_point_sets();
+        //     this.add_table_of_cip();
     }
-    add_table_of_cdb() {
-        const heading = HtmlElement.new_ele("h1", {
+    add_table_of_cdb(div) {
+        div.add_ele("h1", {
             classes: "browser_ft_heading",
-        });
-        heading.add_content("Camera Database");
-        const table = new Table({ classes: "cdb" });
+        }).add_content("Camera Databases");
+        const cdb_files = this.file_set.files_of_kind(file_kind.FileKind.Cdb);
+        if (cdb_files.length == 0) {
+            div.add_ele("span").add_content("No camera database files have been uploaded");
+            return;
+        }
+        const table = div.add_table({ classes: "cdb" });
         table.add_headings(["Filename", "Bodies", "Lenses"]);
-        for (const filename of this.file_set.files_of_kind(file_kind.FileKind.Cdb)) {
+        for (const filename of cdb_files) {
             let obj = this.file_set.load_file_as_obj(filename, file_kind.FileKind.Cdb);
             if (obj === null) {
                 continue;
             }
             let cdb = obj;
-            if (cdb === null) {
-                continue;
-            }
             var bodies_html = HtmlElement.new_ele("div");
             for (let i = 0; i < cdb.num_bodies(); i++) {
                 bodies_html.add_span(cdb.body_name(i));
@@ -76,11 +79,10 @@ export class Browser {
                 lenses_html.add_span(cdb.lens_name(i));
                 lenses_html.add_ele("br");
             }
-            const link = this.file_link(filename);
+            const link = this.add_download_file_link(filename);
             table.add_body([link, bodies_html, lenses_html]);
         }
-        this.browser.add_content(heading);
-        this.browser.add_content(table.as_html());
+        table.as_html();
     }
     add_table_of_projects() {
         const heading = HtmlElement.new_ele("h1", {
@@ -98,7 +100,7 @@ export class Browser {
             if (project === null) {
                 continue;
             }
-            const link = this.file_link(filename);
+            const link = this.add_download_file_link(filename);
             table.add_body([
                 link,
                 "project.project.cdb",
@@ -106,8 +108,8 @@ export class Browser {
                 project.project.ncips().toString(),
             ]);
         }
-        this.browser.add_content(heading);
-        this.browser.add_content(table.as_html());
+        this.div.add_content(heading);
+        this.div.add_content(table.as_html());
     }
     add_table_of_named_point_sets() {
         const heading = HtmlElement.new_ele("h1", {
@@ -122,11 +124,11 @@ export class Browser {
                 continue;
             }
             let nps = obj;
-            const link = this.file_link(filename);
+            const link = this.add_download_file_link(filename);
             table.add_body([link, nps.num_points().toString()]);
         }
-        this.browser.add_content(heading);
-        this.browser.add_content(table.as_html());
+        this.div.add_content(heading);
+        this.div.add_content(table.as_html());
     }
     add_table_of_cip() {
         const heading = HtmlElement.new_ele("h1", {
@@ -147,7 +149,7 @@ export class Browser {
                 continue;
             }
             let cip = obj;
-            const link = this.file_link(filename);
+            const link = this.add_download_file_link(filename);
             table.add_body([
                 link,
                 cip.image(),
@@ -156,8 +158,8 @@ export class Browser {
                 cip.num_mappings().toString(),
             ]);
         }
-        this.browser.add_content(heading);
-        this.browser.add_content(table.as_html());
+        this.div.add_content(heading);
+        this.div.add_content(table.as_html());
     }
     /**
      * Upload files, invoked by a button from the HTML page itself

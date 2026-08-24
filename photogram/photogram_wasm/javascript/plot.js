@@ -30,6 +30,20 @@ export class DataRange {
     push(pt) {
         this.data.push(pt);
     }
+    /**
+     * Keep some of the data
+     *
+     * @param filter Function that maps data point to true, to keep the data, false to drop it
+     */
+    filter_data(filter) {
+        const new_data = [];
+        for (const d of this.data) {
+            if (filter(d)) {
+                new_data.push(d);
+            }
+        }
+        this.data = new_data;
+    }
     get_range(min, max, properties = {}) {
         if (properties.expand_factor !== undefined) {
             const mid = (min + max) / 2;
@@ -175,11 +189,11 @@ export class Plot {
             ["s"],
         ]);
     }
-    generate_line_plot(draw, data_range) {
+    generate_line_plot(draw, data_range, color = "#ff3") {
         draw.extend([
             ["push"],
             ["W", 4.0],
-            ["S", "#ff3"],
+            ["S", color],
             [
                 "C",
                 this.graph_area[0],

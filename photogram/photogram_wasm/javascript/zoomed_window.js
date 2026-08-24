@@ -18,7 +18,7 @@
 //
 //  2. Screen window which is of size scr_wh
 //
-//  3. Zoomed window which is of size zoom_wh = zoom * scr_wh
+//  3. Zoomed window which is of size zoom_wh = zoom * scr_wh = zoom_px_of_img_px * img_wh
 //
 //  The image maps completely to zoom window (0,0) -> (zoom_wh) (*width*)
 //    Note this assumes that scr w/scr h is < img_w/img_h!!!

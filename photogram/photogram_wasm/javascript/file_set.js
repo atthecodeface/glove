@@ -63,5 +63,6 @@ export class FileSet {
     }
     save_file(filename, file) {
         this.storage.save_file(filename, file.to_json());
+        this.file_list_received(true);
     }
 }

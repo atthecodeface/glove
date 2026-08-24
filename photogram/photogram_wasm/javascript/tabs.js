@@ -44,6 +44,12 @@ class Tab {
         }
     }
 }
+class Action {
+    constructor(label, action) {
+        this.label = label;
+        this.action = action;
+    }
+}
 /**
  * A class that handles a set of Tabs, only one of which should be selected, and that will become 'unhidden' while the others are 'hidden'
  */
@@ -55,10 +61,16 @@ export class Tabs {
      * turn has 'li' for each tab, with each 'li' having an 'a' with an 'href'
      * identifying the tab it is associated with.
      */
-    constructor(div, tab_select_callback, tabs) {
+    constructor(div, tab_select_callback, tabs, is_toplevel = true) {
+        /**
+         * Asserted if this is toplevel - i.e. #tab-blah is a valid URI; for sub-tabs such as dialogs this is NOT true
+         */
+        this.is_toplevel = true;
         this.tabs = [];
         this.callback = tab_select_callback;
-        this.selected_tab = null;
+        this._selected_tab = null;
+        this.actions = [];
+        this.is_toplevel = is_toplevel;
         if (div instanceof HtmlElement) {
             this.ul = div.add_ele("ul");
         }
@@ -102,10 +114,18 @@ export class Tabs {
         const tab = new Tab(li, div, name, client);
         this.tabs.push(tab);
         a.ele.addEventListener("click", (e) => {
-            this.select_tab(tab);
-            e.preventDefault();
+            this.select_tab_event(e, tab);
         });
         return div;
+    }
+    add_action(label, callback, href) {
+        this.actions.push(new Action(label, callback));
+        const li = this.ul.add_ele("li", { classes: "right" });
+        const a = li.add_ele("a", {}, [["href", href]]);
+        a.add_content(label);
+        a.ele.addEventListener("click", (_e) => {
+            callback();
+        });
     }
     tab(name) {
         for (const tab of this.tabs) {
@@ -114,6 +134,12 @@ export class Tabs {
             }
         }
         return null;
+    }
+    selected_tab() {
+        if (this._selected_tab === null) {
+            throw new Error("No tab selected; bug in application");
+        }
+        return this._selected_tab.div_name;
     }
     /** Select the tab of the given name 'name'
      *
@@ -136,14 +162,20 @@ export class Tabs {
         }
         return this.select_tab(this.tabs[0]);
     }
+    select_tab_event(e, tab) {
+        if (!this.is_toplevel) {
+            e.preventDefault();
+        }
+        return this.select_tab(tab);
+    }
     select_tab(tab) {
-        if (tab === this.selected_tab) {
+        if (tab === this._selected_tab) {
             return tab.div_name;
         }
         for (const t of this.tabs) {
             t.set_hidden(t !== tab);
         }
-        this.selected_tab = tab;
+        this._selected_tab = tab;
         this.callback(tab.client, tab.div_name);
         return tab.div_name;
     }

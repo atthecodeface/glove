@@ -9,7 +9,8 @@ export class ToolsDialog {
         this.dialog = this.div.add_dialog(true, this.populate_dialog.bind(this), open_timeout, {
             classes: "movable-dialog",
         });
-        this.tabs = new Tabs(this.dialog.add_ele("div", { classes: "tab-list" }), this.tab_select.bind(this), []);
+        // Create a non-toplevel Tabs list
+        this.tabs = new Tabs(this.dialog.add_ele("div", { classes: "tab-list" }), this.tab_select.bind(this), [], false);
         this.client.tools_dialog_add_tabs(this, this.tabs);
     }
     add_tab_div(div_id, classes = "") {

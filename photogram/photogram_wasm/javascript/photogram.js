@@ -87,7 +87,8 @@ export class Photogram {
         this.tabs.select("help");
         // this.load_project("local:nac_all_proj.json");
         // this.load_project("server:nac_all_proj");
-        this.load_project("server:lens_calibrations_proj");
+        // this.load_project("server:lens_calibrations_proj");
+        this.load_project("server:lens_calibrate_r5_15mm_proj");
     }
     logger() {
         return this.app_logger;
@@ -116,7 +117,7 @@ export class Photogram {
     }
     project_load_completed(success) {
         if (success) {
-            const cip_name = this.project.get_cip_name(0);
+            const cip_name = this.project.get_cip_name(2);
             this.set_cip(cip_name);
         }
         else {

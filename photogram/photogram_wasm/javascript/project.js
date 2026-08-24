@@ -47,7 +47,7 @@ class UndoableNpDelete {
     rev_text() {
         return [
             `NpAdd(${this.np_name}, ${this.np.color})`,
-            `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`
+            `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`,
         ];
     }
     fwd(p) {
@@ -116,10 +116,14 @@ class UndoableNpSetModel {
         throw new Error("No WasmProject or np_name does not exist");
     }
     fwd_text() {
-        return [`NpSetModel(${this.np_name}, ${this.new_data[0]}, ${this.new_data[1]}, ${this.new_data[2]})`];
+        return [
+            `NpSetModel(${this.np_name}, ${this.new_data[0]}, ${this.new_data[1]}, ${this.new_data[2]})`,
+        ];
     }
     rev_text() {
-        return [`NpSetModel(${this.np_name}, ${this.orig_data[0]}, ${this.orig_data[1]}, ${this.orig_data[2]})`];
+        return [
+            `NpSetModel(${this.np_name}, ${this.orig_data[0]}, ${this.orig_data[1]}, ${this.orig_data[2]})`,
+        ];
     }
     fwd(p) {
         if (this.new_data[0]) {
@@ -227,7 +231,9 @@ class UndoablePmsAdd {
         throw new Error("Project did not have cip name and np_name");
     }
     fwd_text() {
-        return [`PmsAdd(${this.cip_name}, ${this.np_name}, ${this.pxy}, ${this.uncertainty})`];
+        return [
+            `PmsAdd(${this.cip_name}, ${this.np_name}, ${this.pxy}, ${this.uncertainty})`,
+        ];
     }
     rev_text() {
         return [`PmsDelete(${this.cip_name}, ${this.np_name})`];
@@ -276,7 +282,9 @@ class UndoablePmsDelete {
         return [`PmsDelete(${this.cip_name}, ${this.np_name})`];
     }
     rev_text() {
-        return [`PmsAdd(${this.cip_name}, ${this.np_name}, ${this.orig_pxy}, ${this.orig_uncertainty})`];
+        return [
+            `PmsAdd(${this.cip_name}, ${this.np_name}, ${this.orig_pxy}, ${this.orig_uncertainty})`,
+        ];
     }
     fwd(p) {
         const pms = p.get_cip_by_name(this.cip_name).pms;
@@ -307,6 +315,7 @@ class UndoableCameraSetOrientation {
                 this.orig_orientation = wasm_cip.camera.orientation;
                 this.new_orientation = WasmQuatf64.unit();
                 this.new_orientation.set_array(orientation.array);
+                return;
             }
         }
         throw new Error("Project did not have cip name");
@@ -346,9 +355,13 @@ export class Project {
         this.clients = [];
     }
     /** Invoked when the project is 'deselected' */
-    clear_clients() { this.clients = []; }
+    clear_clients() {
+        this.clients = [];
+    }
     /** Invoked by clients when the project is 'selected' */
-    add_client(c) { this.clients.push(c); }
+    add_client(c) {
+        this.clients.push(c);
+    }
     get_undo_buffer() {
         return this.undo_buffer;
     }
@@ -533,7 +546,7 @@ export class Project {
             return true;
         }
         catch (e) {
-            this.log.error(`Failed to reorient camera`);
+            this.log.error(`Failed to reorient camera ${e}`);
             return false;
         }
     }
