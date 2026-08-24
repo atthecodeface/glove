@@ -1,6 +1,17 @@
 [workspace]
 resolver = "2"
-members = [ "photogram", "image_server", "photogram_wasm", "spherical_image", "ic_base", "ic_cache", "ic_camera", "ic_http", "ic_image", "ic_kernel", "ic_mapping", "ic_mesh", "ic_project", "ic_spherical_image", "ic_stars", "ic_threads", "ic_play", "indexed", "thunderclap"]
+members = [ "photogram",
+    "image_server",
+    "photogram_wasm",
+    "spherical_image",
+    "ic_base", "ic_cache",
+    "ic_camera", "ic_http",
+    "ic_image", "ic_kernel",
+    "ic_mapping", "ic_mesh",
+    "ic_project", "ic_spherical_image",
+    "ic_stars", "ic_threads",
+    # "ic_play",
+    "indexed", "thunderclap"]
 
 [workspace.package]
 edition = "2024"
@@ -68,9 +79,12 @@ features = ["png"]
 [workspace.dependencies.nalgebra]
 version = "0.32.1"
 
+[workspace.dependencies.num-traits]
+version = "0.2.19"
+
 # For plots
-[workspace.dependencies.poloto]
-version = "19.1.2"
+# [workspace.dependencies.poloto]
+# version = "19.1.2"
 
 [workspace.dependencies.regex]
 version = "1.11"
