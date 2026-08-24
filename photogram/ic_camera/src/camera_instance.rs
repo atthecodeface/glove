@@ -302,6 +302,10 @@ impl CameraProjection for CameraInstance {
         self.body.sensor_px_center() + self.optical_axis_offset
     }
 
+    fn lens_sensor_distance(&self) -> f64 {
+        self.lens_sensor_distance
+    }
+
     #[inline]
     fn sensor_ry_to_camera_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();

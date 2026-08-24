@@ -1,6 +1,9 @@
+use std::f64::consts::FRAC_PI_2;
+
+use num_traits::float::FloatConst;
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, PiecewiseBezier, Result};
+use ic_base::{Error, JsonParsable, PiecewiseBezier, Result};
 
 use crate::polynomial;
 
@@ -374,6 +377,14 @@ pub struct LensPolys {
 
     /// Function of angle to fractional X-offset (0 center, 1 RH of sensor)
     wts_poly: PiecewiseBezier,
+
+    /// Maximum world radians angle the lens supports (0 => 90 degrees)
+    #[serde(default)]
+    max_world: f64,
+
+    /// Maximum sensor radians angle the lens supports (0 => 90 degrees)
+    #[serde(default)]
+    max_sensor: f64,
 }
 
 //ip Display for LensPolys
@@ -390,9 +401,12 @@ impl JsonParsable for LensPolys {
     fn reason() -> &'static str {
         "lens polynomials"
     }
-    fn post_parse(self, _args: &Self::PostParseArg) -> Result<Self> {
+    fn post_parse(mut self, _args: &Self::PostParseArg) -> Result<Self> {
         self.stw_poly.validate()?;
         self.wts_poly.validate()?;
+        if self.max_world < 1E-6 {
+            self.max_world = f64::FRAC_PI_2();
+        }
         Ok(self)
     }
 }
@@ -483,7 +497,12 @@ impl LensPolys {
     }
 
     pub fn new(stw_poly: PiecewiseBezier, wts_poly: PiecewiseBezier) -> Self {
-        Self { stw_poly, wts_poly }
+        Self {
+            stw_poly,
+            wts_poly,
+            max_world: FRAC_PI_2,
+            max_sensor: FRAC_PI_2,
+        }
     }
 
     pub fn to_json(&self, pretty: bool) -> Result<String> {
@@ -494,12 +513,29 @@ impl LensPolys {
         }
     }
 
+    pub fn max_world_yaw(&self) -> f64 {
+        self.max_world
+    }
+    pub fn max_sensor_yaw(&self) -> f64 {
+        self.max_sensor
+    }
     pub fn stw_poly_as_f64s(&self) -> Vec<f64> {
         self.stw_poly.as_f64s()
     }
 
     pub fn wts_poly_as_f64s(&self) -> Vec<f64> {
         self.wts_poly.as_f64s()
+    }
+
+    pub fn iter_beziers<'a>(
+        &'a self,
+        world: bool,
+    ) -> impl Iterator<Item = (f64, f64, [[f64; 1]; 4])> + 'a {
+        if world {
+            self.wts_poly.iter_beziers()
+        } else {
+            self.stw_poly.iter_beziers()
+        }
     }
 
     //cp calibration
@@ -522,15 +558,15 @@ impl LensPolys {
     pub fn calibration(
         sensor_yaws: &[f64],
         world_yaws: &[f64],
-        yaw_range_min: f64,
-        yaw_range_max: f64,
+        sensor_yaw_range_min: f64,
+        sensor_yaw_range_max: f64,
         apply_filter: bool,
     ) -> Result<Self> {
         // Create a vec of (world, sensor) yaw pairs where sensor yaw is > yaw_range_min
         let mut ws_yaws: Vec<_> = sensor_yaws
             .iter()
             .zip(world_yaws.iter())
-            .filter(|(s, _)| **s > yaw_range_min)
+            .filter(|(s, _)| **s > sensor_yaw_range_min)
             .map(|(s, w)| (*w, *s))
             .collect();
         ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
@@ -551,6 +587,8 @@ impl LensPolys {
         mm_s_yaws.push(0.0);
         mm_w_yaws.sort_by(|a, b| (a).partial_cmp(&b).unwrap());
         mm_s_yaws.sort_by(|a, b| (a).partial_cmp(&b).unwrap());
+
+        // Winnow such that the distance between successive points is at least min_yaw_step in both directions
         let min_yaw_step = 0.01;
         let mut last_ok_sw = (0.0, 0.0);
         let mut mm_sw_yaws = vec![];
@@ -569,10 +607,34 @@ impl LensPolys {
             }
         }
 
-        let stw_poly = PiecewiseBezier::of_x_y_pairs(&mm_sw_yaws, 0.0, yaw_range_max, 1E-4, 1000)?;
-        let wts_poly = stw_poly.inv(0.0, yaw_range_max, 1E-5, 1000, 100)?;
+        if mm_sw_yaws.len() < 2 {
+            return Err(Error::Msg(format!(
+                "Too few filtered data points to generate calibration from"
+            )));
+        }
 
-        Ok(Self { wts_poly, stw_poly })
+        let n = mm_sw_yaws.len();
+        let x = mm_sw_yaws[n - 1].0;
+        let y = mm_sw_yaws[n - 1].1;
+        let m = (y - mm_sw_yaws[n - 2].1) / (x - mm_sw_yaws[n - 2].0);
+        let dx = (f64::FRAC_PI_2() - x) / 4.0;
+        for i in 0..4 {
+            let di = i as f64;
+            mm_sw_yaws.push((x + di * dx, y + di * m * dx));
+        }
+
+        // Used to be sensor_yaw_range_max
+        let stw_poly = PiecewiseBezier::of_x_y_pairs(&mm_sw_yaws, 0.0, x, 1E-3, 100)?;
+        let max_sensor = sensor_yaw_range_max;
+        let max_world = stw_poly.evaluate(max_sensor);
+        let wts_poly = stw_poly.inv(0.0, max_world, 1E-4, 1000, 100)?;
+
+        Ok(Self {
+            wts_poly,
+            stw_poly,
+            max_sensor,
+            max_world,
+        })
     }
 
     pub fn of_wts_fn<F>(wts_fn: &F, yaw_range_min: f64, yaw_range_max: f64) -> Result<Self>
@@ -581,7 +643,13 @@ impl LensPolys {
     {
         let wts_poly = PiecewiseBezier::of_fn(yaw_range_min, yaw_range_max, wts_fn, 1E-4, 100)?;
         let stw_poly = wts_poly.inv(yaw_range_min, yaw_range_max, 1E-6, 10000, 100)?;
-
-        Ok(Self { wts_poly, stw_poly })
+        let max_world = yaw_range_max;
+        let max_sensor = wts_poly.evaluate(max_world);
+        Ok(Self {
+            wts_poly,
+            stw_poly,
+            max_sensor,
+            max_world,
+        })
     }
 }

@@ -90,8 +90,10 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)], length: usize) -> Vec<(f64, f64)> 
     let mut filter: VecDeque<_> = vec![(0.0, 1.0); length].into();
     let n = (filter.len() + 1) as f64;
     let mid = filter.len().div_ceil(2);
-    for (i, (w, c)) in ws_yaws.iter().enumerate() {
-        filter.push_back((*c, w / c));
+    for (i, (w, s)) in ws_yaws.iter().enumerate() {
+        // Filter is N samples of (sensor, sensor/world)
+        filter.push_back((*s, w / s));
+        // Find mean(sensor/world) in filter, discarding the max and min values of sensor/world
         let mut total = 0.0;
         let mut smallest = filter[0].1;
         let mut largest = filter[0].1;
@@ -104,12 +106,14 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)], length: usize) -> Vec<(f64, f64)> 
         let mean = (total - smallest - largest) / (n - 2.0);
         // If past the first N entries... do not use the initial filter data...
         if i >= mid * 2 {
+            // result is (sensor * mean_gradient, sensor) for the midpoint of the filter
+            //
             // Push the resultant (y,x) tuple with the *same* x but the local-mean-times-x as 'y'
             mean_median_wc_yaws.push((mean * filter[mid].0, filter[mid].0));
             if false {
                 eprintln!(
                     "Orig s,w {:0.4},{:0.4} : Filter mid s,w {:0.4},{:0.4}, pushed s,w {:0.4},{:0.4}",
-                    c.to_degrees(),
+                    s.to_degrees(),
                     w.to_degrees(),
                     filter[mid].0.to_degrees(),
                     (filter[mid].1 * filter[mid].0).to_degrees(),
