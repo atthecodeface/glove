@@ -29,10 +29,12 @@ export class ToolsDialog<T> {
         classes: "movable-dialog",
       },
     );
+    // Create a non-toplevel Tabs list
     this.tabs = new Tabs(
       this.dialog.add_ele("div", { classes: "tab-list" }),
       this.tab_select.bind(this),
       [],
+      false,
     );
     this.client.tools_dialog_add_tabs(this, this.tabs);
   }

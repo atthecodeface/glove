@@ -143,6 +143,7 @@ class MappedPoint extends NamedPoint {
  *    To convert this to *uniform* space requires mapping (X,Y,-Z) to
  *    (X/Z * FOV_scale, Y/Z * FOV_scale, 0), where FOV_scale = 1/camera_tan_hfovh.
  *    This uses an identity view matrix and a scaling model matrix
+ *    The data X/Z and Y/Z is stored in the star vector buffer and given to the shader as the X/Y positions
  *
  */
 export class StarCalibration
@@ -186,7 +187,7 @@ export class StarCalibration
   animation_delay: number = 30;
   animation_inactivity: number = 0;
 
-  max_magnitude: number = 9;
+  max_magnitude: number = 6;
   max_stars: number = 5000;
   image_brightness: number = 0.6;
 
@@ -266,6 +267,25 @@ export class StarCalibration
       .add_content("Focus -");
     action_div.add_ele("hr");
     action_div
+      .add_button("", "", () => this.rotate_camera(0,1.0))
+      .add_content("Rot X +");
+    action_div
+      .add_button("", "", () => this.rotate_camera(0,-1.0))
+      .add_content("Rot X -");
+    action_div
+      .add_button("", "", () => this.rotate_camera(1,1.0))
+      .add_content("Rot Y +");
+    action_div
+      .add_button("", "", () => this.rotate_camera(1,-1.0))
+      .add_content("Rot Y -");
+    action_div
+      .add_button("", "", () => this.rotate_camera(2,1.0))
+      .add_content("Rot Z +");
+    action_div
+      .add_button("", "", () => this.rotate_camera(2,-1.0))
+      .add_content("Rot Z -");
+    action_div.add_ele("hr");
+    action_div
       .add_button("", "", () => this.rotate_camera(0,0.01))
       .add_content("Rot X +");
     action_div
@@ -285,16 +305,16 @@ export class StarCalibration
       .add_content("Rot Z -");
     action_div.add_ele("hr");
     action_div
-      .add_button("", "", () => this.move_optical_axis_camera(-10, 0))
+      .add_button("", "", () => this.move_optical_axis_camera(-1, 0))
       .add_content("Opt axis X -");
     action_div
-      .add_button("", "", () => this.move_optical_axis_camera(10, 0))
+      .add_button("", "", () => this.move_optical_axis_camera(1, 0))
       .add_content("Opt axis X +");
     action_div
-      .add_button("", "", () => this.move_optical_axis_camera(0,-10))
+      .add_button("", "", () => this.move_optical_axis_camera(0,-1))
       .add_content("Opt axis Y -");
     action_div
-      .add_button("", "", () => this.move_optical_axis_camera(0,10))
+      .add_button("", "", () => this.move_optical_axis_camera(0,1))
       .add_content("Opt axis Y +");
 
     this.tools_stats_div = action_div.add_ele("div");
@@ -316,6 +336,7 @@ export class StarCalibration
   }
 
   tools_dialog_tab_selected(_t: number, _id: string): void {
+    console.log(_t, _id);
     this.repopulate_nps_div();
   }
 
@@ -408,7 +429,7 @@ export class StarCalibration
     this.wasm_vec.y = 0;
     this.wasm_vec.z = -1;
     const wasm_cip = this.application.current_project().get_wasm_cip();
-    let hfovh = 0.1;
+    let hfovh = Math.atan(0.1);
     if (wasm_cip !== null) {
       wasm_cip.camera.orientation_set_quat(this.wasm_quat);
       this.wasm_quat.set_conjugate();
@@ -416,6 +437,7 @@ export class StarCalibration
     }
     this.wasm_quat.apply_set_vec3(this.wasm_vec);
 
+    console.log(hfovh);
     this.star_catalog.clear_filter();
     this.star_catalog.filter_max_magnitude(this.max_magnitude);
     this.selected_star_indices = this.star_catalog.find_stars_around(
@@ -465,25 +487,30 @@ export class StarCalibration
     const wasm_cip = project.get_wasm_cip();
     if (wasm_cip === null) { return; }
 
+    const max_magnitude = 6;
+    console.log("Clearing filter");
     this.star_catalog.clear_filter();
-    this.star_catalog.filter_max_magnitude(this.max_magnitude);
+    console.log("Setting max magnitude to ",max_magnitude);
+    this.star_catalog.filter_max_magnitude(max_magnitude);
     const result = wasm_cip.stars_of_pms(
       this.star_catalog,
       0.5, 10000000);
     // The results have quaternions that map sensor space to world space
-    console.log(result.has_more());
-    console.log(result.num_match_sets());
+    if (result.has_more()) {
+      console.log("Warning - not all possibilities were analyzed");
+    }
+    console.log("Found ",result.num_match_sets(), "sets of stars that match");
     const best_match_mappings = result.get_match(0);
     if (best_match_mappings !== undefined) {
-      console.log("Angle mean",best_match_mappings.angle_mean);
-      console.log("Quality",best_match_mappings.quality);
+      console.log("Angle mean of best_match",best_match_mappings.angle_mean);
+      console.log("Quality of best_match",best_match_mappings.quality);
       for (let i = 0; i < best_match_mappings.num_mappings; i++) {
         const m = best_match_mappings.mapping(i)!;
         const img_idx = m.img_index;
         const star_idx = m.star;
         this.star_catalog.set_star(this.wasm_star, star_idx);
         const star_id = this.wasm_star.id;
-        console.log(img_idx, star_id);
+        console.log("Mapping NP ",img_idx, "to star ID", star_id);
       }
       best_match_mappings.set_quat(this.wasm_quat);
       // Convert the img-to-star quaternion from the match to a world-to-img quaternion required by the camera
@@ -522,7 +549,7 @@ export class StarCalibration
   }
 
   find_star_closest_to_all_pms(): void {
-    const max_angle = 0.1;
+    const max_angle = 0.3;
     const wasm_cip = this.application.current_project().get_wasm_cip();
     if (wasm_cip === null) { return; }
 
@@ -578,6 +605,7 @@ export class StarCalibration
 
   /** NP selected in tools */
   mapped_np_select_xy(x: number, y: number): void {
+    this.center_on_xy(x, y);
     this.cursor_move_complete(x, y);
   }
 
@@ -654,6 +682,9 @@ export class StarCalibration
       this.star_catalog.set_star(this.wasm_star, s);
       this.wasm_star.set_vector(this.wasm_vec);
       this.camera.set_map_world_dir_to_sensor_dir(this.wasm_vec);
+      // wasm_vec is now a sensor-relative XYZ (accounting for lens mapping)
+      //
+      // The sensor position (in mm) of this is lens_distance / wasm_vec.z * wasm_vec.x
       const m = this.wasm_star.magnitude;
       const t = Math.min(Math.max(Math.floor((this.wasm_star.temperature - 2300) / 7700 * 15.9), 0), 15);
       // wasm_vec is a unit world direction, with (0,0,-1) being a star at the center of the image
@@ -808,8 +839,9 @@ export class StarCalibration
   }
 
   /**
-   * Redraw the grid, which is many lines using an Indexed draw element for the
-   * scale of grid lines required in both directions
+   * Redraw the stars whose model coordinates are sensor_vec.x / sensor_vec.z
+   *
+   * The model matrix must map these directions to mm; this requires scaling by the lens distance in mm
    */
   redraw_stars(webgl: Webgl, webgl_canvas: WebglCanvas): void {
     if (this.camera === null) { return; }
@@ -818,12 +850,16 @@ export class StarCalibration
     );
     // Model for *stars* should be set to map from (+-1, +-1, 0) to (+-sensor_mm_width/2/tanhfov, +-sensor_mm_width/2/tanhfov)
     webgl.use_program(webgl_canvas.star_program);
-    const tan_hfovh = this.camera.tan_hfovh;
-    const scale = this.camera.sensor_mm_width / 2 / tan_hfovh;
+    // const tan_hfovh = this.camera.tan_hfovh;
+    //const scale = this.camera.sensor_mm_width / 2 / tan_hfovh;
+    const scale = this.camera.lens_sensor_distance;
     this.wasm_mat4.set_identity();
     m_a[0] = scale;
     m_a[5] = scale;
     webgl.model.set(m_a);
+    this.wasm_mat4.set_identity();
+    webgl.view.set(m_a);
+
     webgl.set_uniform_projection();
     webgl.set_uniform_model();
     webgl.set_uniform_view();
@@ -1009,7 +1045,7 @@ export class StarCalibration
     return [uni_x_unscaled * this.mm_scr_width/2, uni_y_unscaled * this.mm_scr_width/2];
   }
 
-  /** Map from a +-1 uniform XY  to a screen XY */
+  /** Map from a +- mm uniform XY  to a screen XY */
   scr_xy_of_uniform_xy(x: number, y: number): [number, number] {
     x = x * 2 / this.mm_scr_width;
     y = y * 2 / this.mm_scr_width;
@@ -1047,6 +1083,28 @@ export class StarCalibration
       return null;
     }
     return [pt, min_dsq];
+  }
+
+  center_on_xy(x: number, y: number): void {
+    // We want scr_xy of the middle of the screen to be image (x,y)
+    //
+    // Find the uniform (+- in mm) coordinates of the image point required
+    const uni_xy = this.uniform_xy_of_img_xy(x, y);
+    const ux = uni_xy[0] * 2 / this.mm_scr_width;
+    const uy = uni_xy[1] * 2 / this.mm_scr_width;
+
+    let scr_rel_x =
+      this.zoomed_window.get_zoom() *
+      ((ux + 1) / 2);
+    let scr_rel_y =
+      this.zoomed_window.get_zoom() *
+      ((1 - uy) / 2);
+
+    const wh = this.zoomed_window.get_scr_wh();
+    let scr_x = (scr_rel_x -0.5)* wh[0];
+    let scr_y = (scr_rel_y -0.5)* wh[1];
+    this.zoomed_window.set_zoom_scr(scr_x, scr_y);
+    this.activity_occurred();
   }
 
   user_press(xy: [number, number], actions: MousePressActions): void {

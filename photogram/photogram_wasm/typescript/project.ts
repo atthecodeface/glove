@@ -75,19 +75,17 @@ class UndoableNpDelete implements UndoableAction<Project> {
   rev_text(): string[] {
     return [
       `NpAdd(${this.np_name}, ${this.np.color})`,
-      `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`];
+      `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`,
+    ];
   }
   fwd(p: Project): void {
     p.wasm_project!.nps.delete_pt(this.np_name);
     p.np_changed(false, this.np_name);
-}
+  }
   rev(p: Project): void {
     p.wasm_project!.nps.add_pt(this.np);
     if (this.np.at_infinity) {
-      p.wasm_project!.nps.set_direction(
-        this.np_name,
-        this.np.model_as_array(),
-      );
+      p.wasm_project!.nps.set_direction(this.np_name, this.np.model_as_array());
     } else {
       p.wasm_project!.nps.set_model(
         this.np_name,
@@ -164,10 +162,14 @@ class UndoableNpSetModel implements UndoableAction<Project> {
     throw new Error("No WasmProject or np_name does not exist");
   }
   fwd_text(): string[] {
-    return [`NpSetModel(${this.np_name}, ${this.new_data[0]}, ${this.new_data[1]}, ${this.new_data[2]})`];
+    return [
+      `NpSetModel(${this.np_name}, ${this.new_data[0]}, ${this.new_data[1]}, ${this.new_data[2]})`,
+    ];
   }
   rev_text(): string[] {
-    return [`NpSetModel(${this.np_name}, ${this.orig_data[0]}, ${this.orig_data[1]}, ${this.orig_data[2]})`];
+    return [
+      `NpSetModel(${this.np_name}, ${this.orig_data[0]}, ${this.orig_data[1]}, ${this.orig_data[2]})`,
+    ];
   }
   fwd(p: Project): void {
     if (this.new_data[0]) {
@@ -276,7 +278,12 @@ class UndoablePmsAdd implements UndoableAction<Project> {
   np_name: string;
   pxy: [number, number];
   uncertainty: number;
-  constructor(project: Project, np_name: string, pxy: [number, number], uncertainty:number = 0) {
+  constructor(
+    project: Project,
+    np_name: string,
+    pxy: [number, number],
+    uncertainty: number = 0,
+  ) {
     if (project.wasm_project !== null) {
       if (project.wasm_project!.nps.get_pt(np_name) !== undefined) {
         const cip = project.get_wasm_cip();
@@ -295,7 +302,9 @@ class UndoablePmsAdd implements UndoableAction<Project> {
     throw new Error("Project did not have cip name and np_name");
   }
   fwd_text(): string[] {
-    return [`PmsAdd(${this.cip_name}, ${this.np_name}, ${this.pxy}, ${this.uncertainty})`];
+    return [
+      `PmsAdd(${this.cip_name}, ${this.np_name}, ${this.pxy}, ${this.uncertainty})`,
+    ];
   }
   rev_text(): string[] {
     return [`PmsDelete(${this.cip_name}, ${this.np_name})`];
@@ -313,7 +322,7 @@ class UndoablePmsAdd implements UndoableAction<Project> {
   rev(p: Project): void {
     const pms = p.get_cip_by_name(this.cip_name)!.pms;
     const n = pms.mapping_of_name(this.np_name)!;
-    if (n!==undefined) {
+    if (n !== undefined) {
       pms.remove_mapping(n);
     }
     // Deleting a mapping impacts the NPs
@@ -349,12 +358,14 @@ class UndoablePmsDelete implements UndoableAction<Project> {
     return [`PmsDelete(${this.cip_name}, ${this.np_name})`];
   }
   rev_text(): string[] {
-    return [`PmsAdd(${this.cip_name}, ${this.np_name}, ${this.orig_pxy}, ${this.orig_uncertainty})`];
+    return [
+      `PmsAdd(${this.cip_name}, ${this.np_name}, ${this.orig_pxy}, ${this.orig_uncertainty})`,
+    ];
   }
   fwd(p: Project): void {
     const pms = p.get_cip_by_name(this.cip_name)!.pms;
     const n = pms.mapping_of_name(this.np_name)!;
-    if (n!==undefined) {
+    if (n !== undefined) {
       pms.remove_mapping(n);
     }
     // Deleting a mapping impacts the NPs
@@ -378,12 +389,13 @@ class UndoableCameraSetOrientation implements UndoableAction<Project> {
   new_orientation: WasmQuatf64;
   constructor(project: Project, orientation: WasmQuatf64) {
     if (project.wasm_project !== null) {
-        const wasm_cip = project.get_wasm_cip();
+      const wasm_cip = project.get_wasm_cip();
       if (wasm_cip !== null) {
         this.cip_name = project.get_cip().name()!;
         this.orig_orientation = wasm_cip.camera.orientation;
         this.new_orientation = WasmQuatf64.unit();
         this.new_orientation.set_array(orientation.array);
+        return;
       }
     }
     throw new Error("Project did not have cip name");
@@ -442,10 +454,14 @@ export class Project {
   }
 
   /** Invoked when the project is 'deselected' */
-  clear_clients() { this.clients = []; }
+  clear_clients() {
+    this.clients = [];
+  }
 
   /** Invoked by clients when the project is 'selected' */
-  add_client(c: ProjectClient) { this.clients.push(c); }
+  add_client(c: ProjectClient) {
+    this.clients.push(c);
+  }
 
   get_undo_buffer(): UndoBuffer<Project> {
     return this.undo_buffer;
@@ -477,7 +493,7 @@ export class Project {
     this.mapped_nps().set_focus(x, y);
   }
 
-  invoke_clients(cb:(c: ProjectClient) => void) {
+  invoke_clients(cb: (c: ProjectClient) => void) {
     for (const c of this.clients) {
       cb(c);
     }
@@ -503,7 +519,7 @@ export class Project {
   }
 
   /** Invoked whenever the CIP changes (e.g. to new CIP, etc) */
-  cip_changed(_data_only: boolean,) {
+  cip_changed(_data_only: boolean) {
     this._mapped_nps.map_with_cip();
     this.invoke_clients((c) => c.project_cip_changed(this));
   }
@@ -514,18 +530,20 @@ export class Project {
   }
 
   nps_get_new_name(): string {
-    if (this.wasm_project === null) { return "No NPS loaded"; }
+    if (this.wasm_project === null) {
+      return "No NPS loaded";
+    }
     const wasm_nps = this.wasm_project.nps;
     let i = 0;
-      let np_name = "";
+    let np_name = "";
 
-      while (true) {
-        np_name = `np_${i}`;
-        if (wasm_nps.get_pt(np_name) === undefined) {
-          break;
-        }
-        i += 1;
+    while (true) {
+      np_name = `np_${i}`;
+      if (wasm_nps.get_pt(np_name) === undefined) {
+        break;
       }
+      i += 1;
+    }
     return np_name;
   }
 
@@ -618,7 +636,7 @@ export class Project {
     }
   }
 
-  pms_add(name: string, pxy: [number, number], uncertainty:number): boolean {
+  pms_add(name: string, pxy: [number, number], uncertainty: number): boolean {
     try {
       const pms_add = new UndoablePmsAdd(this, name, pxy, uncertainty);
       this.undo_buffer.do_action(pms_add);
@@ -649,10 +667,12 @@ export class Project {
       const undoable = new UndoableCameraSetOrientation(this, quat);
       this.undo_buffer.do_action(undoable);
       undoable.fwd(this);
-      this.log.info(`Reoriented camera for CIP ${this.get_cip().cip_name} to ${quat}`);
+      this.log.info(
+        `Reoriented camera for CIP ${this.get_cip().cip_name} to ${quat}`,
+      );
       return true;
     } catch (e) {
-      this.log.error(`Failed to reorient camera`);
+      this.log.error(`Failed to reorient camera ${e}`);
       return false;
     }
   }
@@ -817,5 +837,4 @@ export class Project {
           .catch(this.log_exception.bind(this));
     }
   }
-
 }

@@ -54,6 +54,21 @@ export class DataRange<T extends DataPoint> {
     this.data.push(pt);
   }
 
+  /**
+   * Keep some of the data
+   *
+   * @param filter Function that maps data point to true, to keep the data, false to drop it
+   */
+  filter_data(filter: (d: DataPoint) => boolean):void {
+    const new_data = [];
+    for (const d of this.data) {
+      if (filter(d)) {
+        new_data.push(d);
+      }
+    }
+    this.data = new_data;
+  }
+
   private get_range(
     min: number,
     max: number,
@@ -246,11 +261,11 @@ export class Plot {
     ]);
   }
 
-  generate_line_plot<T extends DataPoint>(draw: Draw, data_range: DataRange<T>) {
+  generate_line_plot<T extends DataPoint>(draw: Draw, data_range: DataRange<T>, color:string = "#ff3") {
     draw.extend([
       ["push"],
       ["W", 4.0],
-      ["S", "#ff3"],
+      ["S", color],
       [
         "C",
         this.graph_area[0],

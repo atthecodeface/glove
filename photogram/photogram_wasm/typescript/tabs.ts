@@ -69,6 +69,16 @@ class Tab<T> {
   }
 }
 
+class Action {
+  label: string| HtmlElement;
+  action: () => void;
+
+  constructor(label: string| HtmlElement, action: () => void) {
+    this.label = label;
+    this.action = action;
+  }
+}
+
 /**
  * A class that handles a set of Tabs, only one of which should be selected, and that will become 'unhidden' while the others are 'hidden'
  */
@@ -77,6 +87,9 @@ export class Tabs<T> {
    * The set of Tab that this controls
    */
   tabs: Array<Tab<T>>;
+
+  /** Actions that appear on the right */
+  actions: Action[];
 
   /**
    * the UL element that the tab list is
@@ -91,7 +104,12 @@ export class Tabs<T> {
   /**
    * The currently selected tab number
    */
-  selected_tab: Tab<T> | null;
+  _selected_tab: Tab<T> | null;
+
+  /**
+   * Asserted if this is toplevel - i.e. #tab-blah is a valid URI; for sub-tabs such as dialogs this is NOT true
+   */
+  is_toplevel: boolean = true;
 
   /**
    * Create a new set of tabs whose tab list can be selected with 'container_select'
@@ -104,10 +122,13 @@ export class Tabs<T> {
     div: string | HtmlElement,
     tab_select_callback: (t: T, id: string) => void,
     tabs: [string, string | HtmlElement | Node, T][],
+    is_toplevel: boolean = true,
   ) {
     this.tabs = [];
     this.callback = tab_select_callback;
-    this.selected_tab = null;
+    this._selected_tab = null;
+    this.actions = [];
+    this.is_toplevel = is_toplevel;
 
     if (div instanceof HtmlElement) {
       this.ul = div.add_ele("ul");
@@ -158,10 +179,23 @@ export class Tabs<T> {
     const tab = new Tab(li, div, name, client);
     this.tabs.push(tab);
     a.ele.addEventListener("click", (e: Event) => {
-      this.select_tab(tab);
-      e.preventDefault();
+      this.select_tab_event(e, tab);
     });
     return div;
+  }
+
+  add_action(
+    label: string | HtmlElement,
+    callback: () => void,
+    href: string,
+  ) {
+    this.actions.push(new Action(label, callback));
+    const li = this.ul.add_ele("li", {classes: "right"});
+    const a = li.add_ele("a", {}, [["href", href]]);
+    a.add_content(label);
+    a.ele.addEventListener("click", (_e: Event) => {
+      callback();
+    });
   }
 
   tab(name: string): T | null {
@@ -171,6 +205,13 @@ export class Tabs<T> {
       }
     }
     return null;
+  }
+
+  selected_tab(): string {
+    if (this._selected_tab === null) {
+      throw new Error("No tab selected; bug in application");
+    }
+    return this._selected_tab!.div_name;
   }
 
   /** Select the tab of the given name 'name'
@@ -195,14 +236,21 @@ export class Tabs<T> {
     return this.select_tab(this.tabs[0]!);
   }
 
+  select_tab_event(e: Event, tab: Tab<T>): string {
+    if (!this.is_toplevel) {
+      e.preventDefault();
+    }
+    return this.select_tab(tab);
+  }
+
   private select_tab(tab: Tab<T>): string {
-    if (tab === this.selected_tab) {
+    if (tab === this._selected_tab) {
       return tab.div_name;
     }
     for (const t of this.tabs) {
       t.set_hidden(t !== tab);
     }
-    this.selected_tab = tab;
+    this._selected_tab = tab;
     this.callback(tab.client, tab.div_name);
     return tab.div_name;
   }
