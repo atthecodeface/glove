@@ -15,11 +15,20 @@ struct PiecewiseBezierNode {
 }
 
 impl PiecewiseBezierNode {
-    /// For creating from constants and deserializing use only, really
+    /// For creating from constants use only, really
     fn of_f64s(f64s: &[f64; 4]) -> Self {
-        let mk_data = |f| {
-            if f > 1.0e29 { [f64::NAN] } else { [f] }
-        };
+        let d0 = [f64s[0]];
+        let d1 = [f64s[1]];
+        let d2 = [f64s[2]];
+        let d3 = [f64s[3]];
+        Self {
+            data: [d0, d1, d2, d3],
+        }
+    }
+
+    /// For deserializing use only, really
+    fn of_opt_f64s(f64s: &[Option<f64>; 4]) -> Self {
+        let mk_data = |f: Option<f64>| [f.unwrap_or(f64::NAN)];
         let d0 = mk_data(f64s[0]);
         let d1 = mk_data(f64s[1]);
         let d2 = mk_data(f64s[2]);
@@ -210,7 +219,8 @@ impl serde::Serialize for PiecewiseBezier {
     where
         S: serde::Serializer,
     {
-        self.as_f64s().serialize(serializer)
+        let v = self.as_opt_f64s();
+        v.serialize(serializer)
     }
 }
 
@@ -219,8 +229,8 @@ impl<'de> serde::Deserialize<'de> for PiecewiseBezier {
     where
         D: serde::Deserializer<'de>,
     {
-        let v = Vec::<f64>::deserialize(deserializer)?;
-        let s = PiecewiseBezier::of_f64s(&v)
+        let v = Vec::<Option<f64>>::deserialize(deserializer)?;
+        let s = PiecewiseBezier::of_opt_f64s(&v)
             .map_err(|e| serde::de::Error::custom(format!("invalid PiecewiseBezier: {e}")))?;
         Ok(s)
     }
@@ -265,6 +275,32 @@ impl PiecewiseBezier {
             min_t: f64::NAN,
             max_t: f64::NAN,
         }
+    }
+
+    /// For serialization use only, really; export the nodes
+    pub fn as_opt_f64s(&self) -> Vec<Option<f64>> {
+        let mut result = vec![];
+        for n in self.tree.iter() {
+            for d in n.data.iter() {
+                if d[0].is_nan() {
+                    result.push(None)
+                } else {
+                    result.push(Some(d[0]))
+                }
+            }
+        }
+        result
+    }
+
+    /// For deserialization use only, really
+    pub fn of_opt_f64s(f64s: &[Option<f64>]) -> Result<Self> {
+        let mut tree = vec![];
+        for n in f64s.as_chunks::<4>().0 {
+            tree.push(PiecewiseBezierNode::of_opt_f64s(n));
+        }
+        let s = Self { tree };
+        s.validate()?;
+        Ok(s)
     }
 
     /// For constants use only, really; export the nodes
@@ -554,7 +590,7 @@ fn test_piecewise() -> Result<()> {
     }
     let p = PiecewiseBezier::of_xy_pairs_for_test(&d)?;
     for i in 0..50 {
-        let t = (i as f64);
+        let t = i as f64;
         eprintln!("{i} {} {}", p.evaluate(t), t.to_radians().tan());
     }
     eprintln!("{p:?}");
