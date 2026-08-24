@@ -891,33 +891,66 @@ impl SphericalImageCommand {
         Ok(serde_json::to_string(&lens_polys)?)
     }
     fn quaternion_mapping_pts_cmd(&mut self) -> Result<String> {
-        let q = Quat::mapping_vector_pair_to_vector_pair(
+        let q0 = Quat::mapping_vector_pair_to_vector_pair(
             (&self.xyz[0], &self.xyz[1]),
             (&self.xyz[2], &self.xyz[3]),
         );
-        let img0_d0: Point3D = self.xyz[0].into();
-        let img0_d1: Point3D = self.xyz[1].into();
-        let img1_d0: Point3D = self.xyz[2].into();
-        let img1_d1: Point3D = self.xyz[3].into();
-        let img0_d0_mapped = q.apply3(&img0_d0);
-        let img0_d1_mapped = q.apply3(&img0_d1);
-        eprintln!(
-            "Distances of mapped pts: {:0.6} {:0.6}",
-            img0_d0_mapped.distance(&img1_d0),
-            img0_d1_mapped.distance(&img1_d1),
+        let q1 = Quat::mapping_vector_pair_to_vector_pair(
+            (&self.xyz[1], &self.xyz[0]),
+            (&self.xyz[3], &self.xyz[2]),
         );
+        let q = q0.weighted_average_pair(1.0, &q1, 1.0);
+        if self.verbose {
+            let img0_d0: Point3D = self.xyz[0].into();
+            let img0_d1: Point3D = self.xyz[1].into();
+            let img1_d0: Point3D = self.xyz[2].into();
+            let img1_d1: Point3D = self.xyz[3].into();
+            let img0_angle = img0_d0.dot(&img0_d1).acos().to_degrees();
+            let img1_angle = img1_d0.dot(&img1_d1).acos().to_degrees();
+            eprintln!("Vectors (v0, v1) for img0 subtend {img0_angle} degrees");
+            eprintln!("Vectors (v2, v3) for img1 subtend {img1_angle} degrees");
+            let img0_d0_mapped = q.apply3(&img0_d0);
+            let img0_d1_mapped = q.apply3(&img0_d1);
+            eprintln!(
+                "Angles (in degrees) between mapped first img dirns and given second img dirns: {:0.6} {:0.6}",
+                img0_d0_mapped.dot(&img1_d0).acos().to_degrees(),
+                img0_d1_mapped.dot(&img1_d1).acos().to_degrees(),
+            );
+            eprintln!(
+                "Quaternion to map (without accounting for camera) {q} in world dirm {:?}",
+                q.conjugate().apply3_arr(&[0., 0., -1.])
+            );
+        }
+        // camera orientation maps world direction vectors to sensor vectors
         let q = q * self.camera.orientation();
+        if self.verbose {
+            eprintln!(
+                "Final orientation {q:?} looking in world dirn {:?}",
+                q.conjugate().apply3_arr(&[0., 0., -1.])
+            );
+        }
         Ok(serde_json::to_string(&q)?)
     }
     fn photo_map_pt_cmd(&mut self) -> Result<String> {
-        let result: Vec<_> = self
-            .xy
-            .iter()
-            .map(|xy| {
-                self.camera
-                    .camera_txty_to_world_dir(&self.camera.px_abs_xy_to_camera_txty(xy))
-            })
-            .collect();
+        let mut result: Vec<_> = vec![];
+        for xy in self.xy.iter() {
+            if self.verbose {
+                let img_ry = self.camera.px_abs_xy_to_sensor_txty(xy).to_ry();
+                eprintln!(
+                    "{xy} maps to roll {} image yaw {} world yaw {}",
+                    img_ry.roll().to_degrees(),
+                    img_ry.yaw().to_degrees(),
+                    self.camera
+                        .sensor_ry_to_camera_ry(&img_ry)
+                        .yaw()
+                        .to_degrees(),
+                );
+            }
+            let d = self
+                .camera
+                .camera_txty_to_world_dir(&self.camera.px_abs_xy_to_camera_txty(xy));
+            result.push(d);
+        }
 
         Ok(serde_json::to_string(&result)?)
     }
