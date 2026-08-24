@@ -6,7 +6,9 @@ use ic_camera::{
     CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, LensPolys,
 };
 
-use crate::{ToFromWasmArr, WasmPointMappingSet, WasmRay, console_log, err_to_string};
+use crate::{
+    ToFromWasmArr, WasmLensPoly, WasmPointMappingSet, WasmRay, console_log, err_to_string,
+};
 
 #[wasm_bindgen]
 pub struct WasmCameraDatabase {
@@ -243,6 +245,14 @@ impl WasmCameraInstance {
         self.camera.borrow().sensor_mm_size().1
     }
 
+    /// Get the distance of the lens from the sensor
+    ///
+    /// This can be derived from 1/f = 1/u + 1/v; f is returned by focal_length; v by focus_distance
+    #[wasm_bindgen(getter)]
+    pub fn lens_sensor_distance(&self) -> f64 {
+        self.camera.borrow().lens_sensor_distance()
+    }
+
     pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
         Ok(Point2D::to_wasm(
             self.camera
@@ -396,20 +406,14 @@ impl WasmCameraInstance {
         Ok(self.camera.borrow().to_json(false).map_err(err_to_string)?)
     }
 
-    pub fn blah(
-        &mut self,
-        sensor: &[f64],
-        world: &[f64],
-        yaw_min: f64,
-        yaw_max: f64,
-    ) -> Result<(), String> {
-        let polys =
-            LensPolys::calibration(sensor, world, yaw_min, yaw_max, true).map_err(err_to_string)?;
-        console_log!("{:?}", polys);
-        let mut lens = self.camera.borrow_mut().lens().clone();
-        lens.set_polys(polys);
-        self.camera.borrow_mut().set_lens(lens);
-        Ok(())
+    pub fn lens_poly(&self) -> WasmLensPoly {
+        self.camera.borrow().lens().polys().clone().into()
     }
+    pub fn set_lens_poly(&self, lp: &WasmLensPoly) {
+        let mut lens = self.camera.borrow_mut().lens().clone();
+        lens.set_polys(lp.polys().clone());
+        self.camera.borrow_mut().set_lens(lens);
+    }
+
     //zz All done
 }

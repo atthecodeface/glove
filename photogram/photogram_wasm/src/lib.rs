@@ -2,6 +2,7 @@
 //
 pub(crate) mod wasm_import;
 
+pub use bezier_wasm::WasmBezier1f64;
 pub use bezier_wasm::{WasmBezier3f32, WasmBezierBuilder3f32};
 pub use geo_nd_wasm::{Quatf32, Vec2f32, Vec3f32, Vec4f32};
 pub use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, Vec4f64};
@@ -20,6 +21,8 @@ use wasm_import::{ToFromWasmArr, err_to_string};
 mod wasm_base;
 pub use wasm_base::WasmRay;
 
+mod wasm_lens;
+pub use wasm_lens::WasmLensPoly;
 mod wasm_camera;
 pub use wasm_camera::{WasmCameraDatabase, WasmCameraInstance};
 
