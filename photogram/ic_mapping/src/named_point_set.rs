@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Error, JsonParsable, Point3D, Result, Tag, TagMap, TagSet};
+use ic_base::{JsonParsable, ModelData, Result, Tag, TagMap, TagSet};
 use ic_camera::CameraProjection;
 use ic_image::Color8;
 
@@ -88,7 +88,7 @@ impl NamedPointSet {
                 let other_np_is_unmapped = other_np.is_unmapped();
                 let self_np_is_unmapped = self_np.is_unmapped();
                 if self_np_is_unmapped && !other_np_is_unmapped {
-                    self_np.set_model(Some(other_np.model()));
+                    *self_np.model_mut() = *other_np.model();
                 }
             } else if let Some(other_np) = Rc::into_inner(other_np) {
                 // This will return None as the other is not in the named point set
@@ -117,13 +117,12 @@ impl NamedPointSet {
         &mut self,
         name: &str,
         color: Color8,
-        at_infinity: bool,
-        model: Option<Point3D>,
-        err: f64,
+        model_data: ModelData,
     ) -> Option<Rc<NamedPoint>> {
         let tag = Tag::owned(name);
-        let model = model.map(|m| (at_infinity, m, err));
-        self.add_np(NamedPoint::new(tag, color, model))
+        let np = NamedPoint::new(tag, color);
+        *np.model_mut() = model_data;
+        self.add_np(np)
     }
 
     /// Create a vector of the named points with a specific color
@@ -206,10 +205,10 @@ impl NamedPointSet {
             if np.is_unmapped() {
                 continue;
             }
-
+            let model = np.model().model_pt();
+            let uncertainty = np.model().model_uncertainty();
             let name = np.ref_tag();
-            let (at_infinity, model, error) = np.model();
-            if at_infinity {
+            if np.model_is_direction() {
                 if let Some(camera_pxy) = camera.world_dir_to_opt_px_abs_xy(&model) {
                     println!("{name} : {model} direction maps to {camera_pxy}");
                 } else {
@@ -217,7 +216,7 @@ impl NamedPointSet {
                 }
             } else {
                 let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
-                println!("{name} : {model}+-{error} maps to {camera_pxy}");
+                println!("{name} : {model}+-{uncertainty} maps to {camera_pxy}");
             }
         }
     }

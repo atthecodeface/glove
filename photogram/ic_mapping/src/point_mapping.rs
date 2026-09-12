@@ -101,6 +101,14 @@ impl PointMapping {
         self.named_point.model_uncertainty()
     }
 
+    /// Calculate the direction to the model data from the given location
+    ///
+    /// If the model data is at infinity then the location is ignored
+    #[inline]
+    pub fn model_direction_from(&self, location: &Point3D) -> Point3D {
+        self.named_point.model_direction_from(location)
+    }
+
     #[inline]
     pub fn screen(&self) -> &Point2D {
         &self.screen
@@ -129,6 +137,9 @@ impl PointMapping {
 
     pub fn set_usage(&mut self, usage: u64) {
         self.usage = usage;
+    }
+    pub fn is_mapping_of_np(&self, np: &Rc<NamedPoint>) -> bool {
+        Rc::ptr_eq(np, &self.named_point)
     }
 }
 
@@ -205,22 +216,19 @@ impl PointMapping {
         }
     }
 
-    //fp get_mapped_dpxy
-    // was get_pm_dxdy
-    //
-    // used by show_pm_error
+    /// Calculate the offset from this mappings specified sensor postition to
+    /// the derive sensor position (given the camera) of the mapping
+    ///
+    /// Return None if the mapping is unmapped
     #[inline]
-    fn get_mapped_dpxy<C: CameraProjection>(&self, camera: &C) -> Option<Point2D> {
+    pub fn get_mapped_dpxy<C: CameraProjection>(&self, camera: &C) -> Option<Point2D> {
         if self.is_unmapped() {
             return None;
         }
         Some(self.screen - camera.world_xyz_to_px_abs_xy(&self.model()))
     }
 
-    //fp get_mapped_dpxy_error2
-    // was get_pm_sq_error
-    //
-    // used for total_error and find_worst_error and show_pm_error
+    /// Get the total dpxy squared error
     #[inline]
     pub fn get_mapped_dpxy_error2<C: CameraProjection>(&self, camera: &C) -> f64 {
         if let Some(dpxy) = self.get_mapped_dpxy(camera) {

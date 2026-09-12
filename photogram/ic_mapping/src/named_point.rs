@@ -3,11 +3,9 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{Point3D, Tag, TagData};
+use ic_base::{ModelData, Point3D, Tag, TagData};
 use ic_image::Color8;
 
-//a NamedPoint
-//tp NamedPoint
 /// A point in model space, with a name
 ///
 /// This does not support Clone, as it should always be used as an Rc
@@ -19,15 +17,12 @@ pub struct NamedPoint {
     name: RefCell<Tag>,
     /// Color of the point in calibration images
     color: RefCell<Color8>,
-    /// The 3D model coordinate this point corresponds to and the radius of uncertainty
-    ///
-    /// The bool is 'at_infinity' - i.e this is a known direction (with no uncertainty), not a 3D position
-    ///
-    /// This is known for a calibration point, with 0 uncertainty!
-    ///
-    /// The units for a model position are mm (as that is what cameras focal lengths are in)
-    // #[serde(deserialize_with = "deserialize_model")]
-    model: RefCell<Option<(bool, Point3D, f64)>>,
+    /// The 3D model coordinate this point corresponds to, radius of uncertainty, etc
+    #[serde(deserialize_with = "ModelData::deserialize_refcell")]
+    model: RefCell<ModelData>,
+    /// Preferred CIP name for generating its patch
+    #[serde(default)]
+    preferred_cip: String,
 }
 
 //ip TagData for NamedPoint {
@@ -37,55 +32,15 @@ impl TagData for NamedPoint {
     }
 }
 
-//fi deserialize_model
-#[allow(dead_code)]
-fn deserialize_model<'de, D>(
-    deserializer: D,
-) -> std::result::Result<RefCell<Option<(Point3D, f64)>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    // let model = <Option<(Point3D, f64)>>::deserialize(deserializer)?;
-    let model = <Option<Point3D>>::deserialize(deserializer)?;
-    let model = model.map(|a| (a, 0.));
-    Ok(model.into())
-}
-
-//ip Display for NamedPoint
 impl std::fmt::Display for NamedPoint {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        if let Some(position) = self.opt_model() {
-            let (at_infinity, xyz, error) = position;
-            if at_infinity {
-                write!(
-                    fmt,
-                    "{} {} -> [{:.2}, {:.2}, {:.2}]",
-                    self.name.borrow(),
-                    self.color.borrow(),
-                    xyz[0],
-                    xyz[1],
-                    xyz[2]
-                )
-            } else {
-                write!(
-                    fmt,
-                    "{} {} @[{:.2}, {:.2}, {:.2}] +- {:.2}",
-                    self.name.borrow(),
-                    self.color.borrow(),
-                    xyz[0],
-                    xyz[1],
-                    xyz[2],
-                    error
-                )
-            }
-        } else {
-            write!(
-                fmt,
-                "{} {} unmapped",
-                self.name.borrow(),
-                self.color.borrow(),
-            )
-        }
+        write!(
+            fmt,
+            "{} {} {}",
+            self.name.borrow(),
+            self.color.borrow(),
+            self.model.borrow()
+        )
     }
 }
 
@@ -94,53 +49,56 @@ impl NamedPoint {
     /// Create a new NamedPoint, within a NamedPointSet
     ///
     /// The Tag must thus be Owned or Shared
-    pub fn new(name: Tag, color: Color8, model: Option<(bool, Point3D, f64)>) -> Self {
-        let model = model.into();
+    pub fn new(name: Tag, color: Color8) -> Self {
         let name = name.into();
         let color = color.into();
-        Self { name, color, model }
+        let model = ModelData::default().into();
+        let preferred_cip = "".into();
+        Self {
+            name,
+            color,
+            model,
+            preferred_cip,
+        }
     }
 
+    /// Create a NamedPoint that is an unresolved reference (for deserializing a
+    /// PointMapping); this will be resolved later into a named point defined in
+    /// a set
     pub fn reference<S: Into<String>>(name: S) -> Self {
-        let name = Tag::make_unresolved(name).into();
-        let color = Color8::black().into();
-        let model = None.into();
-        Self { name, color, model }
+        Self::new(Tag::make_unresolved(name).into(), Color8::black().into())
     }
 
     #[inline]
     pub fn is_unmapped(&self) -> bool {
-        self.model.borrow().is_none()
+        self.model.borrow().is_unmapped()
     }
 
     #[inline]
     pub fn is_mapped(&self) -> bool {
-        self.model.borrow().is_some()
-    }
-
-    #[inline]
-    pub fn model(&self) -> (bool, Point3D, f64) {
-        (*self.model.borrow()).unwrap_or_default()
+        self.model.borrow().is_mapped()
     }
 
     #[inline]
     pub fn model_is_direction(&self) -> bool {
-        (*self.model.borrow()).unwrap_or_default().0
+        self.model.borrow().model_is_direction()
     }
 
     #[inline]
     pub fn model_pt(&self) -> Point3D {
-        (*self.model.borrow()).unwrap_or_default().1
+        self.model.borrow().model_pt()
     }
 
     #[inline]
     pub fn model_uncertainty(&self) -> f64 {
-        (*self.model.borrow()).unwrap_or_default().2
+        self.model.borrow().model_uncertainty()
     }
 
-    #[inline]
-    pub fn opt_model(&self) -> Option<(bool, Point3D, f64)> {
-        *self.model.borrow()
+    /// Calculate the direction to the model data from the given location
+    ///
+    /// If the model data is at infinity then the location is ignored
+    pub fn model_direction_from(&self, location: &Point3D) -> Point3D {
+        self.model.borrow().model_direction_from(location)
     }
 
     #[inline]
@@ -148,9 +106,15 @@ impl NamedPoint {
         *self.color.borrow()
     }
 
+    /// Set the model position or direction to a given value, with an error value
+    ///
+    /// If the bool is true the point is 'at infinity' and the vector is a direction
     #[inline]
-    pub fn set_model(&self, model: Option<(bool, Point3D, f64)>) {
-        *self.model.borrow_mut() = model;
+    pub fn model_mut<'a>(&'a self) -> RefMut<'a, ModelData> {
+        self.model.borrow_mut()
+    }
+    pub fn model<'a>(&'a self) -> Ref<'a, ModelData> {
+        self.model.borrow()
     }
 
     #[inline]

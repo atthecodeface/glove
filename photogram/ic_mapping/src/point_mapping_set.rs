@@ -486,7 +486,18 @@ impl PointMappingSet {
         Ok((best.0, camera))
     }
 
-    //fp orient_camera_using_model_directions
+    /// Update the camera orientation to be the average of *all* of the pairs of (filtered) mappings
+    ///
+    /// Each pair of mappings provides (using the lens projection) a pair of
+    /// world directions from their sensor positions and a pair of world
+    /// directions given the named point (either as a direction or a model point
+    /// relative to the camera position)
+    ///
+    /// For each pair of mappings a quaternion that (approximately) maps the two
+    /// camera-relative direction vectors to the world direction vectors can be
+    /// generated
+    ///
+    /// The 'average' of all these quaternions is the resultant orientation
     pub fn orient_camera_using_model_directions<C, F>(
         &self,
         camera: &mut C,
@@ -521,11 +532,7 @@ impl PointMappingSet {
                 .filter(|(n, pm)| filter.clone()(*n, pm))
             {
                 let dj_c = pm_j.get_mapped_camera_dir(camera);
-                let dj_m = if pm_j.model_is_direction() {
-                    pm_j.model().normalize()
-                } else {
-                    (camera.position() - pm_j.model()).normalize()
-                };
+                let dj_m = pm_j.model_direction_from(&camera.position());
 
                 qs.push((
                     1.0,
@@ -545,10 +552,33 @@ impl PointMappingSet {
                 .into());
         }
 
-        let (qr, e) = utils::weighted_average_many_with_err(&qs);
+        let (qr, _e) = utils::weighted_average_many_with_err(&qs);
         camera.set_orientation(&qr);
         let te = self.total_error(camera);
-        eprintln!("Error in qr's {e} total error {te} QR: {qr}q");
+        // eprintln!("Error in qr's {e} total error {te} QR: {qr}q");
         Ok(te)
+    }
+
+    /// Calculate the *total* dx2 and dy2 for all the (filtered) points in the mapping given the camera
+    pub fn dx2_dy2_of_camera<C, F>(&self, camera: &C, filter: F) -> (f64, f64)
+    where
+        C: CameraProjection,
+        F: Fn(usize, &PointMapping) -> bool,
+    {
+        let mut dx2 = 0.0;
+        let mut dy2 = 0.0;
+        for (_, pm) in self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| filter(*n, pm))
+        {
+            // the point is mapped so this will always return Some
+            let dxy = pm.get_mapped_dpxy(camera).unwrap();
+            dx2 += dxy[0] * dxy[0];
+            dy2 += dxy[1] * dxy[1];
+        }
+        (dx2, dy2)
     }
 }
