@@ -167,7 +167,7 @@ impl Accelerate for ImageAccelerator {
         _work_items: usize,
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
-    ) -> Result<bool, String> {
+    ) -> Result<bool, ic_base::Error> {
         match shader {
             "window_sum_x" => {
                 self.window_sum_x(args, src_data, out_data);
@@ -193,7 +193,7 @@ impl Accelerate for ImageAccelerator {
                 self.sqrt(args, src_data, out_data);
                 Ok(true)
             }
-            _ => Err(format!("Unimplemented shader {shader}")),
+            _ => Err(format!("Unimplemented shader {shader}").into()),
         }
     }
 }

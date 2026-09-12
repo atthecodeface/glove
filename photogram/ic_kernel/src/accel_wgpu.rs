@@ -516,7 +516,7 @@ impl Accelerate for ImageAccelerator {
         work_items: usize,
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
-    ) -> Result<bool, String> {
+    ) -> Result<bool, ic_base::Error> {
         if let Some((p, sd)) = self.pipelines.get(shader) {
             match sd.binary {
                 false => {

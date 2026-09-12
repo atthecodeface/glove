@@ -1,7 +1,7 @@
 //a Imports
 use std::path::Path;
 
-use crate::{accel_wgpu, cpu, Accelerate, KernelArgs};
+use crate::{Accelerate, KernelArgs, accel_wgpu, cpu};
 
 //a Kernels
 //tp Kernels
@@ -75,14 +75,15 @@ impl Kernels {
         work_items: usize,
         src_data: Option<&[f32]>,
         out_data: &mut [f32],
-    ) -> Result<(), String> {
+    ) -> Result<(), ic_base::Error> {
         if self.verbose {
             eprintln!("Run shader {shader} with {work_items} items");
         }
         if let Some(wgpu) = &self.wgpu
-            && wgpu.run_shader(shader, args, work_items, src_data, out_data)? {
-                return Ok(());
-            }
+            && wgpu.run_shader(shader, args, work_items, src_data, out_data)?
+        {
+            return Ok(());
+        }
         self.cpu
             .run_shader(shader, args, work_items, src_data, out_data)
             .map(|_| ())
@@ -96,7 +97,7 @@ impl Kernels {
         n: usize,
         value: f32,
         min_dist: usize,
-    ) -> Result<Vec<(u32, u32, f32)>, String> {
+    ) -> Result<Vec<(u32, u32, f32)>, ic_base::Error> {
         let mut result: Vec<(u32, u32, f32)> = vec![];
         loop {
             let new_pts = self.find_next_best_above_x(size, min_dist, data, value)?;
@@ -132,7 +133,7 @@ impl Kernels {
         data: &[f32],
         region_size: usize,
         min_value: f32,
-    ) -> Result<Vec<(usize, usize, usize, usize, f32)>, String> {
+    ) -> Result<Vec<(usize, usize, usize, usize, f32)>, ic_base::Error> {
         let (width, height) = size;
         let mut max_of_region_slice: Vec<f32> = data.into();
         let args: KernelArgs = size.into();
@@ -174,7 +175,7 @@ impl Kernels {
         min_dist: usize,
         data: &[f32],
         value: f32,
-    ) -> Result<Vec<(u32, u32, f32)>, String> {
+    ) -> Result<Vec<(u32, u32, f32)>, ic_base::Error> {
         // Find the max values splitting the data into regions no smaller than min_dist
         //
         // If two points are found in non-adjacent regions then they
@@ -187,13 +188,7 @@ impl Kernels {
         // If the expectation is one point will exceed the value then
         // the region size should be large; if many are expected then
         // a smaller region size makes sense
-        let region_size = {
-            if min_dist < 32 {
-                32
-            } else {
-                min_dist
-            }
-        };
+        let region_size = { if min_dist < 32 { 32 } else { min_dist } };
         let mut regions_found =
             self.find_max_above_value_of_regions(size, data, region_size, value)?;
         if regions_found.is_empty() {
@@ -241,7 +236,7 @@ impl Kernels {
         data: &mut [f32],
         selected_points: I,
         region_size: usize,
-    ) -> Result<(), String>
+    ) -> Result<(), ic_base::Error>
     where
         I: Iterator<Item = [f32; 2]>,
     {
