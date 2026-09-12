@@ -5,6 +5,7 @@ use ic_base::{Point2D, Result};
 
 use crate::LineIter;
 
+/// Trait for an 8-bit color/greyscale
 pub trait ImageColor: From<u8> {
     fn grey(x: u8) -> Self {
         x.into()
@@ -12,14 +13,32 @@ pub trait ImageColor: From<u8> {
     fn rgb(r: u8, g: u8, b: u8) -> Self {
         ((((r as u16) + (g as u16) + (b as u16)) / 3) as u8).into()
     }
+    fn grey_u16(x: u16) -> Self {
+        Self::grey((x >> 8) as u8)
+    }
+    fn rgb_u16(r: u16, g: u16, b: u16) -> Self {
+        ((((r as u32) + (g as u32) + (b as u32)) / 0x300) as u8).into()
+    }
 }
+
+/// Trait for a drawable image;
 pub trait ImageDrawable {
+    /// Pixel type, which must support simple generation from u8/u16 values
     type Pixel: ImageColor;
+    /// Get the pixel at an (x,y) location
     fn get(&self, x: u32, y: u32) -> Self::Pixel;
+    /// Set the pixel at an (x,y) location
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel);
+    /// Set the pixel at an (x,y) location to a blend of the current value with the new value
+    ///
+    /// blend is the fraction of the current color to keep: 0.0 to replace the
+    /// pixel completely, 1.0 to ignore the new color, and 0.5 for half-old,
+    /// half-new
     fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Self::Pixel);
+    /// Get the size of the image
     fn size(&self) -> (u32, u32);
 
+    /// Draw a cross on the image (plus sign) at the point of a given size in pixels
     fn draw_cross(&mut self, p: &Point2D, size: f64, color: &Self::Pixel) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
@@ -34,6 +53,7 @@ pub trait ImageDrawable {
         }
     }
 
+    /// Draw a cross on the image (X sign) at the point of a given size in pixels
     fn draw_x(&mut self, p: &Point2D, size: f64, color: &Self::Pixel) {
         let s = size.ceil() as u32;
         let cx = p[0] as u32;
@@ -48,6 +68,7 @@ pub trait ImageDrawable {
         }
     }
 
+    /// Draw a line between the two points on the image
     fn draw_line(&mut self, p0: &Point2D, p1: &Point2D, color: &Self::Pixel) {
         let x0 = p0[0] as i32;
         let y0 = p0[1] as i32;
@@ -68,11 +89,21 @@ pub trait ImageDrawable {
     }
 }
 
+/// Trait for an image
 pub trait Image: Sized + ImageDrawable {
+    /// Create a new image of the given size
     fn new(width: u32, height: u32) -> Self;
+
+    /// Write the image to a path using an appropriate encoder
     fn write<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+
+    /// Read an image from the given path
     fn read<P: AsRef<Path>>(path: P) -> Result<Self>;
+
+    /// Encode the image to an array of bytes (perhaps to send to a browser, for example)
     fn encode(&self, extension: &str) -> Result<Vec<u8>>;
+
+    /// Read an image if possible, else create it and the given size
     fn read_or_create_image<P: AsRef<Path>>(
         opt_filename: Option<P>,
         opt_img_wh: Option<(u32, u32)>,

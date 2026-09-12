@@ -34,14 +34,14 @@ impl From<u16> for Gray16 {
 
 //ip TryFrom<&str> for Gray16
 impl TryFrom<&str> for Gray16 {
-    type Error = String;
-    fn try_from(s: &str) -> Result<Gray16, String> {
+    type Error = ic_base::Error;
+    fn try_from(s: &str) -> Result<Gray16, ic_base::Error> {
         if s == "None" {
             Ok(Gray16::none())
         } else if s.starts_with('#') {
             let l = s.len();
             if l != 3 && l != 5 {
-                Err(format!("Expected #GGGG or #GG for Gray16, got {s}"))
+                Err(format!("Expected #GGGG or #GG for Gray16, got {s}").into())
             } else {
                 let short_gray = s.len() < 5;
                 match u16::from_str_radix(s.split_at(1).1, 16) {
@@ -52,11 +52,13 @@ impl TryFrom<&str> for Gray16 {
                             Ok(gray.into())
                         }
                     }
-                    Err(e) => Err(format!("Expected #GGGG or #GG for Gray16, got {s} : {e}")),
+                    Err(e) => {
+                        Err(format!("Expected #GGGG or #GG for Gray16, got {s} : {e}").into())
+                    }
                 }
             }
         } else {
-            Err(format!("Expected #GGGG or #GG for Gray16, got {s}"))
+            Err(format!("Expected #GGGG or #GG for Gray16, got {s}").into())
         }
     }
 }
@@ -158,18 +160,22 @@ impl From<u8> for Color8 {
     }
 }
 
+impl From<(u8, u8, u8)> for Color8 {
+    fn from((r, g, b): (u8, u8, u8)) -> Color8 {
+        [r, g, b, 255].into()
+    }
+}
+
 //ip TryFrom<&str> for Color
 impl TryFrom<&str> for Color8 {
-    type Error = String;
-    fn try_from(s: &str) -> Result<Color8, String> {
+    type Error = ic_base::Error;
+    fn try_from(s: &str) -> Result<Color8, ic_base::Error> {
         if s == "None" {
             Ok(Color8::none())
         } else if s.starts_with('#') {
             let l = s.len();
             if l != 4 && l != 5 && l != 7 && l != 9 {
-                Err(format!(
-                    "Expected #RGB, #ARGB, #RRGGBB or #AARRGGBB for color, got {s}"
-                ))
+                Err(format!("Expected #RGB, #ARGB, #RRGGBB or #AARRGGBB for color, got {s}").into())
             } else {
                 let short_rgb = s.len() < 7;
                 let has_alpha = (s.len() == 5) || (s.len() == 9);
@@ -201,13 +207,12 @@ impl TryFrom<&str> for Color8 {
                     }
                     Err(e) => Err(format!(
                         "Expected #RGB, #ARGB, #RRGGBB or #AARRGGBB for color, got {s} : {e}"
-                    )),
+                    )
+                    .into()),
                 }
             }
         } else {
-            Err(format!(
-                "Expected #RGB, #ARGB, #RRGGBB or #AARRGGBB for color, got {s}"
-            ))
+            Err(format!("Expected #RGB, #ARGB, #RRGGBB or #AARRGGBB for color, got {s}").into())
         }
     }
 }
