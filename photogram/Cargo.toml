@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = [ "photogram",
+members = [
+    "photogram",
     "image_server",
     "photogram_wasm",
     "spherical_image",
@@ -8,10 +9,11 @@ members = [ "photogram",
     "ic_camera", "ic_http",
     "ic_image", "ic_kernel",
     "ic_mapping", "ic_mesh",
-    "ic_project", "ic_spherical_image",
+    "ic_project", "ic_projections",
+    "ic_spherical_image",
     "ic_stars", "ic_threads",
     # "ic_play",
-    "indexed", "thunderclap"]
+    "indexed"]
 
 [workspace.package]
 edition = "2024"
@@ -34,13 +36,17 @@ ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
 ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
 ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
 ic_project = { version = "0.1.0", path = "./ic_project" }
+ic_projections = { version = "0.1.0", path = "./ic_projections" }
 ic_spherical_image = { version = "0.1.0", path = "./ic_spherical_image" }
 ic_stars = { version = "0.1.0", path = "./ic_stars" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
 ic_play = { version = "0.1.0", path = "./ic_play" }
 indexed = { version = "0.1.0", path = "./indexed" }
-thunderclap = { version = "0.1.0", path = "./thunderclap" }
+photogram = { version = "0.1.0", path = "./photogram" }
 
+[workspace.dependencies.thunderclap]
+version = "0.1.0"
+path = "../../thunderclap"
 
 [workspace.dependencies.anyhow]
 version = "1.0.98"
