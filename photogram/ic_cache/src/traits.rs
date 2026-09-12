@@ -1,8 +1,7 @@
-//a Imports
 use std::any::Any;
 
-//a Cacheable
-//tt Cacheable
+/// A cacheable type must be mappable to an 'any', and provide its size
+///
 /// Note that Any requires 'static, so we require that here too
 pub trait Cacheable: Any + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;

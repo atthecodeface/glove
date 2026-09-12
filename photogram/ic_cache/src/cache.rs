@@ -5,27 +5,30 @@ use std::hash::Hash;
 
 use crate::{CacheEntry, CacheRef, Cacheable};
 
-//a Cache
-//tp Cache
+/// A cache of [CacheEntry] items, given a key
+///
+/// Each [CacheEntry] is an atomically reference-counted [Cacheable]; the
+/// [Cacheable] can be downcast to its content type, and if it requires
+/// mutability it must handle that using interior mutability. In a multithreaded
+/// environment this should be with a Mutex or RwLock, for example.
 #[derive(Debug)]
 pub struct Cache<Key>
 where
     Key: Hash + Ord + Sized + Eq + 'static,
 {
-    use_count: usize,
+    use_time: usize,
     total_size: usize,
     entries: Vec<CacheEntry>,
     index: HashMap<Key, usize>,
 }
 
-//ip Default for Cache
 impl<Key> std::default::Default for Cache<Key>
 where
     Key: Hash + Ord + Sized + Eq + 'static,
 {
     fn default() -> Self {
         Cache {
-            use_count: 0,
+            use_time: 0,
             total_size: 0,
             entries: vec![],
             index: HashMap::default(),
@@ -33,17 +36,16 @@ where
     }
 }
 
-//ip Cache
 impl<Key> Cache<Key>
 where
     Key: Hash + Ord + Sized + Eq + 'static,
 {
-    //ap total_size
+    /// Get the total size of the cache
     pub fn total_size(&self) -> usize {
         self.total_size
     }
 
-    //mp contains
+    /// Return true if the cache contains the key
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
         Key: Borrow<Q>,
@@ -56,13 +58,16 @@ where
         }
     }
 
-    //mp insert
+    /// Insert an item into the cache given a key
+    ///
+    /// If there is an item in the cache already with that key, then an
+    /// insertion is *NOT* performed and the value is returned
     pub fn insert<C: Cacheable>(&mut self, k: Key, e: C) -> Option<C> {
         if let Some(idx) = self.index.get(&k) {
             if self.entries[*idx].is_empty() {
                 let size = e.size();
-                self.entries[*idx].fill(e.into(), self.use_count);
-                self.use_count += 1;
+                self.entries[*idx].fill(e.into(), self.use_time);
+                self.use_time += 1;
                 self.total_size += size;
                 None
             } else {
@@ -71,30 +76,32 @@ where
         } else {
             let size = e.size();
             let n = self.entries.len();
-            self.entries.push(CacheEntry::new(e.into(), self.use_count));
+            self.entries.push(CacheEntry::new(e.into(), self.use_time));
             self.index.insert(k, n);
-            self.use_count += 1;
+            self.use_time += 1;
             self.total_size += size;
             None
         }
     }
 
-    //mp get
+    /// Get a copy of the [CacheEntry] (as a [CacheRef]) of the item in the
+    /// cache with the given key, or None if the key is not present or the cache
+    /// entry associated with it is empty
     pub fn get<Q>(&mut self, k: &Q) -> Option<CacheRef>
     where
         Key: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         if let Some(idx) = self.index.get(k) {
-            let opt_e = self.entries[*idx].take_copy(self.use_count);
-            self.use_count += 1;
+            let opt_e = self.entries[*idx].take_copy(self.use_time);
+            self.use_time += 1;
             opt_e
         } else {
             None
         }
     }
 
-    //mp indices_by_age
+    /// Generate an array of indices sorted by age
     pub fn indices_by_age(&self) -> Vec<usize> {
         let mut indices: Vec<usize> = self.index.values().copied().collect();
         indices.sort_by(|a, b| {
@@ -105,7 +112,11 @@ where
         indices
     }
 
-    //mp shrink_to
+    /// Empty the entries, least recently used first, until the cache has a total size no more than required
+    ///
+    /// Returns true if the size has been reduced as desired; cache entries can
+    /// only be emptied if they are not in use (i.e. the CacheEntry associated
+    /// with them has not got an active clone)
     pub fn shrink_to(&mut self, size: usize) -> bool {
         eprintln!("Shrink to {size} when at {}", self.total_size);
         if self.total_size < size {
@@ -122,6 +133,4 @@ where
         }
         self.total_size < size
     }
-
-    //zz All done
 }
