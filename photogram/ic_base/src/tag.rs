@@ -193,21 +193,6 @@ impl std::default::Default for Tag {
 //ip Tag
 impl Tag {
     /// Clone an Owned or Shared tag; panic if this is unresolved
-    // Must only be used by TagSet
-    #[track_caller]
-    fn clone_allow_owned(&self) -> Self {
-        match self {
-            Tag::Unresolved(_s) => {
-                panic!(
-                    "Attempt to clone an Unresolved tag for the TagSet which should only see Owned/Shared"
-                );
-            }
-            Tag::Owned(s) => Tag::Owned(s.clone()),
-            Tag::Shared(s) => Tag::Shared(s.clone()),
-        }
-    }
-
-    /// Clone an Owned or Shared tag; panic if this is unresolved
     fn clone_with_new_name<S: Into<String>>(&self, name: S) -> Self {
         match self {
             Tag::Owned(_s) => Tag::Owned(name.into().into()),

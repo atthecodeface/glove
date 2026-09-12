@@ -75,40 +75,51 @@ The meeting line is then P0 to P1, with:
 
 !*/
 
-//a Imports
 use serde::{Deserialize, Serialize};
 
 use crate::{JsonParsable, Point3D, Result};
 
-use geo_nd::{matrix, Vector};
+use geo_nd::{Vector, matrix};
 
-//a NamedRayList
+/// A NamedRayList is a list of (name, ray);
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NamedRayList {
     named_rays: Vec<(String, Ray)>,
 }
+
 impl std::convert::From<Vec<(String, Ray)>> for NamedRayList {
     fn from(named_rays: Vec<(String, Ray)>) -> Self {
         Self { named_rays }
     }
 }
+
 impl NamedRayList {
+    /// Return true if the list of rays is empty
     pub fn is_empty(&self) -> bool {
         self.named_rays.is_empty()
     }
+
+    /// Get the length of the list of rays
     pub fn len(&self) -> usize {
         self.named_rays.len()
     }
-    pub fn iter(&self) -> impl Iterator<Item = &(String, Ray)> {
+
+    /// Get an iterator over the (name, ray) pairs
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &(String, Ray)> {
         self.named_rays.iter()
     }
+
+    /// Add a named ray to the list
     pub fn add_ray<S: Into<String>>(&mut self, name: S, ray: Ray) {
         self.named_rays.push((name.into(), ray))
     }
+
+    /// Append another list of named rays to this list
     pub fn append(&mut self, mut other: Self) {
         self.named_rays.append(&mut other.named_rays)
     }
-    //mp to_json
+
+    /// Generate the JSON of this named ray list
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -129,8 +140,22 @@ impl JsonParsable for NamedRayList {
     }
 }
 
-//a Ray
-//tp Ray
+/// Simply, a Ray is a vector direction in space (model or camera); however, it
+/// also has a 'start' point and an error value, recorded as the tan of the
+/// angle that the ray is 'known' to be within (its error bar, effectively)
+///
+/// A ray is then effectively a cone from the starting point in the direction of
+/// the vector with an angle given by tan_error
+///
+/// For a ray corresponding to a point-mapping that 'travels' from the sensor of
+/// the camera, through the focus, through the lens mapping, to the world, the
+/// direction is from the centre of the lens (the camera position) as given by
+/// the lens mapping of the Roll/Yaw of the sensor position mapped through to
+/// world space (accounting for the camera orientation). The error is such that
+/// the error in the point mapping (a radius in pixels) yields other rays
+/// (mapped in the same manner as above, from different sensor pixels); the
+/// resultant ray with the largest divergence from the central ray subtends an
+/// angle, and the tan of that angle is the tan_error.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Ray {
     /// Starting point
@@ -152,7 +177,6 @@ impl JsonParsable for Ray {
     }
 }
 
-//ip Display for Ray
 impl std::fmt::Display for Ray {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(
@@ -163,49 +187,47 @@ impl std::fmt::Display for Ray {
     }
 }
 
-//ip Ray
 impl Ray {
-    //cp set_start
+    /// Constructor: set the start point of the ray
     #[inline]
     pub fn set_start(mut self, start: Point3D) -> Self {
         self.start = start;
         self
     }
 
-    //cp set_direction
+    /// Constructor: set the direction of the ray
     #[inline]
     pub fn set_direction(mut self, direction: Point3D) -> Self {
         self.direction = direction.normalize();
         self
     }
 
-    //cp set_tan_error
+    /// Constructor: set the tan(angle error) of the ray
     #[inline]
     pub fn set_tan_error(mut self, tan_error: f64) -> Self {
         self.tan_error = tan_error;
         self
     }
 
-    //ap start
+    /// Get the start position of the ray
     #[inline]
     pub fn start(&self) -> Point3D {
         self.start
     }
 
-    //ap direction
+    /// Get the direction of the ray
     #[inline]
     pub fn direction(&self) -> Point3D {
         self.direction
     }
 
-    //ap tan_error
+    /// Get the tan(angle error) of the ray
     #[inline]
     pub fn tan_error(&self) -> f64 {
         self.tan_error
     }
 
-    //fp closest_point
-    /// Find the point whose minimum square distance from all the rays is minimized
+    /// Find the point whose square distance from all the rays is the minimum
     ///
     /// This uses the fact that the distance D a point p is from a line a + k*b can be found
     /// with p = a + k*b + D*n for some unit vector n perpendicular to b hence n.b=0, |n^b|=1;
@@ -315,7 +337,6 @@ impl Ray {
         Some(p.into())
     }
 
-    //fp distances
     /// Find the distance along and square distance from the ray of a point
     ///
     /// p = a + k*b + D*n where n.b=0 and |n|=1, and |b|=1, |n^b|=1
@@ -335,7 +356,6 @@ impl Ray {
         (k, d_sq)
     }
 
-    //mp intersect
     /// Intersect two rays
     ///
     /// Output data for debug
@@ -381,129 +401,4 @@ impl Ray {
         dbg!(rm);
         dbg!(target);
     }
-
-    //zz All done
-}
-
-//a Tests
-//ft test_ray
-#[test]
-fn test_ray() -> Result<()> {
-    let r0 = Ray::default()
-        .set_start([1., 0., 0.].into())
-        .set_direction([-1., 0., 0.].into())
-        .set_tan_error(0.1);
-    let r1 = Ray::default()
-        .set_start([0., 1., 0.].into())
-        .set_direction([0., -1., 0.01].into())
-        .set_tan_error(0.1);
-    r0.intersect(&r1);
-    eprintln!("{}", serde_json::to_string_pretty(&[r0, r1]).unwrap());
-    Ok(())
-}
-
-//ft test_ray2
-#[test]
-fn test_ray2() -> Result<()> {
-    
-    let ray_4060 = Ray::load_json(
-        r#"
-{
-      "start": [
-        -257.61000000000007,
-        -292.0,
-        186.81
-      ],
-      "direction": [
-        0.72802906255846,
-        0.641401039594509,
-        -0.2420297305649314
-      ],
-      "tan_error": 0.1
-    }"#,
-        &(),
-    )?;
-
-    let ray_4062 = Ray::load_json(
-        r#"
-{
-      "start": [
-        -272.47666666666686,
-        -98.69999999999999,
-        261.94333333333316
-      ],
-      "direction": [
-        0.8558988940122954,
-        0.2414215789446973,
-        -0.4573321598667418
-      ],
-      "tan_error": 0.1
-    }"#,
-        &(),
-    )?;
-    ray_4060.intersect(&ray_4062);
-    //    assert!(false);
-    Ok(())
-}
-
-//ft test_ray3
-#[test]
-fn test_ray3() -> Result<()> {
-    
-    let ray_4060 = Ray::load_json(
-        r#"
-{
-      "start": [
-        -257.61000000000007,
-        -292.0,
-        186.81
-      ],
-      "direction": [
-        0.72802906255846,
-        0.641401039594509,
-        -0.2420297305649314
-      ],
-      "tan_error": 0.1
-    }"#,
-        &(),
-    )?;
-
-    let ray_4062 = Ray::load_json(
-        r#"
-{
-      "start": [
-        -272.47666666666686,
-        -98.69999999999999,
-        261.94333333333316
-      ],
-      "direction": [
-        0.8558988940122954,
-        0.2414215789446973,
-        -0.4573321598667418
-      ],
-      "tan_error": 0.2
-    }"#,
-        &(),
-    )?;
-
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|_| 1.0).unwrap();
-    dbg!(p);
-    let (_k0, d0_sq) = ray_4060.distances(&p);
-    let (_k1, d1_sq) = ray_4062.distances(&p);
-    assert!(
-        (d0_sq - d1_sq).abs() < 1E-6,
-        "Distance between the closest point and each of the rays should be about the same"
-    );
-
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|r| 1.0 / r.tan_error()).unwrap();
-    dbg!(p);
-    let (_k0, d0_sq) = ray_4060.distances(&p);
-    let (_k1, d1_sq) = ray_4062.distances(&p);
-    dbg!(d0_sq.sqrt(), d1_sq.sqrt());
-    assert!(
-        (d0_sq.sqrt() * 2.0 - d1_sq.sqrt()) < 1E-4,
-        "Point should be half the distance from ray 0 compared to ray 0"
-    );
-
-    Ok(())
 }

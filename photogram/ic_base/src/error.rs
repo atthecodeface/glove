@@ -25,7 +25,10 @@ pub enum Error {
     #[error("{0}: {1}")]
     SelfError(String, Box<Self>),
     #[error("{0}: {1}")]
-    BoxError(&'static str, Box<dyn std::error::Error>),
+    BoxError(
+        &'static str,
+        Box<dyn std::error::Error + 'static + Send + Sync>,
+    ),
 }
 
 impl<P: std::fmt::Display> std::convert::From<(P, std::io::Error)> for Error {

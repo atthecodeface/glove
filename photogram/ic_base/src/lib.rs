@@ -13,10 +13,12 @@ pub use json::{JsonParsable, JsonSrc, QuaternionDesc};
 
 mod path_set;
 pub use path_set::{PathGlob, PathSet};
+mod model_data;
 mod plane;
 mod quadtree;
 mod tag;
 mod triangle3d;
+pub use model_data::ModelData;
 pub mod types;
 pub mod utils;
 pub use tag::{Tag, TagData, TagMap, TagSet};
@@ -33,8 +35,8 @@ pub use types::{Mat3x3, Point2D, Point3D, Point4D, Quat, RollYaw, TanXTanY};
 mod ray;
 pub use ray::{NamedRayList, Ray};
 
-mod mesh;
-pub use mesh::Mesh;
+// mod mesh;
+// pub use mesh::Mesh;
 pub use utils::Rrc;
 
 pub use quadtree::{QtPath, Quadtree};

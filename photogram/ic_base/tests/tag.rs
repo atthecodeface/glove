@@ -1,5 +1,5 @@
 use ic_base::{Tag, TagData, TagMap};
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 
 struct Blah {
     tag: RefCell<Tag>,
