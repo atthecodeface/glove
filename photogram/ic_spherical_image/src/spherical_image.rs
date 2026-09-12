@@ -2,7 +2,7 @@ use crate::{
     GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData,
     SphericalImageError, SubdivisionPath,
 };
-use ic_base::{JsonParsable, PathSet, Point3D};
+use ic_base::{JsonParsable, PathSet, Point3D, Result};
 use ic_image::{Image, ImageGray16, ImageRgb8};
 use indexed::{Idx, IndexedVec};
 use serde::{Deserialize, Serialize};
@@ -23,15 +23,19 @@ indexed::make_index!(
 /// contains the pixels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SphericalImageDescriptor {
-    /// Filename
+    /// The toplevel shape of the spherical image - Tetrahedron, Octahedron, Icosahedron
+    shape: SphericalImageShape,
+    /// Image files that contain data for the spherical image
     #[serde(default)]
     files: Vec<ImageFileDesc>,
-    /// Toplevel shape
-    shape: SphericalImageShape,
     /// Patch hierarchy description
     ///
     /// The patches *must* be in order of lowest resolution to highest
     /// resolution, if they overlap at all
+    ///
+    /// A patch contains a square of image data for an adjacent pair of
+    /// triangles that form part of the spherical image; it is within one of the
+    /// image files at a specific offset, of a specified size
     patches: Vec<SphericalPatchDescriptor>,
 }
 
@@ -52,7 +56,7 @@ impl SphericalImageDescriptor {
         shape: SphericalImageShape,
         img_wh: (u32, u32),
         patch_size: u32,
-    ) -> Result<Self, SphericalImageError> {
+    ) -> Result<Self> {
         let mut patches = vec![];
         let sd = shape.to_spherical_data()?;
         let mut img_x = 0;
@@ -89,20 +93,31 @@ impl SphericalImageDescriptor {
     }
 }
 
-/// A descriptor of a spherical image that accompanies the actual bitmap that
-/// contains the pixels
+/// The data required for a spherical image that accompanies the actual bitmaps that
+/// contains the pixel data
+///
+///
 #[derive(Debug)]
 pub struct SphericalImage<I: Image> {
+    /// The toplevel shape of the spherical image - Tetrahedron, Octahedron, Icosahedron
+    shape: SphericalImageShape,
     /// Path set used for files
     path_set: PathSet,
-    /// Toplevel shape
-    shape: SphericalImageShape,
-    /// Images that make up the data
+    /// Images that contain the pixel data for the image, at various resolutions potentially
     image_files: IndexedVec<ImageFileIndex, ImageFile<I>, true>,
-    /// The triangles, normals, etc in the sphere surface
+    /// The GC triangles, normals, etc in the sphere surface
     sd: SphericalData,
-    /// GreatCircleTriangleIndex for sd for triangles in the image that are
-    /// toplevel or toplevel subdivide by one
+    /// An index that allows a vector to be mapped to a
+    /// GreatCircleTriangleIndex; this is derived from the SphericalData element
+    /// to provide for fast determination as to which GC triangle a specific
+    /// vector lies within
+    ///
+    /// The vector will lie on either a positive or negative side of every great
+    /// circle normal at a patch level of 0/1; a bitmask is generated for these,
+    /// i.e. vector maps to a bitmask of up to 64 bits; this is a sparse result
+    /// (i.e. not all 2^64 values are possible). The index maps the bitmask
+    /// value to a specific GreateCircleTriangleIndex, which is the GC Triangle
+    /// that the vector lies within.
     sd_index: SdIndex,
     /// Patches that make up the surface
     ///
@@ -130,6 +145,8 @@ impl<I: Image> std::ops::Index<ImageFileIndex> for SphericalImage<I> {
 }
 
 impl<I: Image> SphericalImage<I> {
+    /// Create the SdIndex, which maps vectors to GC Triangles, and the patch
+    /// map, which maps GC triangle index to highest resolution patch
     fn create_indices(&mut self) {
         self.patch_map.clear();
         for (i, p) in self.patches.iter().enumerate() {
@@ -144,6 +161,9 @@ impl<I: Image> SphericalImage<I> {
         );
     }
 
+    /// Create a new spherical image with empty data, given a toplevel shape
+    ///
+    /// The path set will be empty
     pub fn of_shape(shape: SphericalImageShape) -> Self {
         let path_set = PathSet::default();
         let image_files = IndexedVec::default();
@@ -164,6 +184,13 @@ impl<I: Image> SphericalImage<I> {
         s
     }
 
+    /// Create a spherical image from a descriptor, which has presumably been read from a file
+    ///
+    /// This includes reading the image pixel data; it will fail if the images
+    /// cannot be found
+    ///
+    /// To enable files to be found, the PathSet must be supplied; this is then
+    /// kept in the spherical image itself
     pub fn of_desc(path_set: &PathSet, desc: &SphericalImageDescriptor) -> ic_base::Result<Self> {
         let mut image_files = IndexedVec::default();
         for id in desc.files.iter() {
@@ -191,6 +218,8 @@ impl<I: Image> SphericalImage<I> {
         Ok(s)
     }
 
+    /// Create a [SphericalImageDescriptor] for this spherical image, usually
+    /// for saving in a file
     pub fn to_desc(&self) -> SphericalImageDescriptor {
         let files: Vec<_> = self.image_files.iter().map(|f| f.to_desc()).collect();
         let shape = self.shape;
@@ -202,21 +231,25 @@ impl<I: Image> SphericalImage<I> {
         }
     }
 
+    /// Get a reference to the [PathSet] for the image
     pub fn path_set(&self) -> &PathSet {
         &self.path_set
     }
 
+    /// Set the PathSet
     pub fn set_path_set(&mut self, path_set: PathSet) {
         self.path_set = path_set;
     }
 
+    /// Add a blank new image of certain dimensions to the image data for the spherical image
     pub fn add_new_image(&mut self, width: u32, height: u32) -> ImageFileIndex {
         self.image_files.push(ImageFile::new(width, height))
     }
 
-    pub fn add_image_file(
+    /// Add an image file (a JPEG usually) to the spherical image, given its path
+    pub fn add_image_file<A: AsRef<Path>>(
         &mut self,
-        filename: &str,
+        filename: A,
         img_wh: Option<(u32, u32)>,
     ) -> ic_base::Result<ImageFileIndex> {
         Ok(self
@@ -224,10 +257,21 @@ impl<I: Image> SphericalImage<I> {
             .push(ImageFile::of_file(&self.path_set, filename, img_wh)?))
     }
 
-    pub fn set_image_path<P: AsRef<Path>>(&mut self, image_file: ImageFileIndex, path: P) {
-        self.image_files[image_file].set_path(path);
+    /// Set the path of a specific image file within the spherical image
+    pub fn set_image_path<P: AsRef<Path>>(
+        &mut self,
+        image_file: ImageFileIndex,
+        path: P,
+    ) -> Result<()> {
+        if let Some(f) = self.image_files.get_mut(image_file) {
+            f.set_path(path);
+            Ok(())
+        } else {
+            Err(format!("Image file index {image_file:?} out of range").into())
+        }
     }
 
+    /// Write a specific image to its given file path
     pub fn write_image(&self, image_file: ImageFileIndex) -> ic_base::Result<()> {
         self.image_files[image_file]
             .image()
@@ -254,6 +298,9 @@ impl<I: Image> SphericalImage<I> {
                 "subdivision of {patch_subdivision} too larger for patch size {patch_size}",
             )
             .into());
+        }
+        if self.image_files.get(image_file).is_none() {
+            return Err(format!("must have a toplevel image of the appropriate size, but {image_file:?} is out of range for the currently added images").into());
         }
         let toplevel_triangles: Vec<_> = self
             .sd
@@ -304,6 +351,9 @@ impl<I: Image> SphericalImage<I> {
         self.patches.indices()
     }
 
+    /// Fill a specific patch of the spherical image (which is a square of one
+    /// of the image files), using the given function that maps a vector to an
+    /// optional pixel value
     pub fn fill_image_patch<F: FnMut(Point3D) -> Option<I::Pixel>>(
         &mut self,
         blend: f64,
@@ -332,6 +382,7 @@ impl<I: Image> SphericalImage<I> {
         image_patch.fill_img();
     }
 
+    /// Get the pixel value at a given vector
     pub fn get_pixel_of_direction(&self, p: &Point3D) -> Option<I::Pixel> {
         for patch in self.patches.iter() {
             if patch.contains_direction(&self.sd, p) {
