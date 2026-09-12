@@ -1,4 +1,4 @@
-use std::{cmp::max, collections::HashMap, num};
+use std::collections::HashMap;
 
 use thunderclap::{
     ArgCount, ArgDescriptor, CmdDescriptor, CmdProperty, CommandArgs, CommandBuilder,
@@ -8,189 +8,9 @@ use geo_nd::{Quaternion, Vector};
 use ic_base::{JsonParsable, JsonSrc, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
 use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, LensPolys};
 use ic_image::{Image, ImageDrawable, ImageRgb8};
+use ic_projections::{Cylinder, CylindricalProjection};
 use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
 use indexed::Idx;
-use star_catalog::Catalog as StarCatalog;
-
-/// The mapping is x,y to λ (lambda), φ (phi)
-///
-/// The spherical coords λ and φ
-/// map to a direction (relative to the camera orientation) of (sin(λ), tan(φ), cos(λ)) normalized,
-/// i.e. a rotation of (0,0,1) about the X axis by φ (latitude) then about the Y axis by λ (longitude).
-///
-/// x_relative is in the range -1 to +1 for left to right of the image; y_relative +1 to -1 for bottom to top
-///
-/// All cylindrical projections use x = λ, or rather λ = x; this is the 'main' axis
-///
-/// The minor axis (y) can map the actual y value in the range +-1 to +-hfov_v; this is the equirectangular projection with phi = y
-///
-/// The minor axis (y) can map the actual y value with phi = atan(y), with
-/// phi in the range +-hfov_v; then y must map to a range of tan(-hfovh) to
-/// tan(hfovh) (linearly)
-///
-///
-/// "Equirectangular projection" uses x = λ, y = φ
-/// "Central cylindrical projection" uses x = λ, y = tan(φ) [ hence φ = atan(y) ]
-/// "Lambert cylindrical projection (equal area) " uses x = λ, y = sin(φ)  [ hence φ = asin(y) ]
-/// "Gall stereographic projection " uses x = λ, y = tan(φ/2) [ hence φ = 2*atan(y) ]
-trait CylindricalProjection: std::fmt::Debug {
-    fn name(&self) -> &str;
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64);
-    /// Map y in range 0 to 1 (max to min) to phi
-    ///
-    ///
-    fn phi_of_y(&self, y: f64) -> f64;
-    /// Map y in range 0 to 1 (max to min) to phi
-    fn tan_phi_of_y(&self, y: f64) -> f64 {
-        self.phi_of_y(y).tan()
-    }
-    /// Map phi to y, with (v_ofs+fov_v/2) mapping 0 and (v_ofs-fov_v/2 ) to 1
-    ///
-    /// This must use the inverse mapping for phi(y)
-    fn y_of_phi(&self, phi: f64) -> f64;
-}
-
-#[derive(Debug)]
-pub struct Cylinder {
-    projection: Box<dyn CylindricalProjection>,
-}
-impl std::default::Default for Cylinder {
-    fn default() -> Self {
-        Self {
-            projection: Box::new(CylindricalCentral::default()),
-        }
-    }
-}
-impl Cylinder {
-    fn set_projection(&mut self, projection: &str) -> Result<()> {
-        self.projection = {
-            match projection {
-                "equirectangular" => Box::new(CylindricalEquirectangular::default()),
-                "lambert" => Box::new(CylindricalLambert::default()),
-                "central" => Box::new(CylindricalCentral::default()),
-                "stereographic" => Box::new(CylindricalStereographic::default()),
-                _ => Box::new(CylindricalCentral::default()),
-            }
-        };
-        Ok(())
-    }
-}
-impl CylindricalProjection for Cylinder {
-    fn name(&self) -> &str {
-        self.projection.name()
-    }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        self.projection.set_vfov(fov_v, v_ofs)
-    }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.projection.phi_of_y(y_relative)
-    }
-    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
-        self.projection.tan_phi_of_y(y_relative)
-    }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        self.projection.y_of_phi(phi)
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-struct CylindricalEquirectangular {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
-impl CylindricalProjection for CylindricalEquirectangular {
-    fn name(&self) -> &str {
-        "equirectangular"
-    }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        self.max_y = v_ofs + fov_v / 2.0;
-        let min_y = v_ofs - fov_v / 2.0;
-        self.max_minus_min_y = self.max_y - min_y;
-    }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.max_y - y_relative * (self.max_minus_min_y)
-    }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        (self.max_y - phi) / self.max_minus_min_y
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-struct CylindricalLambert {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
-impl CylindricalProjection for CylindricalLambert {
-    fn name(&self) -> &str {
-        "lambert"
-    }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        let min_y = (v_ofs - fov_v / 2.0).sin();
-        let max_y = (v_ofs + fov_v / 2.0).sin();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
-    }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
-        y_angle.asin()
-    }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        let y_angle = phi.sin();
-        (self.max_y - y_angle) / self.max_minus_min_y
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-struct CylindricalCentral {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
-impl CylindricalProjection for CylindricalCentral {
-    fn name(&self) -> &str {
-        "central"
-    }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        let min_y = (v_ofs - fov_v / 2.0).tan();
-        let max_y = (v_ofs + fov_v / 2.0).tan();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
-    }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.tan_phi_of_y(y_relative).atan()
-    }
-    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
-        self.max_y - y_relative * self.max_minus_min_y
-    }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        let y_angle = phi.tan();
-        (self.max_y - y_angle) / self.max_minus_min_y
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-struct CylindricalStereographic {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
-impl CylindricalProjection for CylindricalStereographic {
-    fn name(&self) -> &str {
-        "stereographic"
-    }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        let min_y = ((v_ofs - fov_v / 2.0) / 2.0).tan();
-        let max_y = ((v_ofs + fov_v / 2.0) / 2.0).tan();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
-    }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
-        2.0 * y_angle.atan()
-    }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        let y_angle = (phi / 2.0).tan();
-        (self.max_y - y_angle) / self.max_minus_min_y
-    }
-}
 
 #[derive(Default)]
 pub struct SphericalImageCommand {
@@ -220,19 +40,11 @@ pub struct SphericalImageCommand {
     images: HashMap<String, SphericalImage<ImageRgb8>>,
     blend: f64,
 
-    star_magnitude: f32,
-    star_catalog: Option<StarCatalog>,
-
     // These are reset before the command
     xy: Vec<Point2D>,
     xyz: Vec<Point3D>,
     write_filename: Option<String>,
     read_filename: Option<String>,
-
-    // Positional string / f64 / usize arguments
-    arg_strings: Vec<String>,
-    arg_f64s: Vec<f64>,
-    arg_usizes: Vec<usize>,
 }
 
 impl std::fmt::Debug for SphericalImageCommand {
@@ -490,34 +302,6 @@ impl SphericalImageCommand {
     fn add_xyz(&mut self, v: &str) -> Result<()> {
         self.xyz
             .extend_from_slice(&Vec::<Point3D>::load_json(v, &())?);
-        Ok(())
-    }
-
-    const ARG_STAR_MAGNITUDE: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_f32(
-        "star_magnitude",
-        None,
-        "Set the star magnitude, using a default value of 8.0",
-        ArgCount::Required,
-        Some("8.0"),
-        &SphericalImageCommand::set_star_magnitude,
-    );
-    fn set_star_magnitude(&mut self, v: f32) -> Result<()> {
-        self.star_magnitude = v;
-        Ok(())
-    }
-
-    const ARG_STAR_CATALOG: ArgDescriptor<SphericalImageCommand> = ArgDescriptor::arg_string(
-        "star_catalog",
-        None,
-        "Set the star catalog, used fo generate sky map images of the stars. Ensure the star magnitude is set before using this option",
-        ArgCount::Optional,
-        None,
-        &SphericalImageCommand::set_star_catalog,
-    );
-    fn set_star_catalog(&mut self, filename: &str) -> Result<()> {
-        let mut catalog = StarCatalog::load_catalog(filename, self.star_magnitude)?;
-        catalog.derive_data();
-        self.star_catalog = Some(catalog);
         Ok(())
     }
 
@@ -846,21 +630,6 @@ impl SphericalImageCommand {
 
     pub fn command_builder() -> CommandBuilder<Self> {
         Self::BASE_CMD.build()
-    }
-
-    fn add_string_arg(&mut self, s: &str) -> Result<()> {
-        self.arg_strings.push(s.to_owned());
-        Ok(())
-    }
-
-    fn add_f64_arg(&mut self, v: f64) -> Result<()> {
-        self.arg_f64s.push(v);
-        Ok(())
-    }
-
-    fn add_usize_arg(&mut self, v: usize) -> Result<()> {
-        self.arg_usizes.push(v);
-        Ok(())
     }
 
     fn validate_active_image_name(&self) -> Result<()> {
