@@ -641,8 +641,18 @@ impl LensPolys {
     where
         F: Fn(f64) -> f64,
     {
-        let wts_poly = PiecewiseBezier::of_fn(yaw_range_min, yaw_range_max, wts_fn, 1E-4, 100)?;
+        eprintln!("Here");
+        let wts_poly = PiecewiseBezier::of_fn(
+            yaw_range_min,
+            yaw_range_max,
+            wts_fn,
+            1E-4,
+            100,
+            (yaw_range_max - yaw_range_min) / 100.0,
+        )?;
+        eprintln!("Here 2");
         let stw_poly = wts_poly.inv(yaw_range_min, yaw_range_max, 1E-6, 10000, 100)?;
+        eprintln!("Here 3");
         let max_world = yaw_range_max;
         let max_sensor = wts_poly.evaluate(max_world);
         Ok(Self {
