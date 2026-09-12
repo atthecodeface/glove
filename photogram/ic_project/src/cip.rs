@@ -1,5 +1,8 @@
 //a Imports
-use std::cell::{Ref, RefMut};
+use std::{
+    cell::{Ref, RefMut},
+    default,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -124,62 +127,47 @@ impl JsonParsable for CipDesc {
 //tp Cip
 #[derive(Debug, Default, Serialize)]
 pub struct Cip {
-    camera_filename: String,
-    pms_filename: String,
     image_filename: String,
     camera: Rrc<CameraInstance>,
     pms: Rrc<PointMappingSet>,
+    // Change to 'name'
     image: Tag,
+    // Remove me
+    camera_filename: String,
+    // Remove me
+    pms_filename: String,
 }
 
 //ip Cip
 impl Cip {
-    //ap image
-    pub fn image(&self) -> &Tag {
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        let name = Tag::owned(name);
+        Self {
+            image: name,
+            ..Default::default()
+        }
+    }
+
+    pub fn name_as_tag(&self) -> &Tag {
         &self.image
     }
 
-    //mp resolve_tag
-    pub fn resolve_tag(&mut self, tag_set: &TagSet) {
+    pub fn resolve_name(&mut self, tag_set: &TagSet) {
         self.image.resolve_in(tag_set);
     }
 
-    //mp set_image
     pub fn set_image<I: Into<Tag>>(&mut self, s: I) {
         self.image = s.into();
     }
 
-    //ap camera_filename
-    pub fn camera_filename(&self) -> &str {
-        &self.camera_filename
-    }
-
-    //ap image_filename
     pub fn image_filename(&self) -> &str {
         &self.image_filename
     }
 
-    //ap pms_filename
-    pub fn pms_filename(&self) -> &str {
-        &self.pms_filename
-    }
-
-    //mp set_camera_filename
-    pub fn set_camera_filename<I: Into<String>>(&mut self, s: I) {
-        self.camera_filename = s.into();
-    }
-
-    //mp set_image_filename
     pub fn set_image_filename<I: Into<String>>(&mut self, s: I) {
         self.image_filename = s.into();
     }
 
-    //mp set_pms_filename
-    pub fn set_pms_filename<I: Into<String>>(&mut self, s: I) {
-        self.pms_filename = s.into();
-    }
-
-    //mp read_json
     /// Used by Wasm
     pub fn read_json(
         &mut self,
@@ -201,7 +189,6 @@ impl Cip {
         Ok(warnings)
     }
 
-    //cp from_desc
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
         let mut image = cip_desc.image;
         let camera = CameraInstance::from_desc(&project.cdb().borrow(), cip_desc.camera)?.into();
@@ -229,7 +216,6 @@ impl Cip {
         ))
     }
 
-    //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -238,46 +224,40 @@ impl Cip {
         }
     }
 
-    //ap camera
     pub fn camera(&self) -> &Rrc<CameraInstance> {
         &self.camera
     }
 
-    //mp set_camera
     pub fn set_camera(&mut self, camera: Rrc<CameraInstance>) {
         self.camera = camera;
     }
 
-    //mp camera_ref
     /// Get a borrowed reference to the CameraInstance
     pub fn camera_ref(&self) -> Ref<'_, CameraInstance> {
         self.camera.borrow()
     }
 
-    //mp camera_mut
     /// Get a mutable borrowed reference to the CameraInstance
     pub fn camera_mut(&self) -> RefMut<'_, CameraInstance> {
         self.camera.borrow_mut()
     }
 
-    //ap pms
     pub fn pms(&self) -> &Rrc<PointMappingSet> {
         &self.pms
     }
 
-    //mp pms_ref
     /// Get a borrowed reference to the PointMappingSet
     pub fn pms_ref(&self) -> Ref<'_, PointMappingSet> {
         self.pms.borrow()
     }
 
-    //mp pms_mut
     /// Get a mutable borrowed reference to the PointMappingSet
     pub fn pms_mut(&self) -> RefMut<'_, PointMappingSet> {
         self.pms.borrow_mut()
     }
 
-    //mp locate
+    /// Locate a CIP using a subset of the point mappings, given by a filter
+    /// that maps the enumerated PM to a bool
     pub fn locate<F>(&self, filter: F, max_pairs: usize) -> Result<f64>
     where
         F: Fn(usize, &PointMapping) -> bool,
@@ -302,7 +282,6 @@ impl Cip {
         Ok(err)
     }
 
-    //fp orient_camera_using_model_directions
     pub fn orient_camera_using_model_directions<F>(&mut self, filter: F) -> Result<f64>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
@@ -312,5 +291,12 @@ impl Cip {
             .orient_camera_using_model_directions(&mut *self.camera_mut(), filter)
     }
 
-    //zz all done
+    pub fn dx2_dy2_of_camera<F>(&self, filter: F) -> (f64, f64)
+    where
+        F: Fn(usize, &PointMapping) -> bool,
+    {
+        self.pms
+            .borrow()
+            .dx2_dy2_of_camera(&*self.camera.borrow(), filter)
+    }
 }

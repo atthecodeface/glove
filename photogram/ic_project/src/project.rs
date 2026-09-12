@@ -178,83 +178,75 @@ impl<'de> Deserialize<'de> for Project {
 
 //ip Project
 impl Project {
-    //ap cdb
     pub fn cdb(&self) -> &Rrc<CameraDatabase> {
         &self.cdb
     }
 
-    //ap cdb_filename
     pub fn cdb_filename(&self) -> &str {
         &self.cdb_filename
     }
 
-    //ap nps
     pub fn nps(&self) -> &Rrc<NamedPointSet> {
         &self.nps
     }
 
-    //ap nps_filename
     pub fn nps_filename(&self) -> &str {
         &self.nps_filename
     }
 
-    //mp set_cdb_filename
     pub fn set_cdb_filename<S: Into<String>>(&mut self, cdb_filename: S) {
         self.cdb_filename = cdb_filename.into();
     }
 
-    //mp set_nps_filename
     pub fn set_nps_filename<S: Into<String>>(&mut self, nps_filename: S) {
         self.nps_filename = nps_filename.into();
     }
 
-    //ap cdb_ref
     pub fn cdb_ref(&self) -> Ref<'_, CameraDatabase> {
         self.cdb.borrow()
     }
 
-    //ap nps_ref
     /// Get a borrowed reference to the NamedPointSet
     pub fn nps_ref(&self) -> Ref<'_, NamedPointSet> {
         self.nps.borrow()
     }
 
-    //ap nps_mut
     /// Get a mutable borrowed reference to the NamedPointSet
     pub fn nps_mut(&self) -> RefMut<'_, NamedPointSet> {
         self.nps.borrow_mut()
     }
 
-    //ap isqs_ref
     /// Get a borrowed reference to the ImageSquareSets
     pub fn isqs_ref(&self) -> Ref<'_, ImageSquareSets> {
         self.image_squares.borrow()
     }
 
-    //ap isqs_mut
     /// Get a mutable borrowed reference to the ImageSquareSets
     pub fn isqs_mut(&self) -> RefMut<'_, ImageSquareSets> {
         self.image_squares.borrow_mut()
     }
 
-    //ap ncips
     pub fn ncips(&self) -> usize {
         self.cips.len()
     }
 
-    //ap cip_name
     pub fn cip_name(&self, n: usize) -> Option<String> {
-        self.cips.get(n).map(|c| c.borrow().image().to_string())
+        self.cips
+            .get(n)
+            .map(|c| c.borrow().name_as_tag().to_string())
     }
 
-    //ap cip
-    pub fn cip<A: AsRef<str>>(&self, name: A) -> Option<&Rrc<Cip>> {
+    pub fn find_cip<A: AsRef<str>>(&self, name: A) -> Option<&Rrc<Cip>> {
         self.cips
             .iter()
-            .find(|&c| c.borrow().image().as_str() == name.as_ref())
+            .find(|&c| c.borrow().name_as_tag().as_str() == name.as_ref())
     }
 
-    //mp set_cdb
+    pub fn add_cip(&mut self, cip: Rrc<Cip>) {
+        cip.borrow_mut().resolve_name(&self.image_tag_set);
+        self.cips.push(cip);
+    }
+
     #[track_caller]
     pub fn set_cdb(&self, cdb: CameraDatabase) {
         assert_eq!(
@@ -265,7 +257,6 @@ impl Project {
         *self.cdb.borrow_mut() = cdb;
     }
 
-    //mp set_nps
     /// Set the NamedPointSet for the [Project]
     #[track_caller]
     pub fn set_nps(&mut self, nps: Rrc<NamedPointSet>) {
@@ -279,13 +270,6 @@ impl Project {
         self.nps = nps;
     }
 
-    //mp add_cip
-    pub fn add_cip(&mut self, cip: Rrc<Cip>) {
-        cip.borrow_mut().resolve_tag(&self.image_tag_set);
-        self.cips.push(cip);
-    }
-
-    //mp to_json
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         if pretty {
             Ok(serde_json::to_string_pretty(self)?)
@@ -294,7 +278,6 @@ impl Project {
         }
     }
 
-    //mp locate_all
     pub fn locate_all<F>(&self, filter: F, max_pairs: usize) -> Result<f64>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
@@ -306,7 +289,6 @@ impl Project {
         Ok(total_error)
     }
 
-    //mp derive_nps_location
     pub fn derive_nps_location(&self, name: &str) -> Option<(Point3D, f64)> {
         let mut rays = vec![];
         for cip in &self.cips {
@@ -330,6 +312,4 @@ impl Project {
             None
         }
     }
-
-    //zz All done
 }
