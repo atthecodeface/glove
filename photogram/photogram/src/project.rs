@@ -1,67 +1,53 @@
-use clap::Command;
 use geo_nd::Vector;
-use thunderclap::{CommandArgs, CommandBuilder};
+use thunderclap::{CmdDescriptor, json};
 
 use ic_camera::CameraProjection;
 
 use crate::cmd::{CmdArgs, CmdResult};
 
-//a Help
-//hi LIST_LONG_HELP
-const LIST_LONG_HELP: &str = "\
-List help";
-
-//fi as_json_fn
-fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    cmd_args.project().to_json(cmd_args.pretty_json())
-}
-
-//fi list_fn
-fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let ncips = cmd_args.project().ncips();
-    for i in 0..ncips {
-        let name = cmd_args.project().cip_name(i).unwrap();
-        let cip = cmd_args.project().cip(&name).unwrap().clone();
-        let cip = cip.borrow();
-        let camera = cip.camera();
-        let position = camera.borrow().position().clone();
-        let is_placed = !position.is_zero();
-        if is_placed {
-            println!("Cip: '{name}' @ {position}",);
-        } else {
-            println!("Cip: '{name}' camera unplaced");
+impl CmdArgs {
+    fn project_list_cips_cmd(&mut self) -> CmdResult {
+        let ncips = self.project().ncips();
+        let mut result = vec![];
+        for i in 0..ncips {
+            let name = self.project().cip_name(i).unwrap();
+            if self.verbose {
+                let cip = self.project().find_cip(&name).unwrap().clone();
+                let cip = cip.borrow();
+                let camera = cip.camera();
+                let position = camera.borrow().position().clone();
+                let is_placed = !position.is_zero();
+                if is_placed {
+                    println!("Cip: '{name}' @ {position}",);
+                } else {
+                    println!("Cip: '{name}' camera unplaced");
+                }
+            }
+            result.push(name);
         }
+        Ok(json::to_value(result)?)
     }
-    CmdArgs::cmd_ok()
-}
 
-fn as_json_cmd() -> CommandBuilder<CmdArgs> {
-    CommandBuilder::with_handler(
-        Command::new("as_json")
-            .about("As_Json the project as a *single* JSON file")
-            .long_about(LIST_LONG_HELP),
-        as_json_fn,
-    )
-}
+    fn project_as_json_cmd(&mut self) -> CmdResult {
+        if let Some(w) = self.write_project.as_ref() {
+            let s = self.project().to_json(true)?;
+            std::fs::write(w, s)?;
+        }
+        Ok(json::to_value(self.project().to_json(self.pretty_json())?)?)
+    }
 
-fn list_cmd() -> CommandBuilder<CmdArgs> {
-    CommandBuilder::with_handler(
-        Command::new("list")
-            .about("Operate on a list as a whole")
-            .long_about(LIST_LONG_HELP),
-        list_fn,
-    )
-}
+    const PROJECT_CIPS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("cips")
+        .about("Get a list of the names of the CIPs in the project; if verbose, display their placement")
+        .args(&[])
+        .handler(&Self::project_list_cips_cmd);
 
-pub fn project_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("project")
-        .about("Operate on a camera/image/point mapping set")
-        .version("0.1.0");
+    const PROJECT_AS_JSON_CMD: CmdDescriptor<Self> = CmdDescriptor::new("as_json")
+        .about("Generate the JSON for a project; if the 'write project' option is set, then it is written to that file (prettily)")
+        .args(&[])
+        .handler(&Self::project_as_json_cmd);
 
-    let mut build = CommandBuilder::new(command);
-
-    build.add_subcommand(list_cmd());
-    build.add_subcommand(as_json_cmd());
-
-    build
+    pub(crate) const PROJECT_CMD: CmdDescriptor<Self> = CmdDescriptor::new("project")
+        .about("Operate on the project as a whole")
+        .args(&[])
+        .cmds(&[Self::PROJECT_CIPS_CMD, Self::PROJECT_AS_JSON_CMD]);
 }

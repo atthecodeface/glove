@@ -1,14 +1,21 @@
-//a Imports
+use std::any;
+use std::rc::Rc;
 
-use clap::Command;
-use thunderclap::{CommandArgs, CommandBuilder};
+use anyhow::anyhow;
+use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_base::{NamedRayList, Ray, Rrc, Tag};
-use ic_camera::CameraProjection;
-use ic_image::{Image, ImageDrawable};
-use ic_mapping::PointMapping;
-use ic_project::Cip;
+use photogram::{Cip, NamedPoint, PointMapping};
 
+use geo_nd::{Quaternion, Vector};
+
+use ic_base::{Point2D, Point3D, Quat};
+use ic_camera::{CameraInstance, CameraProjection, LensPolys};
+use ic_image::{Image, ImageDrawable, ImageRgb8};
+use ic_projections::{Cylinder, CylindricalProjection};
+use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
+use indexed::Idx;
+
+use crate::Result;
 use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help
@@ -112,10 +119,153 @@ Combining the rays from model produces a Camera JSON result (with an updated
 direction, no change to orientation), but does not modify the camera
 ";
 
-fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    if cmd_args.cip().is_none() {
-        return Err("No CIP selected".to_string().into());
+impl CmdArgs {
+    fn cip_new_cmd(&mut self) -> CmdResult {
+        let cip_name = self.get_string_arg(0).unwrap();
+        if self.project.find_cip(&cip_name).is_some() {
+            return Err(anyhow!(
+                "Project already contains a CIP with name {cip_name}"
+            ));
+        }
+        let mut cip = Cip::new(cip_name);
+        if !self.read_img().is_empty() {
+            cip.set_image_filename(&self.read_img()[0]);
+        }
+        cip.set_camera(self.camera.clone().into());
+        let cip = cip.into();
+        self.cip = Some(cip);
+        self.project.add_cip(self.cip.as_ref().unwrap().clone());
+        Self::cmd_ok()
     }
+
+    fn cip_select_cmd(&mut self) -> CmdResult {
+        let cip_name = self.get_string_arg(0).unwrap();
+        let Some(cip) = self.project.find_cip(&cip_name) else {
+            return Err(anyhow!(
+                "Project does not contain a CIP with name {cip_name}"
+            ));
+        };
+        self.cip = Some(cip.clone());
+        Self::cmd_ok()
+    }
+
+    fn cip_as_json_cmd(self: &mut CmdArgs) -> CmdResult {
+        self.validate_cip()?;
+        Ok(json::to_value(
+            self.cip().unwrap().borrow().to_json(self.pretty_json())?,
+        )?)
+    }
+    fn cip_add_pm_cmd(&mut self) -> CmdResult {
+        self.validate_cip()?;
+        let np_name = self.get_string_arg(0).unwrap();
+        let pxy = self.get_point2d(0).unwrap();
+        let cip = self.cip.as_ref().unwrap().borrow_mut();
+        let error = self.max_error();
+        if cip.pms().borrow().mapping_of_np_name(np_name).is_some() {
+            return Err(anyhow!("Mapping for '{np_name}' already exists in CIP"));
+        }
+        cip.pms_mut()
+            .add_mapping(&self.nps.borrow(), np_name, pxy, error);
+        Self::cmd_ok()
+    }
+
+    fn cip_orient_using_model_directions_cmd(&mut self) -> CmdResult {
+        self.validate_cip()?;
+        let nps = self.get_nps()?;
+        let mut cip = self.cip.as_ref().unwrap().borrow_mut();
+        fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
+            nps.iter().any(|np| pm.is_mapping_of_np(np))
+        }
+        cip.orient_camera_using_model_directions(|_, pm| filter(&nps, pm))?;
+        Self::cmd_ok()
+    }
+
+    fn cip_dx2_dy2_cmd(&mut self) -> CmdResult {
+        self.validate_cip()?;
+        let nps = self.get_nps()?;
+        let mut cip = self.cip.as_ref().unwrap().borrow();
+        fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
+            nps.iter().any(|np| pm.is_mapping_of_np(np))
+        }
+        let dx2_dy2 = cip.dx2_dy2_of_camera(|_, pm| filter(&nps, pm));
+        Ok(json::to_value(dx2_dy2)?)
+    }
+
+    const CIP_NEW_CMD: CmdDescriptor<Self> = CmdDescriptor::new("new")
+        .about("Add a new CIP of a given name")
+        .args(&[Self::ARG_POSITIONAL_NAME, Self::ARG_IMAGE_OPTIONAL])
+        .handler(&Self::cip_new_cmd);
+
+    const CIP_SELECT_CMD: CmdDescriptor<Self> = CmdDescriptor::new("select")
+        .about("Select a CIP for adding points, orientation, etc")
+        .args(&[Self::ARG_POSITIONAL_NAME])
+        .handler(&Self::cip_select_cmd);
+
+    const CIP_AS_JSON_CMD: CmdDescriptor<Self> = CmdDescriptor::new("as_json")
+        .about("Generate the JSON for the current CIP")
+        .args(&[])
+        .handler(&Self::cip_as_json_cmd);
+
+    const CIP_ADD_PM_CMD: CmdDescriptor<Self> = CmdDescriptor::new("add_pm")
+        .about("Add a new point mapping for a known named-point to the current CIP")
+        .args(&[
+            Self::ARG_POSITIONAL_NAME,
+            Self::ARG_ADD_XY_ONE,
+            Self::ARG_MAX_ERROR,
+        ])
+        .handler(&Self::cip_add_pm_cmd);
+
+    const CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new(
+        "orient_using_model_directions",
+    )
+    .about(
+        "Change the camera for the CIP to orient such that the model *directions* are mapped well",
+    )
+    .args(&[Self::ARG_ADD_NAMED_POINT])
+    .handler(&Self::cip_orient_using_model_directions_cmd);
+
+    const CIP_DX2_DY2_CMD: CmdDescriptor<Self> = CmdDescriptor::new("dx2_dy2")
+        .about("Calculate the total sensor dx_sq and dy_sq values for all the mapped points")
+        .args(&[Self::ARG_ADD_NAMED_POINT])
+        .handler(&Self::cip_dx2_dy2_cmd);
+
+    pub(crate) const CIP_CMD: CmdDescriptor<Self> = CmdDescriptor::new("cip")
+        .about("List, modify, interrogate etc a Camera/image/point-mapping-set")
+        // .long_about(PROJECT_LONG_HELP)
+        .args(&[])
+        .cmds(&[
+            Self::CIP_NEW_CMD,
+            Self::CIP_SELECT_CMD,
+            Self::CIP_AS_JSON_CMD,
+            Self::CIP_ADD_PM_CMD,
+            Self::CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD,
+            Self::CIP_DX2_DY2_CMD,
+        ]);
+
+    /*
+        build.add_subcommand(as_json_cmd());
+        build.add_subcommand(image_cmd());
+        build.add_subcommand(image_patch_cmd());
+        build.add_subcommand(show_mappings_cmd());
+        build.add_subcommand(list_cmd());
+        build.add_subcommand(add_cmd());
+        build.add_subcommand(locate_cmd());
+        build.add_subcommand(orient_cmd());
+        build.add_subcommand(locate_and_orient_cmd());
+        build.add_subcommand(relocate_and_orient_cmd());
+        build.add_subcommand(create_rays_cmd());
+        build.add_subcommand(combine_rays_from_model_cmd());
+        build.add_subcommand(show_rays_cmd());
+    */
+}
+
+/*
+cip new 32 --image ${JPEG_DIR}/145A4632.JPG
+cip add_pm LTvCloseTL 4475 4716
+
+fn cip_locate_cmd(&mut self) -> CmdResult {
+    self.validate_cip();
+    let cip = self.cip().unwrap();
 
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let n = pms_n.len();
@@ -144,7 +294,7 @@ fn locate_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn orient_fn(&mut self) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
     }
@@ -169,7 +319,7 @@ fn orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn locate_and_orient_fn(&mut self) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
     }
@@ -208,7 +358,7 @@ fn locate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn relocate_and_orient_fn(&mut self) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
     }
@@ -247,7 +397,7 @@ fn relocate_and_orient_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn image_fn(&mut self) -> CmdResult {
     let nps_n = cmd_args.get_nps()?;
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
 
@@ -364,7 +514,7 @@ fn image_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     CmdArgs::cmd_ok()
 }
 
-fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn image_patch_fn(&mut self) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
     }
@@ -394,7 +544,7 @@ fn image_patch_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     CmdArgs::cmd_ok()
 }
 
-fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn show_rays_fn(&mut self) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
@@ -413,7 +563,7 @@ fn show_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     CmdArgs::cmd_ok()
 }
 
-fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn create_rays_fn(&mut self) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
     let camera = cmd_args.camera();
@@ -430,7 +580,7 @@ fn create_rays_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     named_rays.to_json(cmd_args.pretty_json())
 }
 
-fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn combine_rays_from_model_fn(&mut self) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms();
     let camera = cmd_args.camera().clone();
@@ -475,7 +625,7 @@ fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     cmd_args.output_camera()
 }
 
-fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn as_json_fn(&mut self) -> CmdResult {
     if cmd_args.cip().is_none() {
         return Err("No CIP selected".to_string().into());
     }
@@ -487,7 +637,7 @@ fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
         .to_json(cmd_args.pretty_json())
 }
 
-fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn show_mappings_fn(&mut self) -> CmdResult {
     let pms = cmd_args.pms().borrow();
     let nps = cmd_args.nps();
     let camera = cmd_args.camera();
@@ -504,7 +654,7 @@ fn show_mappings_fn(cmd_args: &mut CmdArgs) -> CmdResult {
     CmdArgs::cmd_ok()
 }
 
-fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn list_fn(&mut self) -> CmdResult {
     let pms_n = cmd_args.get_pms_indices_of_nps()?;
     let pms = cmd_args.pms().borrow();
     let mappings = pms.mappings();
@@ -657,7 +807,7 @@ fn combine_rays_from_model_cmd() -> CommandBuilder<CmdArgs> {
     build
 }
 
-fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
+fn add_fn(&mut self) -> CmdResult {
     let mut cip = Cip::default();
 
     let camera_filename = cmd_args.get_string_arg(0).unwrap();
@@ -758,3 +908,4 @@ pub fn cip_cmd() -> CommandBuilder<CmdArgs> {
 
     build
 }
+*/

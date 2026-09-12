@@ -271,6 +271,9 @@ export class MappedNps {
         this.pending_nps = true;
         this.pending_pms = true;
         this.pending_calcs = true;
+        this.total_sq_dxy_error = 0;
+        this.total_sq_dx_error = 0;
+        this.total_sq_dy_error = 0;
         this.total_sq_roll_error = 0;
         this.total_sq_yaw_error = 0;
         this.wasm_quat = WasmQuatf64.unit();
@@ -334,11 +337,16 @@ export class MappedNps {
         this.center_pxy = [camera.sensor_cx, camera.sensor_cy];
         this.total_sq_roll_error = 0;
         this.total_sq_yaw_error = 0;
+        this.total_sq_dx_error = 0;
+        this.total_sq_dy_error = 0;
         for (const mnp of this.named_points) {
             mnp.update_mapping(camera, pms, this.focus_pxy);
             this.total_sq_roll_error += 1E6 * mnp.wasm_pms.d_map_roll_err * mnp.wasm_pms.d_map_roll_err;
             this.total_sq_yaw_error += 1E6 * mnp.wasm_pms.d_map_yaw_err * mnp.wasm_pms.d_map_yaw_err;
+            this.total_sq_dx_error += mnp.wasm_pms.d_map_dx * mnp.wasm_pms.d_map_dx;
+            this.total_sq_dy_error += mnp.wasm_pms.d_map_dy * mnp.wasm_pms.d_map_dy;
         }
+        this.total_sq_dxy_error = this.total_sq_dx_error + this.total_sq_dy_error;
         this.sort_named_points();
     }
     /** Sort-by has been updated, to the specified field
@@ -468,7 +476,12 @@ export class MappedNps {
         const m_mnp = this.sort.field.metric(mnp.wasm_pms);
         return (m_mnp_last == m_mnp_0) ? 0 : ((m_mnp - m_mnp_0) / (m_mnp_last - m_mnp_0));
     }
-    /** Recolor the named points given the current order */
+    /**
+     * Recolor the named points given the current order, mapoing the *index* of
+     * each point in the order to the color
+     *
+     * This means that the points will be uniformaly colored from first to last
+     */
     recolor_nps() {
         const hue_range_min = 0;
         const hue_range_max = 240;
@@ -515,7 +528,13 @@ export class MappedNps {
         }
         this.project.np_changed(true);
     }
-    /** Recolor the named points given the current order */
+    /**
+     * Recolor the named points, using the current ordering, based on the (linear)
+     * map of the metric for each point with respect to the metrics of the first
+     * and last points
+     *
+     * This means that the color depends on the value of the metric
+     */
     recolor_nps_by_distance() {
         for (const mnp of this.named_points) {
             let hue = this.relative_distance(mnp) * 240;

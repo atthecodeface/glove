@@ -37,8 +37,18 @@
           "Rect50mm"
         ],
         "mm_focal_length": 50.0,
-        "stw_poly": [ 0.0, 0.3333333333333334,0.6666666666666665, 1.0],
-        "wts_poly": [ 0.0, 0.3333333333333334,0.6666666666666665, 1.0]
+        "stw_poly": [
+          0.0,
+          0.3333333333333334,
+          0.6666666666666665,
+          1.0
+        ],
+        "wts_poly": [
+          0.0,
+          0.3333333333333334,
+          0.6666666666666665,
+          1.0
+        ]
       },
       {
         "name": "EF50mm f1.8",
@@ -46,15 +56,25 @@
           "50mm"
         ],
         "mm_focal_length": 50.0,
-        "stw_poly": [ 0.0, 0.3333333333333334,0.6666666666666665, 1.0],
-        "wts_poly": [ 0.0, 0.3333333333333334,0.6666666666666665, 1.0]
+        "stw_poly": [
+          0.0,
+          0.3333333333333334,
+          0.6666666666666665,
+          1.0
+        ],
+        "wts_poly": [
+          0.0,
+          0.3333333333333334,
+          0.6666666666666665,
+          1.0
+        ]
       }
     ]
   },
   "nps": [
     {
       "name": "0 bl game",
-      "color": "#00ff66",
+      "color": "#0050ff",
       "model": [
         true,
         [
@@ -67,7 +87,7 @@
     },
     {
       "name": "2599",
-      "color": "#ff7f7f",
+      "color": "#00ff02",
       "model": [
         true,
         [
@@ -80,7 +100,7 @@
     },
     {
       "name": "2920",
-      "color": "#ffff00",
+      "color": "#1fff00",
       "model": [
         true,
         [
@@ -93,7 +113,7 @@
     },
     {
       "name": "3179",
-      "color": "#00edff",
+      "color": "#00ff2e",
       "model": [
         true,
         [
@@ -106,7 +126,7 @@
     },
     {
       "name": "3821",
-      "color": "#ff4dff",
+      "color": "#002cff",
       "model": [
         true,
         [
@@ -119,7 +139,7 @@
     },
     {
       "name": "4427",
-      "color": "#5f65ff",
+      "color": "#00fff1",
       "model": [
         true,
         [
@@ -132,7 +152,7 @@
     },
     {
       "name": "746",
-      "color": "#ff3388",
+      "color": "#00ff0c",
       "model": [
         true,
         [
@@ -145,7 +165,7 @@
     },
     {
       "name": "np_0",
-      "color": "#ffff00",
+      "color": "#00a9ff",
       "model": [
         true,
         [
@@ -158,7 +178,7 @@
     },
     {
       "name": "np_1",
-      "color": "#ffff00",
+      "color": "#0089ff",
       "model": [
         true,
         [
@@ -171,7 +191,7 @@
     },
     {
       "name": "np_10",
-      "color": "#ffff00",
+      "color": "#00ffe9",
       "model": [
         true,
         [
@@ -184,7 +204,7 @@
     },
     {
       "name": "np_100",
-      "color": "#ffff00",
+      "color": "#0051ff",
       "model": [
         true,
         [
@@ -197,7 +217,7 @@
     },
     {
       "name": "np_101",
-      "color": "#ffff00",
+      "color": "#eeff00",
       "model": [
         true,
         [
@@ -210,7 +230,7 @@
     },
     {
       "name": "np_102",
-      "color": "#ffff00",
+      "color": "#00ff4a",
       "model": [
         true,
         [
@@ -223,7 +243,7 @@
     },
     {
       "name": "np_103",
-      "color": "#ffff00",
+      "color": "#62ff00",
       "model": [
         true,
         [
@@ -236,7 +256,7 @@
     },
     {
       "name": "np_104",
-      "color": "#ffff00",
+      "color": "#00ff6b",
       "model": [
         true,
         [
@@ -249,7 +269,7 @@
     },
     {
       "name": "np_105",
-      "color": "#ffff00",
+      "color": "#ff6500",
       "model": [
         true,
         [
@@ -262,7 +282,7 @@
     },
     {
       "name": "np_106",
-      "color": "#ffff00",
+      "color": "#00ff52",
       "model": [
         true,
         [
@@ -275,7 +295,7 @@
     },
     {
       "name": "np_107",
-      "color": "#ffff00",
+      "color": "#0fff00",
       "model": [
         true,
         [
@@ -288,7 +308,7 @@
     },
     {
       "name": "np_108",
-      "color": "#ffff00",
+      "color": "#00ffbe",
       "model": [
         true,
         [
@@ -301,7 +321,7 @@
     },
     {
       "name": "np_109",
-      "color": "#ffff00",
+      "color": "#98ff00",
       "model": [
         true,
         [
@@ -314,7 +334,7 @@
     },
     {
       "name": "np_11",
-      "color": "#ffff00",
+      "color": "#00ff7c",
       "model": [
         true,
         [
@@ -327,7 +347,7 @@
     },
     {
       "name": "np_110",
-      "color": "#ffff00",
+      "color": "#00ff55",
       "model": [
         true,
         [
@@ -340,7 +360,7 @@
     },
     {
       "name": "np_111",
-      "color": "#ffff00",
+      "color": "#28ff00",
       "model": [
         true,
         [
@@ -353,7 +373,7 @@
     },
     {
       "name": "np_112",
-      "color": "#ffff00",
+      "color": "#0071ff",
       "model": [
         true,
         [
@@ -366,7 +386,7 @@
     },
     {
       "name": "np_113",
-      "color": "#ffff00",
+      "color": "#00d3ff",
       "model": [
         true,
         [
@@ -379,7 +399,7 @@
     },
     {
       "name": "np_114",
-      "color": "#ffff00",
+      "color": "#14ff00",
       "model": [
         true,
         [
@@ -392,7 +412,7 @@
     },
     {
       "name": "np_115",
-      "color": "#ffff00",
+      "color": "#00ffd5",
       "model": [
         true,
         [
@@ -405,7 +425,7 @@
     },
     {
       "name": "np_116",
-      "color": "#ffff00",
+      "color": "#00ff08",
       "model": [
         true,
         [
@@ -418,7 +438,7 @@
     },
     {
       "name": "np_117",
-      "color": "#ffff00",
+      "color": "#cbff00",
       "model": [
         true,
         [
@@ -431,7 +451,7 @@
     },
     {
       "name": "np_118",
-      "color": "#ffff00",
+      "color": "#00ff03",
       "model": [
         true,
         [
@@ -444,7 +464,7 @@
     },
     {
       "name": "np_119",
-      "color": "#ffff00",
+      "color": "#00ffe3",
       "model": [
         true,
         [
@@ -457,7 +477,7 @@
     },
     {
       "name": "np_12",
-      "color": "#ffff00",
+      "color": "#24ff00",
       "model": [
         true,
         [
@@ -470,7 +490,7 @@
     },
     {
       "name": "np_120",
-      "color": "#ffff00",
+      "color": "#ff7500",
       "model": [
         true,
         [
@@ -483,7 +503,7 @@
     },
     {
       "name": "np_121",
-      "color": "#ffff00",
+      "color": "#00a6ff",
       "model": [
         true,
         [
@@ -496,7 +516,7 @@
     },
     {
       "name": "np_122",
-      "color": "#ffff00",
+      "color": "#00ff20",
       "model": [
         true,
         [
@@ -509,7 +529,7 @@
     },
     {
       "name": "np_123",
-      "color": "#ffff00",
+      "color": "#28ff00",
       "model": [
         true,
         [
@@ -522,7 +542,7 @@
     },
     {
       "name": "np_124",
-      "color": "#ffff00",
+      "color": "#0eff00",
       "model": [
         true,
         [
@@ -535,7 +555,7 @@
     },
     {
       "name": "np_125",
-      "color": "#ffff00",
+      "color": "#41ff00",
       "model": [
         true,
         [
@@ -548,7 +568,7 @@
     },
     {
       "name": "np_126",
-      "color": "#ffff00",
+      "color": "#00a7ff",
       "model": [
         true,
         [
@@ -561,7 +581,7 @@
     },
     {
       "name": "np_127",
-      "color": "#ffff00",
+      "color": "#0095ff",
       "model": [
         true,
         [
@@ -574,7 +594,7 @@
     },
     {
       "name": "np_128",
-      "color": "#ffff00",
+      "color": "#00ff5c",
       "model": [
         true,
         [
@@ -587,7 +607,7 @@
     },
     {
       "name": "np_129",
-      "color": "#ffff00",
+      "color": "#00c4ff",
       "model": [
         true,
         [
@@ -600,7 +620,7 @@
     },
     {
       "name": "np_13",
-      "color": "#ffff00",
+      "color": "#006bff",
       "model": [
         true,
         [
@@ -613,7 +633,7 @@
     },
     {
       "name": "np_130",
-      "color": "#ffff00",
+      "color": "#00ceff",
       "model": [
         true,
         [
@@ -626,7 +646,7 @@
     },
     {
       "name": "np_131",
-      "color": "#ffff00",
+      "color": "#00ffc4",
       "model": [
         true,
         [
@@ -639,7 +659,7 @@
     },
     {
       "name": "np_132",
-      "color": "#ffff00",
+      "color": "#71ff00",
       "model": [
         true,
         [
@@ -652,7 +672,7 @@
     },
     {
       "name": "np_133",
-      "color": "#ffff00",
+      "color": "#36ff00",
       "model": [
         true,
         [
@@ -665,7 +685,7 @@
     },
     {
       "name": "np_134",
-      "color": "#ffff00",
+      "color": "#00fffc",
       "model": [
         true,
         [
@@ -678,7 +698,7 @@
     },
     {
       "name": "np_135",
-      "color": "#ffff00",
+      "color": "#009dff",
       "model": [
         true,
         [
@@ -691,7 +711,7 @@
     },
     {
       "name": "np_136",
-      "color": "#ffff00",
+      "color": "#0068ff",
       "model": [
         true,
         [
@@ -704,7 +724,7 @@
     },
     {
       "name": "np_137",
-      "color": "#ffff00",
+      "color": "#0fff00",
       "model": [
         true,
         [
@@ -717,7 +737,7 @@
     },
     {
       "name": "np_138",
-      "color": "#ffff00",
+      "color": "#00ffee",
       "model": [
         true,
         [
@@ -730,7 +750,7 @@
     },
     {
       "name": "np_139",
-      "color": "#ffff00",
+      "color": "#00a0ff",
       "model": [
         true,
         [
@@ -743,7 +763,7 @@
     },
     {
       "name": "np_14",
-      "color": "#ffff00",
+      "color": "#00ff9f",
       "model": [
         true,
         [
@@ -756,7 +776,7 @@
     },
     {
       "name": "np_140",
-      "color": "#ffff00",
+      "color": "#00b5ff",
       "model": [
         true,
         [
@@ -769,7 +789,7 @@
     },
     {
       "name": "np_141",
-      "color": "#ffff00",
+      "color": "#00ff40",
       "model": [
         true,
         [
@@ -782,7 +802,7 @@
     },
     {
       "name": "np_142",
-      "color": "#ffff00",
+      "color": "#0066ff",
       "model": [
         true,
         [
@@ -795,7 +815,7 @@
     },
     {
       "name": "np_143",
-      "color": "#ffff00",
+      "color": "#ffd800",
       "model": [
         true,
         [
@@ -808,7 +828,7 @@
     },
     {
       "name": "np_144",
-      "color": "#ffff00",
+      "color": "#ff8600",
       "model": [
         true,
         [
@@ -821,7 +841,7 @@
     },
     {
       "name": "np_145",
-      "color": "#ffff00",
+      "color": "#b4ff00",
       "model": [
         true,
         [
@@ -834,7 +854,7 @@
     },
     {
       "name": "np_146",
-      "color": "#ffff00",
+      "color": "#004bff",
       "model": [
         true,
         [
@@ -847,7 +867,7 @@
     },
     {
       "name": "np_147",
-      "color": "#ffff00",
+      "color": "#47ff00",
       "model": [
         true,
         [
@@ -860,7 +880,7 @@
     },
     {
       "name": "np_148",
-      "color": "#ffff00",
+      "color": "#0046ff",
       "model": [
         true,
         [
@@ -873,7 +893,7 @@
     },
     {
       "name": "np_149",
-      "color": "#ffff00",
+      "color": "#00ffbb",
       "model": [
         true,
         [
@@ -886,7 +906,7 @@
     },
     {
       "name": "np_15",
-      "color": "#ffff00",
+      "color": "#00ff21",
       "model": [
         true,
         [
@@ -899,7 +919,7 @@
     },
     {
       "name": "np_150",
-      "color": "#ffff00",
+      "color": "#00ff03",
       "model": [
         true,
         [
@@ -912,7 +932,7 @@
     },
     {
       "name": "np_151",
-      "color": "#ffff00",
+      "color": "#00ff64",
       "model": [
         true,
         [
@@ -925,7 +945,7 @@
     },
     {
       "name": "np_152",
-      "color": "#ffff00",
+      "color": "#00ff25",
       "model": [
         true,
         [
@@ -938,7 +958,7 @@
     },
     {
       "name": "np_153",
-      "color": "#ffff00",
+      "color": "#00faff",
       "model": [
         true,
         [
@@ -951,7 +971,7 @@
     },
     {
       "name": "np_154",
-      "color": "#ffff00",
+      "color": "#0085ff",
       "model": [
         true,
         [
@@ -964,7 +984,7 @@
     },
     {
       "name": "np_155",
-      "color": "#ffff00",
+      "color": "#00ff70",
       "model": [
         true,
         [
@@ -977,7 +997,7 @@
     },
     {
       "name": "np_156",
-      "color": "#ffff00",
+      "color": "#00ffb7",
       "model": [
         true,
         [
@@ -990,7 +1010,7 @@
     },
     {
       "name": "np_157",
-      "color": "#ffff00",
+      "color": "#a5ff00",
       "model": [
         true,
         [
@@ -1003,7 +1023,7 @@
     },
     {
       "name": "np_158",
-      "color": "#ffff00",
+      "color": "#00ff1d",
       "model": [
         true,
         [
@@ -1016,7 +1036,7 @@
     },
     {
       "name": "np_159",
-      "color": "#ffff00",
+      "color": "#ffd200",
       "model": [
         true,
         [
@@ -1029,7 +1049,7 @@
     },
     {
       "name": "np_16",
-      "color": "#ffff00",
+      "color": "#00b8ff",
       "model": [
         true,
         [
@@ -1042,7 +1062,7 @@
     },
     {
       "name": "np_160",
-      "color": "#ffff00",
+      "color": "#ff4d00",
       "model": [
         true,
         [
@@ -1055,7 +1075,7 @@
     },
     {
       "name": "np_161",
-      "color": "#ffff00",
+      "color": "#00c6ff",
       "model": [
         true,
         [
@@ -1068,7 +1088,7 @@
     },
     {
       "name": "np_162",
-      "color": "#ffff00",
+      "color": "#00ffd9",
       "model": [
         true,
         [
@@ -1081,7 +1101,7 @@
     },
     {
       "name": "np_163",
-      "color": "#ffff00",
+      "color": "#00b2ff",
       "model": [
         true,
         [
@@ -1094,7 +1114,7 @@
     },
     {
       "name": "np_164",
-      "color": "#ffff00",
+      "color": "#00f8ff",
       "model": [
         true,
         [
@@ -1107,7 +1127,7 @@
     },
     {
       "name": "np_165",
-      "color": "#ffff00",
+      "color": "#00b0ff",
       "model": [
         true,
         [
@@ -1120,7 +1140,7 @@
     },
     {
       "name": "np_166",
-      "color": "#ffff00",
+      "color": "#007cff",
       "model": [
         true,
         [
@@ -1133,7 +1153,7 @@
     },
     {
       "name": "np_167",
-      "color": "#ffff00",
+      "color": "#4aff00",
       "model": [
         true,
         [
@@ -1146,7 +1166,7 @@
     },
     {
       "name": "np_168",
-      "color": "#ffff00",
+      "color": "#00ff29",
       "model": [
         true,
         [
@@ -1159,7 +1179,7 @@
     },
     {
       "name": "np_169",
-      "color": "#ffff00",
+      "color": "#00f8ff",
       "model": [
         true,
         [
@@ -1172,7 +1192,7 @@
     },
     {
       "name": "np_17",
-      "color": "#ffff00",
+      "color": "#ffc000",
       "model": [
         true,
         [
@@ -1185,7 +1205,7 @@
     },
     {
       "name": "np_170",
-      "color": "#ffff00",
+      "color": "#006bff",
       "model": [
         true,
         [
@@ -1198,7 +1218,7 @@
     },
     {
       "name": "np_171",
-      "color": "#ffff00",
+      "color": "#24ff00",
       "model": [
         true,
         [
@@ -1211,7 +1231,7 @@
     },
     {
       "name": "np_172",
-      "color": "#ffff00",
+      "color": "#00ff8e",
       "model": [
         true,
         [
@@ -1224,7 +1244,7 @@
     },
     {
       "name": "np_173",
-      "color": "#ffff00",
+      "color": "#00fff8",
       "model": [
         true,
         [
@@ -1237,7 +1257,7 @@
     },
     {
       "name": "np_174",
-      "color": "#ffff00",
+      "color": "#70ff00",
       "model": [
         true,
         [
@@ -1250,7 +1270,7 @@
     },
     {
       "name": "np_175",
-      "color": "#ffff00",
+      "color": "#00ff64",
       "model": [
         true,
         [
@@ -1263,7 +1283,7 @@
     },
     {
       "name": "np_176",
-      "color": "#ffff00",
+      "color": "#9dff00",
       "model": [
         true,
         [
@@ -1276,7 +1296,7 @@
     },
     {
       "name": "np_177",
-      "color": "#ffff00",
+      "color": "#0042ff",
       "model": [
         true,
         [
@@ -1289,7 +1309,7 @@
     },
     {
       "name": "np_178",
-      "color": "#ffff00",
+      "color": "#00ccff",
       "model": [
         true,
         [
@@ -1302,7 +1322,7 @@
     },
     {
       "name": "np_179",
-      "color": "#ffff00",
+      "color": "#00ff87",
       "model": [
         true,
         [
@@ -1315,7 +1335,7 @@
     },
     {
       "name": "np_18",
-      "color": "#ffff00",
+      "color": "#00ff05",
       "model": [
         true,
         [
@@ -1328,7 +1348,7 @@
     },
     {
       "name": "np_180",
-      "color": "#ffff00",
+      "color": "#00ffe7",
       "model": [
         true,
         [
@@ -1341,7 +1361,7 @@
     },
     {
       "name": "np_181",
-      "color": "#ffff00",
+      "color": "#00ff1b",
       "model": [
         true,
         [
@@ -1354,7 +1374,7 @@
     },
     {
       "name": "np_182",
-      "color": "#ffff00",
+      "color": "#61ff00",
       "model": [
         true,
         [
@@ -1367,7 +1387,7 @@
     },
     {
       "name": "np_183",
-      "color": "#ffff00",
+      "color": "#00ff02",
       "model": [
         true,
         [
@@ -1380,7 +1400,7 @@
     },
     {
       "name": "np_184",
-      "color": "#ffff00",
+      "color": "#00ff77",
       "model": [
         true,
         [
@@ -1393,7 +1413,7 @@
     },
     {
       "name": "np_185",
-      "color": "#ffff00",
+      "color": "#00ffbb",
       "model": [
         true,
         [
@@ -1406,7 +1426,7 @@
     },
     {
       "name": "np_186",
-      "color": "#ffff00",
+      "color": "#0093ff",
       "model": [
         true,
         [
@@ -1419,7 +1439,7 @@
     },
     {
       "name": "np_187",
-      "color": "#ffff00",
+      "color": "#3fff00",
       "model": [
         true,
         [
@@ -1432,7 +1452,7 @@
     },
     {
       "name": "np_188",
-      "color": "#ffff00",
+      "color": "#00ff64",
       "model": [
         true,
         [
@@ -1445,7 +1465,7 @@
     },
     {
       "name": "np_189",
-      "color": "#ffff00",
+      "color": "#00fdff",
       "model": [
         true,
         [
@@ -1458,7 +1478,7 @@
     },
     {
       "name": "np_19",
-      "color": "#ffff00",
+      "color": "#29ff00",
       "model": [
         true,
         [
@@ -1471,7 +1491,7 @@
     },
     {
       "name": "np_190",
-      "color": "#ffff00",
+      "color": "#00fffe",
       "model": [
         true,
         [
@@ -1484,7 +1504,7 @@
     },
     {
       "name": "np_191",
-      "color": "#ffff00",
+      "color": "#00ff2d",
       "model": [
         true,
         [
@@ -1497,7 +1517,7 @@
     },
     {
       "name": "np_192",
-      "color": "#ffff00",
+      "color": "#ffb600",
       "model": [
         true,
         [
@@ -1510,7 +1530,7 @@
     },
     {
       "name": "np_193",
-      "color": "#ffff00",
+      "color": "#2aff00",
       "model": [
         true,
         [
@@ -1523,7 +1543,7 @@
     },
     {
       "name": "np_194",
-      "color": "#ffff00",
+      "color": "#00ff6c",
       "model": [
         true,
         [
@@ -1536,7 +1556,7 @@
     },
     {
       "name": "np_195",
-      "color": "#ffff00",
+      "color": "#00ff76",
       "model": [
         true,
         [
@@ -1549,7 +1569,7 @@
     },
     {
       "name": "np_196",
-      "color": "#ffff00",
+      "color": "#00ff0e",
       "model": [
         true,
         [
@@ -1562,7 +1582,7 @@
     },
     {
       "name": "np_197",
-      "color": "#ffff00",
+      "color": "#ffef00",
       "model": [
         true,
         [
@@ -1575,7 +1595,7 @@
     },
     {
       "name": "np_198",
-      "color": "#ffff00",
+      "color": "#00ff6f",
       "model": [
         true,
         [
@@ -1588,7 +1608,7 @@
     },
     {
       "name": "np_199",
-      "color": "#ffff00",
+      "color": "#00ff6f",
       "model": [
         true,
         [
@@ -1601,7 +1621,7 @@
     },
     {
       "name": "np_2",
-      "color": "#ffff00",
+      "color": "#21ff00",
       "model": [
         true,
         [
@@ -1614,7 +1634,7 @@
     },
     {
       "name": "np_20",
-      "color": "#ffff00",
+      "color": "#00ff23",
       "model": [
         true,
         [
@@ -1627,7 +1647,7 @@
     },
     {
       "name": "np_200",
-      "color": "#ffff00",
+      "color": "#fff900",
       "model": [
         true,
         [
@@ -1640,7 +1660,7 @@
     },
     {
       "name": "np_201",
-      "color": "#ffff00",
+      "color": "#00ff88",
       "model": [
         true,
         [
@@ -1653,7 +1673,7 @@
     },
     {
       "name": "np_202",
-      "color": "#ffff00",
+      "color": "#00ffd0",
       "model": [
         true,
         [
@@ -1666,7 +1686,7 @@
     },
     {
       "name": "np_203",
-      "color": "#ffff00",
+      "color": "#ff6500",
       "model": [
         true,
         [
@@ -1679,7 +1699,7 @@
     },
     {
       "name": "np_204",
-      "color": "#ffff00",
+      "color": "#002eff",
       "model": [
         true,
         [
@@ -1692,7 +1712,7 @@
     },
     {
       "name": "np_205",
-      "color": "#ffff00",
+      "color": "#00f2ff",
       "model": [
         true,
         [
@@ -1705,7 +1725,7 @@
     },
     {
       "name": "np_206",
-      "color": "#ffff00",
+      "color": "#00ffca",
       "model": [
         true,
         [
@@ -1718,7 +1738,7 @@
     },
     {
       "name": "np_207",
-      "color": "#ffff00",
+      "color": "#00ff27",
       "model": [
         true,
         [
@@ -1731,7 +1751,7 @@
     },
     {
       "name": "np_208",
-      "color": "#ffff00",
+      "color": "#00ffc4",
       "model": [
         true,
         [
@@ -1744,7 +1764,7 @@
     },
     {
       "name": "np_209",
-      "color": "#ffff00",
+      "color": "#00fbff",
       "model": [
         true,
         [
@@ -1757,7 +1777,7 @@
     },
     {
       "name": "np_21",
-      "color": "#ffff00",
+      "color": "#00fff7",
       "model": [
         true,
         [
@@ -1770,7 +1790,7 @@
     },
     {
       "name": "np_210",
-      "color": "#ffff00",
+      "color": "#ff0000",
       "model": [
         true,
         [
@@ -1783,7 +1803,7 @@
     },
     {
       "name": "np_211",
-      "color": "#ffff00",
+      "color": "#00ff6f",
       "model": [
         true,
         [
@@ -1796,7 +1816,7 @@
     },
     {
       "name": "np_212",
-      "color": "#ffff00",
+      "color": "#00efff",
       "model": [
         true,
         [
@@ -1809,7 +1829,7 @@
     },
     {
       "name": "np_213",
-      "color": "#ffff00",
+      "color": "#0000ff",
       "model": [
         false,
         [
@@ -1822,7 +1842,7 @@
     },
     {
       "name": "np_22",
-      "color": "#ffff00",
+      "color": "#1dff00",
       "model": [
         true,
         [
@@ -1835,7 +1855,7 @@
     },
     {
       "name": "np_23",
-      "color": "#ffff00",
+      "color": "#00ff4d",
       "model": [
         true,
         [
@@ -1848,7 +1868,7 @@
     },
     {
       "name": "np_24",
-      "color": "#ffff00",
+      "color": "#00ff78",
       "model": [
         true,
         [
@@ -1861,7 +1881,7 @@
     },
     {
       "name": "np_25",
-      "color": "#ffff00",
+      "color": "#00ff21",
       "model": [
         true,
         [
@@ -1874,7 +1894,7 @@
     },
     {
       "name": "np_26",
-      "color": "#ffff00",
+      "color": "#00ffd8",
       "model": [
         true,
         [
@@ -1887,7 +1907,7 @@
     },
     {
       "name": "np_27",
-      "color": "#ffff00",
+      "color": "#00ff8b",
       "model": [
         true,
         [
@@ -1900,7 +1920,7 @@
     },
     {
       "name": "np_28",
-      "color": "#ffff00",
+      "color": "#00e0ff",
       "model": [
         true,
         [
@@ -1913,7 +1933,7 @@
     },
     {
       "name": "np_29",
-      "color": "#ffff00",
+      "color": "#00ff6d",
       "model": [
         true,
         [
@@ -1926,7 +1946,7 @@
     },
     {
       "name": "np_3",
-      "color": "#ffff00",
+      "color": "#00ffe5",
       "model": [
         true,
         [
@@ -1939,7 +1959,7 @@
     },
     {
       "name": "np_30",
-      "color": "#ffff00",
+      "color": "#00ff39",
       "model": [
         true,
         [
@@ -1952,7 +1972,7 @@
     },
     {
       "name": "np_31",
-      "color": "#ffff00",
+      "color": "#00ffe1",
       "model": [
         true,
         [
@@ -1965,7 +1985,7 @@
     },
     {
       "name": "np_32",
-      "color": "#ffff00",
+      "color": "#43ff00",
       "model": [
         true,
         [
@@ -1978,7 +1998,7 @@
     },
     {
       "name": "np_33",
-      "color": "#ffff00",
+      "color": "#00fffc",
       "model": [
         true,
         [
@@ -1991,7 +2011,7 @@
     },
     {
       "name": "np_34",
-      "color": "#ffff00",
+      "color": "#75ff00",
       "model": [
         true,
         [
@@ -2004,7 +2024,7 @@
     },
     {
       "name": "np_35",
-      "color": "#ffff00",
+      "color": "#00ff35",
       "model": [
         true,
         [
@@ -2017,7 +2037,7 @@
     },
     {
       "name": "np_36",
-      "color": "#ffff00",
+      "color": "#0071ff",
       "model": [
         true,
         [
@@ -2030,7 +2050,7 @@
     },
     {
       "name": "np_37",
-      "color": "#ffff00",
+      "color": "#24ff00",
       "model": [
         true,
         [
@@ -2043,7 +2063,7 @@
     },
     {
       "name": "np_38",
-      "color": "#ffff00",
+      "color": "#92ff00",
       "model": [
         true,
         [
@@ -2056,7 +2076,7 @@
     },
     {
       "name": "np_39",
-      "color": "#ffff00",
+      "color": "#00acff",
       "model": [
         true,
         [
@@ -2069,7 +2089,7 @@
     },
     {
       "name": "np_4",
-      "color": "#ffff00",
+      "color": "#00cdff",
       "model": [
         true,
         [
@@ -2082,7 +2102,7 @@
     },
     {
       "name": "np_40",
-      "color": "#ffff00",
+      "color": "#00ff48",
       "model": [
         true,
         [
@@ -2095,7 +2115,7 @@
     },
     {
       "name": "np_41",
-      "color": "#ffff00",
+      "color": "#00ff51",
       "model": [
         true,
         [
@@ -2108,7 +2128,7 @@
     },
     {
       "name": "np_42",
-      "color": "#ffff00",
+      "color": "#0041ff",
       "model": [
         true,
         [
@@ -2121,7 +2141,7 @@
     },
     {
       "name": "np_43",
-      "color": "#ffff00",
+      "color": "#006eff",
       "model": [
         true,
         [
@@ -2134,7 +2154,7 @@
     },
     {
       "name": "np_44",
-      "color": "#ffff00",
+      "color": "#00fffe",
       "model": [
         true,
         [
@@ -2147,7 +2167,7 @@
     },
     {
       "name": "np_45",
-      "color": "#ffff00",
+      "color": "#00ff9c",
       "model": [
         true,
         [
@@ -2160,7 +2180,7 @@
     },
     {
       "name": "np_46",
-      "color": "#ffff00",
+      "color": "#00ffdb",
       "model": [
         true,
         [
@@ -2173,7 +2193,7 @@
     },
     {
       "name": "np_47",
-      "color": "#ffff00",
+      "color": "#04ff00",
       "model": [
         true,
         [
@@ -2186,7 +2206,7 @@
     },
     {
       "name": "np_48",
-      "color": "#ffff00",
+      "color": "#0054ff",
       "model": [
         true,
         [
@@ -2199,7 +2219,7 @@
     },
     {
       "name": "np_49",
-      "color": "#ffff00",
+      "color": "#00ff1e",
       "model": [
         true,
         [
@@ -2212,7 +2232,7 @@
     },
     {
       "name": "np_5",
-      "color": "#ffff00",
+      "color": "#00ffa0",
       "model": [
         true,
         [
@@ -2225,7 +2245,7 @@
     },
     {
       "name": "np_50",
-      "color": "#ffff00",
+      "color": "#00ffc4",
       "model": [
         true,
         [
@@ -2238,7 +2258,7 @@
     },
     {
       "name": "np_51",
-      "color": "#ffff00",
+      "color": "#00ff37",
       "model": [
         true,
         [
@@ -2251,7 +2271,7 @@
     },
     {
       "name": "np_52",
-      "color": "#ffff00",
+      "color": "#0cff00",
       "model": [
         true,
         [
@@ -2264,7 +2284,7 @@
     },
     {
       "name": "np_53",
-      "color": "#ffff00",
+      "color": "#00ff73",
       "model": [
         true,
         [
@@ -2277,7 +2297,7 @@
     },
     {
       "name": "np_54",
-      "color": "#ffff00",
+      "color": "#00ffb0",
       "model": [
         true,
         [
@@ -2290,7 +2310,7 @@
     },
     {
       "name": "np_55",
-      "color": "#ffff00",
+      "color": "#00afff",
       "model": [
         true,
         [
@@ -2303,7 +2323,7 @@
     },
     {
       "name": "np_56",
-      "color": "#ffff00",
+      "color": "#00ff49",
       "model": [
         true,
         [
@@ -2316,7 +2336,7 @@
     },
     {
       "name": "np_57",
-      "color": "#ffff00",
+      "color": "#55ff00",
       "model": [
         true,
         [
@@ -2329,7 +2349,7 @@
     },
     {
       "name": "np_58",
-      "color": "#ffff00",
+      "color": "#00ffac",
       "model": [
         true,
         [
@@ -2342,7 +2362,7 @@
     },
     {
       "name": "np_59",
-      "color": "#ffff00",
+      "color": "#90ff00",
       "model": [
         true,
         [
@@ -2355,7 +2375,7 @@
     },
     {
       "name": "np_6",
-      "color": "#ffff00",
+      "color": "#00b6ff",
       "model": [
         true,
         [
@@ -2368,7 +2388,7 @@
     },
     {
       "name": "np_60",
-      "color": "#ffff00",
+      "color": "#00ffd9",
       "model": [
         true,
         [
@@ -2381,7 +2401,7 @@
     },
     {
       "name": "np_61",
-      "color": "#ffff00",
+      "color": "#00ff75",
       "model": [
         true,
         [
@@ -2394,7 +2414,7 @@
     },
     {
       "name": "np_62",
-      "color": "#ffff00",
+      "color": "#00ffb4",
       "model": [
         true,
         [
@@ -2407,7 +2427,7 @@
     },
     {
       "name": "np_63",
-      "color": "#ffff00",
+      "color": "#00ffed",
       "model": [
         true,
         [
@@ -2420,7 +2440,7 @@
     },
     {
       "name": "np_64",
-      "color": "#ffff00",
+      "color": "#00ff56",
       "model": [
         true,
         [
@@ -2433,7 +2453,7 @@
     },
     {
       "name": "np_65",
-      "color": "#ffff00",
+      "color": "#00ffd7",
       "model": [
         true,
         [
@@ -2446,7 +2466,7 @@
     },
     {
       "name": "np_66",
-      "color": "#ffff00",
+      "color": "#00ff58",
       "model": [
         true,
         [
@@ -2459,7 +2479,7 @@
     },
     {
       "name": "np_67",
-      "color": "#ffff00",
+      "color": "#00ffc3",
       "model": [
         true,
         [
@@ -2472,7 +2492,7 @@
     },
     {
       "name": "np_68",
-      "color": "#ffff00",
+      "color": "#00ff1c",
       "model": [
         true,
         [
@@ -2485,7 +2505,7 @@
     },
     {
       "name": "np_69",
-      "color": "#ffff00",
+      "color": "#00cbff",
       "model": [
         true,
         [
@@ -2498,7 +2518,7 @@
     },
     {
       "name": "np_7",
-      "color": "#ffff00",
+      "color": "#00ff58",
       "model": [
         true,
         [
@@ -2511,7 +2531,7 @@
     },
     {
       "name": "np_70",
-      "color": "#ffff00",
+      "color": "#00ffd8",
       "model": [
         true,
         [
@@ -2524,7 +2544,7 @@
     },
     {
       "name": "np_71",
-      "color": "#ffff00",
+      "color": "#007dff",
       "model": [
         true,
         [
@@ -2537,7 +2557,7 @@
     },
     {
       "name": "np_72",
-      "color": "#ffff00",
+      "color": "#0031ff",
       "model": [
         true,
         [
@@ -2550,7 +2570,7 @@
     },
     {
       "name": "np_73",
-      "color": "#ffff00",
+      "color": "#0057ff",
       "model": [
         true,
         [
@@ -2563,7 +2583,7 @@
     },
     {
       "name": "np_74",
-      "color": "#ffff00",
+      "color": "#0055ff",
       "model": [
         true,
         [
@@ -2576,7 +2596,7 @@
     },
     {
       "name": "np_75",
-      "color": "#ffff00",
+      "color": "#ff4b00",
       "model": [
         true,
         [
@@ -2589,7 +2609,7 @@
     },
     {
       "name": "np_76",
-      "color": "#ffff00",
+      "color": "#00ff15",
       "model": [
         true,
         [
@@ -2602,7 +2622,7 @@
     },
     {
       "name": "np_77",
-      "color": "#ffff00",
+      "color": "#00a5ff",
       "model": [
         true,
         [
@@ -2615,7 +2635,7 @@
     },
     {
       "name": "np_78",
-      "color": "#ffff00",
+      "color": "#00ff15",
       "model": [
         true,
         [
@@ -2628,7 +2648,7 @@
     },
     {
       "name": "np_79",
-      "color": "#ffff00",
+      "color": "#00c8ff",
       "model": [
         true,
         [
@@ -2641,7 +2661,7 @@
     },
     {
       "name": "np_8",
-      "color": "#ffff00",
+      "color": "#0088ff",
       "model": [
         true,
         [
@@ -2654,7 +2674,7 @@
     },
     {
       "name": "np_80",
-      "color": "#ffff00",
+      "color": "#00ff37",
       "model": [
         true,
         [
@@ -2667,7 +2687,7 @@
     },
     {
       "name": "np_81",
-      "color": "#ffff00",
+      "color": "#00ff83",
       "model": [
         true,
         [
@@ -2680,7 +2700,7 @@
     },
     {
       "name": "np_82",
-      "color": "#ffff00",
+      "color": "#005dff",
       "model": [
         true,
         [
@@ -2693,7 +2713,7 @@
     },
     {
       "name": "np_83",
-      "color": "#ffff00",
+      "color": "#00ffdd",
       "model": [
         true,
         [
@@ -2706,7 +2726,7 @@
     },
     {
       "name": "np_84",
-      "color": "#ffff00",
+      "color": "#00ff19",
       "model": [
         true,
         [
@@ -2719,7 +2739,7 @@
     },
     {
       "name": "np_85",
-      "color": "#ffff00",
+      "color": "#00ecff",
       "model": [
         true,
         [
@@ -2732,7 +2752,7 @@
     },
     {
       "name": "np_86",
-      "color": "#ffff00",
+      "color": "#aeff00",
       "model": [
         true,
         [
@@ -2745,7 +2765,7 @@
     },
     {
       "name": "np_87",
-      "color": "#ffff00",
+      "color": "#0041ff",
       "model": [
         true,
         [
@@ -2758,7 +2778,7 @@
     },
     {
       "name": "np_88",
-      "color": "#ffff00",
+      "color": "#00ff43",
       "model": [
         true,
         [
@@ -2771,7 +2791,7 @@
     },
     {
       "name": "np_89",
-      "color": "#ffff00",
+      "color": "#00ff0d",
       "model": [
         true,
         [
@@ -2784,7 +2804,7 @@
     },
     {
       "name": "np_9",
-      "color": "#ffff00",
+      "color": "#00ffb5",
       "model": [
         true,
         [
@@ -2797,7 +2817,7 @@
     },
     {
       "name": "np_90",
-      "color": "#ffff00",
+      "color": "#00ff77",
       "model": [
         true,
         [
@@ -2810,7 +2830,7 @@
     },
     {
       "name": "np_91",
-      "color": "#ffff00",
+      "color": "#0073ff",
       "model": [
         true,
         [
@@ -2823,7 +2843,7 @@
     },
     {
       "name": "np_92",
-      "color": "#ffff00",
+      "color": "#00ff1b",
       "model": [
         true,
         [
@@ -2836,7 +2856,7 @@
     },
     {
       "name": "np_93",
-      "color": "#ffff00",
+      "color": "#00e4ff",
       "model": [
         true,
         [
@@ -2849,7 +2869,7 @@
     },
     {
       "name": "np_94",
-      "color": "#ffff00",
+      "color": "#44ff00",
       "model": [
         true,
         [
@@ -2862,7 +2882,7 @@
     },
     {
       "name": "np_95",
-      "color": "#ffff00",
+      "color": "#009dff",
       "model": [
         true,
         [
@@ -2875,7 +2895,7 @@
     },
     {
       "name": "np_96",
-      "color": "#ffff00",
+      "color": "#84ff00",
       "model": [
         true,
         [
@@ -2888,7 +2908,7 @@
     },
     {
       "name": "np_97",
-      "color": "#ffff00",
+      "color": "#ffcb00",
       "model": [
         true,
         [
@@ -2901,7 +2921,7 @@
     },
     {
       "name": "np_98",
-      "color": "#ffff00",
+      "color": "#59ff00",
       "model": [
         true,
         [
@@ -2914,7 +2934,7 @@
     },
     {
       "name": "np_99",
-      "color": "#ffff00",
+      "color": "#00ff3f",
       "model": [
         true,
         [
@@ -2946,10 +2966,10 @@
           0.0
         ],
         "orientation": [
-          0.9223843405661204,
-          0.2678219035258396,
-          -0.27072779326105545,
-          0.06469171682834367
+          0.9223849463352618,
+          0.2678260465830008,
+          -0.2707259815822858,
+          0.06467350649318607
         ]
       },
       "pms": [
@@ -2992,8 +3012,8 @@
         [
           "3821",
           [
-            3029.8122447973938,
-            2707.2910043288935
+            3027.3299581558726,
+            2704.065197767898
           ],
           0.0,
           0
@@ -3028,8 +3048,8 @@
         [
           "np_1",
           [
-            2763.6483917848,
-            1223.8398463172434
+            2761.2198496679025,
+            1223.316631528808
           ],
           0.0,
           0
@@ -3694,8 +3714,8 @@
         [
           "np_166",
           [
-            2389.1521075346473,
-            1831.397866585292
+            2389.580514537864,
+            1835.185549733455
           ],
           0.0,
           0
@@ -3937,8 +3957,8 @@
         [
           "np_190",
           [
-            5095.062688039687,
-            370.9496439962816
+            5096.385421792401,
+            372.4807075351496
           ],
           0.0,
           0
@@ -4198,8 +4218,8 @@
         [
           "np_25",
           [
-            5168.097626185192,
-            449.3575003556193
+            5167.985572616183,
+            451.01163725805486
           ],
           0.0,
           0
@@ -4279,8 +4299,8 @@
         [
           "np_33",
           [
-            3347.927481003856,
-            522.5673735330747
+            3346.2757136014307,
+            521.1225240169933
           ],
           0.0,
           0
@@ -4603,8 +4623,8 @@
         [
           "np_66",
           [
-            1722.748807307962,
-            337.8392394051107
+            1722.036602346307,
+            335.53758151427064
           ],
           0.0,
           0
@@ -4666,8 +4686,8 @@
         [
           "np_72",
           [
-            3797.035775577032,
-            3034.2541645759375
+            3793.276897837194,
+            3029.103768647492
           ],
           0.0,
           0
@@ -4783,8 +4803,8 @@
         [
           "np_84",
           [
-            297.85677036353263,
-            2817.1960676272884
+            292.09324631852814,
+            2821.4199551183256
           ],
           0.0,
           0

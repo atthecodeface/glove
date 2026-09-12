@@ -1,9 +1,9 @@
 //a Imports
 use wasm_bindgen::prelude::*;
 
-use ic_base::JsonParsable;
-use ic_mapping::PointMapping;
-use ic_project::Project;
+use photogram::JsonParsable;
+use photogram::PointMapping;
+use photogram::Project;
 
 use crate::{WasmCameraDatabase, WasmCip, WasmNamedPointSet, err_to_string};
 
@@ -88,10 +88,12 @@ impl WasmProject {
 
     //mp cip
     pub fn cip(&self, name: String) -> Result<WasmCip, String> {
-        if self.project.cip(&name).is_none() {
+        if self.project.find_cip(&name).is_none() {
             Err(format!("Cip {name} not found"))
         } else {
-            Ok(WasmCip::of_cip(self.project.cip(&name).unwrap().clone()))
+            Ok(WasmCip::of_cip(
+                self.project.find_cip(&name).unwrap().clone(),
+            ))
         }
     }
 
@@ -102,11 +104,11 @@ impl WasmProject {
         camera_json: &str,
         pms_json: &str,
     ) -> Result<String, String> {
-        if self.project.cip(&name).is_none() {
+        if self.project.find_cip(&name).is_none() {
             Err(format!("Cip {name} not found"))
         } else {
             self.project
-                .cip(&name)
+                .find_cip(&name)
                 .unwrap()
                 .borrow_mut()
                 .read_json(&self.project, camera_json, pms_json)

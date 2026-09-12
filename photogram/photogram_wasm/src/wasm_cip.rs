@@ -1,16 +1,15 @@
 use std::borrow::Borrow;
-use std::rc::Rc;
 
-use geo_nd_wasm::{WasmQuatf64, WasmVec3f64};
-use ic_base::{Point3D, Rrc};
-use ic_mapping::PointMapping;
-use ic_project::{Cip, CipDesc};
+use geo_nd_wasm::WasmVec3f64;
+use star_catalog_wasm::WasmCatalog;
 use star_catalog_wasm::star_catalog::StarFilter;
-use star_catalog_wasm::{WasmCatalog, console_log};
 use wasm_bindgen::prelude::*;
 
-use crate::star_catalog::{Catalog, StarMatchMapping, StarMatchMappingSet, Subcube};
-use crate::{WasmCameraInstance, WasmPointMappingSet, err_to_string};
+use photogram::PointMapping;
+use photogram::Rrc;
+use photogram::{Cip, CipDesc, JsonSrc};
+
+use crate::{WasmCameraInstance, WasmPointMappingSet, WasmStarMatchSet, err_to_string};
 
 #[wasm_bindgen]
 #[derive(Debug)]
@@ -20,9 +19,9 @@ pub struct WasmCipDesc(CipDesc);
 impl WasmCipDesc {
     /// Try to parse a Json string as a CipDesc without a Project
     pub fn try_json(json: &str) -> Result<Self, JsValue> {
-        let json = ic_base::JsonSrc::<ic_project::CipDesc>::of_json(json).map_err(err_to_string)?;
+        let json = JsonSrc::<CipDesc>::of_json(json).map_err(err_to_string)?;
         let (_, cip_desc) = json
-            .deserialize_as::<ic_project::CipDesc>("Cip")
+            .deserialize_as::<CipDesc>("Cip")
             .map_err(err_to_string)?;
         Ok(Self(cip_desc))
     }
@@ -69,23 +68,16 @@ impl WasmCip {
     /// Create a new WasmGraphCanvas attached to a Canvas HTML element,
     /// adding events to the canvas that provide the paint program
     #[wasm_bindgen(constructor)]
-    pub fn new(cam_file: &str, image: &str, pms_file: &str) -> WasmCip {
-        let mut cip = Cip::default();
-        cip.set_camera_filename(cam_file);
+    pub fn new(image: &str) -> WasmCip {
+        let mut cip = Cip::new(image);
         cip.set_image_filename(image);
-        cip.set_pms_filename(pms_file);
         let cip = cip.into();
         Self { cip }
     }
 
     #[wasm_bindgen(getter)]
-    pub fn cam_file(&self) -> String {
-        self.cip.borrow().camera_filename().into()
-    }
-
-    #[wasm_bindgen(getter)]
     pub fn image(&self) -> String {
-        self.cip.borrow().image().to_string()
+        self.cip.borrow().name_as_tag().to_string()
     }
 
     #[wasm_bindgen(getter)]
@@ -94,19 +86,14 @@ impl WasmCip {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn pms_file(&self) -> String {
-        self.cip.borrow().pms_filename().into()
-    }
-
-    #[wasm_bindgen(getter)]
     pub fn camera(&self) -> WasmCameraInstance {
-        WasmCameraInstance::of_camera(self.cip.borrow().camera().clone())
+        self.cip.borrow().camera().clone().into()
     }
 
     //ap set_camera
     #[wasm_bindgen(setter)]
     pub fn set_camera(&mut self, wcamera: &WasmCameraInstance) {
-        self.cip.borrow_mut().set_camera(wcamera.camera().clone());
+        self.cip.borrow_mut().set_camera(wcamera.clone_camera());
     }
 
     //ap pms
@@ -116,17 +103,23 @@ impl WasmCip {
     }
 
     //mp locate
-    pub fn locate(&self, max_np_error: f64, max_pairs: usize) {
-        let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
-        self.cip.borrow_mut().locate(filter, max_pairs);
-    }
-
-    //mp orient_camera_using_model_directions
-    pub fn orient_camera_using_model_directions(&self, max_np_error: f64) {
+    pub fn locate(&self, max_np_error: f64, max_pairs: usize) -> Result<(), String> {
         let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
         self.cip
             .borrow_mut()
-            .orient_camera_using_model_directions(filter);
+            .locate(filter, max_pairs)
+            .map_err(err_to_string)?;
+        Ok(())
+    }
+
+    //mp orient_camera_using_model_directions
+    pub fn orient_camera_using_model_directions(&self, max_np_error: f64) -> Result<(), String> {
+        let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
+        self.cip
+            .borrow_mut()
+            .orient_camera_using_model_directions(filter)
+            .map_err(err_to_string)?;
+        Ok(())
     }
 
     pub fn stars_of_pms(
@@ -157,151 +150,5 @@ impl WasmCip {
         let world_dir = xy.get_mapped_world_dir(&*camera).into();
         *vec = world_dir;
         true
-    }
-}
-
-#[wasm_bindgen]
-pub struct WasmStarMatch {
-    /// The individual mappings have quaternions mapping image space to star space
-    mapping: StarMatchMapping,
-}
-
-impl std::convert::From<&StarMatchMapping> for WasmStarMatch {
-    fn from(mapping: &StarMatchMapping) -> Self {
-        let mapping: StarMatchMapping = (*mapping).clone();
-        Self { mapping }
-    }
-}
-
-#[wasm_bindgen]
-impl WasmStarMatch {
-    #[wasm_bindgen(getter)]
-    pub fn star(&self) -> usize {
-        self.mapping.star.as_usize()
-    }
-    #[wasm_bindgen(getter)]
-    pub fn img_index(&self) -> usize {
-        self.mapping.img_index
-    }
-    #[wasm_bindgen(getter)]
-    pub fn ordering(&self) -> f64 {
-        self.mapping.ordering
-    }
-    #[wasm_bindgen(getter)]
-    pub fn quality(&self) -> f64 {
-        self.mapping.quality
-    }
-    #[wasm_bindgen(getter)]
-    pub fn img_vector(&self) -> WasmVec3f64 {
-        self.mapping.img_vector.into()
-    }
-    #[wasm_bindgen(getter)]
-    pub fn star_vector(&self) -> WasmVec3f64 {
-        self.mapping.star_vector.into()
-    }
-}
-
-#[derive(Clone)]
-#[wasm_bindgen]
-pub struct WasmStarMatchMappingSet {
-    matches: Rc<StarMatchMappingSet>,
-}
-
-impl std::convert::From<StarMatchMappingSet> for WasmStarMatchMappingSet {
-    fn from(matches: StarMatchMappingSet) -> Self {
-        let matches = matches.into();
-        Self { matches }
-    }
-}
-
-#[wasm_bindgen]
-impl WasmStarMatchMappingSet {
-    pub fn set_quat(&self, quat: &mut WasmQuatf64) {
-        *(quat.as_mut()) = self.matches.q;
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn quality(&self) -> f64 {
-        self.matches.quality
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn angle_mean(&self) -> f64 {
-        self.matches.angle_mean.to_degrees()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn num_mappings(&self) -> usize {
-        self.matches.mappings.len()
-    }
-
-    pub fn mapping(&self, idx: usize) -> Option<WasmStarMatch> {
-        self.matches.mappings.get(idx).map(|s| s.into())
-    }
-
-    // pub initial_match: StarTriangleMatch,
-    // pub mappings: Vec<StarMatchMapping>,
-}
-
-#[wasm_bindgen]
-pub struct WasmStarMatchSet {
-    /// The match sets have quaternions mapping image space to star space
-    match_sets: Vec<WasmStarMatchMappingSet>,
-    more: bool,
-}
-
-impl WasmStarMatchSet {
-    pub fn new(cip: &Cip, catalog: &Catalog, max_angle_delta: f64, max_candidates: usize) -> Self {
-        let mut img_space_vectors: Vec<[f64; 3]> = vec![];
-        let pms = cip.pms().borrow();
-        let camera = &*cip.camera().borrow();
-        for p in pms.mappings() {
-            let v = p.get_mapped_camera_dir(camera);
-            // let n = img_space_vectors.len() - 1;
-            // img_space_vectors[n][1] *= -1.0;
-            //
-            console_log!("{v:0.4}");
-            img_space_vectors.push(v.into());
-        }
-        if false {
-            use geo_nd::Vector;
-            let n = img_space_vectors.len();
-            for (i, v) in img_space_vectors.iter().enumerate() {
-                let p0: Point3D = v.into();
-                let p1: Point3D = img_space_vectors[(i + 1) % n].into();
-                let angle = p0.dot(&p1).acos().to_degrees();
-                console_log!("angle {angle}");
-            }
-        }
-        let subcube_iter = Subcube::iter_all();
-        let (more, mut match_sets) = catalog.find_best_star_mappings(
-            subcube_iter,
-            &img_space_vectors,
-            max_angle_delta,
-            max_candidates,
-        );
-        match_sets.sort_by(|a, b| a.quality.partial_cmp(&b.quality).unwrap());
-        for m in match_sets.iter().take(10) {
-            console_log!("mean {} quality {}", m.angle_mean.to_degrees(), m.quality);
-        }
-
-        let match_sets = match_sets.into_iter().map(|s| s.into()).collect();
-        Self { match_sets, more }
-    }
-}
-
-#[wasm_bindgen]
-impl WasmStarMatchSet {
-    pub fn has_more(&self) -> bool {
-        self.more
-    }
-    pub fn num_match_sets(&self) -> usize {
-        self.match_sets.len()
-    }
-    pub fn match_sets_num_matches(&self) -> usize {
-        self.match_sets.len()
-    }
-    pub fn get_match(&self, index: usize) -> Option<WasmStarMatchMappingSet> {
-        self.match_sets.get(index).cloned()
     }
 }

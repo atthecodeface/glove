@@ -5,10 +5,10 @@ use std::sync::{Arc, Mutex, RwLock};
 use star_catalog::Catalog as StarCatalog;
 use thunderclap::{ArgCount, ArgDescriptor, CmdProperty, CommandArgs};
 
-use ic_base::{Error, PathSet, Result};
+use photogram::{Error, PathSet, Result, ThreadPool};
 
 //a CmdResult
-pub type CmdResult = std::result::Result<String, ic_base::Error>;
+pub type CmdResult = Result<String>;
 pub fn cmd_ok() -> CmdResult {
     Ok("".into())
 }
@@ -55,7 +55,7 @@ impl std::fmt::Debug for CmdArgsInner {
 #[derive(Default)]
 pub struct ServerState {
     started: bool,
-    server: ic_threads::ThreadPool,
+    server: ThreadPool,
 }
 
 //a CmdArgs

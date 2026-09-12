@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, JsonSrc, Point2D, Rrc};
-use ic_mapping::PointMappingSet;
+use photogram::PointMappingSet;
+use photogram::{JsonParsable, JsonSrc, Point2D, Rrc};
 
 use crate::{WasmNamedPointSet, err_to_string};
 

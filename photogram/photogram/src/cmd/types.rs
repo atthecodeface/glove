@@ -2,16 +2,19 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{NamedRayList, PathSet, Rrc};
+use ic_base::{NamedRayList, PathSet, Point2D, Point3D, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
-use ic_image::Color8;
+use ic_image::{Color8, ImageRgb8};
 use ic_mapping::{NamedPointSet, PointMappingSet};
 use ic_project::{Cip, Project};
+use ic_projections::Cylinder;
+use ic_spherical_image::{SphericalImage, SphericalImageShape};
 use ic_stars::StarMapping;
 
 //a CmdResult
-pub type CmdResult = std::result::Result<String, ic_base::Error>;
+use thunderclap::json;
+pub type CmdResult = std::result::Result<json::Value, anyhow::Error>;
 
 //a CmdArgs
 //tp CmdArgs
@@ -30,7 +33,12 @@ pub struct CmdArgs {
     pub(crate) nps: Rrc<NamedPointSet>,
 
     // pms that is part of the project
+    // Lose this
     pub(crate) pms: Rrc<PointMappingSet>,
+    // Lose this
+    pub(crate) calibration_mapping: CalibrationMapping,
+    // Lose this - should be in NPS/PMS
+    pub(crate) star_mapping: StarMapping,
 
     // CIP that is part of the project
     pub(crate) cip: Option<Rrc<Cip>>,
@@ -38,23 +46,49 @@ pub struct CmdArgs {
     // camera is a *specific* camera, not part of a CIP or project
     pub(crate) camera: CameraInstance,
 
-    pub(crate) calibration_mapping: CalibrationMapping,
-
     pub(crate) star_catalog: Option<Box<Catalog>>,
-    pub(crate) star_mapping: StarMapping,
 
     pub(crate) px: usize,
     pub(crate) py: usize,
     pub(crate) yaw_min: f64,
     pub(crate) yaw_max: f64,
     pub(crate) yaw_error: f64,
-    pub(crate) poly_degree: usize,
     pub(crate) triangle_closeness: f64,
     pub(crate) closeness: f64,
     pub(crate) within: f64,
     pub(crate) brightness: f32,
 
+    // Lose this
+    pub(crate) poly_degree: usize,
+
     pub(crate) pretty_json: bool,
+
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) kernel_size: usize,
+    pub(crate) scale: f64,
+    pub(crate) angle: f64,
+    pub(crate) flags: usize,
+    pub(crate) from_camera: bool,
+    pub(crate) fov_h: f64,
+    pub(crate) fov_v: f64,
+    pub(crate) h_ofs: f64,
+    pub(crate) v_ofs: f64,
+    pub(crate) x_grid: f64,
+    pub(crate) y_grid: f64,
+    pub(crate) patch_size: u32,
+    pub(crate) use_deltas: bool,
+    pub(crate) use_pts: usize,
+    pub(crate) max_error: f64,
+    pub(crate) max_points: usize,
+    pub(crate) max_pairs: usize,
+    pub(crate) steps: usize,
+    pub(crate) range: f64,
+    pub(crate) cylindrical_projection: Cylinder,
+
+    pub(crate) shape: SphericalImageShape,
+    pub(crate) spherical_image: Option<Rrc<SphericalImage<ImageRgb8>>>,
+    pub(crate) blend: f64,
 
     // Items clear during reset
     pub(crate) read_img: Vec<String>,
@@ -69,6 +103,10 @@ pub struct CmdArgs {
     pub(crate) write_polys: Option<String>,
     pub(crate) write_img: Option<String>,
     pub(crate) write_svg: Option<String>,
+    pub(crate) render_vertical: bool,
+
+    pub(crate) xy: Vec<Point2D>,
+    pub(crate) xyz: Vec<Point3D>,
 
     // Positional string / f64 / usize arguments
     pub(crate) arg_strings: Vec<String>,
@@ -80,17 +118,4 @@ pub struct CmdArgs {
     pub(crate) model_color: Option<Color8>,
 
     pub(crate) named_rays: NamedRayList,
-
-    pub(crate) kernel_size: usize,
-    pub(crate) scale: f64,
-    pub(crate) angle: f64,
-    pub(crate) flags: usize,
-    pub(crate) from_camera: bool,
-    pub(crate) use_deltas: bool,
-    pub(crate) use_pts: usize,
-    pub(crate) max_error: f64,
-    pub(crate) max_points: usize,
-    pub(crate) max_pairs: usize,
-    pub(crate) steps: usize,
-    pub(crate) range: f64,
 }

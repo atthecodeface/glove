@@ -1,15 +1,18 @@
+use std::cell::Ref;
+
 use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, Point2D, Point3D, RollYaw, Rrc, TanXTanY};
-use ic_camera::{
-    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, LensPolys,
+use photogram::{
+    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, RollYaw,
 };
+use photogram::{JsonParsable, Point2D, Point3D, Rrc, TanXTanY};
 
-use crate::{
-    ToFromWasmArr, WasmLensPoly, WasmPointMappingSet, WasmRay, console_log, err_to_string,
-};
+use crate::{ToFromWasmArr, WasmLensPoly, WasmPointMappingSet, WasmRay, err_to_string};
 
+/// A reference-counted mutable camera database
+///
+/// In the application a single camera database is used.
 #[wasm_bindgen]
 pub struct WasmCameraDatabase {
     cdb: Rrc<CameraDatabase>,
@@ -64,19 +67,27 @@ impl WasmCameraDatabase {
     }
 }
 
+/// A reference counted mutable camera instance
 #[wasm_bindgen]
 pub struct WasmCameraInstance {
     camera: Rrc<CameraInstance>,
 }
 
-//ip WasmCameraInstance
-impl WasmCameraInstance {
-    pub fn of_camera(camera: Rrc<CameraInstance>) -> Self {
+impl std::convert::From<Rrc<CameraInstance>> for WasmCameraInstance {
+    fn from(camera: Rrc<CameraInstance>) -> Self {
         Self { camera }
     }
+}
 
-    pub fn camera(&self) -> &Rrc<CameraInstance> {
-        &self.camera
+impl WasmCameraInstance {
+    /// Clone the camera
+    pub fn clone_camera(&self) -> Rrc<CameraInstance> {
+        self.camera.clone()
+    }
+
+    /// Borrow the camera
+    pub fn borrow_camera<'a>(&'a self) -> Ref<'a, CameraInstance> {
+        self.camera.borrow()
     }
 }
 
@@ -363,12 +374,12 @@ impl WasmCameraInstance {
     }
 
     pub fn map_yaw_world_to_sensor(&self, yaw: f64) -> f64 {
-        let ry = ic_base::RollYaw::of_yaw(yaw);
+        let ry = RollYaw::of_yaw(yaw);
         self.camera.borrow().camera_ry_to_sensor_ry(&ry).yaw()
     }
 
     pub fn map_yaw_sensor_to_world(&self, yaw: f64) -> f64 {
-        let ry = ic_base::RollYaw::of_yaw(yaw);
+        let ry = RollYaw::of_yaw(yaw);
         self.camera.borrow().sensor_ry_to_camera_ry(&ry).yaw()
     }
 

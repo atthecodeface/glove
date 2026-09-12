@@ -1,10 +1,11 @@
 //a Imports
 use std::rc::Rc;
 
-use ic_base::Result;
-use ic_camera::CameraProjection;
-use ic_image::{Image, ImagePt, ImageRgb8};
-use ic_mapping::{NamedPoint, NamedPointSet, PointMappingSet};
+use photogram::CameraProjection;
+use photogram::ModelData;
+use photogram::Result;
+use photogram::{Image, ImagePt, ImageRgb8};
+use photogram::{NamedPoint, NamedPointSet, PointMappingSet};
 
 use super::CmdArgs;
 
@@ -51,17 +52,17 @@ impl CmdArgs {
         map(&self.pms.borrow())
     }
 
-    //mp calibration_mapping_to_pms
+    /// Create a point mapping set from a calibration mapping
     pub fn calibration_mapping_to_pms(&self) -> PointMappingSet {
         let v = self.calibration_mapping.get_xyz_pairings();
         let mut nps = NamedPointSet::default();
         let mut pms = PointMappingSet::default();
 
-        //cb Add calibrations to NamedPointSet and PointMappingSet
         for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+            let model = ModelData::at_infinity(model_xyz).with_uncertainty(0.0);
             let name = n.to_string();
             let color = [255, 255, 255, 255].into();
-            nps.add_pt(&name, color, false, Some(model_xyz), 0.);
+            nps.add_pt(&name, color, model);
             pms.add_mapping(&nps, &name, &pxy_abs, 0.);
         }
         pms

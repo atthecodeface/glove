@@ -364,6 +364,7 @@ export class StarCalibration
     this.camera = null;
     const wasm_cip = this.application.current_project().get_wasm_cip();
     if (wasm_cip !== null) { this.camera = wasm_cip.camera; }
+    this.update_selected_stars();
   }
 
   tab_project_selected(p: Project): void {
@@ -581,6 +582,12 @@ export class StarCalibration
     this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_roll_error.toFixed(3));
     this.tools_stats_div.add_span(" ");
     this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_yaw_error.toFixed(3));
+    this.tools_stats_div.add_span(" ");
+    this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_dx_error.toFixed(3));
+    this.tools_stats_div.add_span(" ");
+    this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_dy_error.toFixed(3));
+    this.tools_stats_div.add_span(" ");
+    this.tools_stats_div.add_span(this.application.current_project().mapped_nps().total_sq_dxy_error.toFixed(3));
   }
 
   /** At end of drag - update the whole project */

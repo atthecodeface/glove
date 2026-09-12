@@ -88,7 +88,8 @@ export class Photogram {
         // this.load_project("local:nac_all_proj.json");
         // this.load_project("server:nac_all_proj");
         // this.load_project("server:lens_calibrations_proj");
-        this.load_project("server:lens_calibrate_r5_15mm_proj");
+        // this.load_project("server:lens_calibrate_r5_15mm_proj");
+        this.load_project("server:norwich_proj");
     }
     logger() {
         return this.app_logger;
@@ -113,12 +114,10 @@ export class Photogram {
     }
     load_project(locator) {
         this.project.load_project(locator);
-        this.cip.set_cip("", null);
     }
     project_load_completed(success) {
         if (success) {
-            const cip_name = this.project.get_cip_name(2);
-            this.set_cip(cip_name);
+            this.set_cip(0);
         }
         else {
         }
@@ -132,8 +131,12 @@ export class Photogram {
         else {
         }
     }
-    set_cip(cip_name) {
-        this.project.set_cip(cip_name);
+    select_cip(cip_number, delta) {
+        this.project.set_cip(cip_number, delta);
+        this.repopulate();
+    }
+    set_cip(cip_number) {
+        this.project.set_cip(cip_number);
         this.repopulate();
     }
     repopulate() {

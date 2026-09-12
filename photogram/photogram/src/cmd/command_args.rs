@@ -1,34 +1,41 @@
-//a Imports
-
+use anyhow::{Error, anyhow};
+use thunderclap::json;
 use thunderclap::{CmdProperty, CommandArgs};
 
-use ic_base::{Error, NamedRayList};
+use json::Value;
+
+use ic_base::{JsonParsable, JsonSrc, NamedRayList, QuaternionDesc};
+use ic_camera::CameraProjection;
+use ic_projections::CylindricalProjection;
 
 use crate::{CmdArgs, CmdResult};
 
+macro_rules! property {
+    {$name:expr, $get_fn:ident, $set_fn:ident} => {
+        CmdProperty {
+            name: $name,
+            get_fn: &|cmd_args| json::to_value(cmd_args . $get_fn ()).ok(),
+            set_value_fn: &|cmd_args, s| {
+                cmd_args . $set_fn (json::from_value(s.clone())?)?;
+                Ok(true)
+            },
+        }
+    }
+}
 impl CommandArgs for CmdArgs {
     type Error = Error;
-    type Value = String;
+    type Value = Value;
     const PROPERTIES: &[CmdProperty<'static, Self, Self::Value, Self::Error>] = &[
-        CmdProperty {
-            name: "camera",
-            get_fn: &|cmd_args| cmd_args.camera.to_json(false).ok(),
-            set_value_fn: &|cmd_args, s| cmd_args.set_camera_json(s).map(|_| true),
-        },
         CmdProperty {
             name: "cip",
             get_fn: &|cmd_args| {
-                Some(
-                    cmd_args
-                        .cip
-                        .as_ref()
-                        .map(|c| c.borrow().image().to_string())
-                        .unwrap_or_default(),
-                )
+                cmd_args
+                    .cip
+                    .as_ref()
+                    .map(|c| json::to_value(&*c.borrow()).ok())
+                    .flatten()
             },
-            set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'cip' to '{s}'").into())
-            },
+            set_value_fn: &|mut _cmd_args, s| Err(anyhow!("Failed to set key 'cip' to '{s}'")),
         },
         CmdProperty {
             name: "cip.image_filename",
@@ -36,10 +43,11 @@ impl CommandArgs for CmdArgs {
                 cmd_args
                     .cip
                     .as_ref()
-                    .map(|c| c.borrow().image_filename().to_string())
+                    .map(|c| json::to_value(c.borrow().image_filename()).ok())
+                    .flatten()
             },
             set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'cip.image_filename' to '{s}'").into())
+                Err(anyhow!("Failed to set key 'cip.image_filename' to '{s}'"))
             },
         },
         CmdProperty {
@@ -48,129 +56,127 @@ impl CommandArgs for CmdArgs {
                 cmd_args
                     .cip
                     .as_ref()
-                    .and_then(|c| c.borrow().camera().borrow().to_json(false).ok())
+                    .map(|c| json::to_value(&*c.borrow().camera().borrow()).ok())
+                    .flatten()
             },
             set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'cip.camera' to '{s}'").into())
+                Err(anyhow!("Failed to set key 'cip.camera' to '{s}'"))
             },
         },
-        CmdProperty {
-            name: "cip.point_mapping_set",
-            get_fn: &|cmd_args| {
-                cmd_args
-                    .cip
-                    .as_ref()
-                    .map(|c| c.borrow().pms_filename().to_owned())
-            },
-            set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'cip.point_mapping_set' to '{s}'").into())
-            },
-        },
-        CmdProperty {
-            name: "point_mapping_set",
-            get_fn: &|cmd_args| cmd_args.pms.borrow().to_json(false).ok(),
-            set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'point_mapping_set' to '{s}'").into())
-            },
-        },
-        CmdProperty {
-            name: "calibration_mapping",
-            get_fn: &|cmd_args| cmd_args.calibration_mapping.to_json(false).ok(),
-            set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'calibration_mapping' to '{s}'").into())
-            },
-        },
-        CmdProperty {
-            name: "star_mapping",
-            get_fn: &|cmd_args| cmd_args.star_mapping.to_json(false).ok(),
-            set_value_fn: &|mut _cmd_args, s| {
-                Err(format!("Failed to set key 'star_mapping' to '{s}'").into())
-            },
-        },
-        CmdProperty {
-            name: "brightness",
-            get_fn: &|cmd_args| Some(cmd_args.brightness.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f32>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_brightness(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "closeness",
-            get_fn: &|cmd_args| Some(cmd_args.closeness.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_closeness(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "poly_degree",
-            get_fn: &|cmd_args| Some(cmd_args.poly_degree.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<usize>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_poly_degree(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "triangle_closeness",
-            get_fn: &|cmd_args| Some(cmd_args.triangle_closeness.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_triangle_closeness(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "within",
-            get_fn: &|cmd_args| Some(cmd_args.within.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_within(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "yaw_error",
-            get_fn: &|cmd_args| Some(cmd_args.yaw_error.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_yaw_error(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "yaw_min",
-            get_fn: &|cmd_args| Some(cmd_args.yaw_min.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_yaw_min(v))
-                    .map(|_| true)
-            },
-        },
-        CmdProperty {
-            name: "yaw_max",
-            get_fn: &|cmd_args| Some(cmd_args.yaw_max.to_string()),
-            set_value_fn: &|cmd_args, s| {
-                s.parse::<f64>()
-                    .map_err(|e| e.to_string().into())
-                    .and_then(|v| cmd_args.set_yaw_max(v))
-                    .map(|_| true)
-            },
-        },
+        /*
+               CmdProperty {
+                   name: "camera",
+                   get_fn: &|cmd_args| json::to_value(cmd_args.camera).ok(),
+                   set_value_fn: &|cmd_args, s| cmd_args.set_camera_json(sa).map(|_| true),
+               },
+        */
+        property!("brightness", brightness, set_brightness),
+        /*
+        *
+         CmdProperty {
+                   name: "brightness",
+                   get_fn: &|cmd_args| json::to_value(cmd_args.brightness()).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.set_brightness(json::from_value(s.clone())?)?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "closeness",
+                   get_fn: &|cmd_args| json::to_value(cmd_args.closeness()).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.set_closeness(json::from_value(s.clone())?)?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "triangle_closeness",
+                   get_fn: &|cmd_args| json::to_value(cmd_args.triangle_closeness()).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.set_triangle_closeness(json::from_value(s.clone())?)?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "within",
+                   get_fn: &|cmd_args| json::to_value(cmd_args.within()).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.set_within(json::from_value(s.clone())?)?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "yaw_error",
+                   get_fn: &|cmd_args| Some(cmd_args.yaw_error.to_string()),
+                   set_value_fn: &|cmd_args, s| {
+                       s.parse::<f64>()
+                           .map_err(|e| e.to_string().into())
+                           .and_then(|v| cmd_args.set_yaw_error(v))
+                           .map(|_| true)
+                   },
+               },
+               CmdProperty {
+                   name: "yaw_min",
+                   get_fn: &|cmd_args| Some(cmd_args.yaw_min.to_string()),
+                   set_value_fn: &|cmd_args, s| {
+                       s.parse::<f64>()
+                           .map_err(|e| e.to_string().into())
+                           .and_then(|v| cmd_args.set_yaw_min(v))
+                           .map(|_| true)
+                   },
+               },
+               CmdProperty {
+                   name: "yaw_max",
+                   get_fn: &|cmd_args| Some(cmd_args.yaw_max.to_string()),
+                   set_value_fn: &|cmd_args, s| {
+                       s.parse::<f64>()
+                           .map_err(|e| e.to_string().into())
+                           .and_then(|v| cmd_args.set_yaw_max(v))
+                           .map(|_| true)
+                   },
+               },
+               CmdProperty {
+                   name: "orientation",
+                   get_fn: &|cmd_args| serde_json::to_string(&cmd_args.camera.orientation()).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       QuaternionDesc::load_json(s, &()).map(|q| {
+                           cmd_args.camera.set_orientation(&q);
+                           true
+                       })
+                   },
+               },
+               CmdProperty {
+                   name: "grid_x",
+                   get_fn: &|cmd_args| serde_json::to_string(&cmd_args.x_grid).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.x_grid = JsonSrc::<f64>::load_json(s, &())?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "grid_y",
+                   get_fn: &|cmd_args| serde_json::to_string(&cmd_args.x_grid).ok(),
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.y_grid = JsonSrc::<f64>::load_json(s, &())?;
+                       Ok(true)
+                   },
+               },
+               CmdProperty {
+                   name: "cylindrical",
+                   get_fn: &|cmd_args| {
+                       let projection_name = cmd_args.cylindrical_projection.name();
+                       serde_json::to_string(projection_name).ok()
+                   },
+                   set_value_fn: &|cmd_args, s| {
+                       cmd_args.cylindrical_projection.set_projection(s)?;
+                       Ok(true)
+                   },
+               },
+               */
     ];
 
     fn cmd_ok() -> CmdResult {
-        Ok("".into())
+        Ok(json::Value::Null)
     }
 
     fn value_from_str(s: &str) -> Result<Self::Value, Self::Error> {
@@ -181,12 +187,15 @@ impl CommandArgs for CmdArgs {
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
 
-        self.read_img = vec![];
-        self.np = vec![];
-        self.kernels = vec![];
-        self.arg_strings = vec![];
-        self.arg_f64s = vec![];
-        self.arg_usizes = vec![];
+        self.read_img.clear();
+        self.np.clear();
+        self.kernels.clear();
+        self.arg_strings.clear();
+        self.arg_f64s.clear();
+        self.arg_usizes.clear();
+        self.xy.clear();
+        self.xyz.clear();
+
         self.named_rays = NamedRayList::default();
 
         self.write_project = None;

@@ -1,720 +1,707 @@
-//a Imports
-use thunderclap::{ArgCount, CommandBuilder};
+use ic_spherical_image::SphericalImageShape;
+use thunderclap::{ArgCount, ArgDescriptor};
+
+use crate::Result;
+
+use ic_base::{JsonParsable, Point2D, Point3D};
 
 use super::CmdArgs;
 
-//a CmdArgs arg build methods
-//ip CmdArgs arg build methods
 impl CmdArgs {
-    //mp add_arg_path
-    pub fn add_arg_path(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "path",
-            None,
-            "Add a directory to the search path",
-            (0,),
-            None,
-            CmdArgs::add_path,
-        );
-    }
+    pub(crate) const ARG_VERBOSE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_flag(
+        "verbose",
+        Some('v'),
+        "Enable verbose output",
+        &|s: &mut CmdArgs, v: bool| {
+            s.verbose = v;
+            Ok(())
+        },
+    );
 
-    //mp add_arg_verbose
-    pub fn add_arg_verbose(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "verbose",
-            Some('v'),
-            "Enable verbose output",
-            CmdArgs::set_verbose,
-        );
-    }
+    pub(crate) const ARG_PRETTY_JSON: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_flag(
+        "pretty_json",
+        None,
+        "Use pretty-printing for Json output",
+        &|s: &mut CmdArgs, v: bool| {
+            s.pretty_json = v;
+            Ok(())
+        },
+    );
 
-    //mp add_arg_pretty_json
-    pub fn add_arg_pretty_json(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "pretty_json",
-            None,
-            "Enable pretty_json output",
-            CmdArgs::set_pretty_json,
-        );
-    }
+    pub(crate) const ARG_WIDTH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
+        "width",
+        None,
+        "Set the width for the operation",
+        ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: u32| {
+            s.width = v;
+            Ok(())
+        },
+    );
 
-    //fp add_arg_kernel
-    pub fn add_arg_kernel<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
-        build.add_arg_string(
-            "kernel",
-            None,
-            "Add a kernel to run",
-            arg_count,
-            None,
-            CmdArgs::add_kernel,
-        );
-    }
+    pub(crate) const ARG_HEIGHT: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
+        "height",
+        None,
+        "Set the height for the operation",
+        ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: u32| {
+            s.height = v;
+            Ok(())
+        },
+    );
 
-    //fp add_arg_nps
-    pub fn add_arg_nps(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "nps",
-            None,
-            "Add a named point set to the list",
-            (0,),
-            None,
-            CmdArgs::add_nps,
-        );
-    }
+    pub(crate) const ARG_ADD_KERNEL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "kernel",
+        None,
+        "Add a kernel to run; at least one must be specified",
+        ArgCount::Min(1),
+        None,
+        &Self::add_kernel,
+    );
 
-    //fp add_arg_camera_database
-    pub fn add_arg_camera_database(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "camera_db",
-            None,
-            "Camera database JSON filename",
-            required,
-            None,
-            CmdArgs::set_camera_db,
-        );
-    }
+    pub(crate) const ARG_NPS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "nps",
+        None,
+        "Add a named point set to the list",
+        ArgCount::Any,
+        None,
+        &Self::add_nps,
+    );
 
-    //fp add_arg_project_file
-    pub fn add_arg_project_file(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "project_file",
-            None,
-            "Complete project JSON filename",
-            required,
-            None,
-            CmdArgs::set_project_file,
-        );
-    }
+    pub(crate) const ARG_CAMERA_DB: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "camera_db",
+        None,
+        "Camera database JSON filename",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_db,
+    );
 
-    //fp add_arg_project_desc
-    pub fn add_arg_project_desc(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "project_desc",
-            None,
-            "Project descriptor JSON filename",
-            required,
-            None,
-            CmdArgs::set_project_desc,
-        );
-    }
+    pub(crate) const ARG_PROJECT_FILE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "project_file",
+        None,
+        "Complete project JSON filename",
+        ArgCount::Optional,
+        None,
+        &Self::set_project_file,
+    );
 
-    //fp add_arg_pms
-    pub fn add_arg_pms(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "pms",
-            None,
-            "Add a point mapping set",
-            false, // Perhaps should allow some in...
-            None,
-            CmdArgs::add_pms,
-        );
-    }
+    pub(crate) const ARG_PROJECT_DESC: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "project_desc",
+        None,
+        "Project descriptor JSON filename",
+        ArgCount::Optional,
+        None,
+        &Self::set_project_desc,
+    );
 
-    //fp add_arg_cip
-    pub fn add_arg_cip(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "cip",
-            None,
-            "CIP name (camera and PMS) within the project",
-            required,
-            None,
-            CmdArgs::set_cip,
-        );
-    }
+    pub(crate) const ARG_PMS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "pms",
+        None,
+        "Add a point mapping set",
+        ArgCount::Optional,
+        None,
+        &Self::add_pms,
+    );
 
-    //fp add_arg_camera
-    pub fn add_arg_camera(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "camera",
-            Some('c'),
-            "Camera lens, placement and orientation JSON",
-            required,
-            None,
-            CmdArgs::set_camera_file,
-        );
+    pub(crate) const ARG_CIP: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "cip",
+        None,
+        "CIP name (camera and PMS) within the project",
+        ArgCount::Optional,
+        None,
+        &Self::set_cip,
+    );
 
-        build.add_arg_string(
-            "use_body",
-            None,
-            "Specify which body to use in the camera",
-            false,
-            None,
-            CmdArgs::set_camera_body,
-        );
+    pub(crate) const ARG_CAMERA: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "camera",
+        Some('c'),
+        "Camera lens, placement and orientation JSON",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_file,
+    );
 
-        build.add_arg_string(
-            "use_lens",
-            None,
-            "Specify which lens to use in the camera",
-            false,
-            None,
-            CmdArgs::set_camera_lens,
-        );
+    pub(crate) const ARG_USE_BODY: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "use_body",
+        None,
+        "Specify which body to use in the camera",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_body,
+    );
 
-        build.add_arg_f64(
-            "use_focus",
-            None,
-            "Specify the focus distance in mm used for the image, in the camera",
-            false,
-            None,
-            CmdArgs::set_camera_focus_distance,
-        );
+    pub(crate) const ARG_USE_LENS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "use_lens",
+        None,
+        "Specify which lens to use in the camera",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_lens,
+    );
 
-        build.add_arg_string(
-            "use_polys",
-            None,
-            "Specify an override for the lens polynomials in the camera",
-            false,
-            None,
-            CmdArgs::set_camera_polys,
-        );
-    }
+    pub(crate) const ARG_USE_FOCUS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "use_focus",
+        None,
+        "Specify the focus distance in mm used for the image, in the camera",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_focus_distance,
+    );
 
-    //fp add_arg_named_ray_file
-    pub fn add_arg_named_ray_file<I: Into<ArgCount>>(
-        build: &mut CommandBuilder<Self>,
-        arg_count: I,
-    ) {
-        build.add_arg_string(
-            "rays",
-            None,
-            "Add named ray Json files (list of name, ray)",
-            arg_count,
-            None,
-            CmdArgs::add_named_ray_file,
-        );
-    }
+    pub(crate) const ARG_USE_POLYS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "use_polys",
+        None,
+        "Specify an override for the lens polynomials in the camera",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_polys,
+    );
 
-    //fp add_arg_named_point
-    pub fn add_arg_named_point<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
-        build.add_arg_string(
-            "np",
-            None,
-            "The name of a named point to use or look for; can be a regular expression",
-            arg_count,
-            None,
-            CmdArgs::add_np,
-        );
-    }
+    pub(crate) const ARG_USE_ORIENTATION: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "use_orientation",
+        None,
+        "Specify the orientation for the current camera, explicitly",
+        ArgCount::Optional,
+        None,
+        &Self::set_camera_orientation,
+    );
 
-    //fp add_arg_px
-    pub fn add_arg_px(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_usize(
-            "px",
-            None,
-            "Pixel X value to use",
-            required,
-            None,
-            CmdArgs::set_px,
-        );
-    }
+    pub(crate) const ARG_ADD_NAMED_RAY_FILE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "rays",
+        None,
+        "Add named ray Json files (list of name, ray)",
+        ArgCount::Any,
+        None,
+        &Self::add_named_ray_file,
+    );
 
-    //fp add_arg_py
-    pub fn add_arg_py(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_usize(
-            "py",
-            None,
-            "Pixel Y value to use",
-            required,
-            None,
-            CmdArgs::set_py,
-        );
-    }
+    /// Any number of positional arguments to add names of named points to use
+    pub(crate) const ARG_ADD_NAMED_POINT: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "np",
+        None,
+        "The name of a named point to use or look for; can be a regular expression",
+        ArgCount::PositionalAny,
+        None,
+        &Self::add_np,
+    );
 
-    //fp add_arg_kernel_size
-    pub fn add_arg_kernel_size(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_usize(
-            "kernel_size",
-            None,
-            "Size parameter for a kernel",
-            required,
-            Some("8"),
-            CmdArgs::set_kernel_size,
-        );
-    }
+    pub(crate) const ARG_POSITIONAL_NAME: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "name",
+        None,
+        "The name of a named point, CIP (as required by the command)",
+        ArgCount::PositionalRequired(1),
+        None,
+        &Self::add_string_arg,
+    );
 
-    //fp add_arg_flags
-    pub fn add_arg_flags(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "flags",
-            None,
-            "Flags parameter for (e.g.) a kernel",
-            false,
-            Some("0"),
-            CmdArgs::set_flags,
-        );
-    }
+    pub(crate) const ARG_ADD_POINT3D: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "point",
+        None,
+        "A 3D point (as required by the command)",
+        ArgCount::Any,
+        None,
+        &Self::add_point3d,
+    );
 
-    //fp add_arg_steps
-    pub fn add_arg_steps(build: &mut CommandBuilder<Self>, default_value: Option<&'static str>) {
-        build.add_arg_usize(
-            "steps",
-            None,
-            "Number of steps to use",
-            false,
-            default_value,
-            CmdArgs::set_steps,
-        );
-    }
+    pub(crate) const ARG_ADD_POINT2D: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "point",
+        None,
+        "A 2D point (as required by the command)",
+        ArgCount::Any,
+        None,
+        &Self::add_point2d,
+    );
 
-    //fp add_arg_range
-    pub fn add_arg_range(build: &mut CommandBuilder<Self>, default_value: Option<&'static str>) {
-        build.add_arg_f64(
-            "range",
-            None,
-            "Range parameter for (e.g.) a kernel",
-            false,
-            default_value,
-            CmdArgs::set_range,
-        );
-    }
+    pub(crate) const ARG_PX: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "px",
+        None,
+        "Pixel X value to use",
+        ArgCount::Required,
+        None,
+        &Self::set_px,
+    );
 
-    //fp add_arg_scale
-    pub fn add_arg_scale(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "scale",
-            None,
-            "Scale parameter for (e.g.) a kernel",
-            false,
-            Some("1"),
-            CmdArgs::set_scale,
-        );
-    }
+    pub(crate) const ARG_PY: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "py",
+        None,
+        "Pixel Y value to use",
+        ArgCount::Required,
+        None,
+        &Self::set_py,
+    );
 
-    //fp add_arg_angle
-    pub fn add_arg_angle(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "angle",
-            None,
-            "Angle parameter for (e.g.) a kernel",
-            false,
-            Some("0"),
-            CmdArgs::set_angle,
-        );
-    }
+    pub(crate) const ARG_KERNEL_SIZE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "kernel_size",
+        None,
+        "Size parameter for a kernel",
+        ArgCount::Required,
+        Some("8"),
+        &Self::set_kernel_size,
+    );
 
-    //fp add_arg_bg_color
-    pub fn add_arg_bg_color(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "bg_color",
-            None,
-            "Background color",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_bg_color,
-        );
-    }
+    pub(crate) const ARG_FLAGS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "flags",
+        None,
+        "Flags parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("0"),
+        &Self::set_flags,
+    );
 
-    //mp add_arg_pms_color
-    pub fn add_arg_pms_color(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "pms_color",
-            None,
-            "Color for PMS points",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_pms_color,
-        );
-    }
+    pub(crate) const ARG_STEPS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "steps",
+        None,
+        "Number of steps to use",
+        ArgCount::Optional,
+        Some("40"),
+        &Self::set_steps,
+    );
 
-    //mp add_arg_model_color
-    pub fn add_arg_model_color(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "model_color",
-            None,
-            "Color for mapped model crosses",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_model_color,
-        );
-    }
+    pub(crate) const ARG_RANGE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "range",
+        None,
+        "Range parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("10.0"),
+        &Self::set_range,
+    );
 
-    //mp add_arg_calibration_mapping
-    pub fn add_arg_calibration_mapping(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "calibration_mapping",
-            Some('m'),
-            "Camera calibration mapping JSON",
-            required,
-            None,
-            CmdArgs::set_calibration_mapping_file,
-        );
-    }
+    pub(crate) const ARG_SCALE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "scale",
+        None,
+        "Scale parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("1"),
+        &Self::set_scale,
+    );
 
-    //fp add_arg_poly_degree
-    pub fn add_arg_poly_degree(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "poly_degree",
-            None,
-            "Degree of polynomial to use for the lens calibration (5 for 50mm)",
-            ArgCount::Optional,
-            Some("5"),
-            CmdArgs::set_poly_degree,
-        );
-    }
+    pub(crate) const ARG_ANGLE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "angle",
+        None,
+        "Angle parameter for (e.g.) a kernel",
+        ArgCount::Optional,
+        Some("0"),
+        &Self::set_angle,
+    );
 
-    //fp add_arg_use_deltas
-    pub fn add_arg_use_deltas(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "use_deltas",
-            None,
-            "Use deltas for plotting rather than absolute values",
-            CmdArgs::set_use_deltas,
-        );
-    }
+    pub(crate) const ARG_BG_COLOR: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "bg_color",
+        None,
+        "Background color",
+        ArgCount::Optional,
+        None,
+        &Self::set_bg_color,
+    );
 
-    //fp add_arg_from_camera
-    pub fn add_arg_from_camera(build: &mut CommandBuilder<Self>) {
-        build.add_flag(
-            "from_camera",
-            None,
-            "Operate from the camera to the model, rather than the other way round",
-            CmdArgs::set_from_camera,
-        );
-    }
+    pub(crate) const ARG_PMS_COLOR: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "pms_color",
+        None,
+        "Color for PMS points",
+        ArgCount::Optional,
+        None,
+        &Self::set_pms_color,
+    );
 
-    //fp add_arg_num_pts
-    pub fn add_arg_num_pts(build: &mut CommandBuilder<Self>) {
-        build.add_arg_usize(
-            "num_pts",
-            Some('n'),
-            "Number of points to use (from start of mapping); if not specified, use all",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_use_pts,
-        );
-    }
+    pub(crate) const ARG_MODEL_COLOR: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "model_color",
+        None,
+        "Color for named point color, or for drawing mapped model crosses",
+        ArgCount::Optional,
+        None,
+        &Self::set_model_color,
+    );
 
-    //fp add_arg_max_pairs
-    pub fn add_arg_max_pairs(
-        build: &mut CommandBuilder<Self>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_usize(
-            "max_pairs",
-            None,
-            "Set the maximum pairs for a command",
-            ArgCount::Optional,
-            default_value,
-            CmdArgs::set_max_pairs,
-        );
-    }
+    /*
+       pub fn add_arg_calibration_mapping(build: &mut CommandBuilder<Self>, required: bool) {
+           build.add_arg_string(
+               "calibration_mapping",
+               Some('m'),
+               "Camera calibration mapping JSON",
+               required,
+               None,
+               CmdArgs::set_calibration_mapping_file,
+           );
+       }
+    */
 
-    //fp add_arg_max_points
-    pub fn add_arg_max_points(
-        build: &mut CommandBuilder<Self>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_usize(
-            "max_points",
-            None,
-            "Set the maximum points for a command",
-            ArgCount::Optional,
-            default_value,
-            CmdArgs::set_max_points,
-        );
-    }
+    pub(crate) const ARG_FROM_CAMERA: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_flag(
+        "from_camera",
+        None,
+        "Operate from the camera to the model, rather than the other way round",
+        &Self::set_from_camera,
+    );
 
-    //fp add_arg_max_error
-    pub fn add_arg_max_error(
-        build: &mut CommandBuilder<Self>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_f64(
-            "max_error",
-            None,
-            "Set the maximum error for a command - 0.0 means use a default",
-            ArgCount::Optional,
-            default_value,
-            CmdArgs::set_max_error,
-        );
-    }
+    pub(crate) const ARG_NUM_PTS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "num_pts",
+        Some('n'),
+        "Number of points to use (from start of mapping); if not specified, use all",
+        ArgCount::Optional,
+        None,
+        &Self::set_use_pts,
+    );
 
-    //fp add_arg_yaw_min_max
-    pub fn add_arg_yaw_min_max(
-        build: &mut CommandBuilder<Self>,
-        min: Option<&'static str>,
-        max: Option<&'static str>,
-    ) {
-        build.add_arg_f64(
-            "yaw_min",
-            None,
-            "Minimim yaw to use for plotting or updating the star mapping, in degrees",
-            ArgCount::Optional,
-            min,
-            CmdArgs::set_yaw_min,
-        );
-        build.add_arg_f64(
-            "yaw_max",
-            None,
-            "Maximim yaw to use for plotting or updating the star mapping, in degrees",
-            ArgCount::Optional,
-            max,
-            CmdArgs::set_yaw_max,
-        );
-    }
+    pub(crate) const ARG_MAX_PAIRS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "max_pairs",
+        None,
+        "Set the maximum pairs for a command",
+        ArgCount::Optional,
+        Some("100"),
+        &Self::set_max_pairs,
+    );
 
-    //fp add_arg_yaw_error
-    pub fn add_arg_yaw_error(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "yaw_error",
-            None,
-            "Maximum relative error in yaw to permit a closest match for",
-            ArgCount::Optional,
-            Some("0.03"),
-            CmdArgs::set_yaw_error,
-        );
-    }
+    pub(crate) const ARG_MAX_POINTS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_usize(
+        "max_pairs",
+        None,
+        "Set the maximum points for a command",
+        ArgCount::Optional,
+        Some("100"),
+        &Self::set_max_points,
+    );
 
-    //fp add_arg_within
-    pub fn add_arg_within(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "within",
-            None,
-            "Only use catalog stars Within this angle (degrees) for mapping",
-            ArgCount::Optional,
-            Some("15"),
-            CmdArgs::set_within,
-        );
-    }
+    pub(crate) const ARG_MAX_ERROR: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "max_error",
+        None,
+        "Set the maximum error for a command - 0.0 means use a default",
+        ArgCount::Optional,
+        Some("10.0"),
+        &Self::set_max_error,
+    );
 
-    //fp add_arg_closeness
-    pub fn add_arg_closeness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "closeness",
-            None,
-            "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
-            ArgCount::Optional,
-            Some("0.2"),
-            CmdArgs::set_closeness,
-        );
-    }
+    pub(crate) const ARG_YAW_MIN: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "yaw_min",
+        None,
+        "Minimum yaw to use for plotting or updating the star mapping, in degrees",
+        ArgCount::Optional,
+        Some("1.0"),
+        &Self::set_yaw_min,
+    );
 
-    //fp add_arg_triangle_closeness
-    pub fn add_arg_triangle_closeness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f64(
-            "triangle_closeness",
-            None,
-            "Closeness (degrees) to find triangles of stars",
-            ArgCount::Optional,
-            Some("0.2"),
-            CmdArgs::set_triangle_closeness,
-        );
-    }
+    pub(crate) const ARG_YAW_MAX: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "yaw_max",
+        None,
+        "Maximum yaw to use for plotting or updating the star mapping, in degrees",
+        ArgCount::Optional,
+        Some("20.0"),
+        &Self::set_yaw_min,
+    );
 
-    //fp add_arg_star_mapping
-    pub fn add_arg_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "star_mapping",
-            None,
-            "JSON file mapping sensor coordinates to catalog identifiers",
-            false,
-            None,
-            CmdArgs::set_star_mapping_file,
-        );
-    }
+    pub(crate) const ARG_YAW_ERROR: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "yaw_error",
+        None,
+        "Maximum relative error in yaw to permit a closest match for",
+        ArgCount::Optional,
+        Some("0.03"),
+        &Self::set_yaw_error,
+    );
 
-    //fp add_arg_star_catalog
-    pub fn add_arg_star_catalog(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "star_catalog",
-            None,
-            "Star catalog to use",
-            false,
-            None,
-            CmdArgs::set_star_catalog,
-        );
-    }
+    pub(crate) const ARG_WITHIN: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "within",
+        None,
+        "Only use catalog stars Within this angle (degrees) for mapping",
+        ArgCount::Optional,
+        Some("15"),
+        &Self::set_within,
+    );
 
-    //fp add_arg_brightness
-    pub fn add_arg_brightness(build: &mut CommandBuilder<Self>) {
-        build.add_arg_f32(
-            "brightness",
-            None,
-            "Maximum brightness of stars to use in the catalog",
-            ArgCount::Optional,
-            Some("5.0"),
-            CmdArgs::set_brightness,
-        );
-    }
+    pub(crate) const ARG_CLOSENESS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "closeness",
+        None,
+        "Closeness (degrees) to find triangles of stars or degress for calc cal mapping, find stars, map_stars etc",
+        ArgCount::Optional,
+        Some("0.2"),
+        &Self::set_closeness,
+    );
 
-    //fp add_arg_positional_string
-    pub fn add_arg_positional_string(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_string(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_string_arg,
-        );
-    }
+    pub(crate) const ARG_TRIANGLE_CLOSENESS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "triangle_closeness",
+        None,
+        "Closeness (degrees) to find triangles of stars",
+        ArgCount::Optional,
+        Some("0.2"),
+        &Self::set_triangle_closeness,
+    );
 
-    //fp add_arg_positional_f64
-    pub fn add_arg_positional_f64(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_f64(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_f64_arg,
-        );
-    }
+    pub(crate) const ARG_BLEND: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "blend",
+        None,
+        "Set a blend factor",
+        ArgCount::Optional,
+        None,
+        &Self::set_blend,
+    );
 
-    //fp add_arg_positional_usize
-    pub fn add_arg_positional_usize(
-        build: &mut CommandBuilder<Self>,
-        name: &'static str,
-        help: &'static str,
-        number: Option<usize>,
-        default_value: Option<&'static str>,
-    ) {
-        build.add_arg_usize(
-            name,
-            None,
-            help,
-            (number, true),
-            default_value,
-            CmdArgs::add_usize_arg,
-        );
-    }
-}
+    pub(crate) const ARG_STAR_MAPPING: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "star_mapping",
+        None,
+        "JSON file mapping sensor coordinates to catalog identifiers",
+        ArgCount::Optional,
+        None,
+        &Self::set_star_mapping_file,
+    );
 
-//ip CmdArgs image arg build methods
-impl CmdArgs {
-    //fp add_arg_read_image
-    pub fn add_arg_read_image<I: Into<ArgCount>>(build: &mut CommandBuilder<Self>, arg_count: I) {
-        build.add_arg_string(
+    pub(crate) const ARG_STAR_CATALOG: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "star_catalog",
+        None,
+        "Star catalog to use",
+        ArgCount::Optional,
+        None,
+        &Self::set_star_catalog,
+    );
+
+    pub(crate) const ARG_BRIGHTNESS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f32(
+        "brightness",
+        None,
+        "Maximum brightness of stars to use in the catalog",
+        ArgCount::Optional,
+        Some("5.0"),
+        &Self::set_brightness,
+    );
+
+    // Unused at present?
+    pub(crate) const ARG_READ_IMAGE_AT_LEAST_ONE: ArgDescriptor<CmdArgs> =
+        ArgDescriptor::arg_string(
             "read",
             Some('r'),
             "Image to read",
-            arg_count,
+            ArgCount::Min(1),
             None,
-            CmdArgs::add_read_img,
+            &Self::add_read_img,
         );
+
+    pub(crate) const ARG_READ_IMAGE_REQUIRED: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "read",
+        Some('r'),
+        "Image to read",
+        ArgCount::Required,
+        None,
+        &Self::add_read_img,
+    );
+
+    pub(crate) const ARG_IMAGE_OPTIONAL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "image",
+        None,
+        "Image filename",
+        ArgCount::Optional,
+        None,
+        &Self::add_read_img,
+    );
+
+    pub(crate) const ARG_WRITE_IMAGE_OPTIONAL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write",
+        Some('w'),
+        "Image to write",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_img,
+    );
+
+    pub(crate) const ARG_WRITE_IMAGE_REQUIRED: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write",
+        Some('w'),
+        "Image to write",
+        ArgCount::Required,
+        None,
+        &Self::set_write_img,
+    );
+
+    pub(crate) const ARG_WRITE_PROJECT: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_project",
+        None,
+        "File to write the final project JSON to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_project,
+    );
+
+    pub(crate) const ARG_WRITE_NAMED_POINTS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_named_points",
+        None,
+        "File to write the final named_points JSON to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_named_points,
+    );
+
+    pub(crate) const ARG_WRITE_POINT_MAPPING: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_point_mapping",
+        None,
+        "File to write the final point_mapping JSON to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_point_mapping,
+    );
+
+    pub(crate) const ARG_WRITE_CAMERA: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_camera",
+        None,
+        "File to write the final camera JSON to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_camera,
+    );
+
+    pub(crate) const ARG_PATCH_SIZE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
+        "patch_size",
+        Some('p'),
+        "Set the patch size for the operation",
+        ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: u32| {
+            s.patch_size = v;
+            Ok(())
+        },
+    );
+
+    pub(crate) const ARG_FOVH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "fovh",
+        None,
+        "Set the horizontal FOV to use, in degrees",
+        ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: f64| {
+            s.fov_h = v.abs();
+            Ok(())
+        },
+    );
+    pub(crate) const ARG_FOVV: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "fovv",
+        None,
+        "Set the vertical FOV to use, in degrees",
+        ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: f64| {
+            s.fov_v = v.abs();
+            Ok(())
+        },
+    );
+
+    pub(crate) const ARG_H_OFS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "hofs",
+        None,
+        "Set the horizontal offset angle to use, in degrees (defaults to 0)",
+        ArgCount::Optional,
+        Some("0.0"),
+        &|s: &mut CmdArgs, v: f64| {
+            s.h_ofs = v;
+            Ok(())
+        },
+    );
+    pub(crate) const ARG_V_OFS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "vofs",
+        None,
+        "Set the vertical offset angle to use, in degrees (defaults to 0)",
+        ArgCount::Optional,
+        Some("0.0"),
+        &|s: &mut CmdArgs, v: f64| {
+            s.v_ofs = v;
+            Ok(())
+        },
+    );
+    pub(crate) const ARG_X_GRID: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "grid_x",
+        None,
+        "Set the X grid spacing (0=none)",
+        ArgCount::Optional,
+        None,
+        &|s: &mut CmdArgs, v: f64| {
+            s.x_grid = v.abs();
+            Ok(())
+        },
+    );
+    pub(crate) const ARG_Y_GRID: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_f64(
+        "grid_y",
+        None,
+        "Set the Y grid spacing (0=none)",
+        ArgCount::Optional,
+        None,
+        &|s: &mut CmdArgs, v: f64| {
+            s.y_grid = v.abs();
+            Ok(())
+        },
+    );
+
+    pub(crate) const ARG_CYLINDRICAL_PROJECTION: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "cylinder",
+        None,
+        "Set the cylindrical projection to use",
+        ArgCount::Optional,
+        None,
+        &Self::set_cylindrical_projection,
+    );
+
+    pub(crate) const ARG_SPHERICAL_IMAGE_SHAPE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "shape",
+        None,
+        "Set the toplevel shape",
+        ArgCount::Optional,
+        Some("tetrahedron"),
+        &|s: &mut CmdArgs, shape_name: &str| {
+            s.shape = shape_name.parse::<SphericalImageShape>()?;
+            Ok(())
+        },
+    );
+
+    pub(crate) const ARG_SPHERICAL_IMAGE_FILE_INDEX: ArgDescriptor<CmdArgs> =
+        ArgDescriptor::arg_usize(
+            "file_index",
+            None,
+            "Select which image file in the spherical image to use",
+            ArgCount::PositionalRequired(1),
+            None,
+            &Self::add_usize_arg,
+        );
+
+    /// Add an argument for a single required *Positional* XY coordinate
+    pub(crate) const ARG_ADD_XY_ONE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "xy",
+        None,
+        "Provide an (X,Y) coordinate",
+        ArgCount::PositionalRequired(1),
+        None,
+        &CmdArgs::add_xy,
+    );
+    pub(crate) const ARG_ADD_XY_LIST: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "xy",
+        None,
+        "Provide an (X,Y) coordinate",
+        ArgCount::Min(1),
+        None,
+        &CmdArgs::add_xy,
+    );
+    fn add_xy(&mut self, v: &str) -> Result<()> {
+        self.xy.push(Point2D::load_json(v, &())?);
+        Ok(())
+    }
+    pub(crate) const ARG_ADD_XYZ: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "xyz",
+        None,
+        "Provide a list of (X,Y,Z) coordinates",
+        ArgCount::Required,
+        None,
+        &CmdArgs::add_xyz,
+    );
+    fn add_xyz(&mut self, v: &str) -> Result<()> {
+        self.xyz
+            .extend_from_slice(&Vec::<Point3D>::load_json(v, &())?);
+        Ok(())
     }
 
-    //fp add_arg_write_image
-    pub fn add_arg_write_image(build: &mut CommandBuilder<Self>, required: bool) {
-        build.add_arg_string(
-            "write",
-            Some('w'),
-            "Image to write",
-            required,
-            None,
-            CmdArgs::set_write_img,
-        );
-    }
-}
+    pub(crate) const ARG_CLEAR_FILE_PATH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_flag(
+        "clear_file_path",
+        None,
+        "Clear the file path",
+        &CmdArgs::clear_file_path,
+    );
 
-//ip CmdArgs write data arg build methods
-impl CmdArgs {
-    //fp add_arg_write_project
-    pub fn add_arg_write_project(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_project",
-            None,
-            "File to write the final project JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_project,
-        );
-    }
-
-    //fp add_arg_write_named_points
-    pub fn add_arg_write_named_points(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_named_points",
-            None,
-            "File to write the final named_points JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_named_points,
-        );
-    }
-
-    //fp add_arg_write_point_mapping
-    pub fn add_arg_write_point_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_point_mapping",
-            None,
-            "File to write the final point_mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_point_mapping,
-        );
-    }
-
-    //fp add_arg_write_camera
-    pub fn add_arg_write_camera(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_camera",
-            None,
-            "File to write the final camera JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_camera,
-        );
-    }
-
-    //fp add_arg_write_calibration_mapping
-    pub fn add_arg_write_calibration_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_calibration_mapping",
-            None,
-            "File to write a derived mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_calibration_mapping,
-        );
-    }
-
-    //fp add_arg_write_star_mapping
-    pub fn add_arg_write_star_mapping(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_star_mapping",
-            None,
-            "File to write a derived star mapping JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_star_mapping,
-        );
-    }
-
-    //fp add_arg_write_polys
-    pub fn add_arg_write_polys(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_polys",
-            None,
-            "File to write a derived polynomials JSON to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_polys,
-        );
-    }
-
-    //fp add_arg_write_svg
-    pub fn add_arg_write_svg(build: &mut CommandBuilder<Self>) {
-        build.add_arg_string(
-            "write_svg",
-            None,
-            "File to write an output SVG to",
-            ArgCount::Optional,
-            None,
-            CmdArgs::set_write_svg,
-        );
-    }
+    pub(crate) const ARG_ADD_FILE_PATH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "file_path",
+        Some('P'),
+        "Add a file path to the path set",
+        ArgCount::Any,
+        None,
+        &CmdArgs::add_file_path,
+    );
 }

@@ -1,9 +1,10 @@
-//a Imports
+use anyhow::anyhow;
+
 use star_catalog::Catalog;
 
-use ic_base::Result;
-use ic_base::{JsonParsable, NamedRayList};
-use ic_camera::{CalibrationMapping, CameraDatabase, LensPolys};
+use crate::Result;
+use ic_base::{JsonParsable, NamedRayList, QuaternionDesc};
+use ic_camera::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
 use ic_camera::{CameraInstance, CameraInstanceDesc};
 use ic_image::Color8;
 use ic_mapping::{NamedPointSet, PointMappingSet};
@@ -15,18 +16,6 @@ use super::CmdArgs;
 //a CmdArgs setters
 //ip CmdArgs setters
 impl CmdArgs {
-    //mi set_verbose
-    pub(crate) fn set_verbose(&mut self, verbose: bool) -> Result<()> {
-        self.verbose = verbose;
-        Ok(())
-    }
-
-    //mi set_pretty_json
-    pub(crate) fn set_pretty_json(&mut self, pretty_json: bool) -> Result<()> {
-        self.pretty_json = pretty_json;
-        Ok(())
-    }
-
     //mi set_camera_db
     pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
         let (cdb_filename, camera_db) =
@@ -121,6 +110,12 @@ impl CmdArgs {
         Ok(())
     }
 
+    pub(crate) fn set_camera_orientation(&mut self, json: &str) -> Result<()> {
+        self.camera
+            .set_orientation(&QuaternionDesc::load_json(json, &())?);
+        Ok(())
+    }
+
     //mi add_path
     /// Adds a directory to the search ath
     pub(crate) fn add_path(&mut self, s: &str) -> Result<()> {
@@ -144,7 +139,7 @@ impl CmdArgs {
     /// Adds a point mapping set
     pub(crate) fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
         if self.cip.is_none() {
-            return Err("No CIP selected when adding PMS".to_string().into());
+            return Err(anyhow!("No CIP selected when adding PMS"));
         }
         let (_, (pms, pms_not_found)) =
             PointMappingSet::load_json_file(&self.path_set, pms_filename, &self.project.nps_ref())?;
@@ -194,8 +189,8 @@ impl CmdArgs {
     // *cip.pms_mut() = pms;
     // let cip = cip.into();
     pub(crate) fn set_cip(&mut self, cip: &str) -> Result<()> {
-        let Some(cip) = self.project.cip(cip).cloned() else {
-            return Err(format!("CIP {cip} could not be found",).into());
+        let Some(cip) = self.project.find_cip(cip).cloned() else {
+            return Err(anyhow!("CIP {cip} could not be found"));
         };
         self.pms = cip.as_ref().borrow().pms().clone();
         self.camera = cip.as_ref().borrow().camera().borrow().clone();
@@ -378,7 +373,7 @@ impl CmdArgs {
     //mi set_use_pts
     pub(crate) fn set_use_pts(&mut self, v: usize) -> Result<()> {
         self.use_pts = thunderclap::bound(v, Some(6), None, |v, _| {
-            format!("Number of points ({v}) must be at least six")
+            anyhow!("Number of points ({v}) must be at least six")
         })?;
         Ok(())
     }
@@ -404,7 +399,7 @@ impl CmdArgs {
     //mi set_yaw_min
     pub(crate) fn set_yaw_min(&mut self, v: f64) -> Result<()> {
         self.yaw_min = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
-            format!("Minimum yaw {v} must be in the range 0 to 90")
+            anyhow!("Minimum yaw {v} must be in the range 0 to 90")
         })?;
         Ok(())
     }
@@ -412,7 +407,7 @@ impl CmdArgs {
     //mi set_yaw_max
     pub(crate) fn set_yaw_max(&mut self, v: f64) -> Result<()> {
         self.yaw_max = thunderclap::bound(v, Some(self.yaw_min), Some(90.0), |v, _| {
-            format!(
+            anyhow!(
                 "Maximum yaw {v} must be between yaw_min ({}) and 90",
                 self.yaw_min
             )
@@ -423,7 +418,7 @@ impl CmdArgs {
     //mi set_poly_degree
     pub(crate) fn set_poly_degree(&mut self, v: usize) -> Result<()> {
         self.poly_degree = thunderclap::bound(v, Some(2), Some(12), |v, _| {
-            format!("The polynomial degree {v} should be between 2 and 12 for reliability",)
+            anyhow!("The polynomial degree {v} should be between 2 and 12 for reliability",)
         })?;
         Ok(())
     }
@@ -440,10 +435,15 @@ impl CmdArgs {
         Ok(())
     }
 
+    pub(crate) fn set_blend(&mut self, blend: f64) -> Result<()> {
+        self.blend = blend;
+        Ok(())
+    }
+
     //mi set_yaw_error
     pub(crate) fn set_yaw_error(&mut self, v: f64) -> Result<()> {
         self.yaw_error = thunderclap::bound(v, Some(0.0), Some(1.0), |v, _| {
-            format!("The maximum yaw error {v} must be between 0 and 1 degree",)
+            anyhow!("The maximum yaw error {v} must be between 0 and 1 degree",)
         })?;
         Ok(())
     }
@@ -451,7 +451,7 @@ impl CmdArgs {
     //mi set_within
     pub(crate) fn set_within(&mut self, v: f64) -> Result<()> {
         self.within = thunderclap::bound(v, Some(0.0), Some(90.0), |v, _| {
-            format!("The 'within' yaw {v} must be between 0 and 90 degree",)
+            anyhow!("The 'within' yaw {v} must be between 0 and 90 degree",)
         })?;
         Ok(())
     }
@@ -459,8 +459,25 @@ impl CmdArgs {
     //mi set_brightness
     pub(crate) fn set_brightness(&mut self, v: f32) -> Result<()> {
         self.brightness = thunderclap::bound(v, Some(0.0), Some(16.0), |v, _| {
-            format!("Brightness (magnitude of stars) {v} must be between 0 and 16",)
+            anyhow!("Brightness (magnitude of stars) {v} must be between 0 and 16",)
         })?;
+        Ok(())
+    }
+    pub(crate) fn clear_file_path(&mut self, _s: bool) -> Result<()> {
+        self.path_set.clear();
+        Ok(())
+    }
+    pub(crate) fn add_file_path(&mut self, s: &str) -> Result<()> {
+        self.path_set.add_path(s)?;
+        Ok(())
+    }
+    pub(crate) fn set_cylindrical_projection(&mut self, projection: &str) -> Result<()> {
+        Ok(self.cylindrical_projection.set_projection(projection)?)
+    }
+    pub(crate) fn add_point2d(&mut self, s: &str) -> Result<()> {
+        Ok(())
+    }
+    pub(crate) fn add_point3d(&mut self, s: &str) -> Result<()> {
         Ok(())
     }
 }

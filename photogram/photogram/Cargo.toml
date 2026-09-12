@@ -23,13 +23,20 @@ tagu.workspace = true
 
 serde_json.workspace = true
 geo-nd.workspace = true
-clap.workspace = true
+anyhow.workspace = true
 
 thunderclap.workspace = true
 ic_base.workspace = true
+ic_cache.workspace = true
 ic_camera.workspace = true
+ic_http.workspace = true
 ic_image.workspace = true
+ic_mesh.workspace = true
 ic_project.workspace = true
+ic_projections.workspace = true
 ic_kernel.workspace = true
 ic_mapping.workspace = true
+ic_spherical_image.workspace = true
 ic_stars.workspace = true
+ic_threads.workspace = true
+indexed.workspace = true

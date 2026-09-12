@@ -1,14 +1,14 @@
-//a Imports
-use std::collections::HashMap;
 use std::rc::Rc;
+use std::{collections::HashMap, num};
 
-use clap::Command;
+use anyhow::anyhow;
 use geo_nd::Vector;
-use thunderclap::{CommandArgs, CommandBuilder};
+use ic_image::Color8;
+use photogram::ModelData;
+use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use ic_base::{JsonParsable, Point3D, Ray, TagSet};
 use ic_camera::CameraProjection;
-use ic_image::Color8;
 use ic_mapping::NamedPointSet;
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -50,7 +50,6 @@ is the point generated.
 Combine rays from camera produces a new 'named point set' JSON.
 ";
 
-//hi GET_MODEL_POINTS_LONG_HELP
 const GET_MODEL_POINTS_LONG_HELP: &str = "\
 This combines camera location and PMS files, using them to determine
 model positions for Named Points.
@@ -66,257 +65,307 @@ model-space point for the Named Point.
 A new NamedPointSet is generated from the original NPS with these new
 model-space points from the ray intersections.";
 
-//hi PROJECT_LONG_HELP
 const PROJECT_LONG_HELP: &str = "\
 Project help";
 
-//hi LIST_LONG_HELP
 const LIST_LONG_HELP: &str = "\
 List the information about one or more named points
 ";
 
-//hi ADD_LONG_HELP
 const ADD_LONG_HELP: &str = "\
 Add a named point to the set
 ";
 
-//hi UPDATE_MODEL_LONG_HELP
 const UPDATE_MODEL_LONG_HELP: &str = "\
 Add and/or update model positions for all named points in the supplied JSON
 ";
 
-fn combine_rays_from_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let named_rays = cmd_args.named_rays();
+impl CmdArgs {
+    fn np_combine_rays_from_model_cmd(&mut self) -> CmdResult {
+        let named_rays = self.named_rays();
 
-    let mut names = Vec::new();
-    let mut ray_list = Vec::new();
-    for (name, ray) in named_rays.iter() {
-        names.push(name);
-        ray_list.push(*ray);
-    }
-    if named_rays.len() < 2 {
-        return Err(format!(
-            "Not enough rays ({}) to combine to generate a position for the camera",
-            ray_list.len()
-        )
-        .into());
-    }
-
-    let position =
-        Ray::closest_point(named_rays.iter().map(|(_, r)| r), &|r| 1.0 / r.tan_error()).unwrap();
-    eprintln!("The rays from the model converge at the camera focal point at {position}",);
-
-    let mut tot_d_sq = 0.0;
-    for (_name, ray) in names.iter().zip(ray_list.iter()) {
-        let (_k, d_sq) = ray.distances(&position);
-        cmd_args.if_verbose(|| {
-            eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
-        });
-        tot_d_sq += d_sq;
-    }
-
-    eprintln!("Total dsq {tot_d_sq}");
-
-    let mut camera = cmd_args.camera().clone();
-    camera.set_position(&position);
-    camera.to_json(cmd_args.pretty_json())
-}
-
-fn combine_rays_from_camera_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let nps = cmd_args.nps();
-    let named_rays = cmd_args.named_rays();
-
-    let mut named_point_rays = HashMap::new();
-    for (name, ray) in named_rays.iter() {
-        if nps.borrow().get_rc_np(name).is_none() {
-            eprintln!(
-                "Warning: failed to find point name '{}' in named point set",
-                &name
-            );
-        } else {
-            if !named_point_rays.contains_key(name) {
-                named_point_rays.insert(name.to_owned(), Vec::new());
-            }
-            named_point_rays.get_mut(name).unwrap().push(*ray);
-        }
-    }
-
-    let mut k: Vec<String> = named_point_rays.keys().cloned().collect();
-    k.sort();
-    for name in &k {
-        let ray_list = named_point_rays.get(name).unwrap();
-        if ray_list.len() > 1 {
-            let p = Ray::closest_point(ray_list.iter(), &|r| 1.0 / r.tan_error()).unwrap();
-            eprintln!("Point '{name}' - even weight - {p}");
-        }
-    }
-
-    CmdArgs::cmd_ok()
-}
-
-fn get_model_points_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let nps = cmd_args.get_nps()?;
-
-    let cips: Vec<_> = cmd_args
-        .arg_strings()
-        .map(|cip| {
-            /* bound it */
-            let cip = cmd_args
-                .project
-                .cip(cip)
-                .expect("Need error - could not find CIP")
-                .borrow();
-            (cip.pms().clone(), cip.camera().clone())
-        })
-        .collect();
-
-    for (_, c) in &cips {
-        if c.borrow().position() == Point3D::default() {
-            eprintln!(
-                "Warning: CIP had a default position for get_model_points - probably deriving from unlocated camera"
-            );
-        }
-    }
-
-    let mut result_nps = NamedPointSet::default();
-    // Don't really need a TagSet as  the named points are single use, but it is good practice
-    result_nps.set_tag_set(Rc::new(TagSet::default()));
-    for np in nps {
+        let mut names = Vec::new();
         let mut ray_list = Vec::new();
-        let mut cip_of_ray_list = Vec::new();
-        for (n, (pms, camera)) in cips.iter().enumerate() {
-            if camera.borrow().position().is_zero() {
-                continue;
-            }
-
-            // Get a ray only if the CIP maps that named point onto its sensor with a PointMapping
-            if let Some(pm) = pms.borrow().mapping_of_np(&np) {
-                let ray = pm.get_mapped_ray(&*camera.borrow(), true);
-                ray_list.push(ray);
-                cip_of_ray_list.push(n);
-            }
+        for (name, ray) in named_rays.iter() {
+            names.push(name);
+            ray_list.push(*ray);
         }
-        if ray_list.len() > 1 {
-            if let Some(pt) = Ray::closest_point(ray_list.iter(), &|_r| 1.0) {
-                let e_sq = ray_list
-                    .iter()
-                    .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
-                result_nps.add_pt(
-                    np.ref_tag().as_str(),
-                    np.color(),
-                    true,
-                    Some(pt),
-                    e_sq.sqrt(),
+        if named_rays.len() < 2 {
+            return Err(anyhow!(
+                "Not enough rays ({}) to combine to generate a position for the camera",
+                ray_list.len()
+            ));
+        }
+
+        let position =
+            Ray::closest_point(named_rays.iter().map(|(_, r)| r), &|r| 1.0 / r.tan_error())
+                .unwrap();
+        eprintln!("The rays from the model converge at the camera focal point at {position}",);
+
+        let mut tot_d_sq = 0.0;
+        for (_name, ray) in names.iter().zip(ray_list.iter()) {
+            let (_k, d_sq) = ray.distances(&position);
+            self.if_verbose(|| {
+                eprintln!("{}: k {} dsq {} d {}", _name, _k, d_sq, d_sq.sqrt());
+            });
+            tot_d_sq += d_sq;
+        }
+
+        eprintln!("Total dsq {tot_d_sq}");
+
+        let mut camera = self.camera().clone();
+        camera.set_position(&position);
+        Ok(json::to_value(camera)?)
+    }
+
+    fn np_combine_rays_from_camera_cmd(&mut self) -> CmdResult {
+        let nps = self.nps();
+        let named_rays = self.named_rays();
+
+        let mut named_point_rays = HashMap::new();
+        for (name, ray) in named_rays.iter() {
+            if nps.borrow().get_rc_np(name).is_none() {
+                eprintln!(
+                    "Warning: failed to find point name '{}' in named point set",
+                    &name
                 );
-                cmd_args.if_verbose(|| {
-                    for (cip_n, r) in cip_of_ray_list.iter().zip(ray_list.iter()) {
-                        eprintln!(
-                            "Ray to {} {:?} {}",
-                            np.ref_tag(),
-                            r.distances(&pt),
-                            cmd_args.get_string_arg(*cip_n).unwrap()
-                        );
-                    }
-                });
+            } else {
+                if !named_point_rays.contains_key(name) {
+                    named_point_rays.insert(name.to_owned(), Vec::new());
+                }
+                named_point_rays.get_mut(name).unwrap().push(*ray);
             }
         }
-    }
-    result_nps.to_json(false)
-}
 
-fn as_json_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    cmd_args.nps().borrow().to_json(cmd_args.pretty_json())
-}
+        let mut k: Vec<String> = named_point_rays.keys().cloned().collect();
+        k.sort();
+        for name in &k {
+            let ray_list = named_point_rays.get(name).unwrap();
+            if ray_list.len() > 1 {
+                let p = Ray::closest_point(ray_list.iter(), &|r| 1.0 / r.tan_error()).unwrap();
+                eprintln!("Point '{name}' - even weight - {p}");
+            }
+        }
 
-fn list_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let nps = cmd_args.get_nps()?;
-    for np in nps {
-        println!("{np}");
-    }
-    Ok("".into())
-}
-
-fn add_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let name = cmd_args.get_string_arg(0).unwrap();
-    let color: Color8 = cmd_args.get_string_arg(1).unwrap().try_into()?;
-    let mut model = None;
-    let mut err = 0.0;
-    if cmd_args.arg_strings.len() > 2 {
-        model = Some(cmd_args.arg_as_point3d(2)?);
-        err = cmd_args.get_f64_arg(0).unwrap_or(0.0);
-    }
-    if cmd_args.project().nps_ref().get_rc_np(name).is_some() {
-        return Err(format!("Named point {name} already exists in the set").into());
+        Ok(json::to_value(named_point_rays)?)
     }
 
-    cmd_args
-        .project()
-        .nps_mut()
-        .add_pt(name, color, true, model, err);
+    fn np_get_model_points_cmd(self: &mut CmdArgs) -> CmdResult {
+        let nps = self.get_nps()?;
 
-    CmdArgs::cmd_ok()
-}
+        let cips: Vec<_> = self
+            .arg_strings()
+            .map(|cip| {
+                /* bound it */
+                let cip = self
+                    .project
+                    .find_cip(cip)
+                    .expect("Need error - could not find CIP")
+                    .borrow();
+                (cip.pms().clone(), cip.camera().clone())
+            })
+            .collect();
 
-fn update_model_fn(cmd_args: &mut CmdArgs) -> CmdResult {
-    let new_nps = NamedPointSet::load_json(cmd_args.get_string_arg(0).unwrap(), &())?;
-    for opt_new_np in new_nps.into_iter() {
-        // All of the named points are unshared, so we can unwrap
-        let new_np = opt_new_np.unwrap();
-        if let Some(np) = cmd_args.nps().borrow().get_rc_np(new_np.ref_tag().as_str()) {
-            if let Some(new_np_model) = new_np.opt_model() {
-                if np.is_unmapped() || np.model_uncertainty() != 0.0 {
-                    np.set_model(Some(new_np_model));
+        for (_, c) in &cips {
+            if c.borrow().position() == Point3D::default() {
+                eprintln!(
+                    "Warning: CIP had a default position for get_model_points - probably deriving from unlocated camera"
+                );
+            }
+        }
+
+        let mut result_nps = NamedPointSet::default();
+        // Don't really need a TagSet as  the named points are single use, but it is good practice
+        result_nps.set_tag_set(Rc::new(TagSet::default()));
+        for np in nps {
+            let mut ray_list = Vec::new();
+            let mut cip_of_ray_list = Vec::new();
+            for (n, (pms, camera)) in cips.iter().enumerate() {
+                if camera.borrow().position().is_zero() {
+                    continue;
+                }
+
+                // Get a ray only if the CIP maps that named point onto its sensor with a PointMapping
+                if let Some(pm) = pms.borrow().mapping_of_np(&np) {
+                    let ray = pm.get_mapped_ray(&*camera.borrow(), true);
+                    ray_list.push(ray);
+                    cip_of_ray_list.push(n);
                 }
             }
-        } else {
-            cmd_args.nps().borrow_mut().add_np(new_np);
+            if ray_list.len() > 1 {
+                if let Some(pt) = Ray::closest_point(ray_list.iter(), &|_r| 1.0) {
+                    let e_sq = ray_list
+                        .iter()
+                        .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));
+                    result_nps.add_pt(
+                        np.ref_tag().as_str(),
+                        np.color(),
+                        ModelData::at_infinity(pt).with_uncertainty(e_sq.sqrt()),
+                    );
+                    self.if_verbose(|| {
+                        for (cip_n, r) in cip_of_ray_list.iter().zip(ray_list.iter()) {
+                            eprintln!(
+                                "Ray to {} {:?} {}",
+                                np.ref_tag(),
+                                r.distances(&pt),
+                                self.get_string_arg(*cip_n).unwrap()
+                            );
+                        }
+                    });
+                }
+            }
         }
+        Ok(json::to_value(result_nps)?)
     }
-    CmdArgs::cmd_ok()
+
+    fn np_as_json_cmd(self: &mut CmdArgs) -> CmdResult {
+        Ok(json::to_value(
+            self.nps().borrow().to_json(self.pretty_json())?,
+        )?)
+    }
+
+    fn np_list_cmd(self: &mut CmdArgs) -> CmdResult {
+        let nps = self.get_nps()?;
+        for np in nps {
+            println!("{np}");
+        }
+        Ok("".into())
+    }
+
+    fn np_add_cmd(self: &mut CmdArgs) -> CmdResult {
+        let name = self.get_string_arg(0).unwrap();
+        if self.project().nps_ref().get_rc_np(name).is_some() {
+            return Err(anyhow!("Named point {name} already exists in the set"));
+        }
+        let color = self
+            .model_color()
+            .cloned()
+            .unwrap_or_else(|| (255, 255, 0).into());
+        if let Some(model) = self.get_point3d(0).cloned() {
+            let err = self.max_error();
+            self.project().nps_mut().add_pt(
+                name,
+                color,
+                ModelData::at_infinity(model).with_uncertainty(err),
+            );
+        } else {
+            self.project()
+                .nps_mut()
+                .add_pt(name, color, ModelData::default());
+        }
+
+        CmdArgs::cmd_ok()
+    }
+
+    fn np_derive_directions_cmd(self: &mut CmdArgs) -> CmdResult {
+        let nps = self.get_nps()?;
+        let mut cips = vec![];
+        for i in 0..self.project.ncips() {
+            let cip_name = self.project.cip_name(i).unwrap();
+            let cip = self.project.find_cip(cip_name).unwrap();
+            cips.push(cip.clone());
+        }
+        if self.verbose {
+            let points: Vec<_> = nps
+                .iter()
+                .map(|np| np.ref_tag().as_str().to_owned())
+                .collect();
+            let cips: Vec<_> = cips
+                .iter()
+                .map(|cip| cip.borrow().name_as_tag().as_str().to_owned())
+                .collect();
+            eprintln!("Deriving directions for points {points:?} and CIPS {cips:?}");
+        }
+        for np in nps {
+            // Skip if already got one?
+            if false && np.is_mapped() {
+                continue;
+            }
+            let mut direction = Point3D::default();
+            let mut num_mappings = 0_usize;
+            for c in &cips {
+                if let Some(x) = c.borrow().pms().borrow().mapping_of_np(&np) {
+                    let pm_direction = x.get_mapped_world_dir(&*c.borrow().camera_ref());
+                    num_mappings += 1;
+                    direction += pm_direction;
+                }
+            }
+            if num_mappings > 0 {
+                direction = direction / (num_mappings as f64);
+                *np.model_mut() = ModelData::at_infinity(direction);
+            }
+        }
+        CmdArgs::cmd_ok()
+    }
+
+    fn np_update_from_nps_cmd(self: &mut CmdArgs) -> CmdResult {
+        let new_nps = NamedPointSet::load_json(self.get_string_arg(0).unwrap(), &())?;
+        for opt_new_np in new_nps.into_iter() {
+            // All of the named points are unshared, so we can unwrap
+            let new_np = opt_new_np.unwrap();
+            if let Some(np) = self.nps().borrow().get_rc_np(new_np.ref_tag().as_str()) {
+                if new_np.model().is_mapped() {
+                    if np.is_unmapped() || np.model_uncertainty() != 0.0 {
+                        *np.model_mut() = *new_np.model();
+                    }
+                }
+            } else {
+                self.nps().borrow_mut().add_np(new_np);
+            }
+        }
+        CmdArgs::cmd_ok()
+    }
+
+    const NP_LIST_CMD: CmdDescriptor<Self> = CmdDescriptor::new("list")
+        .about("List information about the named points")
+        .args(&[Self::ARG_ADD_NAMED_POINT])
+        .handler(&Self::np_list_cmd);
+
+    const NP_AS_JSON_CMD: CmdDescriptor<Self> = CmdDescriptor::new("as_json")
+        .about("Generate the JSON for the named points")
+        .args(&[])
+        .handler(&Self::np_as_json_cmd);
+
+    const NP_ADD_CMD: CmdDescriptor<Self> = CmdDescriptor::new("add")
+        .about("Add a named point to the set for the project")
+        .args(&[
+            Self::ARG_POSITIONAL_NAME,
+            Self::ARG_MODEL_COLOR,
+            Self::ARG_MAX_ERROR,
+        ])
+        .handler(&Self::np_add_cmd);
+
+    const NP_DERIVE_DIRECTIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("derive_directions")
+        .about("Derive directions (not positions) for all the named points in the filter using all CIPs")
+        .args(&[
+            Self::ARG_ADD_NAMED_POINT,
+        ])
+        .handler(&Self::np_derive_directions_cmd);
+
+    /*    const NP_UPDATE_FROM_NPS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("update_from_nps")
+    .about("Update all entries from a supplied NPS JSON")
+    .args(&[Self::ARG_STRING])
+    .handler(&Self::np_update_from_nps_cmd);
+    */
+
+    pub(crate) const NAMED_POINTS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("nps")
+        .about("List, modify, interrogate etc a set of 'NamedPoints'")
+        .long_about(PROJECT_LONG_HELP)
+        .args(&[])
+        .cmds(&[
+            Self::NP_LIST_CMD,
+            Self::NP_ADD_CMD,
+            Self::NP_AS_JSON_CMD,
+            Self::NP_DERIVE_DIRECTIONS_CMD,
+            /*
+            Self::NP_UPDATE_FROM_NPS_CMD,
+                         Self::NP_GET_MODEL_POINTS_CMD,
+            Self::NP_COMBINE_RAYS_FROM_MODEL_CMD,
+            Self::NP_COMBINE_RAYS_FROM_CAMERA_CMD,
+            */
+        ]);
 }
-
-fn as_json_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("as_json").about("Generate the JSON for the NPS");
-    CommandBuilder::with_handler(command, as_json_fn)
-}
-
-fn list_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("list")
-        .about("List information about named points")
-        .long_about(LIST_LONG_HELP);
-
-    let mut build = CommandBuilder::with_handler(command, list_fn);
-
-    CmdArgs::add_arg_named_point(&mut build, (None, true));
-
-    build
-}
-fn add_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("add")
-        .about("Add a named point")
-        .long_about(ADD_LONG_HELP);
-
-    let mut build = CommandBuilder::with_handler(command, add_fn);
-
-    CmdArgs::add_arg_positional_string(&mut build, "name", "Name of point to add", Some(1), None);
-    CmdArgs::add_arg_positional_string(&mut build, "color", "Color of point", Some(1), None);
-    CmdArgs::add_arg_positional_string(&mut build, "point3d", "Posiiton in 3D", Some(0), None);
-    CmdArgs::add_arg_positional_f64(
-        &mut build,
-        "error",
-        "Error radius in 3D",
-        Some(0),
-        Some("5.0"),
-    );
-
-    build
-}
-fn update_model_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("update_model")
-        .about("Update_Model a named point")
-        .long_about(UPDATE_MODEL_LONG_HELP);
-
-    let mut build = CommandBuilder::with_handler(command, update_model_fn);
+/*
 
     CmdArgs::add_arg_positional_string(
         &mut build,
@@ -369,21 +418,4 @@ fn get_model_points_cmd() -> CommandBuilder<CmdArgs> {
 
     build
 }
-
-pub fn named_points_cmd() -> CommandBuilder<CmdArgs> {
-    let command = Command::new("named_points")
-        .about("Operate on the named points for a project")
-        .long_about(PROJECT_LONG_HELP);
-
-    let mut build = CommandBuilder::new(command);
-
-    build.add_subcommand(as_json_cmd());
-    build.add_subcommand(combine_rays_from_model_cmd());
-    build.add_subcommand(combine_rays_from_camera_cmd());
-    build.add_subcommand(get_model_points_cmd());
-    build.add_subcommand(list_cmd());
-    build.add_subcommand(add_cmd());
-    build.add_subcommand(update_model_cmd());
-
-    build
-}
+*/

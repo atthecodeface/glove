@@ -7,13 +7,10 @@ use thunderclap::CommandBuilder;
 
 use image_server::{CmdArgs, CmdResult, ProjectSet, cmd_ok};
 
-use ic_base::Result;
-// use ic_cache::{Cache, CacheEntry, Cacheable};
-use ic_http::HttpServer;
-use ic_threads::ThreadPool;
+use photogram::HttpServer;
+use photogram::Result;
+use photogram::ThreadPool;
 
-//a Main
-//si HTTP_SRV
 /// This is the configuration of the http server; it is set *once* in main before threads are created
 ///
 /// One instance of this is created with a [OnceLock]

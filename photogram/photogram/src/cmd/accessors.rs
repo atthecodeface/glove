@@ -1,8 +1,11 @@
-//a Imports
+use anyhow::anyhow;
 
+use ic_spherical_image::SphericalImageShape;
 use star_catalog::Catalog;
 
-use ic_base::{NamedRayList, Point2D, Point3D, Result, Rrc};
+use crate::Result;
+
+use ic_base::{NamedRayList, Point2D, Point3D, Rrc};
 use ic_camera::CameraInstance;
 use ic_camera::{CalibrationMapping, CameraDatabase};
 use ic_image::Color8;
@@ -117,7 +120,9 @@ impl CmdArgs {
         assert!(n < self.arg_strings.len());
         let coords: Vec<_> = self.arg_strings[n].split(',').collect();
         if coords.len() != 3 {
-            return Err(format!("Expected 3 coordinates for a 3D point, got {coords:?}").into());
+            return Err(anyhow!(
+                "Expected 3 coordinates for a 3D point, got {coords:?}"
+            ));
         }
         Ok([
             coords[0].parse::<f64>()?,
@@ -133,7 +138,9 @@ impl CmdArgs {
         assert!(n < self.arg_strings.len());
         let coords: Vec<_> = self.arg_strings[n].split(',').collect();
         if coords.len() != 2 {
-            return Err(format!("Expected 2 coordinates for a 2D point, got {coords:?}").into());
+            return Err(anyhow!(
+                "Expected 2 coordinates for a 2D point, got {coords:?}"
+            ));
         }
         Ok([coords[0].parse::<f64>()?, coords[1].parse::<f64>()?].into())
     }
@@ -287,10 +294,35 @@ impl CmdArgs {
         }
     }
 
+    pub fn shape(&self) -> SphericalImageShape {
+        self.shape
+    }
+
+    pub fn get_point2d(&self, n: usize) -> Option<&Point2D> {
+        self.xy.get(n)
+    }
+    pub fn get_point3d(&self, n: usize) -> Option<&Point3D> {
+        self.xyz.get(n)
+    }
+
     //mp ensure_star_catalog
     pub fn ensure_star_catalog(&self) -> Result<()> {
         if self.star_catalog.is_none() {
-            Err("Star catalog *must* have been specified".into())
+            Err(anyhow!("Star catalog *must* have been specified"))
+        } else {
+            Ok(())
+        }
+    }
+    pub fn validate_cip(&self) -> Result<()> {
+        if self.cip().is_none() {
+            Err(anyhow!("No CIP selected"))
+        } else {
+            Ok(())
+        }
+    }
+    pub fn validate_spherical_image(&self) -> Result<()> {
+        if self.spherical_image.is_none() {
+            Err(anyhow!("No spherical image has been added"))
         } else {
             Ok(())
         }

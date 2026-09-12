@@ -2,14 +2,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use ic_base::{PathGlob, Result};
-use ic_http::{
+use photogram::Mesh;
+use photogram::Patch;
+use photogram::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_image::{Image, ImageDrawable, ImageGray16, ImageRgb8};
-use ic_kernel::{KernelArgs, Kernels};
-use ic_mapping::Patch;
-use ic_mesh::Mesh;
+use photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use photogram::{KernelArgs, Kernels};
+use photogram::{PathGlob, Result};
 
 use crate::CmdArgs;
 use crate::NamedProject;
@@ -21,7 +21,7 @@ use crate::{ImageCache, ImageCacheEntry};
 /// The ProjectSet is created once, and is owned by the HTTP server
 ///
 /// It has access to the command line arguments through an Arc<RwLock<args>>
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ProjectSet {
     /// CmdArgs is an Arc<RwLock<args>> to permit access to arguments after the threads kick in
     cmd_args: CmdArgs,
@@ -37,20 +37,13 @@ pub struct ProjectSet {
 //ip ProjectSet
 impl ProjectSet {
     pub fn new(cmd_args: CmdArgs) -> Self {
-        let kernels = Kernels::new();
-        let projects = vec![];
-        let index_by_name = HashMap::new();
-        let image_cache = ImageCache::new();
         Self {
             cmd_args,
-            projects,
-            index_by_name,
-            kernels,
-            image_cache,
+            ..Default::default()
         }
     }
 
-    //mp fill_from_project_path
+    /// Fill the [NamedProject]s from all of the '*_proj.json' files in the cmd args path set
     pub fn fill_from_project_path(&mut self) -> Result<()> {
         let paths = self.cmd_args.map_project_path(|ps| {
             ps.glob(100, 20, &|_| PathGlob::Push, &|f| {
@@ -172,7 +165,7 @@ impl ProjectSet {
         let p = up.as_ref();
 
         let cip = pd.cip().unwrap_or_default();
-        let Some(cip) = p.cip(cip).cloned() else {
+        let Some(cip) = p.find_cip(cip).cloned() else {
             return Err("Cip could not be found".into());
         };
         let cip_r = cip.borrow();
@@ -202,7 +195,7 @@ impl ProjectSet {
         let p = up.as_ref();
 
         let cip = pd.cip().unwrap_or_default();
-        let Some(cip) = p.cip(cip).cloned() else {
+        let Some(cip) = p.find_cip(cip).cloned() else {
             return Err("Cip could not be found".into());
         };
         let cip_r = cip.borrow();
@@ -235,7 +228,7 @@ impl ProjectSet {
         let p = up.as_ref();
 
         let cip = pd.cip().unwrap_or_default();
-        let Some(cip) = p.cip(cip).cloned() else {
+        let Some(cip) = p.find_cip(cip).cloned() else {
             return Err("Cip could not be found".into());
         };
         let cip_r = cip.borrow();
@@ -288,7 +281,7 @@ impl ProjectSet {
         let nps = p.nps().borrow().select(nps.iter().map(|s| s.as_str()))?;
 
         let cip = pd.cip().unwrap_or_default();
-        let Some(cip) = p.cip(cip).cloned() else {
+        let Some(cip) = p.find_cip(cip).cloned() else {
             return Err("Cip could not be found".into());
         };
         let cip_r = cip.borrow();

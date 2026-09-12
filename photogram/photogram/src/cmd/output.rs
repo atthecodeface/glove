@@ -3,6 +3,8 @@ use std::io::Write;
 
 use ic_base::Result;
 
+use thunderclap::json;
+
 use super::{CmdArgs, CmdResult};
 
 //a CmdArgs output methods
@@ -48,27 +50,11 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mp output_camera
     pub fn output_camera(&self) -> CmdResult {
-        let s = self.camera.to_json(true)?;
-        Ok(s.to_string())
+        Ok(json::to_value(&self.camera)?)
     }
 
-    //mp output_calibration_mapping
-    pub fn output_calibration_mapping(&self) -> CmdResult {
-        let s = self.calibration_mapping.clone().to_json(true)?;
-        Ok(s.to_string())
-    }
-
-    //mp output_star_mapping
-    pub fn output_star_mapping(&self) -> CmdResult {
-        let s = self.star_mapping.to_json(true)?;
-        Ok(s.to_string())
-    }
-
-    //mp output_polynomials
     pub fn output_polynomials(&self) -> CmdResult {
-        let s = self.camera.lens().polys().to_json(true)?;
-        Ok(s.to_string())
+        Ok(json::to_value(self.camera.lens().polys())?)
     }
 }

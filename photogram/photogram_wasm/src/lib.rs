@@ -39,6 +39,9 @@ pub use wasm_point_mapping::WasmPointMapping;
 mod wasm_cip;
 pub use wasm_cip::WasmCip;
 
+mod wasm_star_match;
+pub use wasm_star_match::WasmStarMatchSet;
+
 mod wasm_project;
 pub use wasm_project::WasmProject;
 

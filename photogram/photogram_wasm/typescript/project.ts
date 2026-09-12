@@ -75,7 +75,7 @@ class UndoableNpDelete implements UndoableAction<Project> {
   rev_text(): string[] {
     return [
       `NpAdd(${this.np_name}, ${this.np.color})`,
-      `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.error})`,
+      `NpSetModel(${this.np_name}, ${this.np.at_infinity}, ${this.np.model_as_array()}, ${this.np.uncertainty})`,
     ];
   }
   fwd(p: Project): void {
@@ -90,7 +90,7 @@ class UndoableNpDelete implements UndoableAction<Project> {
       p.wasm_project!.nps.set_model(
         this.np_name,
         this.np.model_as_array(),
-        this.np.error,
+        this.np.uncertainty,
       );
     }
     p.np_changed(false, this.np_name);
@@ -145,8 +145,8 @@ class UndoableNpSetModel implements UndoableAction<Project> {
       const np = project.wasm_project!.nps.get_pt(np_name);
       if (np !== undefined) {
         this.np_name = np_name;
-        this.orig_data = [np.at_infinity, np.model_as_array(), np.error];
-        this.new_data = [np.at_infinity, np.model_as_array(), np.error];
+        this.orig_data = [np.at_infinity, np.model_as_array(), np.uncertainty];
+        this.new_data = [np.at_infinity, np.model_as_array(), np.uncertainty];
         if (at_infinity !== undefined) {
           this.new_data[0] = at_infinity;
         }
@@ -723,7 +723,7 @@ export class Project {
 
   load_project(locator: string) {
     this.cancel_all_promises();
-    this.cip.set_cip("", null);
+    this.cip.set_cip(0, "", null);
     this.locator = locator;
     this.modified = false;
     this.thumbnails.clear();
@@ -821,9 +821,19 @@ export class Project {
     }
   }
 
-  set_cip(cip_name: string) {
+  set_cip(cip_number: number, delta: boolean=false): void {
+    if (delta) {
+      cip_number += this.cip.cip_number;
+    }
+    const cip_name = this.wasm_project?.cip_name(cip_number);
+    if (cip_name === undefined && cip_number > 0) {
+      return this.set_cip(0);
+    }
+    if (cip_name === undefined) { return; }
+
     const wasm_cip = this.get_cip_by_name(cip_name);
-    this.cip.set_cip(cip_name, wasm_cip);
+    this.cip.set_cip(cip_number, cip_name, wasm_cip);
+    this.np_changed(false);
     if (this.locator !== null) {
       const promise = this.project_set.promise_fetch_image(
         this.locator,

@@ -72,7 +72,9 @@ where
     /// None for out of bounds.
     #[inline]
     pub fn get_mut(&mut self, index: I) -> Option<&mut T> {
-        self.slice.get_mut(index.index())
+        index
+            .opt_index()
+            .and_then(|index| self.slice.get_mut(index))
     }
 }
 

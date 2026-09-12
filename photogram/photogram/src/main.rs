@@ -263,70 +263,69 @@
 //! the X axis.
 //!
 
-//a Imports
-
-use clap::Command;
-use thunderclap::CommandBuilder;
-
-use ic_base::Result;
+use thunderclap::CmdDescriptor;
 
 //a Mods
 mod cmd;
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 pub use cmd::{CmdArgs, CmdResult};
+/*
 mod calibration;
-mod cip;
 mod image_analyze;
+mod point_mappings;
+mod star;
+*/
+mod cip;
 mod image_process;
 mod named_points;
-mod point_mappings;
 mod project;
-mod star;
+mod spherical_image;
 
-//a Main
-//fi main
-fn main() -> Result<()> {
-    let command = Command::new("photogram")
+impl CmdArgs {
+    const PHOTOGRAM_CMD: CmdDescriptor<Self> = CmdDescriptor::new("photogram")
         .about("Photogrammetry tool")
-        .version("0.1.0");
+        .version("0.1.0")
+        .args(&[
+            Self::ARG_VERBOSE,
+            Self::ARG_PRETTY_JSON,
+            Self::ARG_ADD_FILE_PATH,
+            Self::ARG_CLEAR_FILE_PATH,
+            Self::ARG_PROJECT_DESC,
+            Self::ARG_PROJECT_FILE,
+            Self::ARG_CAMERA_DB,
+            Self::ARG_CAMERA,
+            Self::ARG_USE_BODY,
+            Self::ARG_USE_LENS,
+            Self::ARG_USE_FOCUS,
+            Self::ARG_USE_POLYS,
+            Self::ARG_USE_ORIENTATION,
+            Self::ARG_WRITE_CAMERA,
+            Self::ARG_WRITE_PROJECT,
+            Self::ARG_CIP,
+            // Self::ARG_WRITE_NAMED_POINTS,
+            // Self::ARG_WRITE_NAMED_POINTS,
+            // CmdArgs::add_arg_nps(&mut build);
+        ])
+        .cmds(&[
+            Self::PROJECT_CMD,
+            Self::NAMED_POINTS_CMD,
+            Self::IMAGE_PROCESS_CMD,
+            Self::SPHERICAL_IMAGE_CMD,
+            Self::CIP_CMD,
+        ]);
+}
 
-    let mut build = CommandBuilder::new(command);
-
-    CmdArgs::add_arg_verbose(&mut build);
-    CmdArgs::add_arg_pretty_json(&mut build);
-    CmdArgs::add_arg_path(&mut build);
-
-    // Project comes first - if you want to change the camera database
-    // for a project, then set that too
-    CmdArgs::add_arg_project_desc(&mut build, false);
-    CmdArgs::add_arg_project_file(&mut build, false);
-    CmdArgs::add_arg_camera_database(&mut build, false);
-
-    // The camera specification is local to the command - for point
-    // mappings etc, the cip is used
-    CmdArgs::add_arg_camera(&mut build, false);
-
-    // Always permit addition of named point sets
-    CmdArgs::add_arg_nps(&mut build);
-
-    // Write out a complete project
-    CmdArgs::add_arg_write_project(&mut build);
-    CmdArgs::add_arg_write_named_points(&mut build);
-    CmdArgs::add_arg_write_point_mapping(&mut build);
-
-    build.add_subcommand(project::project_cmd());
-    build.add_subcommand(image_process::image_process_cmd());
-    build.add_subcommand(image_analyze::image_analyze_cmd());
-    build.add_subcommand(star::star_cmd());
-    build.add_subcommand(calibration::calibration_cmd());
-    build.add_subcommand(cip::cip_cmd());
-    build.add_subcommand(named_points::named_points_cmd());
-    build.add_subcommand(point_mappings::point_mappings_cmd());
-
+fn main() -> Result<()> {
+    let build = CmdArgs::PHOTOGRAM_CMD.build();
+    /*
+        build.add_subcommand(image_process::image_process_cmd());
+        build.add_subcommand(image_analyze::image_analyze_cmd());
+        build.add_subcommand(star::star_cmd());
+        build.add_subcommand(calibration::calibration_cmd());
+        build.add_subcommand(point_mappings::point_mappings_cmd());
+    */
     let mut cmd_args = CmdArgs::default();
     let mut command = build.main(true, true);
-    command
-        .execute_env(&mut cmd_args)
-        .map_err(|e| format!("Error {e:?}"))?;
-
+    command.execute_env(&mut cmd_args)?;
     Ok(())
 }

@@ -1,7 +1,7 @@
 //a Imports
 use wasm_bindgen::prelude::*;
 
-use ic_base::{Point3D, Ray};
+use photogram::{Point3D, Ray};
 
 use crate::wasm_import::ToFromWasmArr;
 

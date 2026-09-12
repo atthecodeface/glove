@@ -6,24 +6,14 @@ export class Cip {
         this.log = log;
         this.wasm_cip = null;
         this.cip_name = "";
+        this.cip_number = 0;
         this.cip_image = new CipImage();
     }
-    set_cip(cip_name, cip) {
+    /// Invoked by the project to set the cip appropriately
+    set_cip(cip_number, cip_name, cip) {
+        this.cip_number = cip_number;
         this.cip_name = cip_name;
         this.wasm_cip = cip;
-        /*
-        const dl = this.project_set.decode_locator(this.project_name);
-        const me = this;
-        this.mesh = [];
-        if (dl[0] == "server") {
-            this.image.src = this.server_project.image_uri(this.cip_of_project);
-            this.server_project.issue_fetch_mesh(this.cip_of_project,function() {
-                                                             me.update_mesh();});
-            this.server_project.issue_fetch_interestings(this.cip_of_project,function() {me.update_interesting();});
-        } else {
-            this.image.src = cip.img;
-        }
-        */
     }
     name() {
         if (this.wasm_cip === null) {

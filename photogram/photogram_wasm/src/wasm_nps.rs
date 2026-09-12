@@ -1,8 +1,8 @@
 use wasm_bindgen::prelude::*;
 
-use ic_base::{JsonParsable, Point3D, Rrc};
-use ic_image::Color8;
-use ic_mapping::NamedPointSet;
+use photogram::Color8;
+use photogram::{JsonParsable, Point3D, Rrc};
+use photogram::{ModelData, NamedPointSet};
 
 use crate::WasmNamedPoint;
 use crate::{ToFromWasmArr, err_to_string};
@@ -59,7 +59,7 @@ impl WasmNamedPointSet {
         let mut nps = self.nps.borrow_mut();
 
         // add_pt returns the *old* point if there was one there already.
-        let opt_replaced_point = nps.add_pt(&wnp.name, Color8::black(), false, None, 0.0);
+        let opt_replaced_point = nps.add_pt(&wnp.name, Color8::black(), ModelData::default());
 
         wnp.set_np(&*nps.get_rc_np(&wnp.name).unwrap());
         opt_replaced_point.map(|np| (&*np).into())
@@ -106,7 +106,7 @@ impl WasmNamedPointSet {
 
     pub fn set_direction(&self, name: &str, model: &[f64]) -> Result<(), String> {
         if let Some(np) = self.nps.borrow().get_rc_np(name) {
-            np.set_model(Some((true, Point3D::from_wasm(model)?, 0.0)));
+            *np.model_mut() = ModelData::at_infinity(Point3D::from_wasm(model)?);
             Ok(())
         } else {
             Err("Could not find named point".into())
@@ -114,7 +114,7 @@ impl WasmNamedPointSet {
     }
 
     pub fn set_color(&self, name: &str, color: &str) -> Result<(), String> {
-        let color: Color8 = color.try_into()?;
+        let color: Color8 = color.try_into().map_err(err_to_string)?;
 
         if let Some(np) = self.nps.borrow().get_rc_np(name) {
             np.set_color(color);
@@ -124,9 +124,10 @@ impl WasmNamedPointSet {
         }
     }
 
-    pub fn set_model(&self, name: &str, model: &[f64], error: f64) -> Result<(), String> {
+    pub fn set_model(&self, name: &str, model: &[f64], uncertainty: f64) -> Result<(), String> {
         if let Some(np) = self.nps.borrow().get_rc_np(name) {
-            np.set_model(Some((false, Point3D::from_wasm(model)?, error)));
+            *np.model_mut() =
+                ModelData::at_position(Point3D::from_wasm(model)?).with_uncertainty(uncertainty);
             Ok(())
         } else {
             Err("Could not find named point".into())
@@ -135,7 +136,7 @@ impl WasmNamedPointSet {
 
     pub fn unset_model(&self, name: &str) -> Result<(), String> {
         if let Some(np) = self.nps.borrow().get_rc_np(name) {
-            np.set_model(None);
+            *np.model_mut() = ModelData::default();
             Ok(())
         } else {
             Err("Could not find named point".into())

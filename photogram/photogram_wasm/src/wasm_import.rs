@@ -1,9 +1,9 @@
 //a Imports
 use wasm_bindgen::prelude::*;
 
-use ic_base::{Point2D, Point3D};
+use photogram::{Point2D, Point3D};
 
-pub fn err_to_string(e: ic_base::Error) -> String {
+pub fn err_to_string(e: photogram::Error) -> String {
     e.to_string()
 }
 

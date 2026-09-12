@@ -1,10 +1,10 @@
 use geo_nd::{Quaternion, Vector};
 use geo_nd_wasm::WasmVec2f64;
-use ic_camera::CameraProjection;
 use wasm_bindgen::prelude::*;
 
-use ic_base::{Point2D, RollYaw};
-use ic_mapping::PointMapping;
+use photogram::CameraProjection;
+use photogram::PointMapping;
+use photogram::{Point2D, RollYaw};
 
 use crate::{
     Quatf64, WasmCameraInstance, WasmNamedPoint, WasmNamedPointSet, WasmPointMappingSet,
@@ -89,24 +89,24 @@ impl WasmPointMapping {
     /// True if the NamedPoint is mapped
     #[wasm_bindgen(getter)]
     pub fn np_is_mapped(&self) -> bool {
-        self.wasm_np.mapped
+        self.wasm_np.is_mapped()
     }
 
     /// True if the NamedPoint maps to a direction, not a position in world space
     #[wasm_bindgen(getter)]
     pub fn np_at_infinity(&self) -> bool {
-        self.wasm_np.at_infinity
+        self.wasm_np.at_infinity()
     }
 
     /// Set a WasmVec3f64 to the model direction/position
-    pub fn np_model_set_vec(&self, v: &mut WasmVec3f64) {
-        v.set_array(self.wasm_np.model.as_ref());
+    pub fn np_model_set_vec(&self, v: &mut WasmVec3f64) -> Result<(), String> {
+        self.wasm_np.model_set_vec(v)
     }
 
     /// The uncertainty of the model position/direction
     #[wasm_bindgen(getter)]
     pub fn np_uncertainty(&self) -> f64 {
-        self.wasm_np.uncertainty
+        self.wasm_np.uncertainty()
     }
 
     /// Expected X coordinate on the image
@@ -207,6 +207,24 @@ impl WasmPointMapping {
         }
     }
 
+    #[wasm_bindgen(getter)]
+    pub fn d_map_dx(&self) -> f64 {
+        if self.has_pms {
+            self.screen[0] - self.expected[0]
+        } else {
+            0.0
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn d_map_dy(&self) -> f64 {
+        if self.has_pms {
+            self.screen[1] - self.expected[1]
+        } else {
+            0.0
+        }
+    }
+
     /// The error in 'mapping', which is a distance in image pixels
     #[wasm_bindgen(getter)]
     pub fn d_map_distance(&self) -> f64 {
@@ -232,8 +250,11 @@ impl WasmPointMapping {
         cursor_x: f64,
         cursor_y: f64,
     ) {
-        let camera = camera.camera().borrow();
-        self.expected = camera.world_xyz_to_px_abs_xy(&self.wasm_np.model);
+        let camera = camera.borrow_camera();
+        if !self.wasm_np.is_mapped() {
+            return;
+        }
+        self.expected = camera.world_xyz_to_px_abs_xy(&self.wasm_np.model_pt());
         self.set_cursor(cursor_x, cursor_y);
         let pms = pms.pms().borrow();
         if let Some(pm) = pms.mapping_of_np_name(&self.wasm_np.name) {

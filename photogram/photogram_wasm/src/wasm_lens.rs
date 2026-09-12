@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use ic_camera::LensPolys;
+use photogram::LensPolys;
 
 use crate::WasmBezier1f64;
 use crate::console_log;
