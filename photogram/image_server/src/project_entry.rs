@@ -1,7 +1,7 @@
 //a Imports
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
 use photogram::Project;
@@ -10,7 +10,7 @@ use photogram::{JsonParsable, PathSet, Result};
 //a ProjectPath
 //tp ProjectPath
 #[derive(Debug)]
-pub struct ProjectPath(Box<Path>);
+pub struct ProjectPath(PathBuf);
 
 //ip Display for ProjectPath
 impl std::fmt::Display for ProjectPath {
@@ -110,8 +110,8 @@ impl NamedProject {
     /// Create a new [NamedProject] given a path
     ///
     /// The project is not loaded by default
-    pub fn new(path: Box<Path>) -> Result<Self> {
-        let path = ProjectPath(path);
+    pub fn new<A: AsRef<Path>>(path: A) -> Result<Self> {
+        let path = ProjectPath(path.as_ref().into());
         let Some(name) = path.file_stem() else {
             return Err(format!("Could not get name of file from path {path}").into());
         };

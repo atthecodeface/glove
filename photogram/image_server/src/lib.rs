@@ -1,7 +1,7 @@
 //a Imports
 
 mod cmd;
-pub use cmd::{cmd_ok, CmdArgs, CmdResult};
+pub use cmd::{CmdArgs, CmdResult, cmd_ok};
 
 mod project_decode;
 mod project_entry;

@@ -55,13 +55,13 @@ impl ProjectSet {
         });
         for p in paths {
             eprintln!("Adding project JSON {p:?}");
-            self.add_project(p.into_boxed_path())?;
+            self.add_project(p)?;
         }
         Ok(())
     }
 
     //mp add_project
-    pub fn add_project(&mut self, path: Box<Path>) -> Result<()> {
+    pub fn add_project<A: AsRef<Path>>(&mut self, path: A) -> Result<()> {
         let named_project = NamedProject::new(path)?;
         let n = self.projects.len();
         self.index_by_name

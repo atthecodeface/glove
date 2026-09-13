@@ -14,6 +14,10 @@ enum KeyKind {
     ImagePath {
         path: PathBuf,
     },
+    Thumbnail {
+        path: PathBuf,
+        size: usize,
+    },
     #[allow(dead_code)]
     Derived {
         name: String,
@@ -31,6 +35,14 @@ impl ImageCacheKey {
     pub fn of_image_path<P: AsRef<Path>>(path: &P) -> Self {
         let key_kind = KeyKind::ImagePath {
             path: path.as_ref().to_owned(),
+        };
+        Self { key_kind }
+    }
+    /// Create an image cache key from a [Path]
+    pub fn of_thumbnail<P: AsRef<Path>>(path: &P, size: usize) -> Self {
+        let key_kind = KeyKind::Thumbnail {
+            path: path.as_ref().to_owned(),
+            size,
         };
         Self { key_kind }
     }
@@ -134,7 +146,6 @@ impl ImageCache {
         let key = ImageCacheKey::of_image_path(&path);
         if !cache.contains(&key) {
             eprintln!("Cache miss for {:?}", path.as_ref());
-            // TDODO: Change to read
             let src_img = ImageRgb8::read(path)?;
             let src_img = ImageCacheEntry::Rgb(src_img);
             cache.insert(key.clone(), src_img);
