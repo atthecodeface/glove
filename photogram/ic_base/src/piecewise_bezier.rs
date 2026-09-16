@@ -337,7 +337,9 @@ impl PiecewiseBezier {
         let this_node = tree.len();
         match node_ranges.len() {
             0 => {
-                panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
+                tree.push(PiecewiseBezierNode::constant(0.0));
+                tree
+                // panic!("Should not have 0 xys to build a PiecewiseLinearPoly");
             }
             1 => {
                 tree.push(node_ranges[0].1);
@@ -505,10 +507,13 @@ impl PiecewiseBezier {
                 last_t = (min_t + last_t) / 2.0;
             }
         }
+        // return Err(format!("Testing {:?}", node_ranges.len()).into());
         Self::of_node_ranges(node_ranges)
     }
 
-    /// Find the 'best' value of t given a value v, and a set of (t,v) pairs that are monotonic in v
+    /// Find the 'best' value of y given a value x, and a set of (x,y) pairs that are monotonic in x and in y
+    ///
+    /// If they are not monotonic it will still return *a* value of y
     fn find_y_of_x(x_y_pairs: &[(f64, f64)], x: f64) -> f64 {
         assert!(x_y_pairs.len() >= 2, "Only works with 2 or more points");
         match x_y_pairs.binary_search_by(|(x_test, _y_test)| x_test.partial_cmp(&x).unwrap()) {
