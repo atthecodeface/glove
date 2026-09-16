@@ -1,8 +1,8 @@
 //a Imports
 use ic_base::Result;
+use ic_base::polynomial;
 use ic_camera::LensPolys;
-use ic_camera::polynomial;
-use ic_camera::polynomial::CalcPoly;
+use polynomial::CalcPoly;
 
 /// Test the mapping by generating LensPolys for sensor yaw in 1000 steps from wmin to wmax mapped to world yaw through the mapping
 fn test_mapping<F>(

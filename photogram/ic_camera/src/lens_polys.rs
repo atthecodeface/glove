@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{Error, JsonParsable, PiecewiseBezier, Result};
 
-use crate::polynomial;
+use ic_base::polynomial;
 
 /// Set NaN to be NAN, as Nan is output by Rust in debug for f64 NAN...
 #[allow(non_upper_case_globals)]
