@@ -7,9 +7,9 @@ use thunderclap::CommandBuilder;
 
 use image_server::{CmdArgs, CmdResult, ProjectSet, cmd_ok};
 
-use photogram::HttpServer;
-use photogram::Result;
-use photogram::ThreadPool;
+use ic_photogram::HttpServer;
+use ic_photogram::Result;
+use ic_photogram::ThreadPool;
 
 /// This is the configuration of the http server; it is set *once* in main before threads are created
 ///

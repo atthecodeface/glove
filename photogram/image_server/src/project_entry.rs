@@ -4,8 +4,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
-use photogram::Project;
-use photogram::{JsonParsable, PathSet, Result};
+use ic_photogram::Project;
+use ic_photogram::{JsonParsable, PathSet, Result};
 
 //a ProjectPath
 //tp ProjectPath

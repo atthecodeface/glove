@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use star_catalog::Catalog as StarCatalog;
 use thunderclap::{ArgCount, ArgDescriptor, CmdProperty, CommandArgs};
 
-use photogram::{Error, PathSet, Result, ThreadPool};
+use ic_photogram::{Error, PathSet, Result, ThreadPool};
 
 //a CmdResult
 pub type CmdResult = Result<String>;

@@ -1,5 +1,5 @@
 //a Imports
-use photogram::HttpRequest;
+use ic_photogram::HttpRequest;
 
 //a ProjectDecode
 //tp ProjectDecodeType

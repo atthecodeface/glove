@@ -20,4 +20,4 @@ clap.workspace = true
 thunderclap.workspace = true
 star-catalog.workspace = true
 
-photogram.workspace = true
+ic_photogram.workspace = true

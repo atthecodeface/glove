@@ -2,14 +2,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use photogram::Mesh;
-use photogram::Patch;
-use photogram::{
+use ic_photogram::Mesh;
+use ic_photogram::Patch;
+use ic_photogram::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
-use photogram::{KernelArgs, Kernels};
-use photogram::{PathGlob, Result};
+use ic_photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use ic_photogram::{KernelArgs, Kernels};
+use ic_photogram::{PathGlob, Result};
 
 use crate::CmdArgs;
 use crate::NamedProject;
@@ -236,31 +236,22 @@ impl ProjectSet {
         let Some(path) = self.cmd_args.find_image_file(cip_r.image_filename()) else {
             return Err(format!("Could not find image file {}", cip_r.image_filename()).into());
         };
-        server.verbose().then(|| eprintln!("Open image {path:?}"));
+        let thumbnail_size = pd.width.unwrap_or(0.0).abs() as usize;
+        server
+            .verbose()
+            .then(|| eprintln!("Open image for thumbnail size {thumbnail_size} {path:?}"));
 
-        let src_img_ref = self.image_cache.src_image(&path)?;
-        let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
-
-        let src_size = src_img.size();
-        let src_size = (src_size.0 as f64, src_size.1 as f64);
-        let x_scale = pd.width.map(|w| src_size.0 / w).unwrap_or(1.0);
-        let y_scale = pd.height.map(|h| src_size.1 / h).unwrap_or(1.0);
-        let scale = x_scale.max(y_scale);
-        let width = (src_size.0 / scale) as u32;
-        let height = (src_size.1 / scale) as u32;
-        let mut scaled_img = ImageRgb8::new(width, height);
-        for y in 0..height {
-            let sy = (y as f64 + 0.5) * scale;
-            for x in 0..width {
-                let sx = (x as f64 + 0.5) * scale;
-                let c = src_img.get(sx as u32, sy as u32);
-                scaled_img.put(x as u32, y as u32, &c);
-            }
-        }
-        let img_bytes = scaled_img.encode("jpeg")?;
+        let size = (
+            (pd.width.unwrap_or(64.0) as u32).min(256),
+            (pd.height.unwrap_or(64.0) as u32).min(256),
+        );
+        let thumbnail_img_ref = self.image_cache.thumbnail(&path, size)?;
+        let thumbnail_img = ImageCacheEntry::cr_as_rgb8(&thumbnail_img_ref);
+        let img_bytes = thumbnail_img.encode("jpeg")?;
         response.content = img_bytes;
         response.mime_type = server.mime_type("jpeg");
         response.resp_type = HttpResponseType::FileRead;
+        eprintln!("Fetched thumbnail!");
         Ok(())
     }
 
@@ -429,6 +420,7 @@ impl HttpServerExt for ProjectSet {
                 Err(format!("Failed to find project {}", pd.project().unwrap()).into())
             }
         };
+        self.image_cache.shrink_cache(256_000_000, 1_000_000);
         match result {
             Err(e) => {
                 eprintln!("Failed to handle request: {e}\n  {pd:?}");

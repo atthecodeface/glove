@@ -1,10 +1,10 @@
 //a Imports
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
-use photogram::Result;
-use photogram::{Cache, CacheRef, Cacheable};
-use photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use ic_photogram::Result;
+use ic_photogram::{Cache, CacheRef, Cacheable};
+use ic_photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
 
 /// The kind of a key into the image cache
 ///
@@ -16,7 +16,7 @@ enum KeyKind {
     },
     Thumbnail {
         path: PathBuf,
-        size: usize,
+        size: (u32, u32),
     },
     #[allow(dead_code)]
     Derived {
@@ -39,7 +39,7 @@ impl ImageCacheKey {
         Self { key_kind }
     }
     /// Create an image cache key from a [Path]
-    pub fn of_thumbnail<P: AsRef<Path>>(path: &P, size: usize) -> Self {
+    pub fn of_thumbnail<P: AsRef<Path>>(path: &P, size: (u32, u32)) -> Self {
         let key_kind = KeyKind::Thumbnail {
             path: path.as_ref().to_owned(),
             size,
@@ -138,14 +138,14 @@ impl Default for ImageCache {
 }
 
 impl ImageCache {
-    /// Get a [CacheRef] for the given path
-    ///
-    /// This loads the image into the cache if it is not present (only RGB8 images can be loaded at present)
-    pub fn src_image<P: AsRef<Path>>(&self, path: P) -> Result<CacheRef> {
-        let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
+    fn cache_src_image(
+        &self,
+        cache: &mut MutexGuard<'_, Cache<ImageCacheKey>>,
+        path: &Path,
+    ) -> Result<CacheRef> {
         let key = ImageCacheKey::of_image_path(&path);
         if !cache.contains(&key) {
-            eprintln!("Cache miss for {:?}", path.as_ref());
+            eprintln!("Cache miss for {:?}", path);
             let src_img = ImageRgb8::read(path)?;
             let src_img = ImageCacheEntry::Rgb(src_img);
             cache.insert(key.clone(), src_img);
@@ -153,12 +153,65 @@ impl ImageCache {
         }
         Ok(cache.get(&key).unwrap())
     }
+    /// Get a [CacheRef] for the given path
+    ///
+    /// This loads the image into the cache if it is not present (only RGB8 images can be loaded at present)
+    pub fn src_image<P: AsRef<Path>>(&self, path: P) -> Result<CacheRef> {
+        let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
+        self.cache_src_image(&mut cache, path.as_ref())
+    }
+
+    fn create_thumbnail(
+        &self,
+        cache: &mut MutexGuard<'_, Cache<ImageCacheKey>>,
+        key: &ImageCacheKey,
+        path: &Path,
+        size: (u32, u32),
+    ) -> Result<()> {
+        let src_img_ref = self.cache_src_image(cache, &path)?;
+        let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
+
+        let src_size = src_img.size();
+        let x_scale = (src_size.0 as f64) / (size.0 as f64);
+        let y_scale = (src_size.1 as f64) / (size.1 as f64);
+        let scale = x_scale.max(y_scale);
+        let width = (src_size.0 as f64 / scale) as u32;
+        let height = (src_size.1 as f64 / scale) as u32;
+        let mut scaled_img = ImageRgb8::new(width, height);
+        for y in 0..height {
+            let sy = (y as f64 + 0.5) * scale;
+            for x in 0..width {
+                let sx = (x as f64 + 0.5) * scale;
+                let c = src_img.get(sx as u32, sy as u32);
+                scaled_img.put(x as u32, y as u32, &c);
+            }
+        }
+
+        let thumbnail_img = ImageCacheEntry::Rgb(scaled_img);
+        cache.insert(key.clone(), thumbnail_img);
+        Ok(())
+    }
+
+    pub fn thumbnail<P: AsRef<Path>>(&self, path: P, size: (u32, u32)) -> Result<CacheRef> {
+        let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
+        let key = ImageCacheKey::of_thumbnail(&path, size);
+        if !cache.contains(&key) {
+            eprintln!(
+                "Cache miss for thumbnail {:?} {}x{}",
+                path.as_ref(),
+                size.0,
+                size.1
+            );
+            self.create_thumbnail(&mut cache, &key, path.as_ref(), size)?;
+            eprintln!("Cache now is {:.2} MB", (cache.total_size() as f64) / 1.0E6);
+        }
+        Ok(cache.get(&key).unwrap())
+    }
 
     /// Shrink the cache to the desired size, returning the size it is after shrinking
-    #[allow(dead_code)]
-    pub fn shrink_cache(&mut self, to_size: usize) -> Result<usize> {
+    pub fn shrink_cache(&self, to_size: usize, max_entry_size: usize) -> Result<usize> {
         let mut cache = self.m_cache.lock().map_err(|e| format!("{e:?}"))?;
-        cache.shrink_to(to_size);
+        cache.shrink_to(to_size, |c| c.size() >= max_entry_size);
         Ok(cache.total_size())
     }
 }
