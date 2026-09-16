@@ -25,6 +25,8 @@ pub use tag::{Tag, TagData, TagMap, TagSet};
 mod word_xy;
 pub use word_xy::WordXy;
 
+pub mod polynomial;
+
 mod piecewise_bezier;
 pub use piecewise_bezier::PiecewiseBezier;
 

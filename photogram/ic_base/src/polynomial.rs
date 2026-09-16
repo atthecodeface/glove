@@ -39,18 +39,18 @@ use std::collections::VecDeque;
 
 use geo_nd::matrix;
 
-use ic_base::{Error, Result};
+use crate::{Error, Result};
 
-//a CalcPoly
-//tt CalcPoly
 /// A simple trait for a polynomial calculation
 pub trait CalcPoly {
     /// Calculate the value of a polynomial at a certain value
     fn calc(&self, x: f64) -> f64;
 }
 
-//ip CalcPoly for &[f64]
 impl CalcPoly for &[f64] {
+    /// Treating the slice as coefficients of a polynomial, with [0] being x^0,
+    /// [1] x^1, etc, calculate the value of the polynomial of the polynomial at
+    /// a particular argument
     fn calc(&self, x: f64) -> f64 {
         let mut r = 0.;
         let mut xn = 1.0;
@@ -62,14 +62,19 @@ impl CalcPoly for &[f64] {
     }
 }
 
-//ip CalcPoly for &[f64; N]
 impl<const N: usize> CalcPoly for &[f64; N] {
+    /// Treating the array as coefficients of a polynomial, with [0] being x^0,
+    /// [1] x^1, etc, calculate the value of the polynomial of the polynomial at
+    /// a particular argument
     fn calc(&self, x: f64) -> f64 {
         self.as_slice().calc(x)
     }
 }
-//ip CalcPoly for Vec<f64>
+
 impl CalcPoly for Vec<f64> {
+    /// Treating the Vec as coefficients of a polynomial, with [0] being x^0,
+    /// [1] x^1, etc, calculate the value of the polynomial of the polynomial at
+    /// a particular argument
     fn calc(&self, x: f64) -> f64 {
         self.as_slice().calc(x)
     }
@@ -127,42 +132,6 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)], length: usize) -> Vec<(f64, f64)> 
     mean_median_wc_yaws
 }
 
-//fp min_squares
-/// Find a polymoial-of-best-fit of a given degree P for a set of (x, p(x)) pairs
-///
-pub fn min_squares<const P: usize, const P2: usize>(xs: &[f64], ys: &[f64]) -> Result<[f64; P]> {
-    assert_eq!(P2, P * P);
-    let n = xs.len();
-    assert_eq!(ys.len(), xs.len());
-    let mut xi_m = vec![0.; n * P]; // N rows of P columns
-    let mut xi_m_t = vec![0.; n * P]; // P rows of N columns
-    for (i, x) in xs.iter().enumerate() {
-        let mut xn = 1.;
-        for j in 0..P {
-            xi_m[i * P + j] = xn;
-            xi_m_t[j * n + i] = xn;
-            xn *= x;
-        }
-    }
-    let mut x_xt = [0.; P2]; // P by P matrix
-    matrix::multiply_dyn(P, n, P, &xi_m_t, &xi_m, &mut x_xt);
-    // dbg!(&x_xt);
-    let mut dm = nalgebra::base::DMatrix::from_element(P, P, 2.0);
-    dm.copy_from_slice(&x_xt);
-    // dbg!(&dm);
-    if !dm.try_inverse_mut() {
-        return Err(Error::PolynomialFit(n));
-    }
-    let mut xt_y = [0.; P]; // P row vector
-    matrix::multiply_dyn(P, n, 1, &xi_m_t, ys, &mut xt_y);
-    let mut dm_2 = [0.; P2];
-    for i in 0..P2 {
-        dm_2[i] = dm[i];
-    }
-    Ok(matrix::multiply::<f64, P2, P, P, P, P, 1>(&dm_2, &xt_y)) // P row vector
-}
-
-//fp min_squares_dyn
 /// Find a polymoial-of-best-fit of a given degree D for a set of (x, p(x)) pairs
 ///
 /// This operates on the principle that, given a polynomial with coeffecients
@@ -206,9 +175,13 @@ pub fn min_squares_dyn<I: ExactSizeIterator<Item = (f64, f64)>>(
     matrix::multiply_dyn(degree, n, degree, &xi_m_t, &xi_m, &mut x_xt);
 
     // dm = (X.transpose() * X).inverse()
-    let mut dm = nalgebra::base::DMatrix::from_element(degree, degree, 2.0);
-    dm.copy_from_slice(&x_xt);
-    if !dm.try_inverse_mut() {
+    let mut dm = vec![0.0; degree * degree];
+    let mut lu = vec![0.0; degree * degree];
+    let mut pivot = vec![0; degree];
+    let mut temp_row = vec![0.0; degree];
+    let mut temp_row2 = vec![0.0; degree];
+    let _ = matrix::lup_decompose(degree, &x_xt, &mut lu, &mut pivot);
+    if !matrix::lup_invert(degree, &lu, &pivot, &mut dm, &mut temp_row, &mut temp_row2) {
         return Err(Error::PolynomialFit(n));
     }
 
@@ -282,44 +255,4 @@ pub fn find_outliers<I: Iterator<Item = (f64, f64)>>(
         };
     }
     outliers
-}
-
-//a Tests
-#[test]
-fn test_poly() -> Result<()> {
-    let f = |x: f64| (x / 10.).sin().atan();
-    let err = |x0: f64, x1: f64| {
-        if x0.abs() < 0.000001 {
-            x1 - x0
-        } else {
-            x1 / x0 - 1.0
-        }
-    };
-
-    // x in 1.41
-    let xys = (0..100).map(|x| (x as f64) / 70.0).map(|x| (x, f(x)));
-    let yxs = xys.clone().map(|(x, y)| (y, x));
-
-    let poly = min_squares_dyn(7, xys.clone())?;
-    let rev_poly = min_squares_dyn(7, yxs.clone())?;
-
-    eprintln!("{poly:?}");
-    let mut num_errors = 0;
-    for (x, y) in xys.clone() {
-        eprintln!(
-            "{x} {y} {:.4e} {:.4e}     {:.4e} {:.4e}",
-            poly.calc(x),
-            rev_poly.calc(y),
-            err(y, poly.calc(x)),
-            err(x, rev_poly.calc(y)),
-        );
-        if err(y, poly.calc(x)).abs() > 0.001 || err(x, rev_poly.calc(y)).abs() > 0.001 {
-            num_errors += 1;
-        }
-    }
-    if num_errors > 0 {
-        Err(format!("Number of errors {num_errors}").into())
-    } else {
-        Ok(())
-    }
 }
