@@ -1,11 +1,11 @@
 //a Imports
-use std::collections::HashSet;
 use std::rc::Rc;
+use std::{collections::HashSet, num};
 
-use geo_nd::Vector;
+use geo_nd::{Quaternion, Vector};
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, Point2D, Point3D, Quat, Ray, Result, utils};
+use ic_base::{JsonParsable, Point2D, Point3D, Quat, Ray, Result, RollYaw, TanXTanY, utils};
 use ic_camera::CameraProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
@@ -498,13 +498,15 @@ impl PointMappingSet {
     /// generated
     ///
     /// The 'average' of all these quaternions is the resultant orientation
-    pub fn orient_camera_using_model_directions<C, F>(
+    pub fn orient_camera_using_model_directions<C, F, W>(
         &self,
         camera: &mut C,
         filter: F,
+        weighting: W,
     ) -> Result<f64>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
         C: CameraProjection,
     {
         let mut qs = vec![];
@@ -522,6 +524,7 @@ impl PointMappingSet {
             } else {
                 (camera.position() - pm_i.model()).normalize()
             };
+            let wi = weighting(pm_i);
 
             for (_, pm_j) in self
                 .mappings
@@ -533,9 +536,11 @@ impl PointMappingSet {
             {
                 let dj_c = pm_j.get_mapped_camera_dir(camera);
                 let dj_m = pm_j.model_direction_from(&camera.position());
+                let wj = weighting(pm_j);
 
+                let weight = (wi * wj).sqrt();
                 qs.push((
-                    1.0,
+                    weight,
                     utils::orientation_mapping_vpair_to_ppair(
                         di_m.as_ref(),
                         dj_m.as_ref(),
@@ -560,10 +565,11 @@ impl PointMappingSet {
     }
 
     /// Calculate the *total* dx2 and dy2 for all the (filtered) points in the mapping given the camera
-    pub fn dx2_dy2_of_camera<C, F>(&self, camera: &C, filter: F) -> (f64, f64)
+    pub fn dx2_dy2_of_camera<C, F, W>(&self, camera: &C, filter: F, weighting: W) -> (f64, f64)
     where
         C: CameraProjection,
         F: Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
     {
         let mut dx2 = 0.0;
         let mut dy2 = 0.0;
@@ -576,9 +582,136 @@ impl PointMappingSet {
         {
             // the point is mapped so this will always return Some
             let dxy = pm.get_mapped_dpxy(camera).unwrap();
-            dx2 += dxy[0] * dxy[0];
-            dy2 += dxy[1] * dxy[1];
+            let w = weighting(pm);
+            dx2 += w * dxy[0] * dxy[0];
+            dy2 += w * dxy[1] * dxy[1];
         }
         (dx2, dy2)
+    }
+
+    /// Update the camera orientation by subtle tweaking around the axes
+    ///
+    /// Using the (filtered) points, adjust the camera by +-angle on each axis X, Y, Z in turn, up to a max of max_steps iterations
+    ///
+    /// Return the improved total dxy2
+    pub fn adjust_camera_orientation_using_dxy2<C, F, W>(
+        &self,
+        camera: &mut C,
+        filter: F,
+        weighting: W,
+        angle: f64,
+        max_steps: usize,
+    ) -> Result<f64>
+    where
+        C: CameraProjection,
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
+    {
+        let indices: Vec<_> = self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| filter(*n, pm))
+            .map(|(n, _pm)| n)
+            .collect();
+        let qx = Quat::of_axis_angle(&[1.0, 0.0, 0.0], angle);
+        let qy = Quat::of_axis_angle(&[0.0, 1.0, 0.0], angle);
+        let qz = Quat::of_axis_angle(&[0.0, 0.0, 1.0], angle);
+        let mut dxy2: f64 = indices
+            .iter()
+            .map(|n| {
+                weighting(&self.mappings[*n])
+                    * self.mappings[*n]
+                        .get_mapped_dpxy(camera)
+                        .unwrap()
+                        .length_sq()
+            })
+            .sum();
+        let orig_dxy2 = dxy2;
+        let mut num_adjustments = 0;
+        for _ in 0..max_steps {
+            let last_dxy2 = dxy2;
+            for q in [qx, qx.conjugate(), qy, qy.conjugate(), qz, qz.conjugate()] {
+                let mut test_camera = camera.clone();
+                test_camera.set_orientation(&(q * camera.orientation()));
+                let test_dxy2 = indices
+                    .iter()
+                    .map(|n| {
+                        weighting(&self.mappings[*n])
+                            * self.mappings[*n]
+                                .get_mapped_dpxy(&test_camera)
+                                .unwrap()
+                                .length_sq()
+                    })
+                    .sum();
+                if test_dxy2 < dxy2 {
+                    dxy2 = test_dxy2;
+                    camera.set_orientation(&test_camera.orientation());
+                    num_adjustments += 1;
+                }
+            }
+            if last_dxy2 == dxy2 {
+                break;
+            }
+        }
+        if false {
+            eprintln!("Adjusted {num_adjustments} to {dxy2} from {orig_dxy2}");
+        }
+
+        Ok(dxy2 - orig_dxy2)
+    }
+
+    /// Generate a Vec of (pm number, world yaw, sensor yaw) for mappings of
+    /// points that have are mappings to NamedPoint that is placed in some
+    /// manner
+    pub fn generate_pm_world_sensor_data<C, F>(
+        &self,
+        camera: &C,
+        filter: F,
+    ) -> Vec<(usize, f64, f64, f64, f64)>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+        C: CameraProjection,
+    {
+        let mut pm_world_sensor_data = vec![];
+        let indices: Vec<_> = self
+            .mappings
+            .iter()
+            .enumerate()
+            .filter(|(_n, pm)| pm.is_mapped())
+            .filter(|(n, pm)| filter(*n, pm))
+            .map(|(n, _pm)| n)
+            .collect();
+        for i in indices {
+            let pm = &self.mappings[i];
+            if pm.is_unmapped() {
+                continue;
+            }
+
+            // sensor_yaw is given by the Yaw of the *mapped* point, which is based purely on the sensor geometry not the lens calibration
+            let sensor_txty = camera.px_abs_xy_to_sensor_txty(pm.screen());
+            let sensor_ry: RollYaw = sensor_txty.into();
+
+            // world_yaw is given by the Yaw of the direction vector, which is based on the camera orientation only and not the lens calibration
+
+            let world_dir = {
+                if pm.model_is_direction() {
+                    camera.world_dir_to_camera_xyz(&pm.model())
+                } else {
+                    camera.world_xyz_to_camera_xyz(&pm.model())
+                }
+            };
+            let world_txty: TanXTanY = world_dir.into();
+            let world_ry: RollYaw = world_txty.into();
+            pm_world_sensor_data.push((
+                i,
+                world_ry.roll(),
+                world_ry.yaw(),
+                sensor_ry.roll(),
+                sensor_ry.yaw(),
+            ));
+        }
+        pm_world_sensor_data
     }
 }

@@ -77,25 +77,37 @@ impl PointMapping {
 
 //ip PointMapping accessors
 impl PointMapping {
+    /// Return true if the named point is not mapped
     #[inline]
     pub fn is_unmapped(&self) -> bool {
         self.named_point.is_unmapped()
     }
 
+    /// Return true if the named point is mapped to either a point or a direction (point at infinity, essentially)
     #[inline]
     pub fn is_mapped(&self) -> bool {
         !self.named_point.is_unmapped()
     }
 
+    /// Return true if the named point (assuming it is mapped) is a direction, not a position
     pub fn model_is_direction(&self) -> bool {
         self.named_point.model_is_direction()
     }
 
+    /// Get the named point model position / direction (the latter if
+    /// model_is_direction() returns true)
     #[inline]
     pub fn model(&self) -> Point3D {
         self.named_point.model_pt()
     }
 
+    /// Get the uncertainty in the named point's model data
+    ///
+    /// If the named point is not mapped, then this is invalid
+    ///
+    /// If the named point is mapped as a direction (point at infinity) then this is the tan of the angle of uncertainty
+    ///
+    /// If the named point is mapped as a point then this is the error radius in mm
     #[inline]
     pub fn model_uncertainty(&self) -> f64 {
         self.named_point.model_uncertainty()
