@@ -118,7 +118,7 @@ fn test_cache() -> Result<(), ()> {
         cache.get("3").unwrap().downcast::<WrapUsize>().unwrap(),
         &3.into()
     );
-    cache.shrink_to(10_000_000);
+    cache.shrink_to(10_000_000, |_| true);
     assert!(cache.contains("Huge 1"), "Should still contain Huge 1");
     assert!(
         cache.contains("First"),
@@ -128,14 +128,14 @@ fn test_cache() -> Result<(), ()> {
         cache.contains("3"),
         "Should still contain Huge 1, First and 3"
     );
-    cache.shrink_to(1_000_000);
+    cache.shrink_to(1_000_000, |_| true);
     assert!(
         !cache.contains("Huge 1"),
         "Should not contain Huge 1, nor First"
     );
     assert!(!cache.contains("First"), "Should not contain First");
     assert!(cache.contains("3"), "Should still contain 3");
-    cache.shrink_to(0);
+    cache.shrink_to(0, |_| true);
     assert!(!cache.contains("Huge 1"), "Should not contain Huge 1");
     assert!(!cache.contains("First"), "Should not contain First");
     assert!(!cache.contains("3"), "Should not contain 3");

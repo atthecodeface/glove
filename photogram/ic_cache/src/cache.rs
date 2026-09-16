@@ -102,8 +102,17 @@ where
     }
 
     /// Generate an array of indices sorted by age
-    pub fn indices_by_age(&self) -> Vec<usize> {
-        let mut indices: Vec<usize> = self.index.values().copied().collect();
+    pub fn indices_by_age<F>(&self, filter: F) -> Vec<usize>
+    where
+        F: Fn(&CacheEntry) -> bool,
+    {
+        let mut indices: Vec<usize> = vec![];
+        for i in self.index.values() {
+            if filter(&self.entries[*i]) {
+                indices.push(*i);
+            }
+        }
+
         indices.sort_by(|a, b| {
             self.entries[*a]
                 .last_use()
@@ -117,12 +126,15 @@ where
     /// Returns true if the size has been reduced as desired; cache entries can
     /// only be emptied if they are not in use (i.e. the CacheEntry associated
     /// with them has not got an active clone)
-    pub fn shrink_to(&mut self, size: usize) -> bool {
+    pub fn shrink_to<F>(&mut self, size: usize, filter: F) -> bool
+    where
+        F: Fn(&CacheEntry) -> bool,
+    {
         eprintln!("Shrink to {size} when at {}", self.total_size);
         if self.total_size < size {
             return true;
         }
-        let indices = self.indices_by_age();
+        let indices = self.indices_by_age(filter);
         eprintln!("indices {indices:?}");
         for i in indices.into_iter() {
             eprintln!("Index {i}, {}", self.total_size);
