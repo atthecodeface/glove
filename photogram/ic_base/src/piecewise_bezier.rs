@@ -359,6 +359,9 @@ impl PiecewiseBezier {
 
     /// Create a Piecewise Bezier of node ranges
     fn of_node_ranges(node_ranges: Vec<(f64, PiecewiseBezierNode)>) -> Result<Self> {
+        if node_ranges.is_empty() {
+            return Err(format!("Construction of PiecewiseBezier with no nodes attempted ").into());
+        }
         let tree = Self::tree_of_node_ranges(vec![], &node_ranges);
         Ok(Self { tree })
     }
@@ -507,7 +510,6 @@ impl PiecewiseBezier {
                 last_t = (min_t + last_t) / 2.0;
             }
         }
-        // return Err(format!("Testing {:?}", node_ranges.len()).into());
         Self::of_node_ranges(node_ranges)
     }
 
