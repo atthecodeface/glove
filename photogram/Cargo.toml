@@ -11,7 +11,8 @@ members = [
     "ic_mapping", "ic_mesh",
     "ic_project", "ic_projections",
     "ic_spherical_image",
-    "ic_stars", "ic_threads",
+    "ic_threads",
+    "ic_photogram",
     # "ic_play",
     "indexed"]
 
@@ -38,9 +39,9 @@ ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
 ic_project = { version = "0.1.0", path = "./ic_project" }
 ic_projections = { version = "0.1.0", path = "./ic_projections" }
 ic_spherical_image = { version = "0.1.0", path = "./ic_spherical_image" }
-ic_stars = { version = "0.1.0", path = "./ic_stars" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
 ic_play = { version = "0.1.0", path = "./ic_play" }
+ic_photogram = { version = "0.1.0", path = "./ic_photogram" }
 indexed = { version = "0.1.0", path = "./indexed" }
 photogram = { version = "0.1.0", path = "./photogram" }
 
