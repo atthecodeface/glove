@@ -30,7 +30,6 @@ mapping is not impacted by moving the lens, of course.
 
 // Make this crate-only?
 pub mod polynomial;
-pub mod utils;
 
 mod lens_polys;
 pub use lens_polys::LensPolys;

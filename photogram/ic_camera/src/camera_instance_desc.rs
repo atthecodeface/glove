@@ -6,8 +6,6 @@ use ic_base::{JsonParsable, Point2D, Point3D, Quat, Result};
 
 use crate::{CameraDatabase, CameraInstance};
 
-use crate::utils;
-
 /// This structure is an abstracted description of a camera instance, using
 /// names for the camera body and lens
 ///
@@ -52,6 +50,14 @@ impl JsonParsable for CameraInstanceDesc {
 
 impl std::fmt::Display for CameraInstanceDesc {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        fn show_pos_orient(position: &Point3D, orientation: &Quat) -> String {
+            let dxyz = orientation.conjugate().apply3_arr(&[0., 0., 1.]);
+            format!(
+                "[{:.3},{:.3},{:.3}] in dir [{:.3},{:.3},{:.3}]",
+                position[0], position[1], position[2], dxyz[0], dxyz[1], dxyz[2],
+            )
+        }
+
         if self.optical_axis_offset.is_zero() {
             write!(
                 fmt,
@@ -59,7 +65,7 @@ impl std::fmt::Display for CameraInstanceDesc {
                 self.body,
                 self.lens,
                 self.mm_focus_distance(),
-                utils::show_pos_orient(&self.position, &self.orientation)
+                show_pos_orient(&self.position, &self.orientation)
             )
         } else {
             write!(
@@ -68,7 +74,7 @@ impl std::fmt::Display for CameraInstanceDesc {
                 self.body,
                 self.lens,
                 self.mm_focus_distance(),
-                utils::show_pos_orient(&self.position, &self.orientation),
+                show_pos_orient(&self.position, &self.orientation),
                 self.optical_axis_offset,
             )
         }

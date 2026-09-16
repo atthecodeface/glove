@@ -562,6 +562,34 @@ impl LensPolys {
         sensor_yaw_range_max: f64,
         apply_filter: bool,
     ) -> Result<Self> {
+        // Validate the input
+        if sensor_yaws.len() != world_yaws.len() {
+            return Err(Error::Msg(format!(
+                "Mismatch in number of sensor and world yaw values"
+            )));
+        }
+        if sensor_yaws.len() < 2 {
+            return Err(Error::Msg(format!(
+                "Too few filtered data points to generate calibration from"
+            )));
+        }
+        if sensor_yaws
+            .iter()
+            .any(|a| sensor_yaws[0].partial_cmp(a).is_none())
+        {
+            return Err(Error::Msg(format!(
+                "Sensor yaw values are not all valid floats"
+            )));
+        }
+        if world_yaws
+            .iter()
+            .any(|a| sensor_yaws[0].partial_cmp(a).is_none())
+        {
+            return Err(Error::Msg(format!(
+                "World yaw values are not all valid floats"
+            )));
+        }
+
         // Create a vec of (world, sensor) yaw pairs where sensor yaw is > yaw_range_min
         let mut ws_yaws: Vec<_> = sensor_yaws
             .iter()
@@ -570,6 +598,17 @@ impl LensPolys {
             .map(|(s, w)| (*w, *s))
             .collect();
         ws_yaws.sort_by(|a, b| (a.1).partial_cmp(&b.1).unwrap());
+
+        /* This is not a realistic check - this might prevent an *inverse* function, but that has to be handled differently
+        if ws_yaws
+            .windows(2)
+            .any(|ws_pair| ws_pair[0].0 >= ws_pair[1].0)
+        {
+            return Err(Error::Msg(format!(
+                "World yaw values are not all monotonically increasing for monotonically increasing sensor values"
+            )));
+        }
+        */
 
         // Map vec of (world,sensor) yaw pairs to (local mean world, sensor)
         // values using a windowed filter
