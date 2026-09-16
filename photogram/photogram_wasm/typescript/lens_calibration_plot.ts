@@ -152,37 +152,35 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
       this.lens_poly = new WasmLensPoly("rectilinear");
       return;
     }
-    const camera = this.camera;
     const mapping_nps = this.application.current_project().mapped_nps();
     mapping_nps.update();
 
+    const x = this.application.current_project().wasm_project!;
     let world_yaws = [];
     let sensor_yaws = [];
     let max_sensor_yaw = 0.0;
-    for (const mnp of mapping_nps.named_points) {
-      if (!mnp.has_pms()) {
-        continue;
+    for (let c = 0; c < x.ncips(); c++) {
+      const wasm_cip = x.cip(x.cip_name(c)!)!;
+      const pm_ws_yaw = wasm_cip.generate_pm_world_sensor_yaw();
+      for (let i = 0; i + 2 < pm_ws_yaw.length; i += 3) {
+        // const pm_index = pm_ws_yaw[i+0];
+        const world_yaw = pm_ws_yaw[i + 1]! * 180 / 3.1416;
+        const sensor_yaw = pm_ws_yaw[i + 2]! * 180 / 3.1416;
+
+        const color = mapping_nps.named_points[0]!.color();
+        this.pms_world_sensor_pairs.push([world_yaw, sensor_yaw, color]);
+
+        world_yaws.push(world_yaw / 180 * 3.14);
+        sensor_yaws.push(sensor_yaw / 180 * 3.14);
+        max_sensor_yaw = Math.max(max_sensor_yaw, sensor_yaw / 180 * 3.14);
       }
-
-      // sensor_yaw is given by the Yaw of the *mapped* point, which is based purely on the sensor geometry not the lens calibration
-      mnp.wasm_pms.set_image_vec(this.wasm_vec2);
-      camera.set_sensor_dir_of_pt(this.wasm_vec2, this.wasm_vec3);
-      const sensor_yaw =
-        (camera.camera_yaw_of_dir(this.wasm_vec3) * 180) / 3.1416;
-
-      // world_yaw is given by the Yaw of the direction vector, which is based on the camera orientation only and not the lens calibration
-      mnp.wasm_pms.np_model_set_vec(this.wasm_vec3);
-      camera.set_map_world_dir_to_camera_dir(this.wasm_vec3);
-      const world_yaw =
-        (camera.camera_yaw_of_dir(this.wasm_vec3) * 180) / 3.1416;
-      const color = mnp.wasm_pms.np_color;
-      this.pms_world_sensor_pairs.push([world_yaw, sensor_yaw, color]);
-
-      world_yaws.push(world_yaw/180*3.14);
-      sensor_yaws.push(sensor_yaw / 180 * 3.14);
-      max_sensor_yaw = Math.max(max_sensor_yaw, sensor_yaw / 180 * 3.14);
     }
-    this.lens_poly =  WasmLensPoly.of_calibration(new Float64Array(sensor_yaws), new Float64Array(world_yaws), 0.2*3.14/180, max_sensor_yaw*1.05);
+    try {
+      const lens_poly = WasmLensPoly.of_calibration(new Float64Array(sensor_yaws), new Float64Array(world_yaws), 0.2 * 3.14 / 180, max_sensor_yaw * 1.05);
+      this.lens_poly = lens_poly;
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   redraw() {
@@ -191,6 +189,10 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     const w = this.canvas.width;
     const h = this.canvas.height;
     context.fillRect(0, 0, w, h);
+    const cip = this.application.current_project().get_wasm_cip();
+    if (cip !== null) {
+      this.camera = cip.camera;
+    }
     if (this.camera === null) {
       return;
     }

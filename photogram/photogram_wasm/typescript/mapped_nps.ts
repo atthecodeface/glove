@@ -208,37 +208,41 @@ export interface MappedNpClient {
 
 export class MappedNp {
   mapped_nps: MappedNps;
-  wasm_pms: WasmPointMapping;
+  wasm_pm: WasmPointMapping;
 
   constructor(mapped_nps: MappedNps, wasm_np: WasmNamedPoint) {
     this.mapped_nps = mapped_nps;
-    this.wasm_pms = new WasmPointMapping(wasm_np);
+    this.wasm_pm = new WasmPointMapping(wasm_np);
   }
 
   /** Accessor */
   name(): string {
-    return this.wasm_pms.np_name;
+    return this.wasm_pm.np_name;
   }
     /** Accessor */
   color(): string {
-    return this.wasm_pms.np_color;
+    return this.wasm_pm.np_color;
   }
 
   /** Return true if the point is actually mapped */
   has_pms(): boolean {
-    return this.wasm_pms.has_pms;
+    return this.wasm_pm.has_pms;
   }
 
+  /** Return true if the NP is mapped */
+  np_is_mapped(): boolean {
+    return this.wasm_pm.np_is_mapped;
+  }
   color_select(parent: HtmlElement): HtmlElement {
     const div = parent.add_ele("div");
-    div.add_input_color({ rgb_string: this.wasm_pms.np_color }, this.set_color.bind(this));
+    div.add_input_color({ rgb_string: this.wasm_pm.np_color }, this.set_color.bind(this));
     div.add_ele("br");
-    div.add_span(this.wasm_pms.np_color);
+    div.add_span(this.wasm_pm.np_color);
     return div;
   }
 
   set_color(color: string) {
-    this.mapped_nps.project.nps_set_color(this.wasm_pms.np_name, color);
+    this.mapped_nps.project.nps_set_color(this.wasm_pm.np_name, color);
   }
 
   uncertainty(): number {
@@ -246,49 +250,56 @@ export class MappedNp {
   }
 
   move_cursor(focus: [number, number]) {
-    this.wasm_pms.set_cursor(focus[0], focus[1]);
+    this.wasm_pm.set_cursor(focus[0], focus[1]);
   }
 
   update_mapping(camera: WasmCameraInstance, pms: WasmPointMappingSet, cursor: [number, number]) {
-    this.wasm_pms.update(camera, pms, cursor[0], cursor[1]);
+    console.log(`Update mappping for point ${this.name} to ${cursor}`);
+    this.wasm_pm.update(camera, pms, cursor[0], cursor[1]);
   }
 
   div_location(t: HtmlElement): HtmlElement {
-    this.wasm_pms.np_model_set_vec(this.mapped_nps.wasm_vec3);
+    try {
+      this.wasm_pm.np_model_set_vec(this.mapped_nps.wasm_vec3);
+    }  catch (e) {
+      // Probably unmapped NP
+      // this.log.error(`Failed to reorient camera ${e}`);
+      // return false;
+    }
     return utils.point_div_to_dp_vertical(t, up_arrow_symbol, this.mapped_nps.wasm_vec3.array, 3);
   }
 
   span_uncertainty(t: HtmlElement): HtmlElement {
-    return t.add_span(this.wasm_pms.np_uncertainty.toFixed(3));
+    return t.add_span(this.wasm_pm.np_uncertainty.toFixed(3));
   }
 
   div_expected_at(t: HtmlElement): HtmlElement {
-    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pms.expected_x, this.wasm_pms.expected_y], 1);
+    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pm.expected_x, this.wasm_pm.expected_y], 1);
   }
 
   div_pms(t: HtmlElement): HtmlElement {
-    this.wasm_pms.set_image_vec(this.mapped_nps.wasm_vec2);
-    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pms.image_x, this.wasm_pms.image_y], 1);
+    this.wasm_pm.set_image_vec(this.mapped_nps.wasm_vec2);
+    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pm.image_x, this.wasm_pm.image_y], 1);
   }
 
   span_pms_uncertainty(t: HtmlElement): HtmlElement {
-    return t.add_span(plus_minus_symbol + this.wasm_pms.img_uncertainty.toString());
+    return t.add_span(plus_minus_symbol + this.wasm_pm.img_uncertainty.toString());
   }
 
   span_focus_dsq(t: HtmlElement): HtmlElement {
-    return t.add_span(this.wasm_pms.cursor_distance.toFixed(3));
+    return t.add_span(this.wasm_pm.cursor_distance.toFixed(3));
   }
   span_pms_dsq(t: HtmlElement): HtmlElement {
-    return t.add_span(this.wasm_pms.d_map_distance.toFixed(3));
+    return t.add_span(this.wasm_pm.d_map_distance.toFixed(3));
   }
   div_roll_yaw(t: HtmlElement): HtmlElement {
-    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pms.image_roll*180/3.1415926, this.wasm_pms.image_yaw*180/3.1415926], 1);
+    return utils.point_div_to_dp_vertical(t, "", [this.wasm_pm.image_roll*180/3.1415926, this.wasm_pm.image_yaw*180/3.1415926], 1);
   }
   span_map_roll_err(t: HtmlElement): HtmlElement {
-    return t.add_span(this.wasm_pms.d_map_roll_err.toFixed(3));
+    return t.add_span(this.wasm_pm.d_map_roll_err.toFixed(3));
   }
   span_map_yaw_err(t: HtmlElement): HtmlElement {
-    return t.add_span(this.wasm_pms.d_map_yaw_err.toFixed(3));
+    return t.add_span(this.wasm_pm.d_map_yaw_err.toFixed(3));
   }
 }
 
@@ -377,10 +388,10 @@ export class MappedNps {
     this.total_sq_dy_error = 0;
     for (const mnp of this.named_points) {
       mnp.update_mapping(camera, pms, this.focus_pxy);
-      this.total_sq_roll_error += 1E6 * mnp.wasm_pms.d_map_roll_err * mnp.wasm_pms.d_map_roll_err;
-      this.total_sq_yaw_error += 1E6 * mnp.wasm_pms.d_map_yaw_err * mnp.wasm_pms.d_map_yaw_err;
-      this.total_sq_dx_error += mnp.wasm_pms.d_map_dx * mnp.wasm_pms.d_map_dx;
-      this.total_sq_dy_error += mnp.wasm_pms.d_map_dy * mnp.wasm_pms.d_map_dy;
+      this.total_sq_roll_error += 1E6 * mnp.wasm_pm.d_map_roll_err * mnp.wasm_pm.d_map_roll_err;
+      this.total_sq_yaw_error += 1E6 * mnp.wasm_pm.d_map_yaw_err * mnp.wasm_pm.d_map_yaw_err;
+      this.total_sq_dx_error += mnp.wasm_pm.d_map_dx * mnp.wasm_pm.d_map_dx;
+      this.total_sq_dy_error += mnp.wasm_pm.d_map_dy * mnp.wasm_pm.d_map_dy;
     }
     this.total_sq_dxy_error = this.total_sq_dx_error + this.total_sq_dy_error;
     this.sort_named_points();
@@ -434,8 +445,8 @@ export class MappedNps {
     ]);
 
     for (const mnp of this.named_points) {
-      const np_x = mnp.wasm_pms.expected_x;
-      const np_y = mnp.wasm_pms.expected_y;
+      const np_x = mnp.wasm_pm.expected_x;
+      const np_y = mnp.wasm_pm.expected_y;
       const np_name = mnp.name();
 
       const expected_at = table.add_button("", "", () => {
@@ -447,9 +458,9 @@ export class MappedNps {
       let action: HtmlElement | null = null;
 
       if (mnp.has_pms()) {
-        mnp.wasm_pms.set_image_vec(this.wasm_vec2);
-        const x = mnp.wasm_pms.image_x;
-        const y = mnp.wasm_pms.image_y;
+        mnp.wasm_pm.set_image_vec(this.wasm_vec2);
+        const x = mnp.wasm_pm.image_x;
+        const y = mnp.wasm_pm.image_y;
         mapped_to = table.add_button("", "", () => {
           client.mapped_np_select_xy(x, y)
         });
@@ -511,7 +522,7 @@ export class MappedNps {
   sort_named_points() {
     const opt_invert = this.sort.ascending ? 1 : -1;
     let sort_fn = (a: MappedNp, b: MappedNp) => {
-      return opt_invert * this.sort.field.sort_fn(a.wasm_pms, b.wasm_pms);
+      return opt_invert * this.sort.field.sort_fn(a.wasm_pm, b.wasm_pm);
     };
     this.named_points.sort(sort_fn);
   }
@@ -519,9 +530,9 @@ export class MappedNps {
   /** Get a relative distance (0 to 1) of named point index 'n' from the first named point using the sort order
    */
   relative_distance(mnp: MappedNp): number {
-    const m_mnp_0 = this.sort.field.metric(this.named_points[0]!.wasm_pms);
-    const m_mnp_last = this.sort.field.metric(this.named_points[this.named_points.length-1]!.wasm_pms);
-    const m_mnp = this.sort.field.metric(mnp.wasm_pms);
+    const m_mnp_0 = this.sort.field.metric(this.named_points[0]!.wasm_pm);
+    const m_mnp_last = this.sort.field.metric(this.named_points[this.named_points.length-1]!.wasm_pm);
+    const m_mnp = this.sort.field.metric(mnp.wasm_pm);
     return (m_mnp_last == m_mnp_0) ? 0 : ((m_mnp - m_mnp_0) / (m_mnp_last - m_mnp_0));
 
   }

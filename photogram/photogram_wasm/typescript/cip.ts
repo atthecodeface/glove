@@ -57,6 +57,12 @@ export class Cip {
     }
   }
 
+  adjust_camera_orientation_using_dxy2(max_np_error:number, angle: number, max_steps:number) {
+    if (this.wasm_cip !== null) {
+      this.wasm_cip.adjust_camera_orientation_using_dxy2(max_np_error, angle*3.1415/180, max_steps);
+    }
+  }
+
   repopulate() {
     /*
                 ["Focus at", focus_at],

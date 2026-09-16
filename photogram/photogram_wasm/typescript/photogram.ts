@@ -177,8 +177,8 @@ export class Photogram implements Application {
     // this.load_project("local:nac_all_proj.json");
     // this.load_project("server:nac_all_proj");
     // this.load_project("server:lens_calibrations_proj");
-    // this.load_project("server:lens_calibrate_r5_15mm_proj");
-    this.load_project("server:norwich_proj");
+    this.load_project("server:lens_calibrate_r5_15mm_proj");
+    // this.load_project("server:norwich_proj");
   }
 
   logger(): Log {
