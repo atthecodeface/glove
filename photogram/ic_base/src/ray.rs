@@ -77,9 +77,10 @@ The meeting line is then P0 to P1, with:
 
 use serde::{Deserialize, Serialize};
 
-use crate::{JsonParsable, Point3D, Result};
-
 use geo_nd::{Vector, matrix};
+
+use crate::utils;
+use crate::{JsonParsable, Point3D, Result};
 
 /// A NamedRayList is a list of (name, ray);
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -322,11 +323,9 @@ impl Ray {
             v[2] += w * (az * (by * by + bx * bx) - ax * bx * bz - ay * by * bz);
         }
 
-        let mut dm = nalgebra::base::DMatrix::from_element(3, 3, 2.0);
-        dm.copy_from_slice(&m);
-        if !dm.try_inverse_mut() {
+        let Some(dm) = utils::matrix_invert_dyn(3, &m) else {
             return None;
-        }
+        };
         // dbg!(&dm);
         let mut dm_2 = Vec::with_capacity(9); // P row vector
         for i in 0..9 {

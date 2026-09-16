@@ -12,8 +12,6 @@ repository.workspace = true
 
 [dependencies]
 regex.workspace = true
-# Required for plane and ray matrix inverse
-nalgebra.workspace = true
 thiserror.workspace = true
 image.workspace = true
 serde.workspace = true

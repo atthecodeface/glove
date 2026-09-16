@@ -1,6 +1,8 @@
 //a Imports
 use geo_nd::Vector;
+use geo_nd::matrix;
 
+use crate::utils;
 use crate::{Point2D, Point3D};
 
 /// A simple plane in 3D, described by point . normal = value
@@ -143,25 +145,24 @@ impl Plane {
         let sum_xy = pts.clone().fold(0., |acc, p| acc + p[0] * p[1]);
         let sum_yz = pts.clone().fold(0., |acc, p| acc + p[1] * p[2]);
         let sum_zx = pts.clone().fold(0., |acc, p| acc + p[2] * p[0]);
-        use geo_nd::matrix;
-        let mut dm = nalgebra::base::DMatrix::from_element(3, 3, 2.0);
+
         let n = pts.len() as f64;
         let n2 = n * n;
-        dm.copy_from_slice(&[
-            sum_x2 / n2,
-            sum_xy / n2,
-            sum_zx / n2,
-            sum_xy / n2,
-            sum_y2 / n2,
-            sum_yz / n2,
-            sum_zx / n2,
-            sum_yz / n2,
-            sum_z2 / n2,
-        ]);
-        let midpoint: Point3D = [sum_x / n, sum_y / n, sum_z / n].into();
-        // eprintln!("{dm:?}");
-        if !dm.try_inverse_mut() {
-            // Plane goes nearly through the origin - d must close to zero
+        let Some(dm) = utils::matrix_invert_dyn(
+            3,
+            &[
+                sum_x2 / n2,
+                sum_xy / n2,
+                sum_zx / n2,
+                sum_xy / n2,
+                sum_y2 / n2,
+                sum_yz / n2,
+                sum_zx / n2,
+                sum_yz / n2,
+                sum_z2 / n2,
+            ],
+        ) else {
+            // Plane goes nearly through the origin - d must be close to zero
             //
             // Could try adding (1,1,1) to all the points - then d
             // will be about sqrt(3), dm should be invertible, and we will have
@@ -174,8 +175,8 @@ impl Plane {
             //
             // sum_x2' = sum_x2 + 2*sum_x + n ; sum_xy' = sum_xy + sum_x + sum_y + n; etc
             return None;
-        }
-        // eprintln!("{dm:?}");
+        };
+        let midpoint: Point3D = [sum_x / n, sum_y / n, sum_z / n].into();
         let mut dm_2 = [0.; 9];
         for i in 0..9 {
             dm_2[i] = dm[i];

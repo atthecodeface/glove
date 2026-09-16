@@ -1,7 +1,8 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use geo_nd::{quat, Quaternion, Vector};
+use geo_nd::matrix;
+use geo_nd::{Quaternion, Vector, quat};
 use serde::{Deserialize, Serialize};
 
 use crate::{Point3D, Quat};
@@ -225,4 +226,22 @@ pub fn orientation_mapping_vpair_to_ppair(
     let q_z = Quat::of_rijk(cos_2theta, 0.0, 0.0, sin_2theta);
 
     qi_c.conjugate() * q_z * qi_m
+}
+
+pub fn matrix_invert_dyn(degree: usize, data: &[f64]) -> Option<Vec<f64>> {
+    let mut inverse = vec![0.0; degree * degree];
+    let mut lu = vec![0.0; degree * degree];
+    let mut pivot = vec![0; degree];
+    let mut temp_row = vec![0.0; degree];
+    let mut temp_row2 = vec![0.0; degree];
+    let _ = matrix::lup_decompose(degree, data, &mut lu, &mut pivot);
+    matrix::lup_invert(
+        degree,
+        &lu,
+        &pivot,
+        &mut inverse,
+        &mut temp_row,
+        &mut temp_row2,
+    )
+    .then_some(inverse)
 }

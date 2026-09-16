@@ -39,6 +39,7 @@ use std::collections::VecDeque;
 
 use geo_nd::matrix;
 
+use crate::utils;
 use crate::{Error, Result};
 
 /// A simple trait for a polynomial calculation
@@ -175,15 +176,9 @@ pub fn min_squares_dyn<I: ExactSizeIterator<Item = (f64, f64)>>(
     matrix::multiply_dyn(degree, n, degree, &xi_m_t, &xi_m, &mut x_xt);
 
     // dm = (X.transpose() * X).inverse()
-    let mut dm = vec![0.0; degree * degree];
-    let mut lu = vec![0.0; degree * degree];
-    let mut pivot = vec![0; degree];
-    let mut temp_row = vec![0.0; degree];
-    let mut temp_row2 = vec![0.0; degree];
-    let _ = matrix::lup_decompose(degree, &x_xt, &mut lu, &mut pivot);
-    if !matrix::lup_invert(degree, &lu, &pivot, &mut dm, &mut temp_row, &mut temp_row2) {
+    let Some(dm) = utils::matrix_invert_dyn(degree, &x_xt) else {
         return Err(Error::PolynomialFit(n));
-    }
+    };
 
     // xt_y = X.transpose() * y
     let mut xt_y = vec![0.; degree]; // P row vector
