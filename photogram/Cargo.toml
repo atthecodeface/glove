@@ -81,17 +81,8 @@ path = "../../geo-nd-wasm"
 version = "0.25"
 features = ["png"]
 
-# Used by ic_base for plane and ray matrix inverse
-# Used by ic_camera for polynomial matrix inverse
-[workspace.dependencies.nalgebra]
-version = "0.32.1"
-
 [workspace.dependencies.num-traits]
 version = "0.2.19"
-
-# For plots
-# [workspace.dependencies.poloto]
-# version = "19.1.2"
 
 [workspace.dependencies.regex]
 version = "1.11"
