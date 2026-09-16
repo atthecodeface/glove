@@ -3,13 +3,12 @@ use anyhow::anyhow;
 use star_catalog::Catalog;
 
 use crate::Result;
-use ic_base::{JsonParsable, NamedRayList, QuaternionDesc};
-use ic_camera::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
-use ic_camera::{CameraInstance, CameraInstanceDesc};
-use ic_image::Color8;
-use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Project, ProjectFileDesc};
-use ic_stars::StarMapping;
+use ic_photogram::Color8;
+use ic_photogram::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
+use ic_photogram::{CameraInstance, CameraInstanceDesc};
+use ic_photogram::{JsonParsable, NamedRayList, QuaternionDesc};
+use ic_photogram::{NamedPointSet, PointMappingSet};
+use ic_photogram::{Project, ProjectFileDesc};
 
 use super::CmdArgs;
 
@@ -158,12 +157,6 @@ impl CmdArgs {
             cip.borrow_mut().set_camera(camera.clone().into());
         }
         self.camera = camera;
-    }
-
-    //mp set_star_mapping_file
-    pub(crate) fn set_star_mapping_file(&mut self, filename: &str) -> Result<()> {
-        self.star_mapping = StarMapping::load_json_file(&self.path_set, filename, &())?.1;
-        Ok(())
     }
 
     //fp set_star_catalog

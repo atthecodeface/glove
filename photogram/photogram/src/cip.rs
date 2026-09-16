@@ -1,21 +1,19 @@
-use std::any;
 use std::rc::Rc;
 
 use anyhow::anyhow;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use photogram::{Cip, NamedPoint, PointMapping};
+use ic_photogram::{Cip, NamedPoint, PointMapping};
 
 use geo_nd::{Quaternion, Vector};
 
-use ic_base::{Point2D, Point3D, Quat};
-use ic_camera::{CameraInstance, CameraProjection, LensPolys};
-use ic_image::{Image, ImageDrawable, ImageRgb8};
-use ic_projections::{Cylinder, CylindricalProjection};
-use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
-use indexed::Idx;
+use ic_photogram::Idx;
+use ic_photogram::{CameraInstance, CameraProjection, LensPolys};
+use ic_photogram::{Cylinder, CylindricalProjection};
+use ic_photogram::{Image, ImageDrawable, ImageRgb8};
+use ic_photogram::{ImageFileIndex, SphericalImage, SphericalImageShape};
+use ic_photogram::{Point2D, Point3D, Quat};
 
-use crate::Result;
 use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help
@@ -176,18 +174,37 @@ impl CmdArgs {
         fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
             nps.iter().any(|np| pm.is_mapping_of_np(np))
         }
-        cip.orient_camera_using_model_directions(|_, pm| filter(&nps, pm))?;
+        let weighting = |_pm: &PointMapping| 1.0;
+        cip.orient_camera_using_model_directions(|_, pm| filter(&nps, pm), weighting)?;
+        Self::cmd_ok()
+    }
+
+    fn cip_adjust_camera_orientation_using_dxy2_cmd(&mut self) -> CmdResult {
+        self.validate_cip()?;
+        let nps = self.get_nps()?;
+        let cip = self.cip.as_ref().unwrap().borrow_mut();
+        fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
+            nps.iter().any(|np| pm.is_mapping_of_np(np))
+        }
+        let weighting = |_pm: &PointMapping| 1.0;
+        cip.adjust_camera_orientation_using_dxy2(
+            |_, pm| filter(&nps, pm),
+            weighting,
+            self.angle().to_radians(),
+            self.steps(),
+        )?;
         Self::cmd_ok()
     }
 
     fn cip_dx2_dy2_cmd(&mut self) -> CmdResult {
         self.validate_cip()?;
         let nps = self.get_nps()?;
-        let mut cip = self.cip.as_ref().unwrap().borrow();
+        let cip = self.cip.as_ref().unwrap().borrow();
         fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
             nps.iter().any(|np| pm.is_mapping_of_np(np))
         }
-        let dx2_dy2 = cip.dx2_dy2_of_camera(|_, pm| filter(&nps, pm));
+        let weighting = |_pm: &PointMapping| 1.0;
+        let dx2_dy2 = cip.dx2_dy2_of_camera(|_, pm| filter(&nps, pm), weighting);
         Ok(json::to_value(dx2_dy2)?)
     }
 
@@ -224,6 +241,15 @@ impl CmdArgs {
     .args(&[Self::ARG_ADD_NAMED_POINT])
     .handler(&Self::cip_orient_using_model_directions_cmd);
 
+    const CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD: CmdDescriptor<Self> = CmdDescriptor::new(
+        "adjust_camera_orientation_using_dxy2",
+    )
+    .about(
+        "Change the camera orientation for the CIP by tweaking by a number of steps in each axis of a certain angle at most",
+    )
+    .args(&[Self::ARG_ADD_NAMED_POINT, Self::ARG_STEPS, Self::ARG_ANGLE])
+    .handler(&Self::cip_adjust_camera_orientation_using_dxy2_cmd);
+
     const CIP_DX2_DY2_CMD: CmdDescriptor<Self> = CmdDescriptor::new("dx2_dy2")
         .about("Calculate the total sensor dx_sq and dy_sq values for all the mapped points")
         .args(&[Self::ARG_ADD_NAMED_POINT])
@@ -239,6 +265,7 @@ impl CmdArgs {
             Self::CIP_AS_JSON_CMD,
             Self::CIP_ADD_PM_CMD,
             Self::CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD,
+            Self::CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD,
             Self::CIP_DX2_DY2_CMD,
         ]);
 

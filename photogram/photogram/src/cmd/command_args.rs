@@ -4,9 +4,7 @@ use thunderclap::{CmdProperty, CommandArgs};
 
 use json::Value;
 
-use ic_base::{JsonParsable, JsonSrc, NamedRayList, QuaternionDesc};
-use ic_camera::CameraProjection;
-use ic_projections::CylindricalProjection;
+use ic_photogram::NamedRayList;
 
 use crate::{CmdArgs, CmdResult};
 

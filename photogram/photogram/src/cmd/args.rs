@@ -1,9 +1,9 @@
-use ic_spherical_image::SphericalImageShape;
+use ic_photogram::SphericalImageShape;
 use thunderclap::{ArgCount, ArgDescriptor};
 
 use crate::Result;
 
-use ic_base::{JsonParsable, Point2D, Point3D};
+use ic_photogram::{JsonParsable, Point2D, Point3D};
 
 use super::CmdArgs;
 
@@ -431,15 +431,6 @@ impl CmdArgs {
         ArgCount::Optional,
         None,
         &Self::set_blend,
-    );
-
-    pub(crate) const ARG_STAR_MAPPING: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
-        "star_mapping",
-        None,
-        "JSON file mapping sensor coordinates to catalog identifiers",
-        ArgCount::Optional,
-        None,
-        &Self::set_star_mapping_file,
     );
 
     pub(crate) const ARG_STAR_CATALOG: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(

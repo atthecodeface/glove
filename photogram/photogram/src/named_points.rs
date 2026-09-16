@@ -3,13 +3,13 @@ use std::{collections::HashMap, num};
 
 use anyhow::anyhow;
 use geo_nd::Vector;
-use ic_image::Color8;
-use photogram::ModelData;
+use ic_photogram::Color8;
+use ic_photogram::ModelData;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_base::{JsonParsable, Point3D, Ray, TagSet};
-use ic_camera::CameraProjection;
-use ic_mapping::NamedPointSet;
+use ic_photogram::CameraProjection;
+use ic_photogram::NamedPointSet;
+use ic_photogram::{JsonParsable, Point3D, Ray, TagSet};
 
 use crate::cmd::{CmdArgs, CmdResult};
 
@@ -277,10 +277,6 @@ impl CmdArgs {
             eprintln!("Deriving directions for points {points:?} and CIPS {cips:?}");
         }
         for np in nps {
-            // Skip if already got one?
-            if false && np.is_mapped() {
-                continue;
-            }
             let mut direction = Point3D::default();
             let mut num_mappings = 0_usize;
             for c in &cips {

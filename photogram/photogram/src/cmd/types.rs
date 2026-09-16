@@ -2,15 +2,14 @@
 
 use star_catalog::Catalog;
 
-use ic_base::{NamedRayList, PathSet, Point2D, Point3D, Rrc};
-use ic_camera::CameraInstance;
-use ic_camera::{CalibrationMapping, CameraDatabase};
-use ic_image::{Color8, ImageRgb8};
-use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, Project};
-use ic_projections::Cylinder;
-use ic_spherical_image::{SphericalImage, SphericalImageShape};
-use ic_stars::StarMapping;
+use ic_photogram::CameraInstance;
+use ic_photogram::Cylinder;
+use ic_photogram::{CalibrationMapping, CameraDatabase};
+use ic_photogram::{Cip, Project};
+use ic_photogram::{Color8, ImageRgb8};
+use ic_photogram::{NamedPointSet, PointMappingSet};
+use ic_photogram::{NamedRayList, PathSet, Point2D, Point3D, Rrc};
+use ic_photogram::{SphericalImage, SphericalImageShape};
 
 //a CmdResult
 use thunderclap::json;
@@ -37,8 +36,6 @@ pub struct CmdArgs {
     pub(crate) pms: Rrc<PointMappingSet>,
     // Lose this
     pub(crate) calibration_mapping: CalibrationMapping,
-    // Lose this - should be in NPS/PMS
-    pub(crate) star_mapping: StarMapping,
 
     // CIP that is part of the project
     pub(crate) cip: Option<Rrc<Cip>>,

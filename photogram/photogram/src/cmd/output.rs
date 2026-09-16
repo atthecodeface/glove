@@ -1,7 +1,7 @@
 //a Imports
 use std::io::Write;
 
-use ic_base::Result;
+use ic_photogram::Result;
 
 use thunderclap::json;
 
@@ -39,11 +39,6 @@ impl CmdArgs {
         }
         if let Some(filename) = &self.write_calibration_mapping {
             let s = self.calibration_mapping.to_json(true)?;
-            let mut f = std::fs::File::create(filename)?;
-            f.write_all(s.as_bytes())?;
-        }
-        if let Some(filename) = &self.write_star_mapping {
-            let s = self.star_mapping.to_json(true)?;
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
         }

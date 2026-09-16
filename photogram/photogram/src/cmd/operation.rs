@@ -1,11 +1,11 @@
 //a Imports
 use std::rc::Rc;
 
-use photogram::CameraProjection;
-use photogram::ModelData;
-use photogram::Result;
-use photogram::{Image, ImagePt, ImageRgb8};
-use photogram::{NamedPoint, NamedPointSet, PointMappingSet};
+use ic_photogram::CameraProjection;
+use ic_photogram::ModelData;
+use ic_photogram::Result;
+use ic_photogram::{Image, ImagePt, ImageRgb8};
+use ic_photogram::{NamedPoint, NamedPointSet, PointMappingSet};
 
 use super::CmdArgs;
 
@@ -125,18 +125,6 @@ impl CmdArgs {
         if self.verbose {
             eprintln!("\n{s}");
         }
-    }
-
-    //mp update_star_mappings
-    pub fn update_star_mappings(&mut self) -> (usize, f64) {
-        self.star_mapping.update_star_mappings(
-            self.star_catalog.as_ref().unwrap(),
-            &self.camera,
-            self.closeness,
-            self.yaw_error,
-            self.yaw_min,
-            self.yaw_max,
-        )
     }
 
     //mp if_verbose

@@ -1,17 +1,16 @@
 use anyhow::anyhow;
 
-use ic_spherical_image::SphericalImageShape;
+use ic_photogram::SphericalImageShape;
 use star_catalog::Catalog;
 
 use crate::Result;
 
-use ic_base::{NamedRayList, Point2D, Point3D, Rrc};
-use ic_camera::CameraInstance;
-use ic_camera::{CalibrationMapping, CameraDatabase};
-use ic_image::Color8;
-use ic_mapping::{NamedPointSet, PointMappingSet};
-use ic_project::{Cip, Project};
-use ic_stars::StarMapping;
+use ic_photogram::CameraInstance;
+use ic_photogram::Color8;
+use ic_photogram::{CalibrationMapping, CameraDatabase};
+use ic_photogram::{Cip, Project};
+use ic_photogram::{NamedPointSet, PointMappingSet};
+use ic_photogram::{NamedRayList, Point2D, Point3D, Rrc};
 
 use super::CmdArgs;
 
@@ -82,11 +81,6 @@ impl CmdArgs {
     //mi star_catalog_mut
     pub fn star_catalog_mut(&mut self) -> &mut Catalog {
         self.star_catalog.as_mut().unwrap()
-    }
-
-    //mi star_mapping
-    pub fn star_mapping(&self) -> &StarMapping {
-        &self.star_mapping
     }
 
     //mi get_string_arg
