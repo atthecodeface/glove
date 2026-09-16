@@ -178,7 +178,7 @@ impl SphericalPatch {
         sd[self.t0].point_outside_lines(sd, p) == 0 || sd[self.t1].point_outside_lines(sd, p) == 0
     }
 
-    pub fn image_coords(&self, sd: &SphericalData, p: &Point3D) -> Option<Point2D> {
+    pub fn image_coords(&self, _sd: &SphericalData, p: &Point3D) -> Option<Point2D> {
         self.image_patch.image_coords(p)
     }
 }

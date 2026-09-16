@@ -1,5 +1,4 @@
-use crate::{GcTriangle, SphericalData, SphericalImageError, SubTriangle};
-use geo_nd::Vector;
+use crate::{GcTriangle, SphericalData, SubTriangle};
 use ic_base::{GcTriangle3D, Point2D, Point3D, Triangle3D};
 use ic_image::Image;
 
@@ -17,7 +16,7 @@ pub struct MapXYToVec<'map, I: Image> {
 }
 impl<'a, I: Image> ic_image::FromPatchFn for MapXYToVec<'a, I> {
     type Pixel = I::Pixel;
-    fn set_mapping(&mut self, patch_x: u32, patch_y: u32) {}
+    fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
     fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
         self.map_xy(patch_x, patch_y)
             .map(|v| (self.mapping)(v))

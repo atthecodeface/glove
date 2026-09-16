@@ -1,10 +1,9 @@
 use crate::{
-    GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData,
-    SphericalImageError, SubdivisionPath,
+    GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData, SubdivisionPath,
 };
 use ic_base::{JsonParsable, PathSet, Point3D, Result};
 use ic_image::{Image, ImageGray16, ImageRgb8};
-use indexed::{Idx, IndexedVec};
+use indexed::IndexedVec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -366,8 +365,7 @@ impl<I: Image> SphericalImage<I> {
         let (x, y) = patch.img_xy;
         let size = patch.patch_size;
         let from_patch = patch.image_patch.clone();
-        let from_patch =
-            from_patch.map_subsquare::<'_, I, _>(patch.patch_subdivision, 0, 0, get_pixel);
+        let from_patch = from_patch.map_subsquare::<I, _>(patch.patch_subdivision, 0, 0, get_pixel);
         // Drop the patch
         let _ = patch;
         let mut image_patch = ic_image::ImagePatch::new(
