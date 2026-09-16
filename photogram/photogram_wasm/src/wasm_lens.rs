@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use photogram::LensPolys;
+use ic_photogram::LensPolys;
 
 use crate::WasmBezier1f64;
 use crate::console_log;
@@ -64,7 +64,7 @@ impl WasmLensPoly {
         // If filter is enabled then we lose the left and right hand points - which kills the behavior required
         let polys = LensPolys::calibration(sensor, world, yaw_min, yaw_max, false)
             .map_err(err_to_string)?;
-        //        console_log!("{}", polys.to_json(true).map_err(err_to_string)?);
+        // console_log!("{}", polys.to_json(true).map_err(err_to_string)?);
         Ok(Self(polys))
     }
 

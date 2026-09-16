@@ -3,10 +3,10 @@ use std::cell::Ref;
 use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f64};
 use wasm_bindgen::prelude::*;
 
-use photogram::{
+use ic_photogram::{
     CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, RollYaw,
 };
-use photogram::{JsonParsable, Point2D, Point3D, Rrc, TanXTanY};
+use ic_photogram::{JsonParsable, Point2D, Point3D, Rrc, TanXTanY};
 
 use crate::{ToFromWasmArr, WasmLensPoly, WasmPointMappingSet, WasmRay, err_to_string};
 

@@ -2,9 +2,9 @@ use geo_nd::{Quaternion, Vector};
 use geo_nd_wasm::WasmVec2f64;
 use wasm_bindgen::prelude::*;
 
-use photogram::CameraProjection;
-use photogram::PointMapping;
-use photogram::{Point2D, RollYaw};
+use ic_photogram::CameraProjection;
+use ic_photogram::PointMapping;
+use ic_photogram::{Point2D, RollYaw};
 
 use crate::{
     Quatf64, WasmCameraInstance, WasmNamedPoint, WasmNamedPointSet, WasmPointMappingSet,
@@ -235,14 +235,15 @@ impl WasmPointMapping {
         }
     }
 
-    /// Update the cursor distance
+    /// Update the cursor distance given a new cursor position
     pub fn set_cursor(&mut self, x: f64, y: f64) {
         let dx = self.expected[0] - x;
         let dy = self.expected[1] - y;
         self.cursor_distance = (dx * dx + dy * dy).sqrt();
     }
 
-    /// Remap using the camera and point mapping set
+    /// Regenerate the data contents (given self.wasm_np) for the screen
+    /// position, and error values using the given camera and point mapping set
     pub fn update(
         &mut self,
         camera: &WasmCameraInstance,
@@ -251,18 +252,13 @@ impl WasmPointMapping {
         cursor_y: f64,
     ) {
         let camera = camera.borrow_camera();
-        if !self.wasm_np.is_mapped() {
-            return;
-        }
-        self.expected = camera.world_xyz_to_px_abs_xy(&self.wasm_np.model_pt());
-        self.set_cursor(cursor_x, cursor_y);
+        let np_is_mapped = self.wasm_np.is_mapped();
         let pms = pms.pms().borrow();
         if let Some(pm) = pms.mapping_of_np_name(&self.wasm_np.name) {
             self.has_pms = true;
             self.screen = *pm.screen();
             self.error = pm.error();
             self.usage = pm.usage();
-            self.d_map_distance = self.screen.distance(self.expected);
 
             // Convert the placed mapped position to a roll/yaw
             //
@@ -271,10 +267,22 @@ impl WasmPointMapping {
             //
             // This does NOT use the lens mapping
             let screen_txty = camera.px_abs_xy_to_sensor_txty(&self.screen);
-            let screen_sensor_dir = screen_txty.to_unit_vector();
             self.screen_ry = screen_txty.into();
-            let roll_quat = Quatf64::default().rotate_z(-self.screen_ry.roll());
+        } else {
+            self.has_pms = false;
+        }
+        if np_is_mapped {
+            self.expected = camera.world_xyz_to_px_abs_xy(&self.wasm_np.model_pt());
+            self.set_cursor(cursor_x, cursor_y);
+        }
+        if np_is_mapped && self.has_pms {
+            let pm = pms.mapping_of_np_name(&self.wasm_np.name).unwrap();
 
+            self.d_map_distance = self.screen.distance(self.expected);
+
+            let roll_quat = Quatf64::default().rotate_z(-self.screen_ry.roll());
+            let screen_txty = camera.px_abs_xy_to_sensor_txty(pm.screen());
+            let screen_sensor_dir = screen_txty.to_unit_vector();
             let screen_sensor_on_roll_axis = roll_quat.apply3(&screen_sensor_dir);
             let placed_yaw = screen_sensor_on_roll_axis[0] / screen_sensor_on_roll_axis[2];
 
@@ -295,7 +303,9 @@ impl WasmPointMapping {
             self.d_map_yaw_err = expected_yaw - placed_yaw;
             self.d_map_roll_err = expected_roll; // placed_roll is 0 by definition
         } else {
-            self.has_pms = false;
+            self.d_map_distance = 0.0;
+            self.d_map_yaw_err = 0.0;
+            self.d_map_roll_err = 0.0;
         }
     }
 

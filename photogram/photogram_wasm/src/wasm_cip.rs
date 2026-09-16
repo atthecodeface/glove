@@ -5,9 +5,9 @@ use star_catalog_wasm::WasmCatalog;
 use star_catalog_wasm::star_catalog::StarFilter;
 use wasm_bindgen::prelude::*;
 
-use photogram::PointMapping;
-use photogram::Rrc;
-use photogram::{Cip, CipDesc, JsonSrc};
+use ic_photogram::PointMapping;
+use ic_photogram::Rrc;
+use ic_photogram::{Cip, CipDesc, JsonSrc};
 
 use crate::{WasmCameraInstance, WasmPointMappingSet, WasmStarMatchSet, err_to_string};
 
@@ -115,11 +115,43 @@ impl WasmCip {
     //mp orient_camera_using_model_directions
     pub fn orient_camera_using_model_directions(&self, max_np_error: f64) -> Result<(), String> {
         let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
+        let weighting = |_pm: &PointMapping| 1.0;
         self.cip
             .borrow_mut()
-            .orient_camera_using_model_directions(filter)
+            .orient_camera_using_model_directions(filter, weighting)
             .map_err(err_to_string)?;
         Ok(())
+    }
+
+    pub fn adjust_camera_orientation_using_dxy2(
+        &self,
+        max_np_error: f64,
+        angle: f64,
+        num_steps: usize,
+    ) -> Result<f64, String> {
+        let filter = |_, pm: &PointMapping| pm.model_uncertainty() < max_np_error;
+        let weighting = |_pm: &PointMapping| 1.0;
+        Ok(self
+            .cip
+            .borrow_mut()
+            .adjust_camera_orientation_using_dxy2(filter, weighting, angle, num_steps)
+            .map_err(err_to_string)?)
+    }
+
+    /// Generate an array of 3N values, each being a triplet of PM number, world yaw and sensor yaw for that PM
+    ///
+    /// Only include points mappings that map to named points, and whose named point is placed
+    pub fn generate_pm_world_sensor_yaw(&self) -> Vec<f64> {
+        let filter = |_, _pm: &PointMapping| true;
+        let mut result = vec![];
+        for (pm, _, world_yaw, _, sensor_yaw) in
+            self.cip.borrow_mut().generate_pm_world_sensor_data(filter)
+        {
+            result.push(pm as f64);
+            result.push(world_yaw);
+            result.push(sensor_yaw);
+        }
+        result
     }
 
     pub fn stars_of_pms(

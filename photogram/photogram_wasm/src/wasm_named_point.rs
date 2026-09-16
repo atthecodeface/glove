@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
-use photogram::Point3D;
-use photogram::{ModelData, NamedPoint};
+use ic_photogram::Point3D;
+use ic_photogram::{ModelData, NamedPoint};
 
 use crate::WasmVec3f64;
 

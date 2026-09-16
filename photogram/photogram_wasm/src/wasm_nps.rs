@@ -1,8 +1,8 @@
 use wasm_bindgen::prelude::*;
 
-use photogram::Color8;
-use photogram::{JsonParsable, Point3D, Rrc};
-use photogram::{ModelData, NamedPointSet};
+use ic_photogram::Color8;
+use ic_photogram::{JsonParsable, Point3D, Rrc};
+use ic_photogram::{ModelData, NamedPointSet};
 
 use crate::WasmNamedPoint;
 use crate::{ToFromWasmArr, err_to_string};

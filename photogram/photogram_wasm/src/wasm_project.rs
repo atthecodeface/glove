@@ -1,9 +1,9 @@
 //a Imports
 use wasm_bindgen::prelude::*;
 
-use photogram::JsonParsable;
-use photogram::PointMapping;
-use photogram::Project;
+use ic_photogram::JsonParsable;
+use ic_photogram::PointMapping;
+use ic_photogram::Project;
 
 use crate::{WasmCameraDatabase, WasmCip, WasmNamedPointSet, err_to_string};
 
