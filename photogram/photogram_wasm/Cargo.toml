@@ -30,7 +30,7 @@ geo-nd-wasm.workspace = true
 bezier-wasm.workspace = true
 star-catalog-wasm.workspace = true
 
-photogram.workspace = true
+ic_photogram.workspace = true
 
 [profile.release]
 lto = true

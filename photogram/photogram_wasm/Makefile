@@ -1,7 +1,9 @@
 WASM_PACK = wasm-pack build --dev --target web
 WASM_PACK = WASM_PACK_WASM_OPT=false wasm-pack build --release --target web
 WASM_PACK = WASM_PACK_WASM_OPT=true wasm-pack build --dev --target web
-WASM_PACK = wasm-pack build --dev --target web
+# Use this for debug build
+# WASM_PACK = wasm-pack build --dev --target web
+# Use this for release build
 WASM_PACK = WASM_PACK_WASM_OPT=true wasm-pack build --release --target web
 JS_LIB = ../../../js_lib
 TS = ./typescript/
