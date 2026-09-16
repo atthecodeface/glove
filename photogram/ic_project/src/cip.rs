@@ -1,7 +1,8 @@
 //a Imports
 use std::{
     cell::{Ref, RefMut},
-    default,
+    cmp::max,
+    num,
 };
 
 use serde::{Deserialize, Serialize};
@@ -282,21 +283,58 @@ impl Cip {
         Ok(err)
     }
 
-    pub fn orient_camera_using_model_directions<F>(&mut self, filter: F) -> Result<f64>
+    pub fn orient_camera_using_model_directions<F, W>(
+        &mut self,
+        filter: F,
+        weighting: W,
+    ) -> Result<f64>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
+    {
+        self.pms.borrow().orient_camera_using_model_directions(
+            &mut *self.camera_mut(),
+            filter,
+            weighting,
+        )
+    }
+
+    pub fn adjust_camera_orientation_using_dxy2<F, W>(
+        &self,
+        filter: F,
+        weighting: W,
+        angle: f64,
+        max_steps: usize,
+    ) -> Result<f64>
+    where
+        F: Clone + Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
+    {
+        self.pms.borrow().adjust_camera_orientation_using_dxy2(
+            &mut *self.camera_mut(),
+            filter,
+            weighting,
+            angle,
+            max_steps,
+        )
+    }
+
+    pub fn dx2_dy2_of_camera<F, W>(&self, filter: F, weighting: W) -> (f64, f64)
+    where
+        F: Fn(usize, &PointMapping) -> bool,
+        W: Fn(&PointMapping) -> f64,
+    {
+        self.pms
+            .borrow()
+            .dx2_dy2_of_camera(&*self.camera.borrow(), filter, weighting)
+    }
+
+    pub fn generate_pm_world_sensor_data<F>(&self, filter: F) -> Vec<(usize, f64, f64, f64, f64)>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
     {
         self.pms
             .borrow()
-            .orient_camera_using_model_directions(&mut *self.camera_mut(), filter)
-    }
-
-    pub fn dx2_dy2_of_camera<F>(&self, filter: F) -> (f64, f64)
-    where
-        F: Fn(usize, &PointMapping) -> bool,
-    {
-        self.pms
-            .borrow()
-            .dx2_dy2_of_camera(&*self.camera.borrow(), filter)
+            .generate_pm_world_sensor_data(&*self.camera.borrow(), filter)
     }
 }
