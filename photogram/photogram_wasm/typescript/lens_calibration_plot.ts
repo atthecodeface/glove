@@ -41,6 +41,8 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
   draw_relative_world_sensor_graph: Draw;
   draw_world_sensor_graphs: Draw;
   draw_ws_difference_graph: Draw;
+  wasm_vec2: WasmVec2f64 = WasmVec2f64.zero();
+  wasm_vec3: WasmVec3f64 = WasmVec3f64.zero();
 
   constructor(application: Application, log: Logger, div: HtmlElement) {
     this.application = application;
@@ -155,19 +157,20 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     const mapping_nps = this.application.current_project().mapped_nps();
     mapping_nps.update();
 
-    const x = this.application.current_project().wasm_project!;
+    const project = this.application.current_project().wasm_project!;
     let world_yaws = [];
     let sensor_yaws = [];
     let max_sensor_yaw = 0.0;
-    for (let c = 0; c < x.ncips(); c++) {
-      const wasm_cip = x.cip(x.cip_name(c)!)!;
+    for (let c = 0; c < project.ncips(); c++) {
+      const wasm_cip = project.cip(project.cip_name(c)!)!;
       const pm_ws_yaw = wasm_cip.generate_pm_world_sensor_yaw();
       for (let i = 0; i + 2 < pm_ws_yaw.length; i += 3) {
-        // const pm_index = pm_ws_yaw[i+0];
+        const pm_index = pm_ws_yaw[i + 0]!;
+        const pm_name = wasm_cip.pms.get_name(pm_index)!;
         const world_yaw = pm_ws_yaw[i + 1]! * 180 / 3.1416;
         const sensor_yaw = pm_ws_yaw[i + 2]! * 180 / 3.1416;
 
-        const color = mapping_nps.named_points[0]!.color();
+        const color = project.nps.get_pt(pm_name)!.color;
         this.pms_world_sensor_pairs.push([world_yaw, sensor_yaw, color]);
 
         world_yaws.push(world_yaw / 180 * 3.14);
@@ -210,6 +213,12 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
         w,
         h,
       );
+      this.draw_world_sensor_graphs = this.generate_draw_sensor_world_and_back_graphs(
+        this.camera,
+        w,
+        h,
+      );
+
       this.draw_ws_difference_graph = this.generate_draw_ws_difference_graph(
         this.camera,
         w,
@@ -405,8 +414,6 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_box(draw);
     return draw;
   }
-  wasm_vec2: WasmVec2f64 = WasmVec2f64.zero();
-  wasm_vec3: WasmVec3f64 = WasmVec3f64.zero();
 
   generate_draw_world_sensor_graphs(
     camera: WasmCameraInstance,
@@ -432,8 +439,13 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
       data1.push(new DataXY(sensor_yaw, world_yaw));
     }
 
+    const data2 = new DataRange();
+    for (const [world_yaw, sensor_yaw, color] of this.pms_world_sensor_pairs) {
+      data2.push(new DataXYC(sensor_yaw, world_yaw, color));
+    }
     this.filter_data_range(data0);
     this.filter_data_range(data1);
+    this.filter_data_range(data2);
 
     plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
     const xr = data0.get_xrange();
@@ -456,10 +468,62 @@ export class LensCalibrationPlot implements ApplicationTab, ProjectClient {
     plot.generate_labels(draw);
     plot.generate_line_plot(draw, data0, "#FF8");
     plot.generate_line_plot(draw, data1, "#FAA");
+    plot.generate_pt_plot(draw, data2);
     plot.generate_box(draw);
     return draw;
   }
 
+
+  generate_draw_sensor_world_and_back_graphs(
+    camera: WasmCameraInstance,
+    w: number,
+    h: number,
+  ): Draw {
+    const draw = new Draw();
+    const size = Math.min(w, h - 230) * 0.9;
+    const plot = new Plot([size, size]);
+
+    const data0 = new DataRange();
+    for (let sensor_yaw = 0.1; sensor_yaw < this.sensor_yaw_max; sensor_yaw += 0.01) {
+      const world_yaw =
+        camera.map_yaw_sensor_to_world((sensor_yaw * 3.1416) / 180);
+      const sensor_back_yaw =
+        camera.map_yaw_world_to_sensor(world_yaw) * 180 / 3.1416;
+      data0.push(new DataXY(sensor_yaw, sensor_back_yaw - sensor_yaw));
+    }
+
+    this.filter_data_range(data0);
+
+    plot.set_graph_origin([w / 2 - 0.5 * size, h / 2 + 0.5 * size]);
+    const xr = data0.get_xrange();
+    const yr = data0.get_yrange();
+
+    let xtics = new Tics({
+      spacing: 10,
+      length: 10,
+      show_grid: true,
+      label: true,
+    });
+    let ytics = new Tics({
+      spacing: 0.1,
+      length: 10,
+      show_grid: true,
+      label: true,
+    });
+    xtics.set_spacing_of_range(xr, 2);
+    ytics.set_spacing_of_range(yr, 2);
+
+    plot.xtics.push(xtics);
+    plot.ytics.push(ytics);
+    plot.set_data_range(xr[0], yr[0], xr[1], yr[1]);
+
+    plot.generate_grid(draw);
+    plot.generate_tics(draw);
+    plot.generate_labels(draw);
+    plot.generate_line_plot(draw, data0, "#FF8");
+    plot.generate_box(draw);
+    return draw;
+  }
   generate_draw_world_rings_in_frame(
     camera: WasmCameraInstance,
     w: number,
