@@ -1,5 +1,5 @@
 use ic_base::Result;
-use ic_base::polynomial::{CalcPoly, min_squares_dyn};
+use ic_base::polynomial::{CalcPoly, polynomial_of_best_fit};
 
 #[test]
 fn test_poly() -> Result<()> {
@@ -16,8 +16,8 @@ fn test_poly() -> Result<()> {
     let xys = (0..100).map(|x| (x as f64) / 70.0).map(|x| (x, f(x)));
     let yxs = xys.clone().map(|(x, y)| (y, x));
 
-    let poly = min_squares_dyn(7, xys.clone())?;
-    let rev_poly = min_squares_dyn(7, yxs.clone())?;
+    let poly = polynomial_of_best_fit(7, xys.clone())?;
+    let rev_poly = polynomial_of_best_fit(7, yxs.clone())?;
 
     eprintln!("{poly:?}");
     let mut num_errors = 0;

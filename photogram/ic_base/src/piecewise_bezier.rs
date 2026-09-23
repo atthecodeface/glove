@@ -578,6 +578,7 @@ impl PiecewiseBezier {
     /// minimal specified error from the *linear* interpolation between the data
     /// points
     ///
+    /// The pairs should form a fairly smooth curve
     pub fn of_x_y_pairs(
         x_y_pairs: &[(f64, f64)],
         min_t: f64,

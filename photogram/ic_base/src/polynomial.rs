@@ -33,6 +33,9 @@ i.e. Xt.y = Xt.(X.a) (where Xt is X transpose)
 or  (Xt.X).a = Xt.y
 or         a = (Xt.X)' . Xt.y (where M' = inverse of M)
 
+
+For a weighted error, a row of X and the associated Y can be multiplied by the weight
+
 !*/
 //a Imports
 use std::collections::VecDeque;
@@ -149,7 +152,7 @@ pub fn filter_ws_yaws(ws_yaws: &[(f64, f64)], length: usize) -> Vec<(f64, f64)> 
 ///  (X.transpose() * X).inverse() * (X.transpose() * X) * C = (X.transpose() * X).inverse() * X.transpose() *Y
 ///  C = (X.transpose() * X).inverse() * X.transpose() * Y
 ///
-pub fn min_squares_dyn<I: ExactSizeIterator<Item = (f64, f64)>>(
+pub fn polynomial_of_best_fit<I: ExactSizeIterator<Item = (f64, f64)>>(
     degree: usize,
     iter: I,
 ) -> Result<Vec<f64>> {
@@ -170,6 +173,50 @@ pub fn min_squares_dyn<I: ExactSizeIterator<Item = (f64, f64)>>(
             xn *= x;
         }
     }
+    int_polynomial_of_best_fit(degree, n, &ys, &xi_m, &xi_m_t)
+}
+
+pub fn polynomial_of_weighted_best_fit<I: ExactSizeIterator<Item = (f64, f64, f64)>>(
+    degree: usize,
+    iter: I,
+) -> Result<Vec<f64>> {
+    let n = iter.len();
+
+    // ys = Y
+    // xi_m = X
+    // xi_m_t = X.transpose()
+    let mut xi_m = vec![0.; n * degree]; // N rows of P columns
+    let mut xi_m_t = vec![0.; n * degree]; // P rows of N columns
+    let mut ys = vec![0.; n];
+    for (i, (weight, x, y)) in iter.enumerate() {
+        ys[i] = y * weight;
+        let mut xn = weight;
+        for j in 0..degree {
+            xi_m[i * degree + j] = xn;
+            xi_m_t[j * n + i] = xn;
+            xn *= x;
+        }
+    }
+    int_polynomial_of_best_fit(degree, n, &ys, &xi_m, &xi_m_t)
+}
+fn int_polynomial_of_best_fit(
+    degree: usize,
+    n: usize,
+    ys: &[f64],
+    xi_m: &[f64],
+    xi_m_t: &[f64],
+) -> Result<Vec<f64>> {
+    assert_eq!(
+        xi_m.len(),
+        n * degree,
+        "Xi matrix is N rows of degree columns"
+    );
+    assert_eq!(
+        xi_m_t.len(),
+        n * degree,
+        "Xi_t matrix is degree rows of N columns"
+    );
+    assert_eq!(ys.len(), n, "Y vector is of length n");
 
     // x_xt = X.transpose() * X
     let mut x_xt = vec![0.; degree * degree]; // P by P matrix
