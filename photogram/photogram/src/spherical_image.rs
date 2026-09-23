@@ -226,7 +226,7 @@ impl CmdArgs {
                 let lambda = x_relative * hfov_h + h_ofs;
                 let cos_lambda = lambda.cos();
                 let sin_lambda = lambda.sin();
-                let p: Point3D = [sin_lambda, tan_phi, cos_lambda].into();
+                let p: Point3D = [sin_lambda, -tan_phi, -cos_lambda].into();
                 let d = q.apply3(&p.normalize());
                 if let Some(color) = image.get_pixel_of_direction(&d) {
                     jpg.put(x, y, &color);
@@ -254,7 +254,7 @@ impl CmdArgs {
                 let lambda = y_relative * hfov_v + v_ofs;
                 let cos_lambda = lambda.cos();
                 let sin_lambda = lambda.sin();
-                let p: Point3D = [tan_phi, sin_lambda, cos_lambda].into();
+                let p: Point3D = [tan_phi, sin_lambda, -cos_lambda].into();
                 let d = q.apply3(&p.normalize());
                 if let Some(color) = image.get_pixel_of_direction(&d) {
                     jpg.put(x, y, &color);

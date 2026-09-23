@@ -280,14 +280,32 @@ impl CmdArgs {
             let mut direction = Point3D::default();
             let mut num_mappings = 0_usize;
             for c in &cips {
-                if let Some(x) = c.borrow().pms().borrow().mapping_of_np(&np) {
-                    let pm_direction = x.get_mapped_world_dir(&*c.borrow().camera_ref());
+                if let Some(pm) = c.borrow().pms().borrow().mapping_of_np(&np) {
+                    let pm_direction = pm.get_mapped_world_dir(&*c.borrow().camera_ref());
                     num_mappings += 1;
                     direction += pm_direction;
+                    if false {
+                        // Check that there-and-back for screen to world direction is basically identical
+                        eprintln!(
+                            "{:.2} : {:.2}",
+                            pm.screen(),
+                            c.borrow()
+                                .camera_ref()
+                                .world_dir_to_opt_px_abs_xy(&pm_direction)
+                                .unwrap_or_default()
+                        );
+                    }
                 }
             }
             if num_mappings > 0 {
                 direction = direction / (num_mappings as f64);
+                if self.verbose {
+                    eprintln!(
+                        "Set mapping for {} to {:.3} from {num_mappings}",
+                        np.ref_tag(),
+                        direction
+                    );
+                }
                 *np.model_mut() = ModelData::at_infinity(direction);
             }
         }

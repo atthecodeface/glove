@@ -88,15 +88,6 @@ impl CmdArgs {
         &Self::set_project_file,
     );
 
-    pub(crate) const ARG_PROJECT_DESC: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
-        "project_desc",
-        None,
-        "Project descriptor JSON filename",
-        ArgCount::Optional,
-        None,
-        &Self::set_project_desc,
-    );
-
     pub(crate) const ARG_PMS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
         "pms",
         None,
@@ -159,6 +150,16 @@ impl CmdArgs {
         None,
         &Self::set_camera_polys,
     );
+
+    pub(crate) const ARG_USE_OPTICAL_AXIS_OFFSET: ArgDescriptor<CmdArgs> =
+        ArgDescriptor::arg_string(
+            "use_optical_axis_offset",
+            None,
+            "Specify an override for the optical axis offset in the camera",
+            ArgCount::Optional,
+            None,
+            &Self::set_camera_optical_axis_offset,
+        );
 
     pub(crate) const ARG_USE_ORIENTATION: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
         "use_orientation",

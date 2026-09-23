@@ -3,12 +3,12 @@ use anyhow::anyhow;
 use star_catalog::Catalog;
 
 use crate::Result;
-use ic_photogram::Color8;
+use ic_photogram::Project;
 use ic_photogram::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
 use ic_photogram::{CameraInstance, CameraInstanceDesc};
+use ic_photogram::{Color8, Point2D};
 use ic_photogram::{JsonParsable, NamedRayList, QuaternionDesc};
 use ic_photogram::{NamedPointSet, PointMappingSet};
-use ic_photogram::{Project, ProjectFileDesc};
 
 use super::CmdArgs;
 
@@ -33,17 +33,6 @@ impl CmdArgs {
         self.nps = self.project.nps().clone();
         self.cdb = self.project.cdb().clone();
         self.cip = None;
-        Ok(())
-    }
-
-    //mi set_project_desc
-    pub(crate) fn set_project_desc(&mut self, filename: &str) -> Result<()> {
-        let (project_desc_filename, project_file_desc) =
-            ProjectFileDesc::load_json_file(&self.path_set, filename, &())?;
-        self.if_verbose(|| eprintln!("Loaded project desc from '{project_desc_filename}'"));
-        self.project = project_file_desc.load_project(&self.path_set)?;
-        self.nps = self.project.nps().clone();
-        self.cdb = self.project.cdb().clone();
         Ok(())
     }
 
@@ -100,12 +89,17 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_camera_polys
     pub(crate) fn set_camera_polys(&mut self, polys: &str) -> Result<()> {
         let (_, lens_polys) = LensPolys::load_json_file(&self.path_set, polys, &())?;
         let mut lens = self.camera.lens().clone();
         lens.set_polys(lens_polys);
         self.camera.set_lens(lens);
+        Ok(())
+    }
+
+    pub(crate) fn set_camera_optical_axis_offset(&mut self, json: &str) -> Result<()> {
+        self.camera
+            .set_optical_axis_offset(&Point2D::load_json(json, &())?);
         Ok(())
     }
 
