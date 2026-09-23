@@ -171,11 +171,6 @@ impl PointMapping {
             .to_unit_vector()
     }
 
-    //mp get_mapped_world_dir
-    // was get_pm_direction
-    //
-    // used by reorient_using_rays_from_model
-
     /// Get the direction vector for the frame point of a mapping in
     /// the world (post-orientation of camera)
     pub fn get_mapped_world_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
