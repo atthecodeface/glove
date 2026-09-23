@@ -1,12 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use ic_base::{PathSet, Result};
-use ic_image::{read_image, ImageGray16, ImageRgb8, ImageSquareSet};
+use ic_image::{ImageGray16, ImageRgb8, ImageSquareSet, read_image};
 
-//a ImageSquareSets
-//tp ImageSquareSetsDesc
 /// A description that is serializable/deserializable from which the
 /// ImageSquareSets can be read
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -16,7 +14,6 @@ pub struct ImageSquareSetsDesc {
     index: HashMap<String, String>,
 }
 
-//tp ImageSquareSets
 /// The sets of ImageSquareSet, that are images that contain many
 /// fragments of (transformed) source squares.
 ///
@@ -32,7 +29,6 @@ pub struct ImageSquareSets {
     gray_index: HashMap<String, usize>,
 }
 
-//ip Serialize for ImageSquareSets
 impl Serialize for ImageSquareSets {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -45,7 +41,6 @@ impl Serialize for ImageSquareSets {
     }
 }
 
-//ip ImageSquareSets
 impl ImageSquareSets {
     //cp from_desc
     pub fn from_desc(desc: ImageSquareSetsDesc) -> Self {
@@ -55,7 +50,6 @@ impl ImageSquareSets {
         }
     }
 
-    //mp ensure_loaded
     pub fn ensure_loaded(&mut self, path_set: &PathSet) -> Result<()> {
         let name_filenames: Vec<_> = self
             .index
@@ -74,23 +68,20 @@ impl ImageSquareSets {
         Ok(())
     }
 
-    //mp load_file
     pub fn load_file(&mut self, path_set: &PathSet, path: &str, name: &str) -> Result<()> {
         let (filename, opt_rgb, opt_gray) = read_image(path_set, path)?;
         if let Some(rgb) = opt_rgb {
-            self.add_rgb(name, &filename, ImageSquareSet::create(rgb)?);
-        }
-        if let Some(gray) = opt_gray {
-            self.add_gray(name, &filename, ImageSquareSet::create(gray)?);
+            self.add_rgb(name, filename, ImageSquareSet::create(rgb, 8)?);
+        } else if let Some(gray) = opt_gray {
+            self.add_gray(name, filename, ImageSquareSet::create(gray, 8)?);
         }
         Ok(())
     }
 
-    //mp add_rgb
     pub fn add_rgb(
         &mut self,
         name: &str,
-        filename: &str,
+        filename: PathBuf,
         mut img: ImageSquareSet<ImageRgb8>,
     ) -> usize {
         let n = self.rgb.len();
@@ -100,11 +91,10 @@ impl ImageSquareSets {
         n
     }
 
-    //mp add_gray
     pub fn add_gray(
         &mut self,
         name: &str,
-        filename: &str,
+        filename: PathBuf,
         mut img: ImageSquareSet<ImageGray16>,
     ) -> usize {
         let n = self.gray.len();

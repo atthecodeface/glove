@@ -14,74 +14,8 @@ use ic_base::{JsonParsable, PathSet, Point3D, Ray, Result, Rrc, TagSet};
 use ic_camera::CameraDatabase;
 use ic_mapping::{NamedPointSet, PointMapping};
 
-use crate::{Cip, CipDesc, CipFileDesc, ImageSquareSets, ImageSquareSetsDesc};
+use crate::{Cip, CipDesc, CipFileDesc, ImageSquareSets, ImageSquareSetsDesc, NamedPointImages};
 
-//a ProjectFileDesc
-//tp ProjectFileDesc
-/// A project description is a deserializable that can be stored in a
-/// JSON file
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ProjectFileDesc {
-    cdb: String,
-    nps: String,
-    /// A list of (camera filename, image filename, point mapping set filename)
-    cips: Vec<CipFileDesc>,
-    /// File containing the patch sets
-    #[serde(default)]
-    patches: String,
-    /// Files containing image squares
-    #[serde(default)]
-    image_squares: ImageSquareSetsDesc,
-}
-
-//ip ProjectFileDesc
-impl ProjectFileDesc {
-    //mp to_json
-    pub fn to_json(&self, pretty: bool) -> Result<String> {
-        if pretty {
-            Ok(serde_json::to_string_pretty(self)?)
-        } else {
-            Ok(serde_json::to_string(self)?)
-        }
-    }
-
-    //mp load_project
-    pub fn load_project(&self, path_set: &PathSet) -> Result<Project> {
-        let mut project = Project::default();
-
-        let (cdb_filename, cdb) = CameraDatabase::load_json_file(path_set, &self.cdb, &())?;
-
-        project.set_cdb(cdb);
-        project.set_cdb_filename(cdb_filename);
-
-        let (nps_filename, nps) = NamedPointSet::load_json_file(path_set, &self.nps, &())?;
-
-        project.set_nps(Rrc::new(nps));
-        project.set_nps_filename(nps_filename);
-        for cip in &self.cips {
-            let cip = Rrc::new(cip.load_cip(path_set, &project)?);
-            project.add_cip(cip);
-        }
-        // project.set_patches(Rrc::new(path_set.load_from_json_file("patches", &self.patches)?,
-        //));
-        Ok(project)
-    }
-}
-
-//ip JsonParsable for ProjectFileDesc
-impl JsonParsable for ProjectFileDesc {
-    fn reason() -> &'static str {
-        "project file descriptor"
-    }
-    type PostParseArg = ();
-    type PostParseResult = Self;
-    fn post_parse(self, _: &()) -> Result<Self> {
-        Ok(self)
-    }
-}
-
-//a ProjectDesc
-//tp ProjectDesc
 /// A project description is a deserializable that can be stored in a
 /// JSON file
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -99,8 +33,6 @@ struct ProjectDesc {
     image_squares: ImageSquareSetsDesc,
 }
 
-//a Project
-//tp Project
 /// This encompasses a complete project
 ///
 /// It holds the camera database and a single named point set for a
@@ -128,22 +60,10 @@ pub struct Project {
     np_tag_set: Rc<TagSet>,
     #[serde(skip)]
     image_tag_set: Rc<TagSet>,
+    #[serde(skip)]
+    np_images: Rrc<NamedPointImages>,
 }
 
-//ip JsonParsable for Project
-impl JsonParsable for Project {
-    fn reason() -> &'static str {
-        "project"
-    }
-    type PostParseArg = ();
-    type PostParseResult = Self;
-    fn post_parse(self, _: &()) -> Result<Self> {
-        // All the hard work is in deserialize
-        Ok(self)
-    }
-}
-
-//ip Deserialize for Project
 impl<'de> Deserialize<'de> for Project {
     fn deserialize<DE>(deserializer: DE) -> std::result::Result<Self, DE::Error>
     where
@@ -176,7 +96,18 @@ impl<'de> Deserialize<'de> for Project {
     }
 }
 
-//ip Project
+impl JsonParsable for Project {
+    fn reason() -> &'static str {
+        "project"
+    }
+    type PostParseArg = ();
+    type PostParseResult = Self;
+    fn post_parse(self, _: &()) -> Result<Self> {
+        // All the hard work is in deserialize
+        Ok(self)
+    }
+}
+
 impl Project {
     pub fn cdb(&self) -> &Rrc<CameraDatabase> {
         &self.cdb
@@ -209,6 +140,14 @@ impl Project {
     /// Get a borrowed reference to the NamedPointSet
     pub fn nps_ref(&self) -> Ref<'_, NamedPointSet> {
         self.nps.borrow()
+    }
+
+    pub fn np_images_mut(&self) -> RefMut<'_, NamedPointImages> {
+        self.np_images.borrow_mut()
+    }
+
+    pub fn np_images_ref(&self) -> Ref<'_, NamedPointImages> {
+        self.np_images.borrow()
     }
 
     /// Get a mutable borrowed reference to the NamedPointSet
