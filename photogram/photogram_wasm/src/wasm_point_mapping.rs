@@ -2,7 +2,7 @@ use geo_nd::{Quaternion, Vector};
 use geo_nd_wasm::WasmVec2f64;
 use wasm_bindgen::prelude::*;
 
-use ic_photogram::CameraProjection;
+use ic_photogram::CameraInstanceProjection;
 use ic_photogram::PointMapping;
 use ic_photogram::{Point2D, RollYaw};
 

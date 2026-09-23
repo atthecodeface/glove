@@ -4,7 +4,7 @@ use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f
 use wasm_bindgen::prelude::*;
 
 use ic_photogram::{
-    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, CameraSensor, RollYaw,
+    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraInstanceProjection, CameraSensor, RollYaw,
 };
 use ic_photogram::{JsonParsable, Point2D, Point3D, Rrc, TanXTanY};
 
@@ -56,7 +56,7 @@ impl WasmCameraDatabase {
             .borrow()
             .bodies()
             .get(idx)
-            .map(|c| c.name().to_owned())
+            .map(|c| c.sensor_name().to_owned())
     }
     pub fn lens_name(&self, idx: usize) -> Option<String> {
         self.cdb
