@@ -1,6 +1,25 @@
-//! This is the toplevel library for photogram
-//!
-//! It exports everything (?!) that an external system may need...
+/*! This is the toplevel library for photogram
+
+It exports everything (?!) that an external system may need...
+
+This libary internally has the following structure:
+
+* ic_base
+
+* ic_camera
+* ic_image
+* ic_mesh
+* ic_kernel
+* ic_cache
+* ic_projections
+
+* ic_mapping
+
+* ic_spherical_image
+* ic_project
+* ic_http
+
+*/
 
 pub use ic_base::{Tag, TagMap, TagSet};
 
