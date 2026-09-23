@@ -10,7 +10,7 @@ pub fn serialize_body_name<S: serde::Serializer>(
     body: &CameraBody,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error> {
-    serializer.serialize_str(body.name())
+    serializer.serialize_str(body.sensor_name())
 }
 
 /// A rectangular camera sensor, within a camera body
@@ -247,7 +247,7 @@ impl CameraBody {
 
 impl CameraSensor for CameraBody {
     /// Get the (main) name of the camera body
-    fn name(&self) -> &str {
+    fn sensor_name(&self) -> &str {
         &self.name
     }
 
@@ -265,7 +265,7 @@ impl CameraSensor for CameraBody {
     ///
     /// The *relative* pixel coordinates are XY positive as up/right
     #[inline]
-    fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
+    fn sensor_px_abs_to_px_rel(&self, xy: Point2D) -> Point2D {
         [xy[0] - self.px_center[0], -xy[1] + self.px_center[1]].into()
     }
 
@@ -273,7 +273,15 @@ impl CameraSensor for CameraBody {
     ///
     /// The *relative* pixel coordinates are XY positive as up/right
     #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: &Point2D) -> Point2D {
+    fn sensor_px_rel_to_px_abs(&self, xy: Point2D) -> Point2D {
         [xy[0] + self.px_center[0], -xy[1] + self.px_center[1]].into()
+    }
+
+    fn sensor_mm_single_pixel_height(&self) -> f64 {
+        self.mm_single_pixel_height()
+    }
+
+    fn sensor_mm_single_pixel_width(&self) -> f64 {
+        self.mm_single_pixel_width()
     }
 }

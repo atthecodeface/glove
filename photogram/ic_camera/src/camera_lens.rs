@@ -103,9 +103,10 @@
 
 !*/
 
+use ic_base::{RollYaw, TanXTanY};
 use serde::{Deserialize, Serialize};
 
-use crate::LensPolys;
+use crate::{LensPolys, LensProjection};
 
 /// Serialize a lens name
 pub fn serialize_lens_name<S: serde::Serializer>(
@@ -234,13 +235,26 @@ impl CameraLens {
 
     /// Map a tan(sensor angle) to a tan(world angle)
     #[inline]
-    pub fn tan_sensor_to_tan_world(&self, tan: f64) -> f64 {
+    pub fn tan_sensor_to_tan_camera(&self, tan: f64) -> f64 {
         self.polys.map_sensor_to_world(tan.atan()).tan()
     }
 
     /// Map a tan(world angle) to a tan(sensor angle)
     #[inline]
-    pub fn tan_world_to_tan_sensor(&self, tan: f64) -> f64 {
+    pub fn tan_camera_to_tan_sensor(&self, tan: f64) -> f64 {
         self.polys.map_world_to_sensor(tan.atan()).tan()
+    }
+}
+
+impl LensProjection for CameraLens {
+    fn camera_txty_to_sensor_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
+        let camera_ry: RollYaw = camera_txty.into();
+        let sensor_ry = camera_ry.with_tan_yaw(self.tan_camera_to_tan_sensor(camera_ry.tan_yaw()));
+        sensor_ry.into()
+    }
+    fn sensor_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
+        let sensor_ry: RollYaw = sensor_txty.into();
+        let camera_ry = sensor_ry.with_tan_yaw(self.tan_sensor_to_tan_camera(sensor_ry.tan_yaw()));
+        camera_ry.into()
     }
 }

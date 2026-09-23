@@ -4,8 +4,8 @@ use geo_nd::quat;
 
 use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
-use crate::{CameraBody, CameraDatabase, CameraLens};
-use crate::{CameraInstanceDesc, CameraProjection, CameraSensor};
+use crate::{CameraBody, CameraDatabase, CameraLens, CameraProjection};
+use crate::{CameraInstanceDesc, CameraInstanceProjection, CameraSensor};
 use crate::{serialize_body_name, serialize_lens_name};
 
 /// An instance of a camera - a body, lens, focus distance, position and orientation
@@ -153,7 +153,7 @@ impl CameraInstance {
     /// Deconstruct the [CameraInstance] into a descripton which can be serialized
     pub fn to_desc(self) -> CameraInstanceDesc {
         CameraInstanceDesc::new(
-            self.body.name().to_owned(),
+            self.body.sensor_name().to_owned(),
             self.lens.name().to_owned(),
             self.mm_focus_distance,
             self.position,
@@ -193,8 +193,8 @@ impl CameraInstance {
     ///
     /// The *relative* pixel coordinates are XY positive as up/right
     #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: &Point2D) -> Point2D {
-        self.body.px_rel_xy_to_px_abs_xy(xy) + self.optical_axis_offset
+    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
+        self.body.sensor_px_rel_to_px_abs(xy) + self.optical_axis_offset
     }
 
     /// Map an *absolute* pixel value to one relative to the optical axis
@@ -203,7 +203,7 @@ impl CameraInstance {
     #[inline]
     fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
         self.body
-            .px_abs_xy_to_px_rel_xy(&(xy - self.optical_axis_offset))
+            .sensor_px_abs_to_px_rel(xy - self.optical_axis_offset)
     }
 
     /// Set the distance of focus for the camera instance
@@ -245,8 +245,18 @@ impl std::fmt::Display for CameraInstance {
 }
 
 impl CameraProjection for CameraInstance {
+    fn position(&self) -> Point3D {
+        self.position
+    }
+
+    fn orientation(&self) -> Quat {
+        self.orientation
+    }
+}
+
+impl CameraInstanceProjection for CameraInstance {
     fn camera_name(&self) -> String {
-        self.body.name().into()
+        self.body.sensor_name().into()
     }
 
     fn lens_name(&self) -> String {
@@ -309,18 +319,18 @@ impl CameraProjection for CameraInstance {
     #[inline]
     fn sensor_ry_to_camera_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
-        ry.with_tan_yaw(self.lens.tan_sensor_to_tan_world(tan_yaw))
+        ry.with_tan_yaw(self.lens.tan_sensor_to_tan_camera(tan_yaw))
     }
 
     #[inline]
     fn camera_ry_to_sensor_ry(&self, ry: &RollYaw) -> RollYaw {
         let tan_yaw = ry.tan_yaw();
-        ry.with_tan_yaw(self.lens.tan_world_to_tan_sensor(tan_yaw))
+        ry.with_tan_yaw(self.lens.tan_camera_to_tan_sensor(tan_yaw))
     }
 
     fn sensor_txty_to_px_abs_xy(&self, txty: &TanXTanY) -> Point2D {
         let pxy_rel = [txty[0] / self.tx_from_px_sc, txty[1] / self.ty_from_py_sc].into();
-        self.px_rel_xy_to_px_abs_xy(&pxy_rel)
+        self.px_rel_xy_to_px_abs_xy(pxy_rel)
     }
 
     fn px_abs_xy_to_sensor_txty(&self, pxy_abs: &Point2D) -> TanXTanY {

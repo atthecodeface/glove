@@ -71,10 +71,10 @@ impl CameraDatabase {
     }
 
     pub fn add_body(&mut self, body: CameraBody) -> Result<()> {
-        if self.get_body(body.name()).is_some() {
+        if self.get_body(body.sensor_name()).is_some() {
             Err(Error::Database(format!(
                 "Body {} already in the database",
-                body.name()
+                body.sensor_name()
             )))
         } else {
             self.bodies.push(body);
