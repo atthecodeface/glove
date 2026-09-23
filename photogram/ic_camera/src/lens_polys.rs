@@ -562,6 +562,8 @@ impl LensPolys {
         sensor_yaw_range_max: f64,
         apply_filter: bool,
     ) -> Result<Self> {
+        let min_yaw_step = 0.01;
+
         // Validate the input
         if sensor_yaws.len() != world_yaws.len() {
             return Err(Error::Msg(format!(
@@ -620,7 +622,27 @@ impl LensPolys {
             }
         };
 
-        let mut mm_w_yaws: Vec<_> = mean_median_ws_yaws.iter().map(|(w, _s)| *w).collect();
+        // The yaw mapping polymonial passes through (0,0), and so a polynomial
+        // p(x) of best fit of world(sensor)/sensor can be generated, and
+        // then x.p(x) is appropriate
+        //
+        let Ok(p_of_x) = ic_base::polynomial::polynomial_of_best_fit(
+            7,
+            mean_median_ws_yaws.iter().copied().map(|(w, s)| (s, w / s)),
+        ) else {
+            return Err(Error::Msg(format!(
+                "Failed to generate polynomial of best fit for calibration"
+            )));
+        };
+        // Make s_to_w_poly(sensor) = sensor * p_of_x(sensor) = world[sensor]
+        let mut s_to_w_poly = vec![0.0; 1];
+        s_to_w_poly.extend(p_of_x);
+
+        use ic_base::polynomial::CalcPoly;
+        let mut mm_w_yaws: Vec<_> = mean_median_ws_yaws
+            .iter()
+            .map(|(_w, s)| s_to_w_poly.calc(*s))
+            .collect();
         let mut mm_s_yaws: Vec<_> = mean_median_ws_yaws.iter().map(|(_w, s)| *s).collect();
         mm_w_yaws.push(0.0);
         mm_s_yaws.push(0.0);
@@ -628,7 +650,6 @@ impl LensPolys {
         mm_s_yaws.sort_by(|a, b| (a).partial_cmp(&b).unwrap());
 
         // Winnow such that the distance between successive points is at least min_yaw_step in both directions
-        let min_yaw_step = 0.01;
         let mut last_ok_sw = (0.0, 0.0);
         let mut mm_sw_yaws = vec![];
         for (i, sw) in mm_s_yaws.into_iter().zip(mm_w_yaws.into_iter()).enumerate() {

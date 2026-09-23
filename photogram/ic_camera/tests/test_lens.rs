@@ -204,3 +204,20 @@ fn test_equidistant() -> Result<()> {
     // assert!(false, "Force fail");
     Ok(())
 }
+
+#[test]
+fn test_calibration() -> Result<()> {
+    let lens = LensPolys::equidistant();
+    let mut ss = vec![];
+    let mut ws = vec![];
+
+    for i in 1..100 {
+        let s = (i as f64) * 1.0 / 100.0;
+        let w = lens.map_sensor_to_world(s);
+        ss.push(s);
+        ws.push(w);
+    }
+    let x = LensPolys::calibration(&ss, &ws, 0.01, 1.3, false);
+    // assert!(false, "Force fail");
+    Ok(())
+}

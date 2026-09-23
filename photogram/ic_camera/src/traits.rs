@@ -12,21 +12,33 @@ pub trait CameraSensor: std::fmt::Debug {
     /// Name of the sensor (camera), for recording in files
     fn name(&self) -> &str;
 
-    //mp sensor_size
+    /// Get the size of the sensor in pixels, width and height
     fn sensor_px_size(&self) -> (f64, f64);
 
-    //mp sensor_center
+    /// Get the center of the sensor in pixels
+    ///
+    /// This accounts for the optical axis offset
     fn sensor_px_center(&self) -> Point2D;
 
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates
-    fn px_abs_xy_to_px_rel_xy(&self, px_xy: &Point2D) -> Point2D;
+    ///
+    /// This does *not* take into account any optical axis offset; it converts y=0 at top to y=0 at bottom
+    fn px_abs_xy_to_px_rel_xy(&self, px_xy: &Point2D) -> Point2D {
+        let cxy_inverted = px_xy - self.sensor_px_center();
+        [cxy_inverted[0], -cxy_inverted[1]].into()
+    }
 
     /// Map from centre-relative to absolute pixel
     ///
     /// The units are pixels in both coordinates
-    fn px_rel_xy_to_px_abs_xy(&self, px_xy: &Point2D) -> Point2D;
+    ///
+    /// This does *not* take into account any optical axis offset; it converts y=0 at top to y=0 at bottom
+    fn px_rel_xy_to_px_abs_xy(&self, px_xy: &Point2D) -> Point2D {
+        let pxy_inverted: Point2D = [px_xy[0], -px_xy[1]].into();
+        pxy_inverted + self.sensor_px_center()
+    }
 }
 
 /// A camera projection is a combination of a camera body and a lens
@@ -237,8 +249,8 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
         self.camera_txty_to_px_abs_xy(&camera_txty)
     }
 
-    /// Convert a [Point3D] *direvtion* vector in world space (XYZ) to semnsor
-    /// absolute positions [Point2D] by translating and then applying the
+    /// Convert a [Point3D] *direction* vector in world space (XYZ) to sensor
+    /// absolute positions [Point2D] by applying the
     /// orientation of the camera, then applying the lens mapping and converting
     /// to the sensor position.
     ///
@@ -248,7 +260,7 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     #[inline]
     fn world_dir_to_opt_px_abs_xy(&self, world_dir: &Point3D) -> Option<Point2D> {
         let camera_xyz = self.world_dir_to_camera_xyz(world_dir);
-        if camera_xyz[2] < 1E-6 {
+        if camera_xyz[2] > 1E-6 {
             None
         } else {
             let camera_txty = camera_xyz.into();
