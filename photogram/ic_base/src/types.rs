@@ -20,26 +20,30 @@ pub type Quat = geo_nd::QArray<f64>;
 #[derive(Debug, Clone, Copy)]
 pub struct TanXTanY {
     /// X and Y coordinates
-    data: geo_nd::FArray<f64, 2>,
+    data: Point2D,
 }
 
-//ip TanXTanY
 impl TanXTanY {
-    //cp of_tx_ty
     pub fn of_tx_ty(tanx: f64, tany: f64) -> Self {
         Self {
             data: [tanx, tany].into(),
         }
     }
 
-    //fp to_ry
+    pub fn tanx(self) -> f64 {
+        self.data[0]
+    }
+
+    pub fn tany(self) -> f64 {
+        self.data[1]
+    }
+
     /// Convert to a Roll/Yaww
     #[inline]
     pub fn to_ry(self) -> RollYaw {
         RollYaw::from_txty(self)
     }
 
-    //fp to_unit_vector
     /// Convert to a unit vector
     #[inline]
     pub fn to_unit_vector(self) -> Point3D {
