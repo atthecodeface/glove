@@ -6,7 +6,7 @@ use thunderclap::{
 
 use geo_nd::{Quaternion, Vector};
 use ic_base::{JsonParsable, JsonSrc, PathSet, Point2D, Point3D, Quat, QuaternionDesc, Result};
-use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraProjection, LensPolys};
+use ic_camera::{CameraDatabase, CameraInstance, CameraInstanceDesc, CameraInstanceProjection, LensPolys};
 use ic_image::{Image, ImageDrawable, ImageRgb8};
 use ic_projections::{Cylinder, CylindricalProjection};
 use ic_spherical_image::{ImageFileIndex, SphericalImage, SphericalImageShape};
