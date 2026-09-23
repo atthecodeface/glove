@@ -8,6 +8,7 @@ mod regions;
 mod traits;
 
 mod patch;
+
 pub use patch::{FromPatchFn, ImagePatch};
 
 pub use color::{Color8, Gray16};
@@ -17,19 +18,24 @@ pub use traits::{Image, ImageColor, ImageDrawable};
 
 pub use image_gray16::ImageGray16;
 pub use image_rgb8::ImageRgb8;
-pub use image_square::ImageSquareSet;
+pub use image_square::{ImageSquareSet, ImageSquares};
 pub use regions::Region;
 
-//cp read_image
 use ic_base::PathSet;
 use image::ImageReader;
+use std::path::PathBuf;
+
+/// Read a path - relative to a [PathSet] - as an image, returning it as either
+/// an ImageRgb8 or an ImageGray16 depending on the kind of file.
+///
+/// The full pathname of the image read is also returned
 pub fn read_image<P: AsRef<std::path::Path> + std::fmt::Display>(
     path_set: &PathSet,
     path: P,
-) -> ic_base::Result<(String, Option<ImageRgb8>, Option<ImageGray16>)> {
+) -> ic_base::Result<(PathBuf, Option<ImageRgb8>, Option<ImageGray16>)> {
     if let Some(path) = path_set.find_file(&path) {
         let img = ImageReader::open(&path)?.with_guessed_format()?.decode()?;
-        let path = path.display().to_string();
+        let path = path.to_owned();
         let img = match ImageRgb8::of_image(img) {
             Ok(rgb) => {
                 return Ok((path, Some(rgb), None));

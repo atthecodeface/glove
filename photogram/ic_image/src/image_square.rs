@@ -18,9 +18,7 @@ use ic_base::{Result, Rrc};
 
 use crate::{Image, ImageDrawable};
 
-/// The granularity of size for allocations
-pub const TILE_SQUARE_SIZE: u32 = 8;
-
+/// The granularity of size for alloc
 /// A set of image squares gathered from one or more images, with a backing store of 'I'
 ///
 /// A subset of the image will be used, indicated by the used_squares
@@ -29,6 +27,7 @@ pub const TILE_SQUARE_SIZE: u32 = 8;
 #[derive(Debug)]
 pub struct ImageSquareSet<I: Image> {
     image_filename: PathBuf,
+    square_size: u32,
     width_sq: u32,
     height_sq: u32,
     used_squares: Box<[u64]>,
@@ -56,21 +55,21 @@ where
     }
 
     /// Get the underlying tile
-    pub fn square_size() -> u32 {
-        TILE_SQUARE_SIZE
+    pub fn square_size(&self) -> u32 {
+        self.square_size
     }
 
     /// Create an [Self] from a given image, which must have a size that is a
-    /// multiple (in each dimension) of the constant [TILE_SQUARE_SIZE]
-    pub fn create(image: I) -> Result<Self> {
+    /// multiple (in each dimension) of the constant [self.square_size]
+    pub fn create(image: I, square_size: u32) -> Result<Self> {
         let (w, h) = image.size();
-        if !w.is_multiple_of(TILE_SQUARE_SIZE) || !h.is_multiple_of(TILE_SQUARE_SIZE) {
+        if !w.is_multiple_of(square_size) || !h.is_multiple_of(square_size) {
             return Err(
-                format!("Image was not a multiple of the square size {TILE_SQUARE_SIZE}").into(),
+                format!("Image was not a multiple of the square size {square_size}").into(),
             );
         }
-        let width_sq = w / TILE_SQUARE_SIZE;
-        let height_sq = h / TILE_SQUARE_SIZE;
+        let width_sq = w / square_size;
+        let height_sq = h / square_size;
         let used_squares_size = (width_sq * height_sq).div_ceil(64);
         let used_squares = vec![0_u64; used_squares_size as usize];
         let used_squares = used_squares.into_boxed_slice();
@@ -78,6 +77,7 @@ where
         let image = image.into();
         Ok(Self {
             image_filename,
+            square_size,
             width_sq,
             height_sq,
             used_squares,
@@ -197,10 +197,10 @@ where
     /// Allocate a region of
     #[track_caller]
     pub fn allocate_squares(&mut self, w: u32, h: u32) -> Option<ImageSquares<I>> {
-        assert!(w.is_multiple_of(TILE_SQUARE_SIZE));
-        assert!(h.is_multiple_of(TILE_SQUARE_SIZE));
+        assert!(w.is_multiple_of(self.square_size));
+        assert!(h.is_multiple_of(self.square_size));
         if let Some((x_sq, y_sq)) =
-            self.find_free_region(w / TILE_SQUARE_SIZE, h / TILE_SQUARE_SIZE)
+            self.find_free_region(w / self.square_size, h / self.square_size)
         {
             Some(self.select_squares(x_sq, y_sq, w, h, true))
         } else {
@@ -212,7 +212,7 @@ where
     #[track_caller]
     pub fn free_squares(&mut self, sqs: ImageSquares<I>) {
         let (x_sq, y_sq, w, h) = sqs.take();
-        self.mark_free(x_sq, y_sq, w / TILE_SQUARE_SIZE, h / TILE_SQUARE_SIZE)
+        self.mark_free(x_sq, y_sq, w / self.square_size, h / self.square_size)
     }
 
     /// Create an [ImageSquares] for a portion of the [ImageSquareSet], given a (x_sq,y_sq) tile and a width and height in tile squares
@@ -230,22 +230,29 @@ where
         h: u32,
         mark_alloc: bool,
     ) -> ImageSquares<I> {
-        assert!(w.is_multiple_of(TILE_SQUARE_SIZE));
-        assert!(h.is_multiple_of(TILE_SQUARE_SIZE));
+        assert!(w.is_multiple_of(self.square_size));
+        assert!(h.is_multiple_of(self.square_size));
         if mark_alloc {
-            self.mark_alloc(x_sq, y_sq, w / TILE_SQUARE_SIZE, h / TILE_SQUARE_SIZE);
+            self.mark_alloc(x_sq, y_sq, w / self.square_size, h / self.square_size);
         }
         ImageSquares::selected_squares(self, x_sq, y_sq, w, h)
     }
 }
 
-/// A square inside an image, given a width and a height
+/// A rectangular region inside an image, with a width and a height that are
+/// mulitples of the image square size
 #[derive(Clone)]
 pub struct ImageSquares<I: Image> {
     image: Rrc<I>,
+    /// Size of each square in the ImageSquareSet
+    square_size: u32,
+    /// Width in pizels - will be a multiple of square_size
     w: u32,
+    /// Height in pizels - will be a multiple of square_size
     h: u32,
+    /// Number of squares in the X direction of the top left of the rectangular region
     x_sq: u32,
+    /// Number of squares in the Y direction of the top left of the rectangular region
     y_sq: u32,
 }
 
@@ -260,8 +267,8 @@ where
             Rc::as_ptr(&self.image),
             self.w,
             self.h,
-            self.x_sq * TILE_SQUARE_SIZE,
-            self.y_sq * TILE_SQUARE_SIZE
+            self.x_sq * self.square_size,
+            self.y_sq * self.square_size
         )
     }
 }
@@ -275,7 +282,8 @@ where
         (self.x_sq, self.y_sq, self.w, self.h)
     }
 
-    /// Create an [ImageSquares] from an [ImageSquareSet] given
+    /// Create an [ImageSquares] from an [ImageSquareSet] given the top-left
+    /// coordinate (in units of tile squares) and a width and height in pixels
     #[track_caller]
     pub fn selected_squares(
         isqset: &ImageSquareSet<I>,
@@ -284,11 +292,11 @@ where
         w: u32,
         h: u32,
     ) -> Self {
-        assert!(w.is_multiple_of(8));
-        assert!(h.is_multiple_of(8));
         let image = isqset.image().clone();
+        let square_size = isqset.square_size();
         Self {
             image,
+            square_size,
             x_sq,
             y_sq,
             w,
@@ -298,7 +306,7 @@ where
 
     /// Get the size in *pixels* of the square set
     pub fn size(&self) -> (u32, u32) {
-        (self.w * TILE_SQUARE_SIZE, self.h * TILE_SQUARE_SIZE)
+        (self.w, self.h)
     }
 
     /// Copy data from an image at a starting (x,y) to this [ImageSquare]
@@ -312,8 +320,8 @@ where
             .borrow_mut()
             .copy_from(
                 &*image.view(x, y, self.w, self.h),
-                self.x_sq * TILE_SQUARE_SIZE,
-                self.y_sq * TILE_SQUARE_SIZE,
+                self.x_sq * self.square_size,
+                self.y_sq * self.square_size,
             )
             .unwrap();
     }
@@ -328,8 +336,8 @@ where
         image
             .copy_from(
                 &*self.image.borrow().view(
-                    self.x_sq * TILE_SQUARE_SIZE,
-                    self.y_sq * TILE_SQUARE_SIZE,
+                    self.x_sq * self.square_size,
+                    self.y_sq * self.square_size,
                     self.w,
                     self.h,
                 ),
@@ -351,25 +359,24 @@ where
         if Rc::ptr_eq(&self.image, &from.image) {
             self.image.borrow_mut().copy_within(
                 image::math::Rect {
-                    x: from.x_sq * TILE_SQUARE_SIZE,
-                    y: from.y_sq * TILE_SQUARE_SIZE,
+                    x: from.x_sq * self.square_size,
+                    y: from.y_sq * self.square_size,
                     width: self.w,
                     height: self.h,
                 },
-                self.x_sq * TILE_SQUARE_SIZE,
-                self.y_sq * TILE_SQUARE_SIZE,
+                self.x_sq * self.square_size,
+                self.y_sq * self.square_size,
             );
         } else {
             self.copy_from_image(
                 &from.image.borrow(),
-                from.x_sq * TILE_SQUARE_SIZE,
-                from.y_sq * TILE_SQUARE_SIZE,
+                from.x_sq * self.square_size,
+                from.y_sq * self.square_size,
             );
         }
     }
 }
 
-//ip ImageDrawable for ImageSquares
 impl<I> ImageDrawable for ImageSquares<I>
 where
     I: Image,
@@ -377,21 +384,21 @@ where
     type Pixel = I::Pixel;
     fn get(&self, x: u32, y: u32) -> Self::Pixel {
         self.image.borrow().get(
-            x + (self.x_sq * TILE_SQUARE_SIZE),
-            y + (self.y_sq * TILE_SQUARE_SIZE),
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
         )
     }
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel) {
         self.image.borrow_mut().put(
-            x + (self.x_sq * TILE_SQUARE_SIZE),
-            y + (self.y_sq * TILE_SQUARE_SIZE),
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
             color,
         )
     }
     fn blend(&mut self, x: u32, y: u32, blend: f64, color: &Self::Pixel) {
         self.image.borrow_mut().blend(
-            x + (self.x_sq * TILE_SQUARE_SIZE),
-            y + (self.y_sq * TILE_SQUARE_SIZE),
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
             blend,
             color,
         )
@@ -405,7 +412,7 @@ where
 #[test]
 fn test_image_square_0() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
-    let mut set = ImageSquareSet::create(image)?;
+    let mut set = ImageSquareSet::create(image, 8)?;
     for _ in 0..199 {
         let x = set.allocate_squares(8, 8);
         assert!(x.is_some());
@@ -427,7 +434,7 @@ fn test_image_square_0() -> std::result::Result<(), Box<dyn std::error::Error>> 
 #[test]
 fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
-    let mut set = ImageSquareSet::create(image)?;
+    let mut set = ImageSquareSet::create(image, 8)?;
     for _ in 0..50 {
         let x = set.allocate_squares(16, 16);
         assert!(x.is_some());
@@ -447,7 +454,7 @@ fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> 
 fn test_image_square_2() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
 
-    let mut set = ImageSquareSet::create(image)?;
+    let mut set = ImageSquareSet::create(image, 8)?;
     let first = set.allocate_squares(16, 16).unwrap();
     for _ in 0..49 {
         let _x = set.allocate_squares(16, 16);
