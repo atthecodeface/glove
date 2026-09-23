@@ -4,7 +4,7 @@ use std::default::Default;
 use geo_nd::Vector;
 
 use ic_base::{Point3D, utils};
-use ic_camera::CameraProjection;
+use ic_camera::CameraInstanceProjection;
 
 use crate::{ModelLine, ModelLineSubtended, PointMapping};
 
@@ -13,7 +13,7 @@ use crate::{ModelLine, ModelLineSubtended, PointMapping};
 #[derive(Debug)]
 pub struct ModelLineSet<C>
 where
-    C: CameraProjection + Sized,
+    C: CameraInstanceProjection + Sized,
 {
     camera: C,
 
@@ -28,7 +28,7 @@ where
 //ip ModelLineSet
 impl<C> ModelLineSet<C>
 where
-    C: CameraProjection + Sized,
+    C: CameraInstanceProjection + Sized,
 {
     //cp new
     pub fn new(camera: C) -> Self {

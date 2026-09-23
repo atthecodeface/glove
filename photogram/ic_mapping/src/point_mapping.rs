@@ -5,7 +5,7 @@ use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{Point2D, Point3D, Ray};
-use ic_camera::CameraProjection;
+use ic_camera::CameraInstanceProjection;
 
 use crate::NamedPoint;
 
@@ -165,7 +165,7 @@ impl PointMapping {
     /// This does not apply the camera orientation
     ///
     /// This does apply the lens mapping
-    pub fn get_mapped_camera_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
+    pub fn get_mapped_camera_dir<C: CameraInstanceProjection>(&self, camera: &C) -> Point3D {
         camera
             .px_abs_xy_to_camera_txty(&self.screen)
             .to_unit_vector()
@@ -173,7 +173,7 @@ impl PointMapping {
 
     /// Get the direction vector for the frame point of a mapping in
     /// the world (post-orientation of camera)
-    pub fn get_mapped_world_dir<C: CameraProjection>(&self, camera: &C) -> Point3D {
+    pub fn get_mapped_world_dir<C: CameraInstanceProjection>(&self, camera: &C) -> Point3D {
         camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(&self.screen))
     }
 
@@ -181,7 +181,7 @@ impl PointMapping {
     // was get_pm_as_ray
     //
     // used by get_rays, project derive_nps_location
-    pub fn get_mapped_ray<C: CameraProjection>(&self, camera: &C, from_camera: bool) -> Ray {
+    pub fn get_mapped_ray<C: CameraInstanceProjection>(&self, camera: &C, from_camera: bool) -> Ray {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
         // Calculate dots with the actual vector - cos of angles
@@ -228,7 +228,7 @@ impl PointMapping {
     ///
     /// Return None if the mapping is unmapped
     #[inline]
-    pub fn get_mapped_dpxy<C: CameraProjection>(&self, camera: &C) -> Option<Point2D> {
+    pub fn get_mapped_dpxy<C: CameraInstanceProjection>(&self, camera: &C) -> Option<Point2D> {
         if self.is_unmapped() {
             return None;
         }
@@ -237,7 +237,7 @@ impl PointMapping {
 
     /// Get the total dpxy squared error
     #[inline]
-    pub fn get_mapped_dpxy_error2<C: CameraProjection>(&self, camera: &C) -> f64 {
+    pub fn get_mapped_dpxy_error2<C: CameraInstanceProjection>(&self, camera: &C) -> f64 {
         if let Some(dpxy) = self.get_mapped_dpxy(camera) {
             let esq = dpxy.length_sq();
             esq * esq / (esq + self.error.powi(2))
@@ -247,7 +247,7 @@ impl PointMapping {
     }
 
     //fp get_mapped_model_error
-    fn get_mapped_model_error<C: CameraProjection>(
+    fn get_mapped_model_error<C: CameraInstanceProjection>(
         &self,
         camera: &C,
     ) -> (f64, Point3D, f64, Point3D) {
@@ -273,7 +273,7 @@ impl PointMapping {
     }
 
     //fp show_mapped_error
-    pub fn show_mapped_error<C: CameraProjection>(&self, camera: &C) {
+    pub fn show_mapped_error<C: CameraInstanceProjection>(&self, camera: &C) {
         if self.is_unmapped() {
             return;
         }

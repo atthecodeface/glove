@@ -4,7 +4,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, ModelData, Result, Tag, TagMap, TagSet};
-use ic_camera::CameraProjection;
+use ic_camera::CameraInstanceProjection;
 use ic_image::Color8;
 
 use crate::NamedPoint;
@@ -200,7 +200,7 @@ impl NamedPointSet {
 //ip NamedPointSet - show
 impl NamedPointSet {
     //fp show_mappings
-    pub fn show_mappings<C: CameraProjection>(&self, camera: &C) {
+    pub fn show_mappings<C: CameraInstanceProjection>(&self, camera: &C) {
         for np in self.points.iter() {
             if np.is_unmapped() {
                 continue;

@@ -6,7 +6,7 @@ use geo_nd::{Quaternion, Vector};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, Point2D, Point3D, Quat, Ray, Result, RollYaw, TanXTanY, utils};
-use ic_camera::CameraProjection;
+use ic_camera::CameraInstanceProjection;
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
 
@@ -314,7 +314,7 @@ impl PointMappingSet {
     pub fn add_good_model_lines<C, F>(&self, mls: &mut ModelLineSet<C>, filter: F, max_pairs: usize)
     where
         F: Fn(usize, &PointMapping) -> bool,
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         for (i, j) in self.get_good_screen_pairs(max_pairs, filter) {
             mls.add_line((&self.mappings[i], &self.mappings[j]));
@@ -326,7 +326,7 @@ impl PointMappingSet {
     // used by get_best_location
     //
     // worst_error returns just the error value
-    pub fn find_worst_error<C: CameraProjection>(&self, camera: &C) -> (usize, f64) {
+    pub fn find_worst_error<C: CameraInstanceProjection>(&self, camera: &C) -> (usize, f64) {
         let mut n = 0;
         let mut worst_e = 0.;
         for (i, pm) in self.mappings.iter().enumerate() {
@@ -342,14 +342,14 @@ impl PointMappingSet {
     //fp total_error
     // used by get_best_location
     //
-    pub fn total_error<C: CameraProjection>(&self, camera: &C) -> f64 {
+    pub fn total_error<C: CameraInstanceProjection>(&self, camera: &C) -> f64 {
         self.mappings
             .iter()
             .fold(0.0, |acc, pm| acc + pm.get_mapped_dpxy_error2(camera))
     }
 
     //mp iter_mapped_rays
-    pub fn iter_mapped_rays<C: CameraProjection>(
+    pub fn iter_mapped_rays<C: CameraInstanceProjection>(
         &self,
         camera: &C,
         from_camera: bool,
@@ -365,7 +365,7 @@ impl PointMappingSet {
     //mi qr_err_of_posn
     fn qr_err_of_posn<C>(&self, pm_n: &[usize], camera: &mut C, pt: &Point3D) -> (Quat, f64)
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         camera.set_position(pt);
         let mut qs = vec![];
@@ -404,7 +404,7 @@ impl PointMappingSet {
         max_angle_subtended_error: f64,
     ) -> Result<(f64, C)>
     where
-        C: CameraProjection + Clone,
+        C: CameraInstanceProjection + Clone,
         F: Fn(usize, &PointMapping) -> bool + Clone,
     {
         let pm_n_f = filter.clone();
@@ -449,7 +449,7 @@ impl PointMappingSet {
         steps: usize,
     ) -> Result<(f64, C)>
     where
-        C: CameraProjection + Clone,
+        C: CameraInstanceProjection + Clone,
         F: Fn(usize, &PointMapping) -> bool + Clone,
     {
         let pm_n_f = filter.clone();
@@ -507,7 +507,7 @@ impl PointMappingSet {
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         let mut qs = vec![];
 
@@ -567,7 +567,7 @@ impl PointMappingSet {
     /// Calculate the *total* dx2 and dy2 for all the (filtered) points in the mapping given the camera
     pub fn dx2_dy2_of_camera<C, F, W>(&self, camera: &C, filter: F, weighting: W) -> (f64, f64)
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
         F: Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
     {
@@ -603,7 +603,7 @@ impl PointMappingSet {
         max_steps: usize,
     ) -> Result<f64>
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
         F: Clone + Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
     {
@@ -672,7 +672,7 @@ impl PointMappingSet {
     ) -> Vec<(usize, f64, f64, f64, f64)>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         let mut pm_world_sensor_data = vec![];
         let indices: Vec<_> = self

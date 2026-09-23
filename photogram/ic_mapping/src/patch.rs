@@ -3,7 +3,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 
 use ic_base::{Plane, Point2D, Point3D};
-use ic_camera::CameraProjection;
+use ic_camera::CameraInstanceProjection;
 use ic_image::Image;
 use ic_mesh::Mesh;
 
@@ -236,7 +236,7 @@ impl Patch {
     //mp sensor_pts
     pub fn sensor_pts<C>(&self, camera: &C) -> Vec<Point2D>
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         // Find the points on the sensor for all of the mesh points
         self.patch_mesh
@@ -250,7 +250,7 @@ impl Patch {
     //mp mm_per_px_at_center
     pub fn mm_per_px_at_center<C>(&self, camera: &C) -> (f64, f64)
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
     {
         if !self.plane_ok {
             return (0.0, 0.0);
@@ -283,7 +283,7 @@ impl Patch {
     //mp create_img
     pub fn create_img<C, I>(&self, camera: &C, src_img: &I) -> Option<I>
     where
-        C: CameraProjection,
+        C: CameraInstanceProjection,
         I: Image,
     {
         if !self.plane_ok {
