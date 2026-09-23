@@ -126,5 +126,5 @@ impl NamedPointImages {
         self.image_squares.image()
     }
 
-    pub fn np_cip_fill(&self, )
+    // pub fn np_cip_fill(&self, )
 }

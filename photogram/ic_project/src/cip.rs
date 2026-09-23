@@ -4,7 +4,7 @@ use std::cell::{Ref, RefMut};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag, TagSet};
-use ic_camera::{CameraInstance, CameraInstanceDesc, CameraProjection};
+use ic_camera::{CameraInstance, CameraInstanceDesc, CameraInstanceProjection};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
 use crate::Project;
