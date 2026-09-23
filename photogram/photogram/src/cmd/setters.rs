@@ -4,7 +4,7 @@ use star_catalog::Catalog;
 
 use crate::Result;
 use ic_photogram::Project;
-use ic_photogram::{CalibrationMapping, CameraDatabase, CameraProjection, LensPolys};
+use ic_photogram::{CalibrationMapping, CameraDatabase, CameraInstanceProjection, LensPolys};
 use ic_photogram::{CameraInstance, CameraInstanceDesc};
 use ic_photogram::{Color8, Point2D};
 use ic_photogram::{JsonParsable, NamedRayList, QuaternionDesc};

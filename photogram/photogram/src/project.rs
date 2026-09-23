@@ -1,7 +1,7 @@
 use geo_nd::Vector;
 use thunderclap::{CmdDescriptor, json};
 
-use ic_photogram::CameraProjection;
+use ic_photogram::CameraInstanceProjection;
 
 use crate::cmd::{CmdArgs, CmdResult};
 

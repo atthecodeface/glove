@@ -4,7 +4,7 @@ use thunderclap::{CmdDescriptor, CommandArgs, json};
 use geo_nd::{Quaternion, Vector};
 use ic_photogram::Color8;
 use ic_photogram::Idx;
-use ic_photogram::{CameraInstance, CameraProjection, LensPolys};
+use ic_photogram::{CameraInstance, CameraInstanceProjection, LensPolys};
 use ic_photogram::{Cylinder, CylindricalProjection};
 use ic_photogram::{Image, ImageDrawable, ImageRgb8};
 use ic_photogram::{ImageFileIndex, SphericalImage, SphericalImageShape};

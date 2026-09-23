@@ -7,7 +7,7 @@ use ic_photogram::Color8;
 use ic_photogram::ModelData;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_photogram::CameraProjection;
+use ic_photogram::CameraInstanceProjection;
 use ic_photogram::NamedPointSet;
 use ic_photogram::{JsonParsable, Point3D, Ray, TagSet};
 

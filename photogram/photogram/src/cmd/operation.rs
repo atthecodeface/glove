@@ -1,7 +1,7 @@
 //a Imports
 use std::rc::Rc;
 
-use ic_photogram::CameraProjection;
+use ic_photogram::CameraInstanceProjection;
 use ic_photogram::ModelData;
 use ic_photogram::Result;
 use ic_photogram::{Image, ImagePt, ImageRgb8};
