@@ -31,7 +31,7 @@ pub use ic_base::{Point2D, Point3D, Quat, QuaternionDesc, RollYaw, TanXTanY};
 pub use ic_base::{QtPath, Quadtree};
 
 pub use ic_cache::{Cache, CacheRef, Cacheable};
-pub use ic_camera::{CalibrationMapping, CameraProjection, CameraSensor};
+pub use ic_camera::{CalibrationMapping, CameraInstanceProjection, CameraSensor};
 pub use ic_camera::{
     CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraLens, LensPolys,
 };
