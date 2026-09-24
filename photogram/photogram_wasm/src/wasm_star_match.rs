@@ -104,7 +104,7 @@ impl WasmStarMatchSet {
         let pms = cip.pms().borrow();
         let camera = &*cip.camera().borrow();
         for p in pms.mappings() {
-            let v = p.get_mapped_camera_dir(camera);
+            let v = p.sensor_as_unit_camera_dir(camera);
             // let n = img_space_vectors.len() - 1;
             // img_space_vectors[n][1] *= -1.0;
             //

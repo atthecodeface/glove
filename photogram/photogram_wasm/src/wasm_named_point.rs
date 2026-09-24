@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use ic_photogram::Point3D;
+use ic_photogram::{CameraProjection, Point3D};
 use ic_photogram::{ModelData, NamedPoint};
 
 use crate::WasmVec3f64;
@@ -47,6 +47,16 @@ impl WasmNamedPoint {
 
     pub fn model_pt(&self) -> Point3D {
         self.model_data.model_pt()
+    }
+
+    /// Get the *world* direction to the named model point
+    #[inline]
+    pub fn model_world_direction<C: CameraProjection>(&self, camera: &C) -> Point3D {
+        if self.model_data.model_is_direction() {
+            self.model_data.model_pt()
+        } else {
+            camera.world_xyz_to_world_dir(self.model_data.model_pt())
+        }
     }
 }
 

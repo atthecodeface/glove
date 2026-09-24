@@ -4,7 +4,8 @@ use geo_nd_wasm::{Quatf64, Vec2f64, Vec3f64, WasmQuatf64, WasmVec2f64, WasmVec3f
 use wasm_bindgen::prelude::*;
 
 use ic_photogram::{
-    CameraDatabase, CameraInstance, CameraInstanceDesc, CameraInstanceProjection, CameraSensor, RollYaw,
+    AdjustableCameraProjection, CameraDatabase, CameraInstance, CameraInstanceDesc,
+    CameraLensProjection, CameraProjection, CameraSensor, LensProjection, RollYaw, WordXy,
 };
 use ic_photogram::{JsonParsable, Point2D, Point3D, Rrc, TanXTanY};
 
@@ -264,21 +265,24 @@ impl WasmCameraInstance {
         self.camera.borrow().lens_sensor_distance()
     }
 
-    pub fn map_model(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
-        Ok(Point2D::to_wasm(
-            self.camera
-                .borrow()
-                .world_xyz_to_px_abs_xy(&Point3D::from_wasm(pt)?),
-        ))
+    /// Map a model XYZ position to a (possibly null) sensor XY
+    pub fn map_model(&self, pt: &[f64]) -> Result<Option<Box<[f64]>>, String> {
+        let world_xyz = Point3D::from_wasm(pt)?;
+        let world_dir = self.camera.borrow().world_xyz_to_world_dir(world_xyz);
+        Ok(self
+            .camera
+            .borrow()
+            .world_dir_to_opt_sensor_px_abs_xy(world_dir)
+            .map(Point2D::to_wasm))
     }
 
     pub fn direction_of_pt(&self, pt: &[f64]) -> Result<Box<[f64]>, String> {
         let txty = self
             .camera
             .borrow()
-            .px_abs_xy_to_camera_txty(&Point2D::from_wasm(pt)?);
+            .sensor_px_abs_xy_to_camera_txty(Point2D::from_wasm(pt)?);
         Ok(Point3D::to_wasm(
-            self.camera.borrow().camera_txty_to_world_dir(&txty),
+            self.camera.borrow().camera_txty_to_world_dir(txty),
         ))
     }
 
@@ -288,7 +292,7 @@ impl WasmCameraInstance {
     /// This does use the lens mapping
     pub fn set_camera_dir_of_pt(&self, pt: &WasmVec2f64, dir: &mut WasmVec3f64) {
         let pt: Point2D = pt.into();
-        let txty = self.camera.borrow().px_abs_xy_to_camera_txty(&pt);
+        let txty = self.camera.borrow().sensor_px_abs_xy_to_camera_txty(pt);
         dir.set_array(txty.to_unit_vector().as_ref());
     }
 
@@ -299,7 +303,7 @@ impl WasmCameraInstance {
     pub fn set_pt_of_camera_dir(&self, dir: &WasmVec3f64, pt: &mut WasmVec2f64) {
         let dir: Point3D = dir.into();
         let txty = dir.into();
-        let pxy = self.camera.borrow().camera_txty_to_px_abs_xy(&txty);
+        let pxy = self.camera.borrow().camera_txty_to_sensor_px_abs_xy(txty);
         pt.set_array(pxy.as_ref());
     }
 
@@ -310,7 +314,7 @@ impl WasmCameraInstance {
     pub fn set_map_sensor_dir_to_camera_dir(&self, dir: &mut WasmVec3f64) {
         let pt: Point3D = (&*dir).into();
         let txty = pt.into();
-        let txty = self.camera.borrow().sensor_txty_to_camera_txty(&txty);
+        let txty = self.camera.borrow().optical_txty_to_camera_txty(txty);
         dir.set_array(txty.to_unit_vector().as_ref());
     }
 
@@ -321,40 +325,46 @@ impl WasmCameraInstance {
     pub fn set_map_camera_dir_to_sensor_dir(&self, dir: &mut WasmVec3f64) {
         let pt: Point3D = (&*dir).into();
         let txty = pt.into();
-        let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
+        let txty = self.camera.borrow().camera_txty_to_optical_txty(txty);
         dir.set_array(txty.to_unit_vector().as_ref());
     }
 
-    /// Take the direction of a ray in world space, accounting for camera orientation,
-    /// and map it to ray relative to the sensor
+    /// Take a direction vector in world space, accounting for camera orientation,
+    /// and map it to a direction vector from sensor to lens
     ///
     /// This does use the lens mapping
     pub fn set_map_world_dir_to_sensor_dir(&self, dir: &mut WasmVec3f64) {
-        let pt: Point3D = (&*dir).into();
-        let xyz = self.camera.borrow().world_dir_to_camera_xyz(&pt);
-        let txty = xyz.into();
-        let txty = self.camera.borrow().camera_txty_to_sensor_txty(&txty);
+        let camera_txty = self
+            .camera
+            .borrow()
+            .world_dir_to_camera_txty((&*dir).into());
+        let txty = self
+            .camera
+            .borrow()
+            .camera_txty_to_optical_txty(camera_txty);
         dir.set_array(txty.to_unit_vector().as_ref());
     }
 
-    /// Take the direction of a ray in world space, accounting for camera orientation,
+    /// Take a direction vector in world space, accounting for camera orientation,
     /// and map it to the direction relative to the camera
     ///
     /// This does *NOT* use the lens mapping
     pub fn set_map_world_dir_to_camera_dir(&self, dir: &mut WasmVec3f64) {
-        let pt: Point3D = (&*dir).into();
-        let xyz = self.camera.borrow().world_dir_to_camera_xyz(&pt);
-        dir.set_array(xyz.as_ref());
+        let camera_dir = self.camera.borrow().world_dir_to_camera_dir((&*dir).into());
+        dir.set_array(camera_dir.as_ref());
     }
 
     /// Take a point on the sensor and map it to the direction of a ray relative
     /// to the sensor
     ///
     /// This does *NOT* use the lens mapping
-    pub fn set_sensor_dir_of_pt(&self, pt: &WasmVec2f64, dir: &mut WasmVec3f64) {
-        let pt: Point2D = pt.into();
-        let txty = self.camera.borrow().px_abs_xy_to_sensor_txty(&pt);
-        dir.set_array(txty.to_unit_vector().as_ref());
+    pub fn set_sensor_dir_of_pt(&self, px_abs_xy: &WasmVec2f64, dir: &mut WasmVec3f64) {
+        let px_abs_xy: Point2D = px_abs_xy.into();
+        let sensor_txty = self
+            .camera
+            .borrow()
+            .sensor_px_abs_xy_to_optical_txty(px_abs_xy);
+        dir.set_array(sensor_txty.to_unit_vector().as_ref());
     }
 
     /// Calculate the Yaw of a direction (this does not depend on the camera data)
@@ -374,13 +384,21 @@ impl WasmCameraInstance {
     }
 
     pub fn map_yaw_world_to_sensor(&self, yaw: f64) -> f64 {
-        let ry = RollYaw::of_yaw(yaw);
-        self.camera.borrow().camera_ry_to_sensor_ry(&ry).yaw()
+        let txty = TanXTanY::of_tx_ty(yaw.tan(), 0.0);
+        self.camera
+            .borrow()
+            .camera_txty_to_optical_txty(txty)
+            .tanx()
+            .atan()
     }
 
     pub fn map_yaw_sensor_to_world(&self, yaw: f64) -> f64 {
-        let ry = RollYaw::of_yaw(yaw);
-        self.camera.borrow().sensor_ry_to_camera_ry(&ry).yaw()
+        let txty = TanXTanY::of_tx_ty(yaw.tan(), 0.0);
+        self.camera
+            .borrow()
+            .optical_txty_to_camera_txty(txty)
+            .tanx()
+            .atan()
     }
 
     //mp get_pm_as_ray
@@ -405,8 +423,8 @@ impl WasmCameraInstance {
         let txty = self
             .camera
             .borrow()
-            .px_abs_xy_to_camera_txty(&Point2D::from_wasm(pt)?);
-        let world_dir = self.camera.borrow().camera_txty_to_world_dir(&txty);
+            .sensor_px_abs_xy_to_camera_txty(Point2D::from_wasm(pt)?);
+        let world_dir = self.camera.borrow().camera_txty_to_world_dir(txty);
         Ok(Point3D::to_wasm(
             self.camera.borrow().position() - world_dir * distance,
         ))

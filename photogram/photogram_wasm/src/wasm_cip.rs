@@ -179,7 +179,7 @@ impl WasmCip {
             return false;
         };
         let camera = cip.camera().borrow();
-        let world_dir = xy.get_mapped_world_dir(&*camera).into();
+        let world_dir = xy.sensor_as_unit_world_dir(&*camera).into();
         *vec = world_dir;
         true
     }

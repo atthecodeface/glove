@@ -2,7 +2,7 @@ use geo_nd::{Quaternion, Vector};
 use geo_nd_wasm::WasmVec2f64;
 use wasm_bindgen::prelude::*;
 
-use ic_photogram::CameraInstanceProjection;
+use ic_photogram::CameraLensProjection;
 use ic_photogram::PointMapping;
 use ic_photogram::{Point2D, RollYaw};
 
@@ -256,7 +256,7 @@ impl WasmPointMapping {
         let pms = pms.pms().borrow();
         if let Some(pm) = pms.mapping_of_np_name(&self.wasm_np.name) {
             self.has_pms = true;
-            self.screen = *pm.screen();
+            self.screen = pm.screen();
             self.error = pm.error();
             self.usage = pm.usage();
 
@@ -266,13 +266,14 @@ impl WasmPointMapping {
             // ratio to map to a pure positionq
             //
             // This does NOT use the lens mapping
-            let screen_txty = camera.px_abs_xy_to_sensor_txty(&self.screen);
-            self.screen_ry = screen_txty.into();
+            self.screen_ry = camera.sensor_px_abs_xy_to_optical_txty(self.screen).into();
         } else {
             self.has_pms = false;
         }
         if np_is_mapped {
-            self.expected = camera.world_xyz_to_px_abs_xy(&self.wasm_np.model_pt());
+            self.expected = camera
+                .world_dir_to_opt_sensor_px_abs_xy(self.wasm_np.model_world_direction(&*camera))
+                .unwrap_or_default();
             self.set_cursor(cursor_x, cursor_y);
         }
         if np_is_mapped && self.has_pms {
@@ -281,8 +282,7 @@ impl WasmPointMapping {
             self.d_map_distance = self.screen.distance(self.expected);
 
             let roll_quat = Quatf64::default().rotate_z(-self.screen_ry.roll());
-            let screen_txty = camera.px_abs_xy_to_sensor_txty(pm.screen());
-            let screen_sensor_dir = screen_txty.to_unit_vector();
+            let screen_sensor_dir = self.screen_ry.to_unit_vector();
             let screen_sensor_on_roll_axis = roll_quat.apply3(&screen_sensor_dir);
             let placed_yaw = screen_sensor_on_roll_axis[0] / screen_sensor_on_roll_axis[2];
 
@@ -290,8 +290,9 @@ impl WasmPointMapping {
             // to a yaw for yaw error
             //
             // This does NOT use the lens mapping - but the expected position did
-            let expected_txty = camera.px_abs_xy_to_sensor_txty(&self.expected);
-            let expected_sensor_dir = expected_txty.to_unit_vector();
+            let expected_sensor_dir = camera
+                .sensor_px_abs_xy_to_optical_txty(self.expected)
+                .to_unit_vector();
 
             // Rotate the direction for the NP expected position by -map_roll around -Z to
             // generate an (x,y,z) whose x is 'yaw' error, y is 'roll' error, scaled down by
