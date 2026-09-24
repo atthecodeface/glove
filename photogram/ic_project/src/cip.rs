@@ -4,7 +4,7 @@ use std::cell::{Ref, RefMut};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag, TagSet};
-use ic_camera::{CameraInstance, CameraInstanceDesc, CameraInstanceProjection};
+use ic_camera::{AdjustableCameraProjection, CameraInstance, CameraInstanceDesc};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
 use crate::Project;
@@ -331,6 +331,6 @@ impl Cip {
     {
         self.pms
             .borrow()
-            .generate_pm_world_sensor_data(&*self.camera.borrow(), filter)
+            .generate_pm_camera_sensor_data(&*self.camera.borrow(), filter)
     }
 }
