@@ -243,14 +243,13 @@ impl CameraBody {
     pub fn px_mm_aspect_ratio(&self) -> f64 {
         self.pixel_aspect_ratio
     }
+    /// Get the (main) name of the camera body
+    pub fn sensor_name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl CameraSensor for CameraBody {
-    /// Get the (main) name of the camera body
-    fn sensor_name(&self) -> &str {
-        &self.name
-    }
-
     /// Get the size of the sensor in pixels
     fn sensor_px_size(&self) -> (f64, f64) {
         (self.px_width, self.px_height)

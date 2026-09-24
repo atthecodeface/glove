@@ -247,12 +247,12 @@ impl CameraLens {
 }
 
 impl LensProjection for CameraLens {
-    fn camera_txty_to_sensor_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
+    fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
         let camera_ry: RollYaw = camera_txty.into();
         let sensor_ry = camera_ry.with_tan_yaw(self.tan_camera_to_tan_sensor(camera_ry.tan_yaw()));
         sensor_ry.into()
     }
-    fn sensor_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
+    fn optical_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
         let sensor_ry: RollYaw = sensor_txty.into();
         let camera_ry = sensor_ry.with_tan_yaw(self.tan_sensor_to_tan_camera(sensor_ry.tan_yaw()));
         camera_ry.into()

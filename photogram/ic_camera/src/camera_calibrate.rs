@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, Point2D, Point3D, Result, TanXTanY};
 
-use crate::{CameraInstance, CameraInstanceProjection};
+use crate::{CameraInstance, CameraLensProjection};
 
 //a CalibrationMapping
 //tp CalibrationMapping

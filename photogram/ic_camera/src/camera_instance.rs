@@ -4,8 +4,11 @@ use geo_nd::quat;
 
 use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
 
-use crate::{CameraBody, CameraDatabase, CameraLens, CameraProjection};
-use crate::{CameraInstanceDesc, CameraInstanceProjection, CameraSensor};
+use crate::{
+    AdjustableCameraProjection, CameraBody, CameraDatabase, CameraLens, CameraLensProjection,
+    CameraProjection, LensProjection,
+};
+use crate::{CameraInstanceDesc, CameraSensor};
 use crate::{serialize_body_name, serialize_lens_name};
 
 /// An instance of a camera - a body, lens, focus distance, position and orientation
@@ -176,7 +179,42 @@ impl CameraInstance {
     }
 }
 
+impl AdjustableCameraProjection for CameraInstance {
+    fn set_position(&mut self, p: &Point3D) {
+        self.position = *p;
+    }
+
+    fn set_orientation(&mut self, q: &Quat) {
+        self.orientation = *q;
+    }
+
+    fn set_optical_axis_offset(&mut self, p: &Point2D) {
+        self.optical_axis_offset = *p;
+    }
+
+    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
+        self.mm_focus_distance = mm_focus_distance;
+        self.derive()
+    }
+}
+
 impl CameraInstance {
+    pub fn camera_name(&self) -> String {
+        self.body.sensor_name().into()
+    }
+
+    pub fn lens_name(&self) -> String {
+        self.lens.name().into()
+    }
+
+    pub fn focal_length(&self) -> f64 {
+        self.lens.mm_focal_length()
+    }
+
+    pub fn focus_distance(&self) -> f64 {
+        self.mm_focus_distance
+    }
+
     /// Set the body of the camera instance
     pub fn set_body(&mut self, body: CameraBody) {
         self.body = body;
@@ -254,23 +292,57 @@ impl CameraProjection for CameraInstance {
     }
 }
 
-impl CameraInstanceProjection for CameraInstance {
-    fn camera_name(&self) -> String {
-        self.body.sensor_name().into()
+impl CameraSensor for CameraInstance {
+    /// Get the size of the sensor in pixels, width and height
+    fn sensor_px_size(&self) -> (f64, f64) {
+        self.body.sensor_px_size()
     }
 
-    fn lens_name(&self) -> String {
-        self.lens.name().into()
+    /// Get the width of a single sensor pixel in mm
+    fn sensor_mm_single_pixel_width(&self) -> f64 {
+        self.body.mm_single_pixel_width()
     }
 
-    fn focal_length(&self) -> f64 {
-        self.lens.mm_focal_length()
+    /// Get the width of a single sensor pixel in mm
+    fn sensor_mm_single_pixel_height(&self) -> f64 {
+        self.body.mm_single_pixel_height()
     }
 
-    fn focus_distance(&self) -> f64 {
-        self.mm_focus_distance
+    /// Get the center of the sensor in pixels
+    ///
+    /// This accounts for the optical axis offset
+    fn sensor_px_center(&self) -> Point2D {
+        self.body.px_centre()
+    }
+}
+
+impl LensProjection for CameraInstance {
+    fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
+        self.lens.camera_txty_to_optical_txty(camera_txty)
+    }
+    fn optical_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
+        self.lens.optical_txty_to_camera_txty(sensor_txty)
+    }
+}
+
+impl CameraLensProjection for CameraInstance {
+    /// Get the optical axis offset for a lens on this body in this instance
+    ///
+    /// This is in pixels; it is added to the sensor center
+    #[inline]
+    fn optical_axis_offset(&self) -> Point2D {
+        self.optical_axis_offset
     }
 
+    /// Get the distance of the lens from the sensor in mm
+    #[inline]
+    fn lens_sensor_distance(&self) -> f64 {
+        self.lens_sensor_distance
+    }
+}
+
+/*
+impl CameraInstance {
     fn position(&self) -> Point3D {
         self.position
     }
@@ -279,26 +351,6 @@ impl CameraInstanceProjection for CameraInstance {
         self.orientation
     }
 
-    fn optical_axis_offset(&self) -> Point2D {
-        self.optical_axis_offset
-    }
-
-    fn set_position(&mut self, p: &Point3D) {
-        self.position = *p;
-    }
-
-    fn set_orientation(&mut self, q: &Quat) {
-        self.orientation = *q;
-    }
-
-    fn set_optical_axis_offset(&mut self, p: &Point2D) {
-        self.optical_axis_offset = *p;
-    }
-
-    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
-        self.mm_focus_distance = mm_focus_distance;
-        self.derive()
-    }
 
     fn sensor_mm_size(&self) -> (f64, f64) {
         (self.body.mm_sensor_width(), self.body.mm_sensor_height())
@@ -313,7 +365,6 @@ impl CameraInstanceProjection for CameraInstance {
     }
 
     fn lens_sensor_distance(&self) -> f64 {
-        self.lens_sensor_distance
     }
 
     #[inline]
@@ -341,3 +392,4 @@ impl CameraInstanceProjection for CameraInstance {
         )
     }
 }
+*/

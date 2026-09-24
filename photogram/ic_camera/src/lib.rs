@@ -23,12 +23,13 @@ Pixels on an image are mapped as follows:
 
 Hence there are the following coordinate spaces:
 
-* Sensor/image absolute (top-left is 0,0, units are pixels)
-* Sensor/image relative (center is 0,0, units are pixels)
-* Optical center relative (optical axis is 0,0, units are pixels, represented by a Point2D)
-* Optical direction vector ([X, Y, -1], represented by a TanXTanY)
-* Camera direction vector ([X, Y, -1], represented by a TanXTanY)
-* World (direction vectors and rays, using Ray and Point3D; start position of ray is in mm)
+* Sensor/image absolute (top-left is 0,0, units are pixels) (sensor_px_abs_xy)
+* Sensor/image relative (center is 0,0, units are pixels) (sensor_px_rel_xy, generally internal use only)
+* Optical center relative (optical axis is 0,0, units are pixels, represented by a Point2D) (optical_xy generally internal use only)
+* Optical direction vector ([X, Y, -1], represented by a TanXTanY) (optical_txty, generally internal use only)
+* Camera direction vector ([X, Y, -1], represented by a TanXTanY) (camera_txty)
+* World direction vectors as [X,Y,Z] (world_dir)
+* World position vectors as [X,Y,Z] (world_xyz)
 
 To compare the pixels for regions of different images the regions need to be mapped into the same coordinate space;
 for small areas around a ray this is usually a rectilinear spherical projection.
@@ -120,16 +121,17 @@ pub use camera_lens::{CameraLens, serialize_lens_name};
 mod camera_database;
 pub use camera_database::CameraDatabase;
 
-mod camera_calibrate;
+// mod camera_calibrate;
 mod camera_instance;
 mod camera_instance_desc;
-pub use camera_calibrate::CalibrationMapping;
+// pub use camera_calibrate::CalibrationMapping;
 pub use camera_instance::CameraInstance;
 pub use camera_instance_desc::CameraInstanceDesc;
 
 mod traits;
 pub use traits::{
-    CameraInstanceProjection, CameraLensProjection, CameraProjection, CameraSensor, LensProjection,
+    AdjustableCameraProjection, CameraLensProjection, CameraProjection, CameraSensor,
+    LensProjection,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -151,27 +153,22 @@ impl CameraProjection for BaseCamera {
 pub struct RectilinearLens();
 
 impl LensProjection for RectilinearLens {
-    fn camera_txty_to_sensor_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
+    fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
         camera_txty
     }
-    fn sensor_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
+    fn optical_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
         sensor_txty
     }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SizedSensor {
-    width: u32,
-    height: u32,
-    mm_per_pixel: f64,
+    pub width: u32,
+    pub height: u32,
+    pub mm_per_pixel: f64,
 }
 
 impl CameraSensor for SizedSensor {
-    /// Get the (main) name of the camera body
-    fn sensor_name(&self) -> &str {
-        "SizedSensor"
-    }
-
     /// Get the size of the sensor in pixels
     fn sensor_px_size(&self) -> (f64, f64) {
         (self.width as f64, self.height as f64)
