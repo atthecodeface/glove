@@ -4,7 +4,7 @@ members = [
     "photogram",
     "image_server",
     "photogram_wasm",
-    "spherical_image",
+    # "spherical_image",
     "ic_base", "ic_cache",
     "ic_camera", "ic_http",
     "ic_image", "ic_kernel",
