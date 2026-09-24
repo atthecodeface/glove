@@ -5,7 +5,7 @@ use geo_nd::Vector;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{Point2D, Point3D, Ray};
-use ic_camera::CameraInstanceProjection;
+use ic_camera::{CameraLensProjection, CameraProjection};
 
 use crate::NamedPoint;
 
@@ -101,6 +101,17 @@ impl PointMapping {
         self.named_point.model_pt()
     }
 
+    /// Get the *world* direction to the named model point
+    #[inline]
+    pub fn model_world_direction<C: CameraProjection>(&self, camera: &C) -> Point3D {
+        let world = self.named_point.model_pt();
+        if self.named_point().model_is_direction() {
+            world
+        } else {
+            camera.world_xyz_to_world_dir(world)
+        }
+    }
+
     /// Get the uncertainty in the named point's model data
     ///
     /// If the named point is not mapped, then this is invalid
@@ -122,8 +133,8 @@ impl PointMapping {
     }
 
     #[inline]
-    pub fn screen(&self) -> &Point2D {
-        &self.screen
+    pub fn screen(&self) -> Point2D {
+        self.screen
     }
 
     #[inline]
@@ -165,29 +176,27 @@ impl PointMapping {
     /// This does not apply the camera orientation
     ///
     /// This does apply the lens mapping
-    pub fn get_mapped_camera_dir<C: CameraInstanceProjection>(&self, camera: &C) -> Point3D {
-        camera
-            .px_abs_xy_to_camera_txty(&self.screen)
-            .to_unit_vector()
+    pub fn sensor_as_unit_camera_dir<C: CameraLensProjection>(&self, camera: &C) -> Point3D {
+        camera.sensor_px_abs_xy_to_camera_dir(self.screen)
     }
 
     /// Get the direction vector for the frame point of a mapping in
     /// the world (post-orientation of camera)
-    pub fn get_mapped_world_dir<C: CameraInstanceProjection>(&self, camera: &C) -> Point3D {
-        camera.camera_txty_to_world_dir(&camera.px_abs_xy_to_camera_txty(&self.screen))
+    pub fn sensor_as_unit_world_dir<C: CameraLensProjection>(&self, camera: &C) -> Point3D {
+        camera.sensor_px_abs_xy_to_world_dir(self.screen)
     }
 
     //mp get_mapped_ray
     // was get_pm_as_ray
     //
     // used by get_rays, project derive_nps_location
-    pub fn get_mapped_ray<C: CameraInstanceProjection>(&self, camera: &C, from_camera: bool) -> Ray {
+    pub fn get_mapped_ray<C: CameraLensProjection>(&self, camera: &C, from_camera: bool) -> Ray {
         // Can calculate 4 vectors for pm.screen() +- pm.error()
         //
         // Calculate dots with the actual vector - cos of angles
         //
         // tan^2 angle = sec^2 - 1
-        let world_pm_direction_vec = self.get_mapped_world_dir(camera);
+        let world_pm_direction_vec = self.sensor_as_unit_world_dir(camera);
 
         let mut min_cos = 1.0;
         for e in [
@@ -199,8 +208,7 @@ impl PointMapping {
             let e: Point2D = e.into();
             let err_s_xy = self.screen + e;
 
-            let err_c_txty = camera.px_abs_xy_to_camera_txty(&err_s_xy);
-            let world_err_vec = -camera.camera_txty_to_world_dir(&err_c_txty);
+            let world_err_vec = -camera.sensor_px_abs_xy_to_world_dir(err_s_xy);
 
             let dot = world_pm_direction_vec.dot(world_err_vec);
             if dot < min_cos {
@@ -224,20 +232,23 @@ impl PointMapping {
     }
 
     /// Calculate the offset from this mappings specified sensor postition to
-    /// the derive sensor position (given the camera) of the mapping
+    /// the derived sensor position (given the camera) of the mapping
     ///
-    /// Return None if the mapping is unmapped
+    /// Return None if the mapping is unmapped or if the model point maps behind the camera
     #[inline]
-    pub fn get_mapped_dpxy<C: CameraInstanceProjection>(&self, camera: &C) -> Option<Point2D> {
-        if self.is_unmapped() {
-            return None;
-        }
-        Some(self.screen - camera.world_xyz_to_px_abs_xy(&self.model()))
+    pub fn get_mapped_dpxy<C: CameraLensProjection>(&self, camera: &C) -> Option<Point2D> {
+        self.is_mapped()
+            .then(|| {
+                camera
+                    .world_dir_to_opt_sensor_px_abs_xy(camera.world_xyz_to_world_dir(self.model()))
+                    .map(|pxy| self.screen - pxy)
+            })
+            .flatten()
     }
 
     /// Get the total dpxy squared error
     #[inline]
-    pub fn get_mapped_dpxy_error2<C: CameraInstanceProjection>(&self, camera: &C) -> f64 {
+    pub fn get_mapped_dpxy_error2<C: CameraLensProjection>(&self, camera: &C) -> f64 {
         if let Some(dpxy) = self.get_mapped_dpxy(camera) {
             let esq = dpxy.length_sq();
             esq * esq / (esq + self.error.powi(2))
@@ -246,47 +257,60 @@ impl PointMapping {
         }
     }
 
-    //fp get_mapped_model_error
-    fn get_mapped_model_error<C: CameraInstanceProjection>(
+    /// Get the errors in mapping this *point*; does not work for a point mapped to a *direction* named point
+    ///
+    /// Calculates the direction vector from the camera of the sensor XY of the PM, and of the model point
+    ///
+    /// For a named point that is a position, it returns the angular error, the
+    /// axis of rotation required to rotate the camera by the error angle to
+    /// remove the error, and the *world* dxyz assuming the model point is the
+    /// specified distance from the camera
+    ///
+    /// For a named point that is a direction, it returns the angular error, the
+    /// axis of rotation required to rotate the camera by the error angle to
+    /// remove the error, and an arbitrary length vector
+    fn get_mapped_model_error<C: CameraLensProjection>(
         &self,
         camera: &C,
-    ) -> (f64, Point3D, f64, Point3D) {
-        let model_rel_xyz = camera.world_xyz_to_camera_xyz(&self.model());
-        let model_dist = model_rel_xyz.length();
-        let model_vec = camera
-            .world_xyz_to_camera_txty(&self.model())
-            .to_unit_vector();
-        let screen_vec = camera
-            .px_abs_xy_to_camera_txty(self.screen())
-            .to_unit_vector();
-        let dxdy = camera.camera_xyz_to_world_xyz(&((-screen_vec) * model_dist)) - self.model();
-        let axis = model_vec.cross_product(screen_vec);
-        let sin_sep = axis.length();
-        let error = sin_sep * model_dist;
-        let angle = sin_sep.asin().to_degrees();
+    ) -> (f64, Point3D, Point3D) {
+        let model_world_dir = self.model_world_direction(camera);
+        let model_dist = model_world_dir.length();
+        let model_camera_dir = camera.world_dir_to_camera_dir(model_world_dir).normalize();
+        let screen_camera_dir = camera.sensor_px_abs_xy_to_camera_dir(self.screen());
+
+        let axis = model_camera_dir.cross_product(screen_camera_dir);
+        let error_angle = axis.length().asin();
         let axis = axis.normalize();
-        if error < 0. {
-            (-error, dxdy, -angle, -axis)
+
+        let dxyz =
+            camera.camera_dir_to_world_dir(screen_camera_dir - model_camera_dir) * model_dist;
+        if error_angle < 0. {
+            (-error_angle, -axis, dxyz)
         } else {
-            (error, dxdy, angle, axis)
+            (error_angle, axis, dxyz)
         }
     }
 
     //fp show_mapped_error
-    pub fn show_mapped_error<C: CameraInstanceProjection>(&self, camera: &C) {
+    pub fn show_mapped_error<C: CameraLensProjection>(&self, camera: &C) {
         if self.is_unmapped() {
             return;
         }
-        let camera_scr_xy = camera.world_xyz_to_px_abs_xy(&self.model());
-        let (model_error, model_dxdy, model_angle, model_axis) =
-            self.get_mapped_model_error(camera);
+        let Some(camera_scr_xy) =
+            camera.world_dir_to_opt_sensor_px_abs_xy(self.model_world_direction(camera))
+        else {
+            return;
+        };
+        let (model_angle_error, model_axis, model_dxdy) = self.get_mapped_model_error(camera);
         let dxdy = self.get_mapped_dpxy(camera).unwrap();
         let esq = self.get_mapped_dpxy_error2(camera);
         eprintln!(
-            "esq {esq:.2} {} {} <> {:.2}: Maps to {camera_scr_xy:.2}, dxdy {dxdy:.2}: model rot {model_axis:.2} by {model_angle:.2} dxdydz {model_dxdy:.2} dist {model_error:.3}  ",
+            "esq {esq:.2} {} {} <> {:.2}: Maps to {camera_scr_xy:.2}, dxdy {dxdy:.2}: model rot {model_axis:.2} by {:.2} dxdydz {model_dxdy:.2} dist {:.3}  ",
             self.named_point().ref_tag(),
             self.model(),
             self.screen(),
+            model_angle_error.to_degrees(),
+            model_dxdy.length()
         );
     }
 

@@ -6,7 +6,7 @@ use geo_nd::{Quaternion, Vector};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, Point2D, Point3D, Quat, Ray, Result, RollYaw, TanXTanY, utils};
-use ic_camera::CameraInstanceProjection;
+use ic_camera::{AdjustableCameraProjection, CameraLensProjection};
 
 use crate::{ModelLineSet, NamedPoint, NamedPointSet, PointMapping};
 
@@ -262,7 +262,7 @@ impl PointMappingSet {
 
     //mp get_screen_pts
     pub fn get_screen_pts(&self) -> Vec<Point2D> {
-        self.mappings.iter().map(|x| *x.screen()).collect()
+        self.mappings.iter().map(|x| x.screen()).collect()
     }
 
     pub fn to_json(&self, pretty: bool) -> Result<String> {
@@ -314,7 +314,7 @@ impl PointMappingSet {
     pub fn add_good_model_lines<C, F>(&self, mls: &mut ModelLineSet<C>, filter: F, max_pairs: usize)
     where
         F: Fn(usize, &PointMapping) -> bool,
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
     {
         for (i, j) in self.get_good_screen_pairs(max_pairs, filter) {
             mls.add_line((&self.mappings[i], &self.mappings[j]));
@@ -326,7 +326,7 @@ impl PointMappingSet {
     // used by get_best_location
     //
     // worst_error returns just the error value
-    pub fn find_worst_error<C: CameraInstanceProjection>(&self, camera: &C) -> (usize, f64) {
+    pub fn find_worst_error<C: CameraLensProjection>(&self, camera: &C) -> (usize, f64) {
         let mut n = 0;
         let mut worst_e = 0.;
         for (i, pm) in self.mappings.iter().enumerate() {
@@ -342,14 +342,14 @@ impl PointMappingSet {
     //fp total_error
     // used by get_best_location
     //
-    pub fn total_error<C: CameraInstanceProjection>(&self, camera: &C) -> f64 {
+    pub fn total_error<C: CameraLensProjection>(&self, camera: &C) -> f64 {
         self.mappings
             .iter()
             .fold(0.0, |acc, pm| acc + pm.get_mapped_dpxy_error2(camera))
     }
 
     //mp iter_mapped_rays
-    pub fn iter_mapped_rays<C: CameraInstanceProjection>(
+    pub fn iter_mapped_rays<C: CameraLensProjection>(
         &self,
         camera: &C,
         from_camera: bool,
@@ -365,19 +365,19 @@ impl PointMappingSet {
     //mi qr_err_of_posn
     fn qr_err_of_posn<C>(&self, pm_n: &[usize], camera: &mut C, pt: &Point3D) -> (Quat, f64)
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection + AdjustableCameraProjection,
     {
         camera.set_position(pt);
         let mut qs = vec![];
         for i in pm_n.iter() {
-            let di_c = self.mappings[*i].get_mapped_camera_dir(camera);
+            let di_c = self.mappings[*i].sensor_as_unit_camera_dir(camera);
             let di_m = (pt - self.mappings[*i].model()).normalize();
 
             for j in pm_n.iter() {
                 if i == j {
                     continue;
                 }
-                let dj_c = self.mappings[*j].get_mapped_camera_dir(camera);
+                let dj_c = self.mappings[*j].sensor_as_unit_camera_dir(camera);
                 let dj_m = (pt - self.mappings[*j].model()).normalize();
 
                 qs.push((
@@ -404,7 +404,7 @@ impl PointMappingSet {
         max_angle_subtended_error: f64,
     ) -> Result<(f64, C)>
     where
-        C: CameraInstanceProjection + Clone,
+        C: CameraLensProjection + AdjustableCameraProjection + Clone,
         F: Fn(usize, &PointMapping) -> bool + Clone,
     {
         let pm_n_f = filter.clone();
@@ -449,7 +449,7 @@ impl PointMappingSet {
         steps: usize,
     ) -> Result<(f64, C)>
     where
-        C: CameraInstanceProjection + Clone,
+        C: CameraLensProjection + AdjustableCameraProjection + Clone,
         F: Fn(usize, &PointMapping) -> bool + Clone,
     {
         let pm_n_f = filter.clone();
@@ -507,7 +507,7 @@ impl PointMappingSet {
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
-        C: CameraInstanceProjection,
+        C: CameraLensProjection + AdjustableCameraProjection,
     {
         let mut qs = vec![];
 
@@ -518,7 +518,7 @@ impl PointMappingSet {
             .filter(|(_n, pm)| pm.is_mapped())
             .filter(|(n, pm)| filter.clone()(*n, pm))
         {
-            let di_c = pm_i.get_mapped_camera_dir(camera);
+            let di_c = pm_i.sensor_as_unit_camera_dir(camera);
             let di_m = if pm_i.model_is_direction() {
                 pm_i.model().normalize()
             } else {
@@ -534,7 +534,7 @@ impl PointMappingSet {
                 .filter(|(_n, pm)| pm.is_mapped())
                 .filter(|(n, pm)| filter.clone()(*n, pm))
             {
-                let dj_c = pm_j.get_mapped_camera_dir(camera);
+                let dj_c = pm_j.sensor_as_unit_camera_dir(camera);
                 let dj_m = pm_j.model_direction_from(&camera.position());
                 let wj = weighting(pm_j);
 
@@ -567,7 +567,7 @@ impl PointMappingSet {
     /// Calculate the *total* dx2 and dy2 for all the (filtered) points in the mapping given the camera
     pub fn dx2_dy2_of_camera<C, F, W>(&self, camera: &C, filter: F, weighting: W) -> (f64, f64)
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
         F: Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
     {
@@ -603,7 +603,7 @@ impl PointMappingSet {
         max_steps: usize,
     ) -> Result<f64>
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection + AdjustableCameraProjection,
         F: Clone + Fn(usize, &PointMapping) -> bool,
         W: Fn(&PointMapping) -> f64,
     {
@@ -665,16 +665,16 @@ impl PointMappingSet {
     /// Generate a Vec of (pm number, world yaw, sensor yaw) for mappings of
     /// points that have are mappings to NamedPoint that is placed in some
     /// manner
-    pub fn generate_pm_world_sensor_data<C, F>(
+    pub fn generate_pm_camera_sensor_data<C, F>(
         &self,
         camera: &C,
         filter: F,
     ) -> Vec<(usize, f64, f64, f64, f64)>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
     {
-        let mut pm_world_sensor_data = vec![];
+        let mut pm_camera_sensor_data = vec![];
         let indices: Vec<_> = self
             .mappings
             .iter()
@@ -690,28 +690,19 @@ impl PointMappingSet {
             }
 
             // sensor_yaw is given by the Yaw of the *mapped* point, which is based purely on the sensor geometry not the lens calibration
-            let sensor_txty = camera.px_abs_xy_to_sensor_txty(pm.screen());
-            let sensor_ry: RollYaw = sensor_txty.into();
+            let sensor_ry: RollYaw = camera.sensor_px_abs_xy_to_optical_txty(pm.screen()).into();
 
             // world_yaw is given by the Yaw of the direction vector, which is based on the camera orientation only and not the lens calibration
-
-            let world_dir = {
-                if pm.model_is_direction() {
-                    camera.world_dir_to_camera_xyz(&pm.model())
-                } else {
-                    camera.world_xyz_to_camera_xyz(&pm.model())
-                }
-            };
-            let world_txty: TanXTanY = world_dir.into();
-            let world_ry: RollYaw = world_txty.into();
-            pm_world_sensor_data.push((
+            let camera_txty = camera.world_dir_to_camera_txty(pm.model_world_direction(camera));
+            let camera_ry: RollYaw = camera_txty.into();
+            pm_camera_sensor_data.push((
                 i,
-                world_ry.roll(),
-                world_ry.yaw(),
+                camera_ry.roll(),
+                camera_ry.yaw(),
                 sensor_ry.roll(),
                 sensor_ry.yaw(),
             ));
         }
-        pm_world_sensor_data
+        pm_camera_sensor_data
     }
 }

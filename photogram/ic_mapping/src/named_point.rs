@@ -1,6 +1,7 @@
 //a Imports
 use std::cell::{Ref, RefCell, RefMut};
 
+use ic_camera::CameraProjection;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{ModelData, Point3D, Tag, TagData};
@@ -99,6 +100,17 @@ impl NamedPoint {
     /// If the model data is at infinity then the location is ignored
     pub fn model_direction_from(&self, location: &Point3D) -> Point3D {
         self.model.borrow().model_direction_from(location)
+    }
+
+    /// Get the *world* direction to the named model point
+    #[inline]
+    pub fn model_world_direction<C: CameraProjection>(&self, camera: &C) -> Point3D {
+        let model = self.model.borrow();
+        if model.model_is_direction() {
+            model.model_pt()
+        } else {
+            camera.world_xyz_to_world_dir(model.model_pt())
+        }
     }
 
     #[inline]

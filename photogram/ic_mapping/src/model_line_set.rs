@@ -4,7 +4,7 @@ use std::default::Default;
 use geo_nd::Vector;
 
 use ic_base::{Point3D, utils};
-use ic_camera::CameraInstanceProjection;
+use ic_camera::CameraLensProjection;
 
 use crate::{ModelLine, ModelLineSubtended, PointMapping};
 
@@ -13,7 +13,7 @@ use crate::{ModelLine, ModelLineSubtended, PointMapping};
 #[derive(Debug)]
 pub struct ModelLineSet<C>
 where
-    C: CameraInstanceProjection + Sized,
+    C: CameraLensProjection + Sized,
 {
     camera: C,
 
@@ -28,7 +28,7 @@ where
 //ip ModelLineSet
 impl<C> ModelLineSet<C>
 where
-    C: CameraInstanceProjection + Sized,
+    C: CameraLensProjection + Sized,
 {
     //cp new
     pub fn new(camera: C) -> Self {
@@ -63,8 +63,8 @@ where
         }
         let model_p0 = pm0.model();
         let model_p1 = pm1.model();
-        let dir_p0 = pm0.get_mapped_camera_dir(&self.camera);
-        let dir_p1 = pm1.get_mapped_camera_dir(&self.camera);
+        let dir_p0 = pm0.sensor_as_unit_camera_dir(&self.camera);
+        let dir_p1 = pm1.sensor_as_unit_camera_dir(&self.camera);
         let cos_theta = dir_p0.dot(dir_p1);
         let angle = cos_theta.acos();
         let model_line = ModelLine::new(model_p0, model_p1);

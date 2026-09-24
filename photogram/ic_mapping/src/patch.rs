@@ -3,7 +3,7 @@ use std::rc::Rc;
 use geo_nd::Vector;
 
 use ic_base::{Plane, Point2D, Point3D};
-use ic_camera::CameraInstanceProjection;
+use ic_camera::CameraLensProjection;
 use ic_image::Image;
 use ic_mesh::Mesh;
 
@@ -233,24 +233,25 @@ impl Patch {
         true
     }
 
-    //mp sensor_pts
-    pub fn sensor_pts<C>(&self, camera: &C) -> Vec<Point2D>
+    fn sensor_pts<C>(&self, camera: &C) -> Vec<Option<Point2D>>
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
     {
         // Find the points on the sensor for all of the mesh points
         self.patch_mesh
             .model_pts_projected()
             .iter()
             .map(|p| self.plane.point_in_space(p))
-            .map(|p| camera.world_xyz_to_px_abs_xy(&p))
+            .map(|p| camera.world_dir_to_opt_sensor_px_abs_xy(camera.world_xyz_to_world_dir(p)))
             .collect()
     }
 
-    //mp mm_per_px_at_center
+    /// Find the range of mm per pixel at the centre by considering *four*
+    /// points on the plane relative to the centre of the patch (1mm in each of
+    /// +-X, +-Y) and the number of pixels each of these is once mapped
     pub fn mm_per_px_at_center<C>(&self, camera: &C) -> (f64, f64)
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
     {
         if !self.plane_ok {
             return (0.0, 0.0);
@@ -259,31 +260,34 @@ impl Patch {
         let (lx, rx, by, ty) = self.patch_mesh.mesh_bounds();
         let cx = (lx + rx) / 2.0;
         let cy = (by + ty) / 2.0;
-        let model_pt = self.plane.point_in_space(&[cx, cy].into());
-        let sensor_pt = camera.world_xyz_to_px_abs_xy(&model_pt);
-        let p = self.plane.point_in_space(&[cx + 1.0, cy].into());
-        let d0 =
-            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
 
-        let p = self.plane.point_in_space(&[cx - 1.0, cy].into());
-        let d1 =
-            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
+        let mut mm_per_px_min = f64::MAX;
+        let mut mm_per_px_max = 0.0_f64;
 
-        let p = self.plane.point_in_space(&[cx, cy + 1.0].into());
-        let d2 =
-            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
+        let model_cxyz = self.plane.point_in_space(&[cx, cy].into());
+        let Some(sensor_cxy) =
+            camera.world_dir_to_opt_sensor_px_abs_xy(camera.world_xyz_to_world_dir(model_cxyz))
+        else {
+            return (0.0, 0.0);
+        };
 
-        let p = self.plane.point_in_space(&[cx, cy - 1.0].into());
-        let d3 =
-            (model_pt.distance(p) / sensor_pt.distance(camera.world_xyz_to_px_abs_xy(&p))).abs();
-
-        (d0.min(d1).min(d2).min(d3), d0.max(d1).max(d2).max(d3))
+        for (dx, dy) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)].into_iter() {
+            let model_xyz = self.plane.point_in_space(&[cx + dx, cy + dy].into());
+            if let Some(sensor_xy) =
+                camera.world_dir_to_opt_sensor_px_abs_xy(camera.world_xyz_to_world_dir(model_xyz))
+            {
+                let d = model_cxyz.distance(model_xyz) / sensor_cxy.distance(sensor_xy);
+                mm_per_px_max = mm_per_px_max.max(d);
+                mm_per_px_min = mm_per_px_min.min(d);
+            }
+        }
+        (mm_per_px_min, mm_per_px_max)
     }
 
     //mp create_img
     pub fn create_img<C, I>(&self, camera: &C, src_img: &I) -> Option<I>
     where
-        C: CameraInstanceProjection,
+        C: CameraLensProjection,
         I: Image,
     {
         if !self.plane_ok {
@@ -296,10 +300,13 @@ impl Patch {
         let (src_w, src_h) = src_img.size();
         let src_w = src_w as f64;
         let src_h = src_h as f64;
-        if !src_pts
-            .iter()
-            .any(|p| p[0] >= 0.0 && p[0] < src_w && p[1] >= 0.0 && p[1] < src_h)
-        {
+        if !src_pts.iter().any(|p| {
+            p.is_none()
+                || p.unwrap()[0] >= 0.0
+                    && p.unwrap()[0] < src_w
+                    && p.unwrap()[1] >= 0.0
+                    && p.unwrap()[1] < src_h
+        }) {
             return None;
         }
 
@@ -334,13 +341,15 @@ impl Patch {
             for y in 0..height {
                 let plane_y = ((y as isize + iby) as f64) / self.render_px_per_model;
                 let plane_xy_in_model = self.plane.point_in_space(&[plane_x, plane_y].into());
-                let pxy = camera.world_xyz_to_px_abs_xy(&plane_xy_in_model);
-
-                if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
-                    continue;
+                if let Some(pxy) = camera.world_dir_to_opt_sensor_px_abs_xy(
+                    camera.world_xyz_to_world_dir(plane_xy_in_model),
+                ) {
+                    if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
+                        continue;
+                    }
+                    let c = src_img.get(pxy[0] as u32, pxy[1] as u32);
+                    patch_img.put(x as u32, y as u32, &c);
                 }
-                let c = src_img.get(pxy[0] as u32, pxy[1] as u32);
-                patch_img.put(x as u32, y as u32, &c);
             }
         }
 

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, ModelData, Result, Tag, TagMap, TagSet};
-use ic_camera::CameraInstanceProjection;
+use ic_camera::CameraLensProjection;
 use ic_image::Color8;
 
 use crate::NamedPoint;
@@ -200,7 +200,7 @@ impl NamedPointSet {
 //ip NamedPointSet - show
 impl NamedPointSet {
     //fp show_mappings
-    pub fn show_mappings<C: CameraInstanceProjection>(&self, camera: &C) {
+    pub fn show_mappings<C: CameraLensProjection>(&self, camera: &C) {
         for np in self.points.iter() {
             if np.is_unmapped() {
                 continue;
@@ -209,14 +209,19 @@ impl NamedPointSet {
             let uncertainty = np.model().model_uncertainty();
             let name = np.ref_tag();
             if np.model_is_direction() {
-                if let Some(camera_pxy) = camera.world_dir_to_opt_px_abs_xy(&model) {
+                if let Some(camera_pxy) = camera.world_dir_to_opt_sensor_px_abs_xy(model) {
                     println!("{name} : {model} direction maps to {camera_pxy}");
                 } else {
                     println!("{name} : {model} direction is behind camera",);
                 }
             } else {
-                let camera_pxy = camera.world_xyz_to_px_abs_xy(&model);
-                println!("{name} : {model}+-{uncertainty} maps to {camera_pxy}");
+                if let Some(camera_pxy) =
+                    camera.world_dir_to_opt_sensor_px_abs_xy(camera.world_xyz_to_world_dir(model))
+                {
+                    println!("{name} : {model}+-{uncertainty} maps to {camera_pxy}");
+                } else {
+                    println!("{name} : {model}+-{uncertainty} behind camera");
+                }
             }
         }
     }
