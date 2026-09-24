@@ -171,7 +171,7 @@ impl ProjectSet {
         let cip_r = cip.borrow();
 
         let pms = cip_r.pms();
-        let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| *p.screen()), 1E-2);
+        let mesh = Mesh::optimized(pms.borrow().mappings().iter().map(|p| p.screen()), 1E-2);
         let triangles: Vec<_> = mesh.triangles().collect();
         eprintln!("Triangles of mesh {triangles:?}");
         let json = serde_json::to_string(&triangles).unwrap();
