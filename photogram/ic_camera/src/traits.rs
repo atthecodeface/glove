@@ -144,6 +144,8 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     }
 
     /// World direction (x,y,z) to a camera direction [TanXTanY], by appling the camera orientaion
+    ///
+    /// Note that a TanXTanY is always valid; if the world direction is *behind* the camera then this returns the TanXTanY of the *opposite* direction
     #[inline]
     fn world_dir_to_camera_txty(&self, world_dir: Point3D) -> TanXTanY {
         self.world_dir_to_camera_dir(world_dir).into()
