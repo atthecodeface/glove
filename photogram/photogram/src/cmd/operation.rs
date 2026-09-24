@@ -1,7 +1,7 @@
 //a Imports
 use std::rc::Rc;
 
-use ic_photogram::CameraInstanceProjection;
+use ic_photogram::CameraSensor;
 use ic_photogram::ModelData;
 use ic_photogram::Result;
 use ic_photogram::{Image, ImagePt, ImageRgb8};
@@ -52,22 +52,23 @@ impl CmdArgs {
         map(&self.pms.borrow())
     }
 
-    /// Create a point mapping set from a calibration mapping
-    pub fn calibration_mapping_to_pms(&self) -> PointMappingSet {
-        let v = self.calibration_mapping.get_xyz_pairings();
-        let mut nps = NamedPointSet::default();
-        let mut pms = PointMappingSet::default();
+    /*
+        /// Create a point mapping set from a calibration mapping
+        pub fn calibration_mapping_to_pms(&self) -> PointMappingSet {
+            let v = self.calibration_mapping.get_xyz_pairings();
+            let mut nps = NamedPointSet::default();
+            let mut pms = PointMappingSet::default();
 
-        for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
-            let model = ModelData::at_infinity(model_xyz).with_uncertainty(0.0);
-            let name = n.to_string();
-            let color = [255, 255, 255, 255].into();
-            nps.add_pt(&name, color, model);
-            pms.add_mapping(&nps, &name, &pxy_abs, 0.);
+            for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
+                let model = ModelData::at_infinity(model_xyz).with_uncertainty(0.0);
+                let name = n.to_string();
+                let color = [255, 255, 255, 255].into();
+                nps.add_pt(&name, color, model);
+                pms.add_mapping(&nps, &name, &pxy_abs, 0.);
+            }
+            pms
         }
-        pms
-    }
-
+    */
     //mp draw_image
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {

@@ -5,9 +5,9 @@ use star_catalog::Catalog;
 
 use crate::Result;
 
+use ic_photogram::CameraDatabase;
 use ic_photogram::CameraInstance;
 use ic_photogram::Color8;
-use ic_photogram::{CalibrationMapping, CameraDatabase};
 use ic_photogram::{Cip, Project};
 use ic_photogram::{NamedPointSet, PointMappingSet};
 use ic_photogram::{NamedRayList, Point2D, Point3D, Rrc};
@@ -68,11 +68,11 @@ impl CmdArgs {
         &mut self.camera
     }
 
-    //mi calibration_mapping
-    pub fn calibration_mapping(&self) -> &CalibrationMapping {
-        &self.calibration_mapping
-    }
-
+    /*    //mi calibration_mapping
+        pub fn calibration_mapping(&self) -> &CalibrationMapping {
+            &self.calibration_mapping
+        }
+    */
     //mi star_catalog
     pub fn star_catalog(&self) -> &Catalog {
         self.star_catalog.as_ref().unwrap()

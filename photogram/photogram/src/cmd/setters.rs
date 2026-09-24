@@ -4,7 +4,7 @@ use star_catalog::Catalog;
 
 use crate::Result;
 use ic_photogram::Project;
-use ic_photogram::{CalibrationMapping, CameraDatabase, CameraInstanceProjection, LensPolys};
+use ic_photogram::{AdjustableCameraProjection, CameraDatabase, LensPolys};
 use ic_photogram::{CameraInstance, CameraInstanceDesc};
 use ic_photogram::{Color8, Point2D};
 use ic_photogram::{JsonParsable, NamedRayList, QuaternionDesc};
@@ -36,18 +36,18 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_calibration_mapping_file
-    pub fn set_calibration_mapping_file(&mut self, filename: &str) -> Result<()> {
-        self.calibration_mapping =
-            CalibrationMapping::load_json_file(&self.path_set, filename, &())?.1;
-        Ok(())
-    }
+    /*
+        pub fn set_calibration_mapping_file(&mut self, filename: &str) -> Result<()> {
+            self.calibration_mapping =
+                CalibrationMapping::load_json_file(&self.path_set, filename, &())?.1;
+            Ok(())
+        }
 
-    //mi set_calibration_mapping
-    pub fn set_calibration_mapping(&mut self, mapping: CalibrationMapping) {
-        self.calibration_mapping = mapping;
-    }
-
+        //mi set_calibration_mapping
+        pub fn set_calibration_mapping(&mut self, mapping: CalibrationMapping) {
+            self.calibration_mapping = mapping;
+        }
+    */
     //mi set_camera_json
     pub(crate) fn set_camera_json(&mut self, camera_json: &str) -> Result<()> {
         let camera = CameraInstanceDesc::load_json(camera_json, &self.cdb.borrow())?;

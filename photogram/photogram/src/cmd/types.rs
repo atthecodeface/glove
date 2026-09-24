@@ -2,9 +2,9 @@
 
 use star_catalog::Catalog;
 
+use ic_photogram::CameraDatabase;
 use ic_photogram::CameraInstance;
 use ic_photogram::Cylinder;
-use ic_photogram::{CalibrationMapping, CameraDatabase};
 use ic_photogram::{Cip, Project};
 use ic_photogram::{Color8, ImageRgb8};
 use ic_photogram::{NamedPointSet, PointMappingSet};
@@ -35,7 +35,7 @@ pub struct CmdArgs {
     // Lose this
     pub(crate) pms: Rrc<PointMappingSet>,
     // Lose this
-    pub(crate) calibration_mapping: CalibrationMapping,
+    // pub(crate) calibration_mapping: CalibrationMapping,
 
     // CIP that is part of the project
     pub(crate) cip: Option<Rrc<Cip>>,

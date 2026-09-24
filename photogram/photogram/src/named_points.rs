@@ -7,8 +7,8 @@ use ic_photogram::Color8;
 use ic_photogram::ModelData;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_photogram::CameraInstanceProjection;
 use ic_photogram::NamedPointSet;
+use ic_photogram::{AdjustableCameraProjection, CameraLensProjection, CameraProjection};
 use ic_photogram::{JsonParsable, Point3D, Ray, TagSet};
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -281,7 +281,7 @@ impl CmdArgs {
             let mut num_mappings = 0_usize;
             for c in &cips {
                 if let Some(pm) = c.borrow().pms().borrow().mapping_of_np(&np) {
-                    let pm_direction = pm.get_mapped_world_dir(&*c.borrow().camera_ref());
+                    let pm_direction = pm.sensor_as_unit_world_dir(&*c.borrow().camera_ref());
                     num_mappings += 1;
                     direction += pm_direction;
                     if false {
@@ -291,7 +291,7 @@ impl CmdArgs {
                             pm.screen(),
                             c.borrow()
                                 .camera_ref()
-                                .world_dir_to_opt_px_abs_xy(&pm_direction)
+                                .world_dir_to_opt_sensor_px_abs_xy(pm_direction)
                                 .unwrap_or_default()
                         );
                     }

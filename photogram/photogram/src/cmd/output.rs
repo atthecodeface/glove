@@ -37,11 +37,12 @@ impl CmdArgs {
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
         }
-        if let Some(filename) = &self.write_calibration_mapping {
+        /*        if let Some(filename) = &self.write_calibration_mapping {
             let s = self.calibration_mapping.to_json(true)?;
             let mut f = std::fs::File::create(filename)?;
             f.write_all(s.as_bytes())?;
         }
+        */
         Ok(())
     }
 

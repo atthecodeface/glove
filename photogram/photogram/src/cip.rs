@@ -7,13 +7,6 @@ use ic_photogram::{Cip, NamedPoint, PointMapping};
 
 use geo_nd::{Quaternion, Vector};
 
-use ic_photogram::Idx;
-use ic_photogram::{CameraInstance, CameraInstanceProjection, LensPolys};
-use ic_photogram::{Cylinder, CylindricalProjection};
-use ic_photogram::{Image, ImageDrawable, ImageRgb8};
-use ic_photogram::{ImageFileIndex, SphericalImage, SphericalImageShape};
-use ic_photogram::{Point2D, Point3D, Quat};
-
 use crate::cmd::{CmdArgs, CmdResult};
 
 //a Help

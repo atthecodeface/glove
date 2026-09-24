@@ -4,7 +4,9 @@ use thunderclap::{CmdDescriptor, CommandArgs, json};
 use geo_nd::{Quaternion, Vector};
 use ic_photogram::Color8;
 use ic_photogram::Idx;
-use ic_photogram::{CameraInstance, CameraInstanceProjection, LensPolys};
+use ic_photogram::{
+    CameraInstance, CameraLensProjection, CameraProjection, CameraSensor, LensPolys,
+};
 use ic_photogram::{Cylinder, CylindricalProjection};
 use ic_photogram::{Image, ImageDrawable, ImageRgb8};
 use ic_photogram::{ImageFileIndex, SphericalImage, SphericalImageShape};
@@ -74,22 +76,8 @@ impl CmdArgs {
 
     fn photo_map_pts_cmd(&mut self) -> CmdResult {
         let mut result: Vec<_> = vec![];
-        for xy in self.xy.iter() {
-            if self.verbose {
-                let img_ry = self.camera.px_abs_xy_to_sensor_txty(xy).to_ry();
-                eprintln!(
-                    "{xy} maps to roll {} image yaw {} world yaw {}",
-                    img_ry.roll().to_degrees(),
-                    img_ry.yaw().to_degrees(),
-                    self.camera
-                        .sensor_ry_to_camera_ry(&img_ry)
-                        .yaw()
-                        .to_degrees(),
-                );
-            }
-            let d = self
-                .camera
-                .camera_txty_to_world_dir(&self.camera.px_abs_xy_to_camera_txty(xy));
+        for px_abs_xy in self.xy.iter() {
+            let d = self.camera.sensor_px_abs_xy_to_world_dir(*px_abs_xy);
             result.push(d);
         }
 
@@ -188,8 +176,7 @@ impl CmdArgs {
             p[1] = y as f64;
             for x in 0..w {
                 p[0] = x as f64;
-                let txty = self.camera.px_abs_xy_to_camera_txty(&p);
-                let d = self.camera.camera_txty_to_world_dir(&txty);
+                let d = self.camera.sensor_px_abs_xy_to_world_dir(p);
                 if let Some(color) = image.get_pixel_of_direction(&d) {
                     jpg.put(x, y, &color);
                 }
@@ -346,7 +333,7 @@ impl CmdArgs {
         h: u32,
         v: Point3D,
     ) -> Option<I::Pixel> {
-        if let Some(pxy) = camera.world_dir_to_opt_px_abs_xy(&v) {
+        if let Some(pxy) = camera.world_dir_to_opt_sensor_px_abs_xy(v) {
             if pxy[0] < 0.0 || pxy[0] >= (w as f64) || pxy[1] < 0.0 || pxy[1] >= (h as f64) {
                 None
             } else {
