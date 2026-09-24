@@ -151,6 +151,11 @@ impl RollYaw {
         }
     }
 
+    pub fn to_unit_vector(self) -> Point3D {
+        let txty: TanXTanY = self.into();
+        txty.to_unit_vector()
+    }
+
     //fp from_txty
     /// From a direction vector [tanX, tanY, -1] determine the Roll
     /// and Yaw that must be applied to [0,0,-1]
