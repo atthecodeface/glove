@@ -9,7 +9,8 @@ members = [
     "ic_camera", "ic_http",
     "ic_image", "ic_kernel",
     "ic_mapping", "ic_mesh",
-    "ic_project", "ic_projections",
+    "ic_project",
+   # "ic_projections",
     "ic_spherical_image",
     "ic_threads",
     "ic_photogram",
@@ -37,7 +38,7 @@ ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
 ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
 ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
 ic_project = { version = "0.1.0", path = "./ic_project" }
-ic_projections = { version = "0.1.0", path = "./ic_projections" }
+# ic_projections = { version = "0.1.0", path = "./ic_projections" }
 ic_spherical_image = { version = "0.1.0", path = "./ic_spherical_image" }
 ic_threads = { version = "0.1.0", path = "./ic_threads" }
 ic_play = { version = "0.1.0", path = "./ic_play" }
