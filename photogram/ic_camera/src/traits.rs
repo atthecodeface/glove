@@ -272,3 +272,56 @@ pub trait AdjustableCameraProjection: std::fmt::Debug + Clone {
     /// Set the distance from the sensor that the projection is focused on
     fn set_focus_distance(&mut self, mm_focus_distance: f64);
 }
+
+/// A CylindricalProjection mapping maps (reversibly) a sphere with polar coordinates
+/// (lambda, phi) with -pi<lambda<=pi and -pi/2 <= phi <= pi/2 to a cylinder
+/// with coordinates (lambda, y). Hence it is really a mapping of phi to y.
+///
+/// In actuality the projection is confined to a vertical section of the
+/// cylinder referred to with y=1 as the bottom y=0 as the top of the section,
+/// mapping phi = v_ofs - vfov/2 to y=1, and y=0 maps to v_ofs + vfov/2
+///
+/// The mapping is x,y to λ (lambda), φ (phi)
+///
+/// The spherical coords λ and φ
+/// map to a direction (relative to the camera orientation) of (sin(λ), tan(φ), cos(λ)) normalized,
+/// i.e. a rotation of (0,0,1) about the X axis by φ (latitude) then about the Y axis by λ (longitude).
+///
+/// x_relative is in the range -1 to +1 for left to right of the image; y_relative +1 to -1 for bottom to top
+///
+/// All cylindrical projections use x = λ, or rather λ = x; this is the 'main' axis
+///
+/// The minor axis (y) can map the actual y value in the range +-1 to +-hfov_v; this is the equirectangular projection with phi = y
+///
+/// The minor axis (y) can map the actual y value with phi = atan(y), with
+/// phi in the range +-hfov_v; then y must map to a range of tan(-hfovh) to
+/// tan(hfovh) (linearly)
+///
+///
+/// "Equirectangular projection" uses x = λ, y = φ
+/// "Central cylindrical projection" uses x = λ, y = tan(φ) [ hence φ = atan(y) ]
+/// "Lambert cylindrical projection (equal area) " uses x = λ, y = sin(φ)  [ hence φ = asin(y) ]
+/// "Gall stereographic projection " uses x = λ, y = tan(φ/2) [ hence φ = 2*atan(y) ]
+pub trait CylindricalProjection: std::fmt::Debug {
+    /// Get the name of the projection (such as "equirectangular")
+    fn name(&self) -> &str;
+    /// Set the vertical field of view, in radians, and the offset from 0
+    ///
+    /// A value of 0 in y should map to v_ofs - fov_v/2
+    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64);
+    /// Map y in range 0 to 1 (max to min) to phi
+    ///
+    ///
+    fn phi_of_y(&self, y: f64) -> f64;
+    /// Map y in range 0 to 1 to phi in range (v_ofs-fov_v/2) to (v_ofs+fov_v/2) appropriately
+    fn tan_phi_of_y(&self, y: f64) -> f64 {
+        self.phi_of_y(y).tan()
+    }
+    /// Map phi to y, with (v_ofs+fov_v/2) mapping to y=0 and (v_ofs-fov_v/2 ) to y=1
+    ///
+    /// This must use the inverse mapping for phi(y)
+    fn y_of_phi(&self, phi: f64) -> f64;
+
+    /// Create a boxed clone to allow CylindricalLens to be Clone
+    fn boxed_clone(&self) -> Box<dyn CylindricalProjection>;
+}

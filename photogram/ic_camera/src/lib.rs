@@ -128,10 +128,13 @@ mod camera_instance_desc;
 pub use camera_instance::CameraInstance;
 pub use camera_instance_desc::CameraInstanceDesc;
 
+mod cylindrical_lens;
+pub use cylindrical_lens::CylindricalLens;
+
 mod traits;
 pub use traits::{
     AdjustableCameraProjection, CameraLensProjection, CameraProjection, CameraSensor,
-    LensProjection,
+    CylindricalProjection, LensProjection,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
