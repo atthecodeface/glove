@@ -40,8 +40,8 @@ class NamedPoint extends ImagePoint {
         super();
         this.project = project;
         this.np_name = mnp.name();
-        this.x = mnp.wasm_pms.expected_x;
-        this.y = mnp.wasm_pms.expected_y;
+        this.x = mnp.wasm_pm.expected_x;
+        this.y = mnp.wasm_pm.expected_y;
         const color = color_choice_as_rgb({ rgb_string: mnp.color() });
         const rgb = rgb_of_color(color);
         this.color = [rgb[0], rgb[1], rgb[2], 1];
@@ -59,8 +59,8 @@ class NamedPoint extends ImagePoint {
 class MappedPoint extends NamedPoint {
     constructor(project, mnp) {
         super(project, mnp);
-        this.x = mnp.wasm_pms.image_x;
-        this.y = mnp.wasm_pms.image_y;
+        this.x = mnp.wasm_pm.image_x;
+        this.y = mnp.wasm_pm.image_y;
         this.movable = true;
     }
     draw(webgl, webgl_canvas) {
@@ -69,6 +69,22 @@ class MappedPoint extends NamedPoint {
     }
     finished_drag(parent, xy) {
         parent.mapped_point_moved(this, xy);
+    }
+}
+var PointMappingModeKind;
+(function (PointMappingModeKind) {
+    PointMappingModeKind[PointMappingModeKind["Normal"] = 0] = "Normal";
+    PointMappingModeKind[PointMappingModeKind["Stars"] = 1] = "Stars";
+})(PointMappingModeKind || (PointMappingModeKind = {}));
+class PointMappingMode {
+    constructor() {
+        this.mode_kind = PointMappingModeKind.Normal;
+    }
+    show_stars() {
+        return this.mode_kind == PointMappingModeKind.Stars;
+    }
+    set_stars() {
+        return this.mode_kind == PointMappingModeKind.Stars;
     }
 }
 /** The StarCalibration tab in the application
@@ -120,6 +136,7 @@ class MappedPoint extends NamedPoint {
  */
 export class StarCalibration {
     constructor(application, log, html_div) {
+        this.mode = new PointMappingMode();
         this.star_catalog = new WasmCatalog("hipp_full");
         this.camera = null;
         this.animation_rotation = 0;
@@ -152,6 +169,7 @@ export class StarCalibration {
         this.html_div = html_div;
         // Quiet typescript - this will be set later
         this.tools_nps_div = html_div;
+        this.tools_cips_div = html_div;
         this.tools_stats_div = html_div;
         this.wasm_star = this.star_catalog.star(0);
         this.wasm_mat4 = WasmMat4f64.identity();
@@ -189,6 +207,15 @@ export class StarCalibration {
         action_div
             .add_button("", "", this.reorient_using_mappings.bind(this))
             .add_content("Reorient using PMS");
+        action_div
+            .add_button("", "", () => this.adjust_camera_orientation_by_dxy2(0.1, 100))
+            .add_content("Adjust by 0.1 degrees");
+        action_div
+            .add_button("", "", () => this.adjust_camera_orientation_by_dxy2(0.01, 100))
+            .add_content("Adjust by 0.01 degrees");
+        action_div
+            .add_button("", "", () => this.adjust_camera_orientation_by_dxy2(0.001, 100))
+            .add_content("Adjust by 0.001 degrees");
         action_div.add_ele("hr");
         action_div
             .add_button("", "", () => this.application.current_project().mapped_nps().recolor_nps())
@@ -243,30 +270,33 @@ export class StarCalibration {
             .add_content("Rot Z -");
         action_div.add_ele("hr");
         action_div
-            .add_button("", "", () => this.move_optical_axis_camera(-1, 0))
+            .add_button("", "", () => this.move_optical_axis_camera(-10, 0))
             .add_content("Opt axis X -");
         action_div
-            .add_button("", "", () => this.move_optical_axis_camera(1, 0))
+            .add_button("", "", () => this.move_optical_axis_camera(10, 0))
             .add_content("Opt axis X +");
         action_div
-            .add_button("", "", () => this.move_optical_axis_camera(0, -1))
+            .add_button("", "", () => this.move_optical_axis_camera(0, -10))
             .add_content("Opt axis Y -");
         action_div
-            .add_button("", "", () => this.move_optical_axis_camera(0, 1))
+            .add_button("", "", () => this.move_optical_axis_camera(0, 10))
             .add_content("Opt axis Y +");
         this.tools_stats_div = action_div.add_ele("div");
         this.tools_nps_div = tabs.add_tab(tools_dialog.add_tab_div("tab-sc-nps", "dialog_inner_contents"), "Named Points", 1);
+        this.tools_cips_div = tabs.add_tab(tools_dialog.add_tab_div("tab-sc-cips", "dialog_inner_contents"), "CIPS", 2);
     }
     new_np_and_pm() {
         const project = this.application.current_project();
         const np_name = project.nps_get_new_name();
         project.nps_add(np_name);
         this.application.current_project().pms_add(np_name, [this.cursor.x, this.cursor.y], 0);
-        this.find_star_closest_to_pm(np_name, 0.1);
+        if (this.mode.set_stars()) {
+            this.find_star_closest_to_pm(np_name, 0.1);
+        }
     }
     tools_dialog_tab_selected(_t, _id) {
-        console.log(_t, _id);
         this.repopulate_nps_div();
+        this.repopulate_cips_div();
     }
     tab_name() {
         return "star-calibration";
@@ -301,6 +331,11 @@ export class StarCalibration {
         const mapped_nps = this.application.current_project().mapped_nps();
         mapped_nps.update();
         // This does too much at present
+        this.camera = null;
+        const wasm_cip = this.application.current_project().get_wasm_cip();
+        if (wasm_cip !== null) {
+            this.camera = wasm_cip.camera;
+        }
         this.repopulate_nps_div();
         this.update_selected_stars();
         this.update_after_pms_change();
@@ -327,6 +362,11 @@ export class StarCalibration {
     }
     project_camera_changed(_p) {
         if (this.tab_is_selected) {
+            this.camera = null;
+            const wasm_cip = this.application.current_project().get_wasm_cip();
+            if (wasm_cip !== null) {
+                this.camera = wasm_cip.camera;
+            }
             this.application.set_project_updated();
         }
     }
@@ -342,6 +382,10 @@ export class StarCalibration {
     }
     /** Update the selected stars whenever tha camera has changed */
     update_selected_stars() {
+        if (!this.mode.show_stars()) {
+            this.selected_star_indices = [];
+            return;
+        }
         this.wasm_vec.x = 0;
         this.wasm_vec.y = 0;
         this.wasm_vec.z = -1;
@@ -353,7 +397,6 @@ export class StarCalibration {
             hfovh = Math.atan(wasm_cip.camera.tan_hfovd);
         }
         this.wasm_quat.apply_set_vec3(this.wasm_vec);
-        console.log(hfovh);
         this.star_catalog.clear_filter();
         this.star_catalog.filter_max_magnitude(this.max_magnitude);
         this.selected_star_indices = this.star_catalog.find_stars_around(this.wasm_vec, hfovh, 0, this.max_stars);
@@ -374,6 +417,7 @@ export class StarCalibration {
         this.wasm_vec2.y += dy;
         this.camera.optical_axis_offset = this.wasm_vec2;
         console.log("Optical axis offset now", this.wasm_vec2.array);
+        this.adjust_camera_orientation_by_dxy2(0.01, 1000);
         this.application.current_project().camera_changed(true);
     }
     rotate_camera(axis, amount) {
@@ -399,7 +443,11 @@ export class StarCalibration {
         this.application.current_project().camera_changed(true);
     }
     reorient_using_mappings() {
-        this.application.current_project().get_cip().orient_camera_using_model_directions(10);
+        this.application.current_project().get_cip().orient_camera_using_model_directions(100);
+        this.application.current_project().camera_changed(true);
+    }
+    adjust_camera_orientation_by_dxy2(angle, max_steps) {
+        this.application.current_project().get_cip().adjust_camera_orientation_using_dxy2(100, angle, max_steps);
         this.application.current_project().camera_changed(true);
     }
     find_orientation() {
@@ -490,7 +538,7 @@ export class StarCalibration {
         this.image_points = [];
         this.image_points.push(this.cursor);
         for (const mnp of mapped_nps.named_points) {
-            if (mnp.wasm_pms.has_pms) {
+            if (mnp.wasm_pm.has_pms) {
                 const op = new MappedPoint(project, mnp);
                 this.image_points.push(op);
             }
@@ -567,6 +615,13 @@ export class StarCalibration {
         }
         this.application.set_redraw_required();
     }
+    /** Repopulate the tools CIPS div using the current project */
+    repopulate_cips_div() {
+        this.tools_cips_div.clear();
+        const table = new Table({ classes: "sticky-table" });
+        this.application.current_project().fill_cips_table(table, this);
+        this.tools_cips_div.add_content(table.as_html());
+    }
     /** Repopulate the tools NPS div using the current mapped_nps */
     repopulate_nps_div() {
         this.tools_nps_div.clear();
@@ -580,7 +635,7 @@ export class StarCalibration {
     update_map_of_selected_stars() {
         this.selected_star_pts = new Float32Array(this.selected_star_indices.length * 4);
         this.selected_star_pts_epoch += 1;
-        if (this.camera === null) {
+        if ((this.camera === null) || (this.selected_star_indices.length == 0)) {
             return;
         }
         let i = 0;

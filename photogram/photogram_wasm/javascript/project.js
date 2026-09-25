@@ -687,4 +687,70 @@ export class Project {
                     .catch(this.log_exception.bind(this));
         }
     }
+    fill_cips_table(table, _client) {
+        if (this.wasm_project === null) {
+            return;
+        }
+        table.add_headings(["Name", "Thumbnail", "Image file"]);
+        const ncips = this.wasm_project.ncips();
+        for (let i = 0; i < ncips; i += 1) {
+            const cip_name = this.wasm_project.cip_name(i);
+            const action = table.add_input_button(cip_name, () => {
+                this.set_cip(i);
+            });
+            const thumbnail = new HtmlElement(this.thumbnails.get(cip_name));
+            const image_name = this.wasm_project.cip(cip_name).image_filename;
+            table.add_body([action, thumbnail, image_name]);
+            /*
+            const np_x = mnp.wasm_pms.expected_x;
+            const np_y = mnp.wasm_pms.expected_y;
+            const np_name = mnp.name();
+      
+            const expected_at = table.add_button("", "", () => {
+              client.mapped_np_select_xy(np_x, np_y);
+            });
+            expected_at.add_content(mnp.div_expected_at(table));
+      
+            let mapped_to: HtmlElement | null = null;
+            let action: HtmlElement | null = null;
+      
+            if (mnp.has_pms()) {
+              mnp.wasm_pms.set_image_vec(this.wasm_vec2);
+              const x = mnp.wasm_pms.image_x;
+              const y = mnp.wasm_pms.image_y;
+              mapped_to = table.add_button("", "", () => {
+                client.mapped_np_select_xy(x, y)
+              });
+              mapped_to.add_content(mnp.div_pms(table));
+              mapped_to.add_content(mnp.span_pms_uncertainty(table));
+              action = table.add_ele("div");
+              action.add_input_button(circle_symbol, () => {
+                client.mapped_np_set_mapping_for(np_name);
+              });
+              action.add_input_button(dustbin_symbol, () => {
+                client.mapped_np_delete_mapping_for(np_name);
+              });
+            } else {
+              mapped_to = table.add_span("");
+              action = table.add_input_button(plus_symbol, () => {
+                client.mapped_np_add_mapping_for(np_name);
+              });
+            }
+      
+            table.add_body([
+              mnp.name(),
+              mnp.color_select(table),
+              mnp.div_location(table),
+              mnp.span_uncertainty(table),
+              expected_at,
+              mapped_to,
+              mnp.span_pms_dsq(table),
+              mnp.span_focus_dsq(table),
+              mnp.div_roll_yaw(table),
+              mnp.span_map_roll_err(table),
+              mnp.span_map_yaw_err(table),
+              action,
+              ]);*/
+        }
+    }
 }

@@ -28,9 +28,9 @@ impl WasmRay {
     pub fn new(start: &[f64], dirn: &[f64], tan_error: Option<f64>) -> Result<WasmRay, String> {
         let tan_error = tan_error.unwrap_or(0.01);
         let ray = Ray::default()
-            .set_start(Point3D::from_wasm(start)?)
-            .set_direction(Point3D::from_wasm(dirn)?)
-            .set_tan_error(tan_error);
+            .with_start(Point3D::from_wasm(start)?)
+            .with_direction(Point3D::from_wasm(dirn)?)
+            .with_tan_error(tan_error);
         Ok(Self { ray })
     }
 
@@ -42,7 +42,7 @@ impl WasmRay {
 
     //mp closest_model_to_intersection
     pub fn closest_model_to_intersection(rays: Vec<WasmRay>) -> Option<Box<[f64]>> {
-        if let Some(model) = Ray::closest_point(rays.iter().map(|r| &r.ray), &|_r| 1.0) {
+        if let Some(model) = Ray::closest_point(rays.iter().map(|r| &r.ray), &|_r, _n| 1.0) {
             let model: [f64; 3] = model.into();
             Some(Box::new(model))
         } else {
