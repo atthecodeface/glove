@@ -220,14 +220,14 @@ impl PointMapping {
 
         if from_camera {
             Ray::default()
-                .set_start(camera.position())
-                .set_direction(world_pm_direction_vec)
-                .set_tan_error(tan_error)
+                .with_start(camera.position())
+                .with_direction(world_pm_direction_vec)
+                .with_tan_error(tan_error)
         } else {
             Ray::default()
-                .set_start(self.model())
-                .set_direction(-world_pm_direction_vec)
-                .set_tan_error(tan_error)
+                .with_start(self.model())
+                .with_direction(-world_pm_direction_vec)
+                .with_tan_error(tan_error)
         }
     }
 
