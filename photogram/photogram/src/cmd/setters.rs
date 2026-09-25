@@ -459,7 +459,7 @@ impl CmdArgs {
         Ok(())
     }
     pub(crate) fn set_cylindrical_projection(&mut self, projection: &str) -> Result<()> {
-        Ok(self.cylindrical_projection.set_projection(projection)?)
+        Ok(self.cylindrical_lens.set_projection(projection)?)
     }
     pub(crate) fn add_point2d(&mut self, s: &str) -> Result<()> {
         Ok(())

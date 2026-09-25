@@ -4,7 +4,7 @@ use star_catalog::Catalog;
 
 use ic_photogram::CameraDatabase;
 use ic_photogram::CameraInstance;
-use ic_photogram::Cylinder;
+use ic_photogram::CylindricalLens;
 use ic_photogram::{Cip, Project};
 use ic_photogram::{Color8, ImageRgb8};
 use ic_photogram::{NamedPointSet, PointMappingSet};
@@ -81,7 +81,7 @@ pub struct CmdArgs {
     pub(crate) max_pairs: usize,
     pub(crate) steps: usize,
     pub(crate) range: f64,
-    pub(crate) cylindrical_projection: Cylinder,
+    pub(crate) cylindrical_lens: CylindricalLens,
 
     pub(crate) shape: SphericalImageShape,
     pub(crate) spherical_image: Option<Rrc<SphericalImage<ImageRgb8>>>,
