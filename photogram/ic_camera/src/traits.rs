@@ -1,6 +1,8 @@
 use geo_nd::{Quaternion, quat};
 
-use ic_base::{Point2D, Point3D, Quat, RollYaw, TanXTanY, utils::orientation_mapping_triangle};
+use ic_base::{
+    Point2D, Point3D, Quat, Ray, RollYaw, TanXTanY, utils::orientation_mapping_triangle,
+};
 
 /// A trait for a sensor in a digital camera, that maps absolute to
 /// centre-of-lens-pixel relative, still in units of pixels
@@ -141,6 +143,14 @@ pub trait CameraProjection: std::fmt::Debug + Clone {
     #[inline]
     fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
         self.orientation().apply3(&world_dir)
+    }
+
+    /// Camera direction [TanXTanY] map to a Ray (with 0 error), using the camera position and orientation
+    #[inline]
+    fn camera_dir_to_world_ray(&self, camera_dir: Point3D) -> Ray {
+        Ray::default()
+            .with_start(self.position())
+            .with_direction(self.orientation().conjugate().apply3(&camera_dir))
     }
 
     /// World direction (x,y,z) to a camera direction [TanXTanY], by appling the camera orientaion
