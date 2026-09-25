@@ -191,21 +191,24 @@ impl std::fmt::Display for Ray {
 impl Ray {
     /// Constructor: set the start point of the ray
     #[inline]
-    pub fn set_start(mut self, start: Point3D) -> Self {
+    #[must_use]
+    pub fn with_start(mut self, start: Point3D) -> Self {
         self.start = start;
         self
     }
 
     /// Constructor: set the direction of the ray
     #[inline]
-    pub fn set_direction(mut self, direction: Point3D) -> Self {
+    #[must_use]
+    pub fn with_direction(mut self, direction: Point3D) -> Self {
         self.direction = direction.normalize();
         self
     }
 
     /// Constructor: set the tan(angle error) of the ray
     #[inline]
-    pub fn set_tan_error(mut self, tan_error: f64) -> Self {
+    #[must_use]
+    pub fn with_tan_error(mut self, tan_error: f64) -> Self {
         self.tan_error = tan_error;
         self
     }
@@ -228,63 +231,45 @@ impl Ray {
         self.tan_error
     }
 
-    /// Find the point whose square distance from all the rays is the minimum
+    /// Find the point whose (weighted) square distance from all the rays is the minimum
     ///
-    /// This uses the fact that the distance D a point p is from a line a + k*b can be found
-    /// with p = a + k*b + D*n for some unit vector n perpendicular to b hence n.b=0, |n^b|=1;
+    /// The distance of a point p from a line (given by an origin A and unit direction B) can be determined as:
     ///
-    /// D*n = p-a-k*b; vector product with b yields
-    /// D*n^b = (p-a)^b
+    ///         P = A + k.B + d.N (where B.N=0, |N|=1, for some N), hence
+    ///       d.N = P - A - k.B
+    ///   d.(NxB) = (PxB) - (AxB) - k.(BxB)
+    ///   d.(NxB) = (P-A)xB
+    /// |d.(NxB)| = |(P-A)xB|, but |NxB|=1 so
+    ///       |d| = |(P-A)xB|
+    ///       d^2 = (PxB.PxB) - 2(AxB.PxB) + (AxB.AxB)
     ///
-    /// Taking the modulus of both sides
-    /// D*|n^b|= D = |(p-a)^b)|
-    ///
-    /// Hence D^2 = (p-a)^b . (p-a)^b = (p^b.p^b) - 2(a^b.p^b) + (a^b.a^b)
-    ///
-    /// Summing this for a single point p and multiple rays (a and b)
+    /// Summing this for a single point P and multiple rays (each with an A and B)
     /// yields a total square error; differentiating with respect to
     /// the coordinates of p yields a vector of 0s when p the error is minimized
     ///
+    ///        Sum(E^2) = Sum((PxB.PxB) - 2(AxB.PxB) + (AxB.AxB))
+    /// d/dPx(Sum(E^2)) = Sum(d/dPx((PxB.PxB) - 2(AxB.PxB) + (AxB.AxB)))
+    /// d/dPx(Sum(E^2)) = Sum(d/dPx((PxB.PxB) - 2(AxB.PxB)))
+    ///
     /// First, multiplying out etc:
     ///
-    /// p^b = (py.bz - pz.by, pz.bx - px.bz, px.by - bx.py)
+    ///        PxB       = (Py.Bz - Pz.By, Pz.Bx - Px.Bz, Px.By - Bx.Py)
+    ///        PxB . PxB = (Py.Bz - Pz.By)^2 + (Pz.Bx - Px.Bz)^2 + (Px.By - Bx.Py)^2
+    /// d/dPx(PxB . PxB) = 2(Px.Bz.Bz - Pz.Bx.Bz + Px.By.By - Py.Bx.By)
     ///
-    /// a^b = (ay.bz - az.by, az.bx - ax.bz, ax.by - ax.py)
+    ///        PxB . AxB = (Py.Bz - Pz.By).(Ay.Bz - Az.By) + (Pz.Bx - Px.Bz).(Az.Bx - Ax.Bz) + (Px.By - Bx.Py).(Ax.By - Bx.Ay)
+    /// d/dPx(PxB . AxB) = -Bz.(Az.Bx - Ax.Bz) + By.(Ax.By - Bx.Ay)
     ///
-    /// p^b . p^b = (py.bz - pz.by) ^ 2 + (pz.bx - px.bz) ^ 2 + (px.by - bx.py) ^ 2
+    /// Hence
     ///
-    /// d/dpx (p^b . p^b) = -2.bz.pz.bx + 2.px.bz.bz + 2.px.by.by - 2.bx.by.py
-    ///                   = 2px(bz.bz + by.by) - 2bx(bz.pz+by.py)
-    ///                   = 2px(by^2 + bz^2) - 2bx(bz.pz+by.py)
-    /// d/dpy (p^b . p^b) = 2py(bx^2 + by^2) - 2by(bx.px+bz.pz)
-    /// d/dpz (p^b . p^b) = 2pz(bz^2 + bx^2) - 2bz(by.py+bx.px)
+    /// d/dPx(Sum(E^2)) = Sum( 2(Px.Bz.Bz - Pz.Bx.Bz + Px.By.By - Py.Bx.By) +2Bz.(Az.Bx - Ax.Bz) - 2By.(Ax.By - Bx.Ay) )
+    ///                 = 2Sum( Px.Bz.Bz - Pz.Bx.Bz + Px.By.By - Py.Bx.By +Bz.Az.Bx -Bz.Ax.Bz -By.Ax.By +By.Bx.Ay)
+    ///                 = 2Sum( Px.(By.By + Bz.Bz) + Py.(-Bx.By) + Pz.(-Bx.Bz) - Ax.(Bz.Bz + By.By) + Ay.Bx.By + Az.Bx.Bz )
     ///
-    /// a^b . p^b = (ay.bz - az.by)(py.bz - pz.by) +
-    ///             (az.bx - ax.bz)(pz.bx - px.bz) +
-    ///             (ax.by - ay.bx)(px.by - py.bx)
-    ///
-    /// d/dpx (a^b . p^b) = -bz.(az.bx - ax.bz) + by.(ax.by - ay.bx)
-    ///                   = -bz.az.bx + bz.ax.bz + by.ax.by - by.ay.bx
-    ///                   = ax.(by^2+bz^2) - bx.(ay.by + az.bz)
-    /// d/dpy (a^b . p^b) = -bx.(ax.by - ay.bx) + bz.(ay.bz - az.by)
-    /// d/dpz (a^b . p^b) = -by.(ay.bz - az.by) + bx.(az.bx - ax.bz)
-    ///
-    ///
-    /// Now, remembering:
-    ///
-    /// D^2 = (p^b.p^b) - 2(a^b.p^b) + (a^b.a^b)
-    ///
-    /// d(D^2)/dpx = d/dpx (p^b.p^b) - 2d/dpx (a^b.p^b) + 0
-    ///            = 2px(by^2 + bz^2) - 2bx(bz.pz+by.py) -2ax.(by^2+bz^2) + 2bx.(ay.by + az.bz)
-    ///            = 2[ px(by^2 + bz^2) - bx(bz.pz+by.py) - ax.(by^2+bz^2) + bx.(ay.by + az.bz) ]
-    ///
-    /// When this sums to 0 for all the points we can drop the factor of 2
-    ///
-    /// Hence...
-    ///
-    /// d(Esq)/dpx = +px.(by^2 + bz^2) -py.bx.by         -pz.bx.bz         + ay.bx.by + az.bx.bz - ax.(by^2+bz^2)
-    /// d(Esq)/dpy = -px.bx.by         +py.(bx^2 + bz^2) -pz.by.bz         + az.by.bz + ax.by.bx - ay.(bz^2+bx^2)
-    /// d(Esq)/dpz = -px.bx.bz         -py.bz.by         +pz.(bx^2 + by^2) + ax.bx.bx + ay.bz.by - az.(bx^2+by^2)
+    /// At a minimum (and for each coordinate) this is 0; at this we have
+    ///   Px.(By.By + Bz.Bz) + Py.(-Bx.By)        + Pz.(-Bx.Bz)        - Ax.(Bz.Bz + By.By) + Ay.Bx.By + Az.Bx.Bz = 0
+    ///   Px.(-By.Bx)        + Py.(Bx.Bx + Bz.Bz) + Pz.(-By.Bz)        - Ay.(Bx.Bx + Bz.Bz) + Az.By.Bz + Ax.By.Bx = 0
+    ///   Px.(-Bz.Bx)        + Py.(-Bz.By)        + Pz.(Bx.Bx + By.By) - Az.(By.By + Bx.Bx) + Ax.Bz.Bx + Ay.Bz.By = 0
     ///
     /// and we can find M such that M . (px py pz) = V, invert M, and find (px py pz)
     ///
@@ -293,14 +278,14 @@ impl Ray {
     /// ray at an approximate solution can be found, and to weight
     /// each ray by some inversely proportional function of this
     /// *distance* error (such as 1/(base + distance^2)).
-    pub fn closest_point<'a, F: Fn(&Self) -> f64>(
+    pub fn closest_point<'a, F: Fn(&Self, usize) -> f64>(
         rays: impl Iterator<Item = &'a Self> + 'a,
         weight_fn: &F,
     ) -> Option<Point3D> {
         let mut m = [0.; 9];
         let mut v = [0.; 3];
-        for r in rays {
-            let w = weight_fn(r);
+        for (n, r) in rays.enumerate() {
+            let w = weight_fn(r, n);
             let ax = r.start[0];
             let ay = r.start[1];
             let az = r.start[2];

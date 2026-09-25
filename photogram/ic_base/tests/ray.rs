@@ -3,13 +3,13 @@ use ic_base::{JsonParsable, Ray, Result};
 #[test]
 fn test_ray() -> Result<()> {
     let r0 = Ray::default()
-        .set_start([1., 0., 0.].into())
-        .set_direction([-1., 0., 0.].into())
-        .set_tan_error(0.1);
+        .with_start([1., 0., 0.].into())
+        .with_direction([-1., 0., 0.].into())
+        .with_tan_error(0.1);
     let r1 = Ray::default()
-        .set_start([0., 1., 0.].into())
-        .set_direction([0., -1., 0.01].into())
-        .set_tan_error(0.1);
+        .with_start([0., 1., 0.].into())
+        .with_direction([0., -1., 0.01].into())
+        .with_tan_error(0.1);
     r0.intersect(&r1);
     eprintln!("{}", serde_json::to_string_pretty(&[r0, r1]).unwrap());
     Ok(())
@@ -97,7 +97,7 @@ fn test_ray3() -> Result<()> {
         &(),
     )?;
 
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|_| 1.0).unwrap();
+    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|_, _| 1.0).unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);
@@ -106,7 +106,7 @@ fn test_ray3() -> Result<()> {
         "Distance between the closest point and each of the rays should be about the same"
     );
 
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|r| 1.0 / r.tan_error()).unwrap();
+    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|r, _| 1.0 / r.tan_error()).unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);
