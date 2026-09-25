@@ -33,9 +33,12 @@ pub use ic_base::{QtPath, Quadtree};
 pub use ic_cache::{Cache, CacheRef, Cacheable};
 // pub use ic_camera::CalibrationMapping;
 pub use ic_camera::{
-    AdjustableCameraProjection, BaseCamera, CameraBody, CameraDatabase, CameraInstance,
-    CameraInstanceDesc, CameraLens, CameraLensProjection, CameraProjection, CameraSensor,
-    LensPolys, LensProjection, RectilinearLens, SizedSensor,
+    AdjustableCameraProjection, CameraLensProjection, CameraProjection, CameraSensor,
+    CylindricalProjection, LensProjection,
+};
+pub use ic_camera::{
+    BaseCamera, CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraLens,
+    CylindricalLens, LensPolys, RectilinearLens, SizedSensor,
 };
 pub use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
@@ -49,7 +52,6 @@ pub use ic_kernel::*;
 pub use ic_mapping::*;
 pub use ic_mesh::Mesh;
 pub use ic_project::*;
-pub use ic_projections::{Cylinder, CylindricalProjection};
 pub use ic_spherical_image::ImageFileIndex;
 pub use ic_spherical_image::{SphericalImage, SphericalImageShape};
 pub use ic_threads::ThreadPool;
