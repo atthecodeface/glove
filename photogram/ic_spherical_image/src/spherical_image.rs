@@ -274,6 +274,7 @@ impl<I: Image> SphericalImage<I> {
     pub fn write_image(&self, image_file: ImageFileIndex) -> ic_base::Result<()> {
         self.image_files[image_file]
             .image()
+            .borrow_mut()
             .write(self.image_files[image_file].path())
     }
 
@@ -308,6 +309,7 @@ impl<I: Image> SphericalImage<I> {
             .collect();
         let num_patches = (toplevel_triangles.len() as u32) / 2;
         let image = self.image_files[image_file].image();
+        let image = image.borrow();
         let (width, height) = image.size();
         let width_patches = width.div_ceil(patch_size);
         let height_patches = height.div_ceil(patch_size);
@@ -341,6 +343,7 @@ impl<I: Image> SphericalImage<I> {
             }
             self.patches.push(patch);
         }
+        drop(image);
         self.create_indices();
         Ok(())
     }
@@ -365,19 +368,19 @@ impl<I: Image> SphericalImage<I> {
         let (x, y) = patch.img_xy;
         let size = patch.patch_size;
         let from_patch = patch.image_patch.clone();
-        let from_patch = from_patch.map_subsquare::<I, _>(patch.patch_subdivision, 0, 0, get_pixel);
+        let mut from_patch =
+            from_patch.map_subsquare::<I, _>(patch.patch_subdivision, 0, 0, get_pixel);
         // Drop the patch
         let _ = patch;
         let mut image_patch = ic_image::ImagePatch::new(
-            self.image_files[image_file].image_mut(),
+            self.image_files[image_file].image().borrow_mut(),
             x,
             y,
             size,
             size,
             blend,
-            from_patch,
         );
-        image_patch.fill_img();
+        image_patch.fill_img(&mut from_patch);
     }
 
     /// Get the pixel value at a given vector
@@ -386,6 +389,7 @@ impl<I: Image> SphericalImage<I> {
             if patch.contains_direction(&self.sd, p) {
                 if let Some(p) = patch.image_coords(&self.sd, p) {
                     let image = self.image_files[patch.file_index].image();
+                    let image = image.borrow();
                     let (w, h) = image.size();
                     let x = (p[0].max(0.0).min((w - 1) as f64)) as u32;
                     let y = (p[1].max(0.0).min((h - 1) as f64)) as u32;

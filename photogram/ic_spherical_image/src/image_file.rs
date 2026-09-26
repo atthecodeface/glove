@@ -1,4 +1,4 @@
-use ic_base::{JsonParsable, PathSet};
+use ic_base::{JsonParsable, PathSet, Rrc};
 use ic_image::Image;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -26,12 +26,12 @@ impl JsonParsable for ImageFileDesc {
 pub struct ImageFile<I: Image> {
     path: PathBuf,
     img_wh: (u32, u32),
-    image: I,
+    image: Rrc<I>,
 }
 
 impl<I: Image> ImageFile<I> {
     pub fn new(width: u32, height: u32) -> Self {
-        let image = I::new(width, height);
+        let image = I::new(width, height).into();
         Self {
             path: PathBuf::new(),
             img_wh: (width, height),
@@ -43,6 +43,7 @@ impl<I: Image> ImageFile<I> {
         let p = path_set.find_file_err(&desc.path)?;
         let image = I::read(&p)?;
         let wh = image.size();
+        let image = image.into();
         if wh != desc.img_wh {
             return Err(SphericalImageError::BadImageFileSize(wh, desc.img_wh).into());
         }
@@ -63,6 +64,7 @@ impl<I: Image> ImageFile<I> {
         let filename = path_set.find_file_err(&path)?;
         let image = I::read_or_create_image(Some(filename), img_wh)?;
         let img_wh = image.size();
+        let image = image.into();
         Ok(Self {
             path,
             img_wh,
@@ -84,11 +86,7 @@ impl<I: Image> ImageFile<I> {
         self.path = path.as_ref().to_owned();
     }
 
-    pub fn image(&self) -> &I {
+    pub fn image(&self) -> &Rrc<I> {
         &self.image
-    }
-
-    pub fn image_mut(&mut self) -> &mut I {
-        &mut self.image
     }
 }
