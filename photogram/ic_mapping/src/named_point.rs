@@ -1,10 +1,14 @@
 //a Imports
-use std::cell::{Ref, RefCell, RefMut};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    collections::hash_set::Difference,
+};
 
-use ic_camera::CameraProjection;
+use geo_nd::{Quaternion, Vector};
+use ic_camera::{AdjustableCameraProjection, CameraLensProjection, CameraProjection};
 use serde::{Deserialize, Serialize};
 
-use ic_base::{ModelData, Point3D, Tag, TagData};
+use ic_base::{ModelData, Point3D, Quat, Tag, TagData};
 use ic_image::Color8;
 
 /// A point in model space, with a name
@@ -145,5 +149,48 @@ impl NamedPoint {
 
     pub fn has_name(&self, name: &str) -> bool {
         self.name.borrow().as_str() == name
+    }
+
+    /// Set the camera orientation (an potentially position) so that it points to the named point, with the named point's surface 'tangent' as 'Up'
+    ///
+    /// Set the position if the named point is not a placed point; otherwise ignore the distance
+    #[inline]
+    pub fn set_camera_for_facet<C: AdjustableCameraProjection>(
+        &self,
+        camera: &mut C,
+        mm_distance_to_point: f64,
+    ) {
+        let model = self.model.borrow().tidy_patch_data();
+        let direction: Point3D;
+        let up = model.tangent();
+        if model.model_is_direction() {
+            direction = model.model_pt();
+        } else {
+            direction = model.normal();
+        }
+        let direction = direction.normalize();
+        let up = up
+            .cross_product(direction)
+            .cross_product(direction)
+            .normalize();
+        if up.length_sq() < 0.9 {
+            panic!("up not perpendiculr to direction")
+        };
+        camera.set_orientation(&Quat::look_at(&direction, &up));
+        if !model.model_is_direction() {
+            camera.set_position(&(model.model_pt() - direction * mm_distance_to_point));
+        }
+    }
+
+    /// Get the tan of half of the field of view required for the facet, given its angle (if a direction) or its distance from the camera, plus the facet size
+    ///
+    /// In the case of a model point (not a direction) the result is the facet width divide by 2, then divided by the distance from the camera to the model point
+    pub fn facet_tan_hfov(&self, mm_distance_to_point: f64) -> f64 {
+        let model = self.model.borrow();
+        if model.model_is_direction() {
+            model.facet_size().tan() / 2.0
+        } else {
+            model.facet_size() / 2.0 / mm_distance_to_point
+        }
     }
 }
