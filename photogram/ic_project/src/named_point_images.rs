@@ -4,9 +4,11 @@ use ic_base::{Result, Rrc};
 use ic_image::{Image, ImageDrawable, ImageRgb8, ImageSquareSet, ImageSquares};
 use ic_mapping::NamedPoint;
 
+use crate::Cip;
+
 #[derive(Debug)]
 pub struct CipImages<I: Clone + ImageDrawable> {
-    images: HashMap<usize, I>,
+    images: HashMap<String, I>,
 }
 
 impl<I: Clone + ImageDrawable> std::default::Default for CipImages<I> {
@@ -17,26 +19,30 @@ impl<I: Clone + ImageDrawable> std::default::Default for CipImages<I> {
 }
 
 impl<I: Clone + ImageDrawable> CipImages<I> {
-    fn find_cip(&self, cip_index: usize) -> Option<I> {
-        self.images.get(&cip_index).cloned()
+    fn find_cip<A: AsRef<str>>(&self, cip_name: A) -> Option<I> {
+        self.images.get(cip_name.as_ref()).cloned()
     }
     fn find_or_add_cip<F: FnOnce() -> Option<I>>(
         &mut self,
-        cip_index: usize,
+        cip_name: &str,
         width: u32,
         height: u32,
         image_fn: F,
     ) -> Option<I> {
-        if let Some(image) = self.images.get(&cip_index).cloned() {
+        eprintln!("Insert/find CIP for np patch {cip_name}");
+        if let Some(image) = self.images.get(cip_name).cloned() {
             if image.size() == (width, height) {
                 return Some(image);
             }
+            eprintln!("Image size {:?} instead of {width},{height}", image.size());
         }
-        let _ = self.images.remove(&cip_index);
+        let _ = self.images.remove(cip_name);
         if let Some(image) = image_fn() {
-            self.images.insert(cip_index, image.clone());
+            eprintln!("Image created with size {:?}", image.size());
+            self.images.insert(cip_name.to_owned(), image.clone());
             Some(image)
         } else {
+            eprintln!("Image function returned None");
             None
         }
     }
@@ -87,13 +93,13 @@ impl NamedPointImages {
         self.np_cip_images.remove(np);
     }
 
-    pub fn np_find_cip(&self, np: NamedPoint, cip_idx: usize) -> Option<ImageSquares<ImageRgb8>> {
+    pub fn np_find_cip(&self, np: NamedPoint, cip_name: &str) -> Option<ImageSquares<ImageRgb8>> {
         let np_tag = np.ref_tag();
         let np = np_tag.as_str();
         let Some(np_cips) = self.np_cip_images.get(np) else {
             return None;
         };
-        np_cips.find_cip(cip_idx)
+        np_cips.find_cip(cip_name)
     }
 
     /// Add an image rectangle for a CIP to the named point
@@ -102,8 +108,8 @@ impl NamedPointImages {
     /// of the specified size, then return that, else create one if possible
     pub fn np_find_or_add_cip(
         &mut self,
-        np: NamedPoint,
-        cip_idx: usize,
+        np: &NamedPoint,
+        cip: &Cip,
         width: u32,
         height: u32,
     ) -> Option<ImageSquares<ImageRgb8>> {
@@ -117,7 +123,7 @@ impl NamedPointImages {
         let np_cips = np_cip_images
             .entry(np.to_owned())
             .or_insert_with(|| CipImages::default());
-        np_cips.find_or_add_cip(cip_idx, width, height, || {
+        np_cips.find_or_add_cip(cip.name_as_tag().as_str(), width, height, || {
             image_squares.allocate_squares(width, height)
         })
     }
@@ -125,6 +131,4 @@ impl NamedPointImages {
     pub fn image(&self) -> &Rrc<ImageRgb8> {
         self.image_squares.image()
     }
-
-    // pub fn np_cip_fill(&self, )
 }

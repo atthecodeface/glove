@@ -8,11 +8,16 @@
 use std::cell::{Ref, RefMut};
 use std::rc::Rc;
 
+use geo_nd::Quaternion;
+use ic_image::{Color8, FromPatchFn, ImageDrawable, ImageRgb8};
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, PathSet, Point3D, Ray, Result, Rrc, TagSet};
-use ic_camera::CameraDatabase;
-use ic_mapping::{NamedPointSet, PointMapping};
+use ic_base::{JsonParsable, PathSet, Point3D, Quat, Ray, Result, Rrc, TagSet, TanXTanY};
+use ic_camera::{
+    AdjustableCameraProjection, CameraDatabase, CameraLensProjection, CameraProjection,
+    RectilinearLens, SimpleSensorLensCamera,
+};
+use ic_mapping::{NamedPoint, NamedPointSet, PointMapping};
 
 use crate::{Cip, CipDesc, CipFileDesc, ImageSquareSets, ImageSquareSetsDesc, NamedPointImages};
 
@@ -228,7 +233,8 @@ impl Project {
         Ok(total_error)
     }
 
-    pub fn derive_nps_location(&self, name: &str) -> Option<(Point3D, f64)> {
+    /// Derive the location of a specific NamedPoint from rays using equal weighting
+    pub fn derive_np_location(&self, name: &str) -> Option<(Point3D, f64)> {
         let mut rays = vec![];
         for cip in &self.cips {
             let cip = cip.borrow();
@@ -250,5 +256,148 @@ impl Project {
         } else {
             None
         }
+    }
+
+    pub fn create_np_cip_image(
+        &self,
+        np: &NamedPoint,
+        cip: &Cip,
+        cip_image: &ImageRgb8,
+        width: u32,
+        height: u32,
+    ) -> bool {
+        let np_images = &self.np_images;
+        let blend = 0.0; // replace completely
+        let Some(isq) = np_images
+            .borrow_mut()
+            .np_find_or_add_cip(np, cip, width, height)
+        else {
+            eprintln!("Failed to find or add NP/CIP");
+            return false;
+        };
+        let pms = cip.pms().borrow();
+        let Some(pm) = pms.mapping_of_np_name(np.ref_tag().as_str()) else {
+            return false;
+        };
+
+        let mut patch = isq.as_patch(blend);
+        let camera = cip.camera().borrow();
+
+        let mut pci = ProjectedCameraImage {
+            image: cip_image,
+            camera: &*camera,
+            w: cip_image.size().0,
+            h: cip_image.size().1,
+        };
+
+        // This impacts the
+        let mm_distance_to_point = 1000.0;
+        let tan_hfov = np.facet_tan_hfov(mm_distance_to_point);
+
+        // tan_hfov is mm_width/2 compared to mm_focal_length, if focused at infinity
+
+        let mm_focal_length = 50.0;
+        let mm_per_pixel = tan_hfov * mm_focal_length * 2.0 / (width as f64);
+        eprintln!("{mm_per_pixel} fov {}", tan_hfov.atan() * 2.0);
+
+        let mut sslc = SimpleSensorLensCamera::new(
+            width,
+            height,
+            mm_per_pixel,
+            RectilinearLens::default(),
+            mm_focal_length,
+        );
+
+        // Set camera to be at a position and orientation for the given *named point*
+        np.set_camera_for_facet(&mut sslc, mm_distance_to_point);
+
+        // Adjust camera orientation so that the pm.screen is the centre (at [0,0,-1])
+        let pm_world_dir = camera.sensor_px_abs_xy_to_world_dir(pm.screen());
+        let sslc_pm_camera_dir = sslc.world_dir_to_camera_dir(pm_world_dir);
+        let center_on_pm = Quat::rotation_of_vec_to_vec(&sslc_pm_camera_dir, &[0., 0., -1.]);
+        sslc.set_orientation(&(center_on_pm * sslc.orientation()));
+
+        // This uses distance to camera from model, so uses model position; this has to happen after set_camera_for_facet, OR use mm_distance_to_point...
+        let mut patch_iterator = PatchIterator {
+            camera: &sslc,
+            projected_image: &mut pci,
+        };
+        patch.fill_img(&mut patch_iterator);
+        true
+    }
+}
+
+struct PatchIterator<'a, C1, C2>
+where
+    C1: CameraLensProjection,
+    C2: CameraImageProjection,
+{
+    camera: &'a C1,
+    projected_image: &'a mut C2,
+}
+
+impl<'a, C1, C2> FromPatchFn for PatchIterator<'a, C1, C2>
+where
+    C1: CameraLensProjection,
+    C2: CameraImageProjection,
+{
+    type Pixel = C2::Pixel;
+    fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
+    fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
+        let world_dir = self
+            .camera
+            .sensor_px_abs_xy_to_world_dir([patch_x as f64, patch_y as f64].into());
+        let camera_dir = self.projected_image.world_dir_to_camera_dir(world_dir);
+        self.projected_image.opt_pixel_of_camera_dir(camera_dir)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ProjectedCameraImage<'a, C, I>
+where
+    C: CameraLensProjection,
+    I: ImageDrawable,
+{
+    image: &'a I,
+    camera: &'a C,
+    w: u32,
+    h: u32,
+}
+pub trait CameraImageProjection {
+    type Pixel;
+    /// Invoked occassionally (at the start of a line, for example, when
+    /// filling a square) to indicate the next pixel fetch is unrelated to
+    /// the last
+    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
+
+    /// Return the pixel value of the given camera direction (vector is
+    /// *outward* from the camera) if it hits the sensor/image
+    fn opt_pixel_of_camera_dir(&mut self, camera_dir: Point3D) -> Option<Self::Pixel>;
+
+    /// Map the world direction to a camera direction
+    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D;
+}
+
+impl<'a, C, I> CameraImageProjection for ProjectedCameraImage<'a, C, I>
+where
+    C: CameraLensProjection,
+    I: ImageDrawable,
+{
+    type Pixel = I::Pixel;
+    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
+    fn opt_pixel_of_camera_dir(&mut self, dirn: Point3D) -> Option<I::Pixel> {
+        let Some(pxy) = self.camera.camera_dir_to_opt_sensor_px_abs_xy(dirn) else {
+            return None;
+        };
+        if pxy[0] < 0.0 || pxy[1] < 0.0 {
+            return None;
+        }
+        if (pxy[0] >= self.w as f64) || (pxy[1] >= self.h as f64) {
+            return None;
+        }
+        Some(self.image.get(pxy[0] as u32, pxy[1] as u32))
+    }
+    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
+        self.camera.world_dir_to_camera_dir(world_dir)
     }
 }
