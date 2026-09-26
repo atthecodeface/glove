@@ -1,6 +1,8 @@
+use std::cell::RefMut;
+
 use crate::Image;
 
-/// A trait to map from a (rectangulat) patch source to pixels
+/// A trait to map from a (rectangular) patch source to pixels
 ///
 /// This trait can be implemented by a type that contains a stateful mapping of
 /// some patch (x,y) to its own space, where a subsequent (x+dx, y+dy) may use
@@ -22,31 +24,20 @@ pub trait FromPatchFn {
     fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel>;
 }
 
-/// A (rectangular) patch dervived from an image, which contains the pixel data of the patch
+/// A (rectangular) patch derived from an image, which contains the pixel data of the patch
 ///
-/// This is a transient type used to fill the patch using a mapping function
-///
-/// OLD... from the original mapping patch
-///
-/// THe patch is derived from a portion of an original image of a 3D model; it
-/// should correspond to a plane on that image (i.e. not a curved surface)).
-///
-/// There will be a point on the patch (the flat_origin) that maps to a point in
-/// the model (the model_origin); there should also be a rotational mapping from
-/// 2D points on the patch to points in the model.
-///
-/// The mapping from a point on the patch to the model of point Pp == (Ppx, PPy, 0) is:
-///
-///  FlatToModel(Pp - FlatOrigin) + ModelOrigin
+/// This is a transient type used to fill the patch using a mapping function; as
+/// it requires a mutable reference to an image that has the lifetime of the
+/// patch, the 'dropping' of the patch drops the mutable reference to the image,
+/// hence this contains a RefMut for the image
 ///
 pub struct ImagePatch<'a, I: Image> {
-    img: &'a mut I,
+    img: RefMut<'a, I>,
     x: u32,
     y: u32,
     width: u32,
     height: u32,
     blend: f64,
-    from_patch: Box<dyn FromPatchFn<Pixel = I::Pixel> + 'a>,
 }
 
 impl<'a, I: Image> std::fmt::Debug for ImagePatch<'a, I> {
@@ -60,15 +51,8 @@ impl<'a, I: Image> std::fmt::Debug for ImagePatch<'a, I> {
 }
 
 impl<'a, I: Image> ImagePatch<'a, I> {
-    pub fn new<F: FromPatchFn<Pixel = I::Pixel> + 'a>(
-        img: &'a mut I,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-        blend: f64,
-        from_patch: F,
-    ) -> Self {
+    /// Create a new patch
+    pub fn new(img: RefMut<'a, I>, x: u32, y: u32, width: u32, height: u32, blend: f64) -> Self {
         Self {
             img,
             x,
@@ -76,16 +60,11 @@ impl<'a, I: Image> ImagePatch<'a, I> {
             width,
             height,
             blend,
-            from_patch: Box::new(from_patch),
         }
     }
 
-    pub fn img(&self) -> &I {
-        self.img
-    }
-
-    pub fn img_mut(&mut self) -> &mut I {
-        self.img
+    pub fn img(&self) -> &RefMut<'a, I> {
+        &self.img
     }
 
     pub fn img_origin(&self) -> (u32, u32) {
@@ -96,11 +75,14 @@ impl<'a, I: Image> ImagePatch<'a, I> {
         (self.width, self.height)
     }
 
-    pub fn fill_img(&mut self) {
+    pub fn fill_img<F>(&mut self, patch_fn: &mut F)
+    where
+        F: FromPatchFn<Pixel = I::Pixel>,
+    {
         for x in 0..self.width {
-            self.from_patch.set_mapping(x, 0);
+            patch_fn.set_mapping(x, 0);
             for y in 0..self.height {
-                if let Some(c) = self.from_patch.map_from_patch(x, y) {
+                if let Some(c) = patch_fn.map_from_patch(x, y) {
                     self.img.blend(x + self.x, y + self.y, self.blend, &c);
                 }
             }

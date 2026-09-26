@@ -16,7 +16,7 @@ use image::{DynamicImage, GenericImage, GenericImageView};
 
 use ic_base::{Result, Rrc};
 
-use crate::{Image, ImageDrawable};
+use crate::{Image, ImageDrawable, ImagePatch};
 
 /// The granularity of size for alloc
 /// A set of image squares gathered from one or more images, with a backing store of 'I'
@@ -197,6 +197,10 @@ where
     /// Allocate a region of
     #[track_caller]
     pub fn allocate_squares(&mut self, w: u32, h: u32) -> Option<ImageSquares<I>> {
+        eprintln!(
+            "Allocate size {w},{h} given square size {}",
+            self.square_size()
+        );
         assert!(w.is_multiple_of(self.square_size));
         assert!(h.is_multiple_of(self.square_size));
         if let Some((x_sq, y_sq)) =
@@ -324,6 +328,17 @@ where
                 self.y_sq * self.square_size,
             )
             .unwrap();
+    }
+
+    pub fn as_patch<'a>(&'a self, blend: f64) -> ImagePatch<'a, I> {
+        ImagePatch::new(
+            self.image.borrow_mut(),
+            self.x_sq * self.square_size,
+            self.y_sq * self.square_size,
+            self.w,
+            self.h,
+            blend,
+        )
     }
 
     /// Copy data to an image at a starting (x,y) from this [ImageSquare]

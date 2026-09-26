@@ -25,6 +25,9 @@ use ic_base::PathSet;
 use image::ImageReader;
 use std::path::PathBuf;
 
+mod image_cache;
+pub use image_cache::{ImageCache, ImageCacheEntry};
+
 /// Read a path - relative to a [PathSet] - as an image, returning it as either
 /// an ImageRgb8 or an ImageGray16 depending on the kind of file.
 ///
