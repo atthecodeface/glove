@@ -126,7 +126,7 @@ impl WasmProject {
     /// Returns [x,y,z,e]
     pub fn derive_nps_location(&self, name: &str) -> Option<Box<[f64]>> {
         self.project
-            .derive_nps_location(name)
+            .derive_np_location(name)
             .map(|(a, e)| [a[0], a[1], a[2], e].into())
     }
 
