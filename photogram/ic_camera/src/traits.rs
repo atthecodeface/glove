@@ -238,7 +238,8 @@ pub trait CameraLensProjection:
     /// If the direction is *behind* the camera then return None
     #[inline]
     fn camera_dir_to_opt_sensor_px_abs_xy(&self, camera_dir: Point3D) -> Option<Point2D> {
-        (camera_dir[2] < 1E-6).then(|| self.camera_txty_to_sensor_px_abs_xy(camera_dir.into()))
+        TanXTanY::is_some(camera_dir)
+            .then(|| self.camera_txty_to_sensor_px_abs_xy(camera_dir.into()))
     }
 
     /// Get the tan of half of the field-of-view for horizontal and vertical (to a reasonable approximation)
@@ -269,7 +270,7 @@ pub trait CameraLensProjection:
 }
 
 /// A camera that can be moved, or with a lens that can be moved in/out
-pub trait AdjustableCameraProjection: std::fmt::Debug + Clone {
+pub trait AdjustableCameraProjection: CameraProjection + std::fmt::Debug + Clone {
     /// Get a Point3D indicating the placement of the camera in world space
     fn set_position(&mut self, position: &Point3D);
 
