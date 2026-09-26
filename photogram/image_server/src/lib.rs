@@ -9,7 +9,7 @@ mod project_set;
 
 mod image_cache;
 
-pub use image_cache::{ImageCache, ImageCacheEntry};
+pub use image_cache::ImageCache;
 pub use project_decode::ProjectDecode;
 pub use project_entry::NamedProject;
 

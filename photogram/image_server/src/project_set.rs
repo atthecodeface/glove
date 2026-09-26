@@ -7,14 +7,14 @@ use ic_photogram::Patch;
 use ic_photogram::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_photogram::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use ic_photogram::{Image, ImageCacheEntry, ImageGray16};
 use ic_photogram::{KernelArgs, Kernels};
 use ic_photogram::{PathGlob, Result};
 
 use crate::CmdArgs;
+use crate::ImageCache;
 use crate::NamedProject;
 use crate::ProjectDecode;
-use crate::{ImageCache, ImageCacheEntry};
 
 //a ProjectSet
 //tp ProjectSet
