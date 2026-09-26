@@ -99,6 +99,7 @@ impl ModelData {
             model: dirn,
             ..Default::default()
         }
+        .tidy_patch_data()
     }
     pub fn at_position(model: Point3D) -> Self {
         Self {
@@ -106,6 +107,42 @@ impl ModelData {
             model,
             ..Default::default()
         }
+        .tidy_patch_data()
+    }
+    pub fn tidy_patch_data(mut self) -> Self {
+        if self.normal.length() < 1E-4 {
+            if self.model_is_direction() {
+                self.normal = self.model.normalize();
+            } else {
+                self.normal = [1.0, 0., 0.].into();
+            }
+        } else {
+            self.normal = self.normal.normalize();
+        }
+        let tangent = self
+            .tangent
+            .cross_product(&self.normal)
+            .cross_product(&self.normal);
+        if tangent.length() < 1E-4 {
+            if self.normal.dot_arr(&[0., 0., 1.]).abs() > 0.9 {
+                self.tangent = [0., 1., 0.].into();
+            } else {
+                self.tangent = [0., 0., 1.].into();
+            }
+            self.tangent = self
+                .tangent
+                .cross_product(&self.normal)
+                .cross_product(&self.normal)
+                .normalize();
+        } else {
+            self.tangent = tangent.normalize();
+        }
+        if self.model_is_direction() {
+            self.facet_size = self.facet_size.max(0.01);
+        } else {
+            self.facet_size = self.facet_size.max(0.5);
+        }
+        self
     }
     #[inline]
     pub fn with_uncertainty(mut self, uncertainty: f64) -> Self {
@@ -126,6 +163,21 @@ impl ModelData {
     pub fn with_facet_size(mut self, facet_size: f64) -> Self {
         self.facet_size = facet_size;
         self
+    }
+
+    #[inline]
+    pub fn facet_size(&self) -> f64 {
+        self.facet_size
+    }
+
+    #[inline]
+    pub fn normal(&self) -> Point3D {
+        self.normal
+    }
+
+    #[inline]
+    pub fn tangent(&self) -> Point3D {
+        self.tangent
     }
 
     /// Return true if the model data is unmapped
@@ -185,6 +237,7 @@ impl<'de> serde::de::Visitor<'de> for ModelDataVisitor {
     {
         Ok(ModelData::default())
     }
+    /// A tuple should be (bool at infinity, Point3D direction/place, f64 angle or mm uncertainty)
     fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::SeqAccess<'de>,
@@ -199,7 +252,8 @@ impl<'de> serde::de::Visitor<'de> for ModelDataVisitor {
                 normal: dirn,
                 tangent: Point3D::default(),
                 facet_size: 0.0,
-            })
+            }
+            .tidy_patch_data())
         } else {
             Ok(ModelData {
                 data_kind: ModelDataKind::Direction,
@@ -208,13 +262,17 @@ impl<'de> serde::de::Visitor<'de> for ModelDataVisitor {
                 normal: dirn,
                 tangent: Point3D::default(),
                 facet_size: 0.0,
-            })
+            }
+            .tidy_patch_data())
         }
     }
+    /// A Map must be a ModelData struct
     fn visit_map<M>(self, map: M) -> Result<Self::Value, M::Error>
     where
         M: serde::de::MapAccess<'de>,
     {
-        Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        let value: Self::Value =
+            Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
+        Ok(value.tidy_patch_data())
     }
 }

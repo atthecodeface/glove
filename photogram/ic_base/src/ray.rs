@@ -235,6 +235,7 @@ impl Ray {
     ///
     /// The distance of a point p from a line (given by an origin A and unit direction B) can be determined as:
     ///
+    /// ```ignore
     ///         P = A + k.B + d.N (where B.N=0, |N|=1, for some N), hence
     ///       d.N = P - A - k.B
     ///   d.(NxB) = (PxB) - (AxB) - k.(BxB)
@@ -278,6 +279,7 @@ impl Ray {
     /// ray at an approximate solution can be found, and to weight
     /// each ray by some inversely proportional function of this
     /// *distance* error (such as 1/(base + distance^2)).
+    /// ```
     pub fn closest_point<'a, F: Fn(&Self, usize) -> f64>(
         rays: impl Iterator<Item = &'a Self> + 'a,
         weight_fn: &F,
@@ -338,51 +340,5 @@ impl Ray {
         let cross = p_minus_a.cross_product(self.direction);
         let d_sq = cross.length_sq();
         (k, d_sq)
-    }
-
-    /// Intersect two rays
-    ///
-    /// Output data for debug
-    pub fn intersect(&self, other: &Self) {
-        let d_n = self.direction.cross_product(other.direction);
-        let l_d_n_sq = d_n.length_sq();
-
-        // dbg!(d_n, l_d_n_sq);
-        // if l_d_n_sq < 1.0E-8 {}
-        let a_diff = self.start - other.start;
-        let dot_ds = self.direction.dot(other.direction);
-        let a_diff_dot_d0 = self.direction.dot(a_diff);
-        let a_diff_dot_d1 = other.direction.dot(a_diff);
-
-        // dbg!(a_diff, dot_ds, a_diff_dot_d0, a_diff_dot_d1);
-
-        let k0 = -(a_diff_dot_d0 - dot_ds * a_diff_dot_d1) / (1.0 - dot_ds * dot_ds);
-        let k1 = (a_diff_dot_d1 - dot_ds * a_diff_dot_d0) / (1.0 - dot_ds * dot_ds);
-
-        let r0 = (k0 * self.tan_error).abs();
-        let r1 = (k1 * other.tan_error).abs();
-
-        // dbg!(k0, k1, r0, r1);
-
-        let p0 = self.start + self.direction * k0;
-        let p1 = other.start + other.direction * k1;
-
-        let l = a_diff.dot(d_n) / l_d_n_sq.sqrt();
-        // dbg!(p0, p1, l);
-        dbg!(k0, k1, r0, r1, l);
-
-        let rp0 = p0 * r0;
-        let rp1 = p1 * r1;
-        let rp0_plus_rp1 = rp0 + rp1;
-        let target = rp0_plus_rp1 / (r0 + r1);
-
-        let rm = (r1 - l.abs()).min(r0 - l.abs());
-
-        // confidence is probably proportional to overlap / min(error)
-
-        // dbg!(r0, r1, l_d_n_sq.sqrt());
-
-        dbg!(rm);
-        dbg!(target);
     }
 }

@@ -24,6 +24,9 @@ pub struct TanXTanY {
 }
 
 impl TanXTanY {
+    pub fn is_some(dirn: Point3D) -> bool {
+        dirn[2] <= -1E-6
+    }
     pub fn of_tx_ty(tanx: f64, tany: f64) -> Self {
         Self {
             data: [tanx, tany].into(),
