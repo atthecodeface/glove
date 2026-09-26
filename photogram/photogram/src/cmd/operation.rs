@@ -1,11 +1,11 @@
 //a Imports
 use std::rc::Rc;
 
+use ic_photogram::CacheRef;
 use ic_photogram::CameraSensor;
-use ic_photogram::ModelData;
+use ic_photogram::NamedPoint;
 use ic_photogram::Result;
 use ic_photogram::{Image, ImagePt, ImageRgb8};
-use ic_photogram::{NamedPoint, NamedPointSet, PointMappingSet};
 
 use super::CmdArgs;
 
@@ -20,21 +20,21 @@ fn is_regex(s: &str) -> bool {
 impl CmdArgs {
     //mp get_nps
     pub fn get_nps(&self) -> Result<Vec<Rc<NamedPoint>>> {
-        let r = self
-            .nps
-            .borrow()
-            .select(self.np.iter().map(|s| s.as_str()))?;
+        let nps = self.nps().borrow();
+        let r = nps.select(self.np.iter().map(|s| s.as_str()))?;
         if r.is_empty() {
-            return Ok(self.nps.borrow().iter().cloned().collect());
+            return Ok(nps.iter().cloned().collect());
         }
         Ok(r)
     }
 
-    //mp get_pms_indices_of_nps
     pub fn get_pms_indices_of_nps(&self) -> Result<Vec<usize>> {
         let mut pms = vec![];
         let nps = self.get_nps()?;
-        for (i, m) in self.pms.borrow().mappings().iter().enumerate() {
+        let Some(cip_pms) = self.pms() else {
+            return Ok(vec![]);
+        };
+        for (i, m) in cip_pms.borrow().mappings().iter().enumerate() {
             for n in &nps {
                 if Rc::ptr_eq(n, m.named_point()) {
                     pms.push(i);
@@ -44,32 +44,6 @@ impl CmdArgs {
         Ok(pms)
     }
 
-    //mp pms_map
-    pub fn pms_map<M, T>(&self, map: M) -> Result<T>
-    where
-        M: FnOnce(&PointMappingSet) -> Result<T>,
-    {
-        map(&self.pms.borrow())
-    }
-
-    /*
-        /// Create a point mapping set from a calibration mapping
-        pub fn calibration_mapping_to_pms(&self) -> PointMappingSet {
-            let v = self.calibration_mapping.get_xyz_pairings();
-            let mut nps = NamedPointSet::default();
-            let mut pms = PointMappingSet::default();
-
-            for (n, (model_xyz, pxy_abs)) in v.into_iter().enumerate() {
-                let model = ModelData::at_infinity(model_xyz).with_uncertainty(0.0);
-                let name = n.to_string();
-                let color = [255, 255, 255, 255].into();
-                nps.add_pt(&name, color, model);
-                pms.add_mapping(&nps, &name, &pxy_abs, 0.);
-            }
-            pms
-        }
-    */
-    //mp draw_image
     pub fn draw_image(&self, pts: &[ImagePt]) -> Result<()> {
         if self.read_img.is_empty() || self.write_img.is_none() {
             return Ok(());
@@ -104,21 +78,29 @@ impl CmdArgs {
         Ok(img)
     }
 
-    //mp get_read_image
-    pub fn get_read_image(&self, n: usize) -> Result<ImageRgb8> {
+    pub fn get_read_image(&mut self, n: usize) -> Result<CacheRef> {
         let Some(read_filename) = self.read_img.get(n) else {
             return Err(format!("Required at least {} read images to be specified", n + 1).into());
         };
         let Some(read_filename) = self.path_set.find_file(read_filename) else {
             return Err(format!("could not finde image file {read_filename}").into());
         };
-        // TDODO: Change to read
-        let img =
-            ImageRgb8::read(read_filename).map_err(|e| (e, "failed to read image".to_string()))?;
-        Ok(img)
+        self.image_cache.src_image(read_filename)
     }
 
-    //mp show_step
+    pub fn get_cip_image(&mut self) -> Result<CacheRef> {
+        let Some(cip) = self.cip() else {
+            return Err("No CIP to get image for".into());
+        };
+        let cip = cip.borrow();
+        let cip_image_filename = cip.image_filename();
+        let Some(read_filename) = self.path_set.find_file(cip_image_filename) else {
+            return Err(format!("could not finde image file {cip_image_filename}").into());
+        };
+        drop(cip);
+        self.image_cache.src_image(read_filename)
+    }
+
     pub fn show_step<S>(&self, s: S)
     where
         S: std::fmt::Display,

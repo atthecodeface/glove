@@ -1,6 +1,6 @@
 use thunderclap::{CmdDescriptor, CommandArgs};
 
-use ic_photogram::{Image, ImageDrawable, ImageGray16};
+use ic_photogram::{Image, ImageCache, ImageDrawable, ImageGray16};
 use ic_photogram::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -106,6 +106,7 @@ impl CmdArgs {
 
     fn ip_luma_kernel_cmd(&mut self) -> CmdResult {
         let img = self.get_read_image(0)?;
+        let img = ImageCache::image_rgb8_err(&img)?;
 
         let ws = self.kernel_size();
         let scale = self.scale();
@@ -153,6 +154,8 @@ impl CmdArgs {
     fn ip_luma_kernel_pair_cmd(&mut self) -> CmdResult {
         let img2 = self.get_read_image(1)?;
         let img1 = self.get_read_image(0)?;
+        let img1 = ImageCache::image_rgb8_err(&img1)?;
+        let img2 = ImageCache::image_rgb8_err(&img2)?;
 
         let ws = self.kernel_size();
         let scale = self.scale();

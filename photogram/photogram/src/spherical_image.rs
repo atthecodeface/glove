@@ -1,3 +1,4 @@
+use ic_photogram::ImageCache;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use geo_nd::{Quaternion, Vector};
@@ -306,24 +307,6 @@ impl CmdArgs {
         Self::cmd_ok()
     }
 
-    fn si_read_photo_cmd(&mut self) -> CmdResult {
-        self.validate_spherical_image()?;
-        let mut image = self.spherical_image.as_ref().unwrap().borrow_mut();
-        self.if_verbose(|| eprintln!("Reading image using camera {}", self.camera));
-
-        let jpg = ImageRgb8::read(&self.read_img()[0])?;
-
-        let ps: Vec<_> = image.iter_patch_indices().collect();
-
-        let (w, h) = jpg.size();
-        for p in ps {
-            image.fill_image_patch(self.blend, p, &|v| {
-                Self::pix_map(&self.camera, &jpg, w, h, v)
-            });
-        }
-        Self::cmd_ok()
-    }
-
     fn pix_map<I: ImageDrawable>(
         camera: &CameraInstance,
         src: &I,
@@ -343,9 +326,11 @@ impl CmdArgs {
             None
         }
     }
+
     fn si_read_cip_image_cmd(&mut self) -> CmdResult {
         self.validate_spherical_image()?;
         self.validate_cip()?;
+        let cip_image = self.get_cip_image()?;
         let mut image = self.spherical_image.as_ref().unwrap().borrow_mut();
         let cip = self.cip.as_ref().unwrap().borrow();
         self.if_verbose(|| {
@@ -356,15 +341,14 @@ impl CmdArgs {
             )
         });
 
-        let f = self.path_set.find_file_err(&cip.image_filename())?;
-        let jpg = ImageRgb8::read(&f)?;
+        let cip_image = ImageCache::image_rgb8_err(&cip_image)?;
 
         let ps: Vec<_> = image.iter_patch_indices().collect();
 
-        let (w, h) = jpg.size();
+        let (w, h) = cip_image.size();
         for p in ps {
             image.fill_image_patch(self.blend, p, &|v| {
-                Self::pix_map(&self.camera, &jpg, w, h, v)
+                Self::pix_map(&self.camera, cip_image, w, h, v)
             });
         }
         Self::cmd_ok()
@@ -413,15 +397,6 @@ impl CmdArgs {
             Self::ARG_WRITE_IMAGE_OPTIONAL,
         ])
         .handler(&Self::si_write_image_file_cmd);
-
-    const SI_PHOTO_READ_CMD: CmdDescriptor<Self> = CmdDescriptor::new("read_photo")
-        .about("Read a photograph and draw it on the image using the given camera description")
-        .args(&[
-            Self::ARG_USE_ORIENTATION,
-            Self::ARG_READ_IMAGE_REQUIRED,
-            Self::ARG_BLEND,
-        ])
-        .handler(&Self::si_read_photo_cmd);
 
     const SI_READ_CIP_IMAGE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("read_cip_image")
         .about("Read a CIP image using its camera into the spherical image")
@@ -485,7 +460,6 @@ impl CmdArgs {
                 Self::LENS_POLYS_OF_PTS_CMD,
                 Self::PHOTO_MAP_PTS_CMD,
                 Self::SI_PHOTO_RENDER_CMD,
-                Self::SI_PHOTO_READ_CMD,
                 Self::SI_READ_CIP_IMAGE_CMD,
                 Self::SI_PANORAMA_RENDER_CMD,
             ]);

@@ -301,6 +301,8 @@ impl CmdArgs {
             Self::ARG_USE_ORIENTATION,
             Self::ARG_WRITE_CAMERA,
             Self::ARG_WRITE_PROJECT,
+            Self::ARG_WRITE_PATCHES,
+            Self::ARG_WRITE_POLYS,
             Self::ARG_CIP,
             // Self::ARG_WRITE_NAMED_POINTS,
             // Self::ARG_WRITE_NAMED_POINTS,

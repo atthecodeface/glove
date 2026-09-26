@@ -15,13 +15,11 @@ use super::CmdArgs;
 //a CmdArgs setters
 //ip CmdArgs setters
 impl CmdArgs {
-    //mi set_camera_db
     pub(crate) fn set_camera_db(&mut self, filename: &str) -> Result<()> {
         let (cdb_filename, camera_db) =
             CameraDatabase::load_json_file(&self.path_set, filename, &())?;
         self.if_verbose(|| eprintln!("Loaded camera database from '{cdb_filename}'"));
         self.project.set_cdb(camera_db);
-        self.cdb = self.project.cdb().clone();
         Ok(())
     }
 
@@ -30,45 +28,30 @@ impl CmdArgs {
         let project_filename;
         (project_filename, self.project) = Project::load_json_file(&self.path_set, filename, &())?;
         self.if_verbose(|| eprintln!("Loaded project from '{project_filename}'"));
-        self.nps = self.project.nps().clone();
-        self.cdb = self.project.cdb().clone();
         self.cip = None;
         Ok(())
     }
 
-    /*
-        pub fn set_calibration_mapping_file(&mut self, filename: &str) -> Result<()> {
-            self.calibration_mapping =
-                CalibrationMapping::load_json_file(&self.path_set, filename, &())?.1;
-            Ok(())
-        }
-
-        //mi set_calibration_mapping
-        pub fn set_calibration_mapping(&mut self, mapping: CalibrationMapping) {
-            self.calibration_mapping = mapping;
-        }
-    */
-    //mi set_camera_json
     pub(crate) fn set_camera_json(&mut self, camera_json: &str) -> Result<()> {
-        let camera = CameraInstanceDesc::load_json(camera_json, &self.cdb.borrow())?;
+        let cdb = self.cdb().borrow();
+        let camera = CameraInstanceDesc::load_json(camera_json, &cdb)?;
+        drop(cdb);
         self.set_camera(camera);
         Ok(())
     }
 
-    //mi set_camera_file
     pub(crate) fn set_camera_file(&mut self, camera_filename: &str) -> Result<()> {
-        let (_, camera) = CameraInstanceDesc::load_json_file(
-            &self.path_set,
-            camera_filename,
-            &self.cdb.borrow(),
-        )?;
+        let cdb = self.cdb().borrow();
+        let (_, camera) =
+            CameraInstanceDesc::load_json_file(&self.path_set, camera_filename, &cdb)?;
+        drop(cdb);
         self.set_camera(camera);
         Ok(())
     }
 
     //mi set_camera_body
     pub(crate) fn set_camera_body(&mut self, body: &str) -> Result<()> {
-        let body = self.cdb.borrow().get_body_err(body)?.clone();
+        let body = self.cdb().borrow().get_body_err(body)?.clone();
         self.camera.set_body(body);
         self.set_camera(self.camera.clone());
         Ok(())
@@ -76,7 +59,7 @@ impl CmdArgs {
 
     //mi set_camera_lens
     pub(crate) fn set_camera_lens(&mut self, lens: &str) -> Result<()> {
-        let lens = self.cdb.borrow().get_lens_err(lens)?.clone();
+        let lens = self.cdb().borrow().get_lens_err(lens)?.clone();
         self.camera.set_lens(lens);
         self.set_camera(self.camera.clone());
         Ok(())
@@ -179,7 +162,6 @@ impl CmdArgs {
         let Some(cip) = self.project.find_cip(cip).cloned() else {
             return Err(anyhow!("CIP {cip} could not be found"));
         };
-        self.pms = cip.as_ref().borrow().pms().clone();
         self.camera = cip.as_ref().borrow().camera().borrow().clone();
         self.cip = Some(cip);
         Ok(())
@@ -304,36 +286,16 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_write_named_points
-    pub(crate) fn set_write_named_points(&mut self, s: &str) -> Result<()> {
-        self.write_named_points = Some(s.to_owned());
-        Ok(())
-    }
-
-    //mi set_write_point_mapping
-    pub(crate) fn set_write_point_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_point_mapping = Some(s.to_owned());
-        Ok(())
-    }
-    //mi set_write_camera
     pub(crate) fn set_write_camera(&mut self, s: &str) -> Result<()> {
         self.write_camera = Some(s.to_owned());
         Ok(())
     }
 
-    //mi set_write_calibration_mapping
-    pub(crate) fn set_write_calibration_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_calibration_mapping = Some(s.to_owned());
+    pub(crate) fn set_write_patches(&mut self, s: &str) -> Result<()> {
+        self.write_patches = Some(s.to_owned());
         Ok(())
     }
 
-    //mi set_write_star_mapping
-    pub(crate) fn set_write_star_mapping(&mut self, s: &str) -> Result<()> {
-        self.write_star_mapping = Some(s.to_owned());
-        Ok(())
-    }
-
-    //mi set_write_polys
     pub(crate) fn set_write_polys(&mut self, s: &str) -> Result<()> {
         self.write_polys = Some(s.to_owned());
         Ok(())

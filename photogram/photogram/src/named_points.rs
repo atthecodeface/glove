@@ -97,9 +97,10 @@ impl CmdArgs {
             ));
         }
 
-        let position =
-            Ray::closest_point(named_rays.iter().map(|(_, r)| r), &|r| 1.0 / r.tan_error())
-                .unwrap();
+        let position = Ray::closest_point(named_rays.iter().map(|(_, r)| r), &|r, _n| {
+            1.0 / r.tan_error()
+        })
+        .unwrap();
         eprintln!("The rays from the model converge at the camera focal point at {position}",);
 
         let mut tot_d_sq = 0.0;
@@ -142,7 +143,7 @@ impl CmdArgs {
         for name in &k {
             let ray_list = named_point_rays.get(name).unwrap();
             if ray_list.len() > 1 {
-                let p = Ray::closest_point(ray_list.iter(), &|r| 1.0 / r.tan_error()).unwrap();
+                let p = Ray::closest_point(ray_list.iter(), &|r, _n| 1.0 / r.tan_error()).unwrap();
                 eprintln!("Point '{name}' - even weight - {p}");
             }
         }
@@ -193,7 +194,7 @@ impl CmdArgs {
                 }
             }
             if ray_list.len() > 1 {
-                if let Some(pt) = Ray::closest_point(ray_list.iter(), &|_r| 1.0) {
+                if let Some(pt) = Ray::closest_point(ray_list.iter(), &|_r, _n| 1.0) {
                     let e_sq = ray_list
                         .iter()
                         .fold(f64::MAX, |acc, r| acc.min(r.distances(&pt).1));

@@ -1,5 +1,6 @@
 //a Imports
 
+use ic_photogram::ImageCache;
 use star_catalog::Catalog;
 
 use ic_photogram::CameraDatabase;
@@ -25,19 +26,7 @@ pub struct CmdArgs {
 
     pub(crate) project: Project,
 
-    // Camera database that is part of the project
-    pub(crate) cdb: Rrc<CameraDatabase>,
-
-    // nps that is part of the project
-    pub(crate) nps: Rrc<NamedPointSet>,
-
-    // pms that is part of the project
-    // Lose this
-    pub(crate) pms: Rrc<PointMappingSet>,
-    // Lose this
-    // pub(crate) calibration_mapping: CalibrationMapping,
-
-    // CIP that is part of the project
+    // Selected CIP that is part of the project
     pub(crate) cip: Option<Rrc<Cip>>,
 
     // camera is a *specific* camera, not part of a CIP or project
@@ -83,6 +72,7 @@ pub struct CmdArgs {
     pub(crate) range: f64,
     pub(crate) cylindrical_lens: CylindricalLens,
 
+    pub(crate) image_cache: ImageCache,
     pub(crate) shape: SphericalImageShape,
     pub(crate) spherical_image: Option<Rrc<SphericalImage<ImageRgb8>>>,
     pub(crate) blend: f64,
@@ -92,14 +82,11 @@ pub struct CmdArgs {
     pub(crate) np: Vec<String>, // could be name, 3D, pixel XY (from camera mapping of 3D); might need at least 3
     pub(crate) kernels: Vec<String>,
     pub(crate) write_project: Option<String>,
-    pub(crate) write_named_points: Option<String>,
-    pub(crate) write_point_mapping: Option<String>,
     pub(crate) write_camera: Option<String>,
-    pub(crate) write_calibration_mapping: Option<String>,
-    pub(crate) write_star_mapping: Option<String>,
     pub(crate) write_polys: Option<String>,
     pub(crate) write_img: Option<String>,
     pub(crate) write_svg: Option<String>,
+    pub(crate) write_patches: Option<String>,
     pub(crate) render_vertical: bool,
 
     pub(crate) xy: Vec<Point2D>,

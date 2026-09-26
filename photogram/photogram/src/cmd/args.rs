@@ -508,24 +508,6 @@ impl CmdArgs {
         &Self::set_write_project,
     );
 
-    pub(crate) const ARG_WRITE_NAMED_POINTS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
-        "write_named_points",
-        None,
-        "File to write the final named_points JSON to",
-        ArgCount::Optional,
-        None,
-        &Self::set_write_named_points,
-    );
-
-    pub(crate) const ARG_WRITE_POINT_MAPPING: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
-        "write_point_mapping",
-        None,
-        "File to write the final point_mapping JSON to",
-        ArgCount::Optional,
-        None,
-        &Self::set_write_point_mapping,
-    );
-
     pub(crate) const ARG_WRITE_CAMERA: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
         "write_camera",
         None,
@@ -533,6 +515,24 @@ impl CmdArgs {
         ArgCount::Optional,
         None,
         &Self::set_write_camera,
+    );
+
+    pub(crate) const ARG_WRITE_PATCHES: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_patches",
+        None,
+        "File to write the patches image to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_patches,
+    );
+
+    pub(crate) const ARG_WRITE_POLYS: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "write_polys",
+        None,
+        "File to write the final lens polynomials JSON to",
+        ArgCount::Optional,
+        None,
+        &Self::set_write_polys,
     );
 
     pub(crate) const ARG_PATCH_SIZE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(

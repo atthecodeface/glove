@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_photogram::{Cip, NamedPoint, PointMapping};
+use ic_photogram::{Cip, ImageCache, ImageCacheEntry, NamedPoint, PointMapping};
 
 use geo_nd::{Quaternion, Vector};
 
@@ -155,8 +155,8 @@ impl CmdArgs {
         if cip.pms().borrow().mapping_of_np_name(np_name).is_some() {
             return Err(anyhow!("Mapping for '{np_name}' already exists in CIP"));
         }
-        cip.pms_mut()
-            .add_mapping(&self.nps.borrow(), np_name, pxy, error);
+        let nps = self.project().nps_ref();
+        cip.pms_mut().add_mapping(&nps, np_name, pxy, error);
         Self::cmd_ok()
     }
 
@@ -199,6 +199,25 @@ impl CmdArgs {
         let weighting = |_pm: &PointMapping| 1.0;
         let dx2_dy2 = cip.dx2_dy2_of_camera(|_, pm| filter(&nps, pm), weighting);
         Ok(json::to_value(dx2_dy2)?)
+    }
+
+    fn cip_np_image_create_cmd(self: &mut CmdArgs) -> CmdResult {
+        self.validate_cip()?;
+        let nps = self.get_nps()?;
+        let cip_image = self.get_cip_image()?;
+        let cip_image = ImageCache::image_rgb8_err(&cip_image)?;
+        let cip = self.cip.as_ref().unwrap().borrow();
+        for np in nps {
+            if !self
+                .project()
+                .create_np_cip_image(&np, &cip, cip_image, self.width, self.height)
+            {
+                eprintln!("Dont think it did the image thing {np}");
+            } else {
+                eprintln!("Did the image thing {np}");
+            }
+        }
+        CmdArgs::cmd_ok()
     }
 
     const CIP_NEW_CMD: CmdDescriptor<Self> = CmdDescriptor::new("new")
@@ -248,6 +267,11 @@ impl CmdArgs {
         .args(&[Self::ARG_ADD_NAMED_POINT])
         .handler(&Self::cip_dx2_dy2_cmd);
 
+    const CIP_NP_PATCH_CREATE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("np_patch_create")
+        .about("Calculate patches for the given named points in the patch set image")
+        .args(&[Self::ARG_ADD_NAMED_POINT, Self::ARG_WIDTH, Self::ARG_HEIGHT])
+        .handler(&Self::cip_np_image_create_cmd);
+
     pub(crate) const CIP_CMD: CmdDescriptor<Self> = CmdDescriptor::new("cip")
         .about("List, modify, interrogate etc a Camera/image/point-mapping-set")
         // .long_about(PROJECT_LONG_HELP)
@@ -260,10 +284,10 @@ impl CmdArgs {
             Self::CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD,
             Self::CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD,
             Self::CIP_DX2_DY2_CMD,
+            Self::CIP_NP_PATCH_CREATE_CMD,
         ]);
 
     /*
-        build.add_subcommand(as_json_cmd());
         build.add_subcommand(image_cmd());
         build.add_subcommand(image_patch_cmd());
         build.add_subcommand(show_mappings_cmd());

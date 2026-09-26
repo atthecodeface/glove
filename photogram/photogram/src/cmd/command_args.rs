@@ -177,14 +177,15 @@ impl CommandArgs for CmdArgs {
         Ok(json::Value::Null)
     }
 
+    fn cmd_completed(&mut self) -> Result<(), Self::Error> {
+        Ok(self.write_outputs()?)
+    }
+
     fn value_from_str(s: &str) -> Result<Self::Value, Self::Error> {
         Ok(s.into())
     }
 
     fn reset_args(&mut self) {
-        self.nps = self.project.nps().clone();
-        self.cdb = self.project.cdb().clone();
-
         self.read_img.clear();
         self.np.clear();
         self.kernels.clear();
@@ -197,12 +198,8 @@ impl CommandArgs for CmdArgs {
         self.named_rays = NamedRayList::default();
 
         self.write_project = None;
-        self.write_named_points = None;
-        self.write_point_mapping = None;
         self.write_camera = None;
         self.write_img = None;
-        self.write_calibration_mapping = None;
-        self.write_star_mapping = None;
         self.write_polys = None;
         self.write_svg = None;
 

@@ -32,53 +32,38 @@ impl CmdArgs {
         &mut self.project
     }
 
-    //mi cdb
     pub fn cdb(&self) -> &Rrc<CameraDatabase> {
-        &self.cdb
+        &self.project.cdb()
     }
 
-    //mi nps
     pub fn nps(&self) -> &Rrc<NamedPointSet> {
         self.project.nps()
     }
 
-    //mi pms
-    pub fn pms(&self) -> &Rrc<PointMappingSet> {
-        &self.pms
-    }
-
-    //mi cip
     pub fn cip(&self) -> Option<&Rrc<Cip>> {
         self.cip.as_ref()
     }
 
-    //mi np_names
+    pub fn pms(&self) -> Option<Rrc<PointMappingSet>> {
+        self.cip.as_ref().map(|cip| cip.borrow().pms().clone())
+    }
+
     pub fn np_names(&self) -> &[String] {
         &self.np
     }
 
-    //mi camera
-    /// Note - if there is a project loaded then (such as for orient) the camera might want to come from the CIP?
+    /// Note that the camera is NOT part of the CIP
     pub fn camera(&self) -> &CameraInstance {
         &self.camera
     }
 
-    //mi camera_mut
     pub fn camera_mut(&mut self) -> &mut CameraInstance {
         &mut self.camera
     }
 
-    /*    //mi calibration_mapping
-        pub fn calibration_mapping(&self) -> &CalibrationMapping {
-            &self.calibration_mapping
-        }
-    */
-    //mi star_catalog
     pub fn star_catalog(&self) -> &Catalog {
         self.star_catalog.as_ref().unwrap()
     }
-
-    //mi star_catalog_mut
     pub fn star_catalog_mut(&mut self) -> &mut Catalog {
         self.star_catalog.as_mut().unwrap()
     }
