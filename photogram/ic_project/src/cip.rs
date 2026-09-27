@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag, TagSet};
+use ic_base::{JsonParsable, PathSet, Result, Rrc, Tag, TagData, TagSet};
 use ic_camera::{AdjustableCameraProjection, CameraInstance, CameraInstanceDesc};
 use ic_mapping::{ModelLineSet, PointMapping, PointMappingSet};
 
@@ -52,7 +52,7 @@ impl CipFileDesc {
             camera_filename: self.camera_file.clone(),
             pms_filename: self.pms_file.clone(),
             image_filename: self.image.clone(),
-            image,
+            name: image,
             ..Default::default()
         };
 
@@ -128,7 +128,7 @@ pub struct Cip {
     camera: Rrc<CameraInstance>,
     pms: Rrc<PointMappingSet>,
     // Change to 'name'
-    image: Tag,
+    name: Tag,
     // Remove me
     camera_filename: String,
     // Remove me
@@ -140,21 +140,21 @@ impl Cip {
     pub fn new<S: Into<String>>(name: S) -> Self {
         let name = Tag::owned(name);
         Self {
-            image: name,
+            name,
             ..Default::default()
         }
     }
 
     pub fn name_as_tag(&self) -> &Tag {
-        &self.image
+        &self.name
     }
 
     pub fn resolve_name(&mut self, tag_set: &TagSet) {
-        self.image.resolve_in(tag_set);
+        self.name.resolve_in(tag_set);
     }
 
     pub fn set_image<I: Into<Tag>>(&mut self, s: I) {
-        self.image = s.into();
+        self.name = s.into();
     }
 
     pub fn image_filename(&self) -> &str {
@@ -207,7 +207,7 @@ impl Cip {
                 image_filename,
                 camera,
                 pms,
-                image,
+                name: image,
             },
             "".into(),
         ))

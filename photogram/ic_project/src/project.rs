@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use geo_nd::Quaternion;
 use ic_image::{Color8, FromPatchFn, ImageDrawable, ImageRgb8};
+use regex::bytes::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, PathSet, Point3D, Quat, Ray, Result, Rrc, TagSet, TanXTanY};
@@ -222,6 +223,80 @@ impl Project {
         }
     }
 
+    fn search_regex(search: &str, case_insensitive: bool) -> Result<Option<Regex>> {
+        if search.chars().any(|c| "^[*?".contains(c)) {
+            Ok(Some(
+                RegexBuilder::new(search)
+                    .case_insensitive(case_insensitive)
+                    .build()
+                    .map_err(|e| format!("failed to compile regex '{search}': {e}"))?,
+            ))
+        } else {
+            Ok(None)
+        }
+    }
+    fn fold_search<'a, F, I, T, V>(
+        search: &str,
+        case_insensitive: bool,
+        mut iter: I,
+        mut acc: T,
+        fold: F,
+    ) -> Result<T>
+    where
+        I: Iterator<Item = (&'a str, Rc<V>)>,
+        F: Fn(T, &Rc<V>) -> T,
+        V: 'a,
+    {
+        if let Some(regex) = Self::search_regex(search, case_insensitive)? {
+            for t in iter {
+                if regex.is_match(t.0.as_bytes()) {
+                    acc = fold(acc, &t.1);
+                }
+            }
+        } else {
+            if let Some(t) = iter.find(|t| search == t.0) {
+                acc = fold(acc, &t.1);
+            } else {
+                return Err(format!("Could not find {search} in the set").into());
+            };
+        }
+        Ok(acc)
+    }
+
+    pub fn select_cips<'a, I>(&self, search: I) -> Result<Vec<Rrc<Cip>>>
+    where
+        I: Iterator<Item = &'a str> + 'a,
+    {
+        let mut r = vec![];
+        let cip_names: Vec<_> = self
+            .cips
+            .iter()
+            .map(|cip| cip.borrow().name_as_tag().as_str().to_owned())
+            .collect();
+        for s in search {
+            if s.is_empty() {
+                continue;
+            }
+
+            r = Self::fold_search(
+                s,
+                false,
+                cip_names
+                    .iter()
+                    .map(|s| s.as_str())
+                    .zip(self.cips.iter().map(|s| s.clone().as_rc())),
+                r,
+                |mut r, np| {
+                    if !r.iter().any(|n| Rrc::ptr_eq(n, np)) {
+                        r.push(np.clone().into());
+                    }
+                    r
+                },
+            )?;
+        }
+        Ok(r)
+    }
+
     pub fn locate_all<F>(&self, filter: F, max_pairs: usize) -> Result<f64>
     where
         F: Clone + Fn(usize, &PointMapping) -> bool,
@@ -268,19 +343,11 @@ impl Project {
     ) -> bool {
         let np_images = &self.np_images;
         let blend = 0.0; // replace completely
-        let Some(isq) = np_images
-            .borrow_mut()
-            .np_find_or_add_cip(np, cip, width, height)
-        else {
-            eprintln!("Failed to find or add NP/CIP");
-            return false;
-        };
         let pms = cip.pms().borrow();
         let Some(pm) = pms.mapping_of_np_name(np.ref_tag().as_str()) else {
             return false;
         };
 
-        let mut patch = isq.as_patch(blend);
         let camera = cip.camera().borrow();
 
         let mut pci = ProjectedCameraImage {
@@ -316,6 +383,15 @@ impl Project {
         let sslc_pm_camera_dir = sslc.world_dir_to_camera_dir(pm_world_dir);
         let center_on_pm = Quat::rotation_of_vec_to_vec(&sslc_pm_camera_dir, &[0., 0., -1.]);
         sslc.set_orientation(&(center_on_pm * sslc.orientation()));
+
+        let Some(isq) = np_images
+            .borrow_mut()
+            .np_find_or_add_cip(np, cip, width, height)
+        else {
+            eprintln!("Failed to find or add NP/CIP");
+            return false;
+        };
+        let mut patch = isq.as_patch(blend);
 
         // This uses distance to camera from model, so uses model position; this has to happen after set_camera_for_facet, OR use mm_distance_to_point...
         let mut patch_iterator = PatchIterator {

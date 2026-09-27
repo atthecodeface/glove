@@ -62,7 +62,7 @@ pub struct NamedPointImages {
 impl std::default::Default for NamedPointImages {
     /// Default is required for a Project, but the image is not of much use
     fn default() -> Self {
-        let image = ImageRgb8::new(256, 256);
+        let image = ImageRgb8::new(512, 512);
         Self::create(image, 8).unwrap()
     }
 }
