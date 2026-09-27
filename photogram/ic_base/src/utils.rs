@@ -49,6 +49,18 @@ impl<T> Rrc<T> {
         let rrc = self.0;
         Rc::into_inner(rrc).map(|t| t.take())
     }
+    pub fn as_rc(self) -> Rc<RefCell<T>> {
+        self.0
+    }
+    pub fn ptr_eq(s: &Self, other: &Rc<RefCell<T>>) -> bool {
+        Rc::ptr_eq(&s.0, other)
+    }
+}
+
+impl<T> From<Rc<RefCell<T>>> for Rrc<T> {
+    fn from(data: Rc<RefCell<T>>) -> Self {
+        Self(data)
+    }
 }
 
 impl<T> From<T> for Rrc<T> {
