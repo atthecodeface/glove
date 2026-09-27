@@ -189,6 +189,7 @@ impl CommandArgs for CmdArgs {
         self.read_img.clear();
         self.np.clear();
         self.kernels.clear();
+        self.cips.clear();
         self.arg_strings.clear();
         self.arg_f64s.clear();
         self.arg_usizes.clear();

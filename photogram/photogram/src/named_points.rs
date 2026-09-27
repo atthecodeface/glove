@@ -3,8 +3,8 @@ use std::{collections::HashMap, num};
 
 use anyhow::anyhow;
 use geo_nd::Vector;
-use ic_photogram::Color8;
 use ic_photogram::ModelData;
+use ic_photogram::{Color8, ImageCache};
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use ic_photogram::NamedPointSet;
@@ -313,6 +313,31 @@ impl CmdArgs {
         CmdArgs::cmd_ok()
     }
 
+    fn np_cip_patch_create_cmd(self: &mut CmdArgs) -> CmdResult {
+        let nps = self.get_nps()?;
+        let cips = self.get_cips()?;
+        for np in nps.iter() {
+            for cip in cips.iter() {
+                let cip = cip.borrow();
+                let cip_image = self.get_cip_image(&cip)?;
+                let cip_image = ImageCache::image_rgb8_err(&cip_image)?;
+
+                if !self.project().create_np_cip_image(
+                    &np,
+                    &cip,
+                    cip_image,
+                    self.width,
+                    self.height,
+                ) {
+                    eprintln!("Dont think it did the image thing {np}");
+                } else {
+                    eprintln!("Did the image thing {np}");
+                }
+            }
+        }
+        CmdArgs::cmd_ok()
+    }
+
     fn np_update_from_nps_cmd(self: &mut CmdArgs) -> CmdResult {
         let new_nps = NamedPointSet::load_json(self.get_string_arg(0).unwrap(), &())?;
         for opt_new_np in new_nps.into_iter() {
@@ -357,6 +382,16 @@ impl CmdArgs {
         ])
         .handler(&Self::np_derive_directions_cmd);
 
+    const NP_CIP_PATCH_CREATE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("cip_patch_create")
+        .about("Generate patches for the given named points and CIPs")
+        .args(&[
+            Self::ARG_ADD_NAMED_POINT,
+            Self::ARG_CIP_LIST,
+            Self::ARG_WIDTH,
+            Self::ARG_HEIGHT,
+        ])
+        .handler(&Self::np_cip_patch_create_cmd);
+
     /*    const NP_UPDATE_FROM_NPS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("update_from_nps")
     .about("Update all entries from a supplied NPS JSON")
     .args(&[Self::ARG_STRING])
@@ -372,6 +407,7 @@ impl CmdArgs {
             Self::NP_ADD_CMD,
             Self::NP_AS_JSON_CMD,
             Self::NP_DERIVE_DIRECTIONS_CMD,
+            Self::NP_CIP_PATCH_CREATE_CMD,
             /*
             Self::NP_UPDATE_FROM_NPS_CMD,
                          Self::NP_GET_MODEL_POINTS_CMD,

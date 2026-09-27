@@ -3,8 +3,10 @@ use std::rc::Rc;
 
 use ic_photogram::CacheRef;
 use ic_photogram::CameraSensor;
+use ic_photogram::Cip;
 use ic_photogram::NamedPoint;
 use ic_photogram::Result;
+use ic_photogram::Rrc;
 use ic_photogram::{Image, ImagePt, ImageRgb8};
 
 use super::CmdArgs;
@@ -18,13 +20,19 @@ fn is_regex(s: &str) -> bool {
 //a CmdArgs accessors
 //ip CmdArgs - Operations
 impl CmdArgs {
-    //mp get_nps
     pub fn get_nps(&self) -> Result<Vec<Rc<NamedPoint>>> {
         let nps = self.nps().borrow();
         let r = nps.select(self.np.iter().map(|s| s.as_str()))?;
         if r.is_empty() {
             return Ok(nps.iter().cloned().collect());
         }
+        Ok(r)
+    }
+
+    pub fn get_cips(&self) -> Result<Vec<Rrc<Cip>>> {
+        let r = self
+            .project()
+            .select_cips(self.cips.iter().map(|s| s.as_str()))?;
         Ok(r)
     }
 
@@ -88,16 +96,11 @@ impl CmdArgs {
         self.image_cache.src_image(read_filename)
     }
 
-    pub fn get_cip_image(&mut self) -> Result<CacheRef> {
-        let Some(cip) = self.cip() else {
-            return Err("No CIP to get image for".into());
-        };
-        let cip = cip.borrow();
+    pub fn get_cip_image(&mut self, cip: &Cip) -> Result<CacheRef> {
         let cip_image_filename = cip.image_filename();
         let Some(read_filename) = self.path_set.find_file(cip_image_filename) else {
             return Err(format!("could not finde image file {cip_image_filename}").into());
         };
-        drop(cip);
         self.image_cache.src_image(read_filename)
     }
 

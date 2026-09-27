@@ -330,14 +330,14 @@ impl CmdArgs {
     fn si_read_cip_image_cmd(&mut self) -> CmdResult {
         self.validate_spherical_image()?;
         self.validate_cip()?;
-        let cip_image = self.get_cip_image()?;
+        let cip = self.cip().unwrap().clone();
+        let cip_image = self.get_cip_image(&cip.borrow())?;
         let mut image = self.spherical_image.as_ref().unwrap().borrow_mut();
-        let cip = self.cip.as_ref().unwrap().borrow();
         self.if_verbose(|| {
             eprintln!(
                 "Reading image {} using camera {}",
-                cip.image_filename(),
-                cip.camera().borrow()
+                cip.borrow().image_filename(),
+                cip.borrow().camera().borrow()
             )
         });
 

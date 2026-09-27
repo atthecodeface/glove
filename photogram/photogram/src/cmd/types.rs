@@ -3,12 +3,10 @@
 use ic_photogram::ImageCache;
 use star_catalog::Catalog;
 
-use ic_photogram::CameraDatabase;
 use ic_photogram::CameraInstance;
 use ic_photogram::CylindricalLens;
 use ic_photogram::{Cip, Project};
 use ic_photogram::{Color8, ImageRgb8};
-use ic_photogram::{NamedPointSet, PointMappingSet};
 use ic_photogram::{NamedRayList, PathSet, Point2D, Point3D, Rrc};
 use ic_photogram::{SphericalImage, SphericalImageShape};
 
@@ -81,6 +79,7 @@ pub struct CmdArgs {
     pub(crate) read_img: Vec<String>,
     pub(crate) np: Vec<String>, // could be name, 3D, pixel XY (from camera mapping of 3D); might need at least 3
     pub(crate) kernels: Vec<String>,
+    pub(crate) cips: Vec<String>,
     pub(crate) write_project: Option<String>,
     pub(crate) write_camera: Option<String>,
     pub(crate) write_polys: Option<String>,

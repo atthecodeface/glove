@@ -106,6 +106,15 @@ impl CmdArgs {
         &Self::set_cip,
     );
 
+    pub(crate) const ARG_CIP_LIST: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "cip",
+        None,
+        "CIP name (camera and PMS) within the project",
+        ArgCount::Min(1),
+        None,
+        &Self::add_cip,
+    );
+
     pub(crate) const ARG_CAMERA: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
         "camera",
         Some('c'),

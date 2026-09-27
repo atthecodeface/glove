@@ -204,14 +204,17 @@ impl CmdArgs {
     fn cip_np_image_create_cmd(self: &mut CmdArgs) -> CmdResult {
         self.validate_cip()?;
         let nps = self.get_nps()?;
-        let cip_image = self.get_cip_image()?;
+        let cip = self.cip.as_ref().unwrap().clone();
+        let cip_image = self.get_cip_image(&cip.borrow())?;
         let cip_image = ImageCache::image_rgb8_err(&cip_image)?;
-        let cip = self.cip.as_ref().unwrap().borrow();
         for np in nps {
-            if !self
-                .project()
-                .create_np_cip_image(&np, &cip, cip_image, self.width, self.height)
-            {
+            if !self.project().create_np_cip_image(
+                &np,
+                &cip.borrow(),
+                cip_image,
+                self.width,
+                self.height,
+            ) {
                 eprintln!("Dont think it did the image thing {np}");
             } else {
                 eprintln!("Did the image thing {np}");

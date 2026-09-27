@@ -150,20 +150,19 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_cip
     /// Set to use CIP 'n' of the project
-    // let cip = Cip::default();
-    // let camera = camera::get_camera(matches, project)?;
-    // let pms = mapping::get_pms(matches, &project.nps_ref())?;
-    // *cip.camera_mut() = camera;
-    // *cip.pms_mut() = pms;
-    // let cip = cip.into();
     pub(crate) fn set_cip(&mut self, cip: &str) -> Result<()> {
         let Some(cip) = self.project.find_cip(cip).cloned() else {
             return Err(anyhow!("CIP {cip} could not be found"));
         };
         self.camera = cip.as_ref().borrow().camera().borrow().clone();
         self.cip = Some(cip);
+        Ok(())
+    }
+
+    /// Add CIP 'n' from the project to list
+    pub(crate) fn add_cip(&mut self, cip: &str) -> Result<()> {
+        self.cips.push(cip.to_owned());
         Ok(())
     }
 
