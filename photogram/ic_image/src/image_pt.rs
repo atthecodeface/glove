@@ -1,7 +1,7 @@
 //a Imports
 use ic_base::Point2D;
 
-use crate::{ImageDraw, ImageDrawable, ImageRgb8};
+use crate::{ImageDraw, ImageRgb8};
 
 //a ImagePt
 //tp ImagePt

@@ -3,7 +3,7 @@ use image::Rgb;
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::{Color8, ImageDrawable, ImageRgb8};
+use crate::{Color8, ImageRgb8};
 
 //a Regions
 //tp Region

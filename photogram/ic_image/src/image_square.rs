@@ -16,7 +16,7 @@ use image::{DynamicImage, GenericImage, GenericImageView, Rgb};
 
 use ic_base::{Result, Rrc};
 
-use crate::{Image, ImageDrawable, ImagePatch};
+use crate::{Image, ImagePatch};
 
 /// The granularity of size for alloc
 /// A set of image squares gathered from one or more images, with a backing store of 'I'
