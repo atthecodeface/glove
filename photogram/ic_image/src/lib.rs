@@ -1,7 +1,10 @@
+use image::{ColorType, ImageReader};
+use std::path::PathBuf;
+
 mod color;
-// mod image_gray16;
+mod image_luma;
 mod image_pt;
-// mod image_rgb8;
+mod image_rgb;
 mod image_square;
 mod line_iter;
 mod regions;
@@ -14,20 +17,15 @@ pub use patch::{FromPatchFn, ImagePatch};
 pub use color::{Color8, Gray16};
 pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
-pub use traits::{Image, ImageColor, ImageConvert, ImageDraw, Luma16Image, LumaF32Image};
+pub use traits::{Image, ImageColor, ImageConvert, ImageDraw};
 
-// pub use image_gray16::ImageGray16;
-// pub use image_rgb8::ImageRgb8;
-
-pub type ImageGray16 = Luma16Image;
-pub type ImageRgb8 = image::RgbImage;
+pub use image_luma::{ImageGray16, Luma16Image, LumaF32Image};
+pub use image_rgb::ImageRgb8;
 
 pub use image_square::{ImageSquareSet, ImageSquares};
 pub use regions::Region;
 
 use ic_base::PathSet;
-use image::{ColorType, ImageReader};
-use std::path::PathBuf;
 
 mod image_cache;
 pub use image_cache::{ImageCache, ImageCacheEntry};
