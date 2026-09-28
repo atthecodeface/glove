@@ -84,13 +84,13 @@ pub struct CipDesc {
     // Remove me
     image_filename: String,
     camera: CameraInstanceDesc,
-    image: Tag,
+    name: Tag,
     pms: PointMappingSet,
 }
 
 impl CipDesc {
-    pub fn image(&self) -> &Tag {
-        &self.image
+    pub fn name(&self) -> &Tag {
+        &self.name
     }
     pub fn camera_filename(&self) -> &str {
         &self.camera_filename
@@ -187,7 +187,7 @@ impl Cip {
     }
 
     pub fn from_desc(project: &Project, cip_desc: CipDesc) -> Result<(Self, String)> {
-        let mut image = cip_desc.image;
+        let mut image = cip_desc.name;
         let camera = CameraInstance::from_desc(&project.cdb().borrow(), cip_desc.camera)?.into();
         let pms: Rrc<PointMappingSet> = cip_desc.pms.into();
         let _warnings = pms

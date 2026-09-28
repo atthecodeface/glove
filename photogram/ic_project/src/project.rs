@@ -21,7 +21,7 @@ use ic_camera::{
 };
 use ic_mapping::{NamedPoint, NamedPointSet, PointMapping};
 
-use crate::{Cip, CipDesc, CipFileDesc, ImageSquareSets, ImageSquareSetsDesc, NamedPointImages};
+use crate::{Cip, CipDesc, ImageSquareSets, ImageSquareSetsDesc, NamedPointImages};
 
 /// A project description is a deserializable that can be stored in a
 /// JSON file
@@ -211,7 +211,6 @@ impl Project {
             0,
             "Project must have no CIPS to *set* the NPS"
         );
-        eprintln!("{self:?}, {nps:?}");
         nps.borrow_mut().set_tag_set(self.np_tag_set.clone());
         self.nps = nps;
     }
@@ -392,6 +391,7 @@ impl Project {
             eprintln!("Failed to find or add NP/CIP");
             return false;
         };
+        eprintln!("Filling patch {isq:?}");
         let mut patch = isq.as_patch(blend);
 
         // This uses distance to camera from model, so uses model position; this has to happen after set_camera_for_facet, OR use mm_distance_to_point...

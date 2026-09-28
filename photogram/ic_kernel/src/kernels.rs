@@ -1,8 +1,6 @@
 //a Imports
 use std::path::Path;
 
-use wgpu::naga::proc::HashableLiteral;
-
 use crate::{Accelerate, KernelArgs, accel_wgpu, cpu};
 
 //a Kernels

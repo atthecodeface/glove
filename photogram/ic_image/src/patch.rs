@@ -83,7 +83,7 @@ impl<'a, I: Image> ImagePatch<'a, I> {
             patch_fn.set_mapping(x, 0);
             for y in 0..self.height {
                 if let Some(c) = patch_fn.map_from_patch(x, y) {
-                    self.img.put_pixel(x, y, c);
+                    self.img.put_pixel(self.x + x, self.y + y, c);
                 }
             }
         }

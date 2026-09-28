@@ -33,7 +33,7 @@ impl WasmCipDesc {
 
     #[wasm_bindgen(getter)]
     pub fn image(&self) -> String {
-        let t: &str = self.0.image().borrow();
+        let t: &str = self.0.name().borrow();
         t.to_owned()
     }
     #[wasm_bindgen(getter)]
