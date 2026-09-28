@@ -146,6 +146,12 @@ impl ImageColor for Color8 {
     }
 }
 
+impl From<Rgb<u8>> for Color8 {
+    fn from(value: Rgb<u8>) -> Self {
+        Self::rgb(value[0], value[1], value[2])
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color8(pub Rgba<u8>);
 

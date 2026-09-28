@@ -2,7 +2,6 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use ic_photogram::CacheRef;
-use ic_photogram::ImageDrawable;
 use ic_photogram::Result;
 
 /// A cache of images (Rgb8, Gray16, F32 array) that can be accessed by multiple

@@ -111,7 +111,7 @@ mapping is not impacted by moving the lens, of course.
 
 mod lens_polys;
 use ic_base::{Point2D, Point3D, Quat, TanXTanY};
-use ic_image::{FromPatchFn, ImageDrawable};
+use ic_image::{FromPatchFn, ImageDraw};
 pub use lens_polys::LensPolys;
 
 mod camera_body;
@@ -349,7 +349,7 @@ where
 pub struct ProjectedCameraImage<'a, C, I>
 where
     C: CameraLensProjection,
-    I: ImageDrawable,
+    I: ImageDraw,
 {
     pub image: &'a I,
     pub camera: &'a C,
@@ -360,7 +360,7 @@ where
 impl<'a, C, I> CameraImageProjection for ProjectedCameraImage<'a, C, I>
 where
     C: CameraLensProjection,
-    I: ImageDrawable,
+    I: ImageDraw,
 {
     type Pixel = I::Pixel;
     fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
@@ -374,7 +374,7 @@ where
         if (pxy[0] >= self.w as f64) || (pxy[1] >= self.h as f64) {
             return None;
         }
-        Some(self.image.get(pxy[0] as u32, pxy[1] as u32))
+        Some(self.image.get_pixel(pxy[0] as u32, pxy[1] as u32))
     }
     fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
         self.camera.world_dir_to_camera_dir(world_dir)

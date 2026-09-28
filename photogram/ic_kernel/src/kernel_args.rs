@@ -45,16 +45,21 @@ impl std::default::Default for KernelArgs {
         }
     }
 }
-//ip From<(usize, usize)> for KernelArgs {
-impl From<(usize, usize)> for KernelArgs {
-    fn from((width, height): (usize, usize)) -> Self {
+impl From<(u32, u32)> for KernelArgs {
+    fn from((width, height): (u32, u32)) -> Self {
         Self {
-            width: width as u32,
-            height: height as u32,
-            src_width: width as u32,
-            src_height: height as u32,
+            width,
+            height,
+            src_width: width,
+            src_height: height,
             ..std::default::Default::default()
         }
+    }
+}
+
+impl From<(usize, usize)> for KernelArgs {
+    fn from((width, height): (usize, usize)) -> Self {
+        (width as u32, height as u32).into()
     }
 }
 
@@ -68,9 +73,9 @@ impl KernelArgs {
         self.scale = scale;
         self
     }
-    pub fn with_src(mut self, (w, h): (usize, usize)) -> Self {
-        self.src_width = w as u32;
-        self.src_height = h as u32;
+    pub fn with_src(mut self, (w, h): (u32, u32)) -> Self {
+        self.src_width = w;
+        self.src_height = h;
         self
     }
     pub fn with_angle(mut self, angle: f32) -> Self {

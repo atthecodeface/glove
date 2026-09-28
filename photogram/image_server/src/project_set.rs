@@ -2,12 +2,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use ic_photogram::Mesh;
 use ic_photogram::Patch;
 use ic_photogram::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_photogram::{ImageIO, ImageCacheEntry, ImageGray16};
+use ic_photogram::{Image, ImageCacheEntry, ImageGray16};
+use ic_photogram::{ImageConvert, Mesh};
 use ic_photogram::{KernelArgs, Kernels};
 use ic_photogram::{PathGlob, Result};
 
@@ -293,70 +293,83 @@ impl ProjectSet {
         patch.set_expansion_factor(1.1);
         patch.update_data();
 
-        let patch_img = patch.create_img(&*camera, src_img).unwrap();
+        let patch_img = patch
+            .create_img(&*camera, src_img, [0xc0, 0xc0, 0xc0].into())
+            .unwrap();
 
-        let to_width = pd.width.map(|x| x as usize).unwrap_or(200);
+        let to_width = pd.width.map(|x| x as u32).unwrap_or(200);
         let ws = pd.window.unwrap_or(4) as u32;
-        let (w, h, mut img_data) = patch_img.as_vec_gray_f32(Some(to_width));
-        let mut img_data_sq = img_data.clone();
-        let args: KernelArgs = (w, h).into();
+        let mut luma_data = patch_img.as_luma_f32(Some(to_width), 1.0);
+        let mut luma_data_sq = luma_data.clone();
+        let args: KernelArgs = luma_data.dimensions().into();
 
         // sum(x)^2 - sum(x^2)
 
         let args = args.with_size(ws as usize);
         let ws_f = ws as f32;
         let args_mean = args.with_scale(1.0 / ws_f);
-        self.kernels
-            .run_shader("square", &args, w * h, None, img_data_sq.as_mut_slice())?;
+        let num_pixels = luma_data.as_flat_samples_mut().as_mut_slice().len();
         self.kernels.run_shader(
-            "window_sum_x",
-            &args_mean,
-            w * h,
+            "square",
+            &args,
+            num_pixels,
             None,
-            img_data_sq.as_mut_slice(),
-        )?;
-        self.kernels.run_shader(
-            "window_sum_y",
-            &args_mean,
-            w * h,
-            None,
-            img_data_sq.as_mut_slice(),
+            luma_data_sq.as_flat_samples_mut().as_mut_slice(),
         )?;
         self.kernels.run_shader(
             "window_sum_x",
             &args_mean,
-            w * h,
+            num_pixels,
             None,
-            img_data.as_mut_slice(),
+            luma_data_sq.as_flat_samples_mut().as_mut_slice(),
         )?;
         self.kernels.run_shader(
             "window_sum_y",
             &args_mean,
-            w * h,
+            num_pixels,
             None,
-            img_data.as_mut_slice(),
+            luma_data.as_flat_samples_mut().as_mut_slice(),
         )?;
-        self.kernels
-            .run_shader("square", &args, w * h, None, img_data.as_mut_slice())?;
+        self.kernels.run_shader(
+            "window_sum_x",
+            &args_mean,
+            num_pixels,
+            None,
+            luma_data.as_flat_samples_mut().as_mut_slice(),
+        )?;
+        self.kernels.run_shader(
+            "window_sum_y",
+            &args_mean,
+            num_pixels,
+            None,
+            luma_data.as_flat_samples_mut().as_mut_slice(),
+        )?;
+        self.kernels.run_shader(
+            "square",
+            &args,
+            num_pixels,
+            None,
+            luma_data.as_flat_samples_mut().as_mut_slice(),
+        )?;
 
         self.kernels.run_shader(
             "sub_scaled",
             &args,
-            w * h,
-            Some(img_data.as_slice()),
-            img_data_sq.as_mut_slice(),
+            num_pixels,
+            Some(luma_data.as_flat_samples().as_slice()),
+            luma_data_sq.as_flat_samples_mut().as_mut_slice(),
         )?;
         self.kernels.run_shader(
             "sqrt",
             &args.with_scale(2.0),
-            w * h,
+            num_pixels,
             None,
-            img_data_sq.as_mut_slice(),
+            luma_data_sq.as_flat_samples_mut().as_mut_slice(),
         )?;
 
         // minus
         // square sum sum
-        let img = ImageGray16::of_vec_f32(w, h, img_data_sq, 1.0);
+        let img = luma_data_sq.as_luma16(None, 1.0);
         let img_bytes = img.encode("png")?;
         response.content = img_bytes;
         response.mime_type = server.mime_type("png");

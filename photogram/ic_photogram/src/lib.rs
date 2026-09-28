@@ -45,8 +45,9 @@ pub use ic_http::{
 };
 
 pub use ic_image::{
-    Color8, Gray16, ImageIO, ImageCache, ImageCacheEntry, ImageColor, ImageDrawable, ImageGray16,
-    ImagePt, ImageRgb8, ImageSquareSet, Region, read_image,
+    Color8, GenericImage, GenericImageView, Gray16, Image, ImageCache, ImageCacheEntry, ImageColor,
+    ImageConvert, ImageDraw, ImageGray16, ImagePt, ImageRgb8, ImageSquareSet, Luma16Image,
+    LumaF32Image, Region, read_image,
 };
 pub use ic_kernel::*;
 pub use ic_mapping::*;

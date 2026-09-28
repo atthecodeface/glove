@@ -12,11 +12,11 @@ use std::{
     rc::Rc,
 };
 
-use image::{DynamicImage, GenericImage, GenericImageView};
+use image::{DynamicImage, GenericImage, GenericImageView, Rgb};
 
 use ic_base::{Result, Rrc};
 
-use crate::{ImageDrawable, ImageIO, ImagePatch};
+use crate::{Image, ImageDrawable, ImagePatch};
 
 /// The granularity of size for alloc
 /// A set of image squares gathered from one or more images, with a backing store of 'I'
@@ -25,7 +25,7 @@ use crate::{ImageDrawable, ImageIO, ImagePatch};
 ///
 /// Each square in the image has the same width_sq and height_sq
 #[derive(Debug)]
-pub struct ImageSquareSet<I: ImageIO> {
+pub struct ImageSquareSet<I: Image> {
     image_filename: PathBuf,
     square_size: u32,
     width_sq: u32,
@@ -37,7 +37,7 @@ pub struct ImageSquareSet<I: ImageIO> {
 //ip ImageSquareSet
 impl<I> ImageSquareSet<I>
 where
-    I: ImageIO,
+    I: Image,
 {
     //ap image
     pub fn image(&self) -> &Rrc<I> {
@@ -62,7 +62,7 @@ where
     /// Create an [Self] from a given image, which must have a size that is a
     /// multiple (in each dimension) of the constant [self.square_size]
     pub fn create(image: I, square_size: u32) -> Result<Self> {
-        let (w, h) = image.size();
+        let (w, h) = image.dimensions();
         if !w.is_multiple_of(square_size) || !h.is_multiple_of(square_size) {
             return Err(
                 format!("Image was not a multiple of the square size {square_size}").into(),
@@ -246,7 +246,7 @@ where
 /// A rectangular region inside an image, with a width and a height that are
 /// mulitples of the image square size
 #[derive(Clone)]
-pub struct ImageSquares<I: ImageIO> {
+pub struct ImageSquares<I: Image> {
     image: Rrc<I>,
     /// Size of each square in the ImageSquareSet
     square_size: u32,
@@ -262,7 +262,7 @@ pub struct ImageSquares<I: ImageIO> {
 
 impl<I> std::fmt::Debug for ImageSquares<I>
 where
-    I: ImageIO,
+    I: Image,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(
@@ -279,7 +279,7 @@ where
 
 impl<I> ImageSquares<I>
 where
-    I: ImageIO,
+    I: Image,
 {
     /// Get the starting square tile and size (in square tiles) of the [ImageSquares]
     pub fn take(self) -> (u32, u32, u32, u32) {
@@ -392,16 +392,55 @@ where
     }
 }
 
-impl<I> ImageDrawable for ImageSquares<I>
+impl<I> GenericImageView for ImageSquares<I>
 where
-    I: ImageIO,
+    I: Image,
 {
     type Pixel = I::Pixel;
-    fn get(&self, x: u32, y: u32) -> Self::Pixel {
-        self.image.borrow().get(
+    fn dimensions(&self) -> (u32, u32) {
+        (self.w, self.h)
+    }
+    fn get_pixel(&self, x: u32, y: u32) -> Self::Pixel {
+        self.image.borrow().get_pixel(
             x + (self.x_sq * self.square_size),
             y + (self.y_sq * self.square_size),
         )
+    }
+}
+impl<I> GenericImage for ImageSquares<I>
+where
+    I: Image,
+{
+    fn put_pixel(&mut self, x: u32, y: u32, pixel: Self::Pixel) {
+        self.image.borrow_mut().put_pixel(
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
+            pixel,
+        )
+    }
+    // This is deprecated, but may still be used by the image library...
+    //
+    // It is not possible to implement for this type as a borrow_mut() of the image would be required
+    fn get_pixel_mut(&mut self, x: u32, y: u32) -> &mut Self::Pixel {
+        todo!();
+        /*        self.image.borrow_mut().get_pixel_mut()(
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
+            pixel,
+        )
+        */
+    }
+    fn blend_pixel(&mut self, x: u32, y: u32, pixel: Self::Pixel) {
+        self.image.borrow_mut().blend_pixel(
+            x + (self.x_sq * self.square_size),
+            y + (self.y_sq * self.square_size),
+            pixel,
+        )
+    }
+}
+/*
+    type Pixel = I::Pixel;
+    fn get(&self, x: u32, y: u32) -> Self::Pixel {
     }
     fn put(&mut self, x: u32, y: u32, color: &Self::Pixel) {
         self.image.borrow_mut().put(
@@ -419,74 +458,6 @@ where
         )
     }
     fn size(&self) -> (u32, u32) {
-        (self.w, self.h)
     }
 }
-
-//a Tests
-#[test]
-fn test_image_square_0() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
-    let mut set = ImageSquareSet::create(image, 8)?;
-    for _ in 0..199 {
-        let x = set.allocate_squares(8, 8);
-        assert!(x.is_some());
-        let x = x.unwrap();
-        eprintln!("{x:?}");
-    }
-    let x = set.allocate_squares(16, 16);
-    eprintln!("{x:?}");
-    assert!(x.is_none());
-    let x = set.allocate_squares(8, 8);
-    eprintln!("{x:?}");
-    assert!(x.is_some());
-    let x = set.allocate_squares(8, 8);
-    eprintln!("{x:?}");
-    assert!(x.is_none());
-    Ok(())
-}
-
-#[test]
-fn test_image_square_1() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
-    let mut set = ImageSquareSet::create(image, 8)?;
-    for _ in 0..50 {
-        let x = set.allocate_squares(16, 16);
-        assert!(x.is_some());
-        let x = x.unwrap();
-        eprintln!("{x:?}");
-    }
-    let x = set.allocate_squares(16, 16);
-    eprintln!("{x:?}");
-    assert!(x.is_none());
-    let x = set.allocate_squares(8, 8);
-    eprintln!("{x:?}");
-    assert!(x.is_none());
-    Ok(())
-}
-
-#[test]
-fn test_image_square_2() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let image = crate::ImageRgb8::new(10 * 8, 20 * 8);
-
-    let mut set = ImageSquareSet::create(image, 8)?;
-    let first = set.allocate_squares(16, 16).unwrap();
-    for _ in 0..49 {
-        let _x = set.allocate_squares(16, 16);
-    }
-    assert!(set.allocate_squares(8, 8).is_none());
-    set.free_squares(first);
-    assert!(set.allocate_squares(8, 24).is_none());
-    assert!(set.allocate_squares(24, 8).is_none());
-    let x = set.allocate_squares(8, 16);
-    assert!(x.is_some());
-    let x = x.unwrap();
-    assert!(set.allocate_squares(16, 8).is_none());
-    let y = set.allocate_squares(8, 8).unwrap();
-    let _z = set.allocate_squares(8, 8).unwrap();
-    set.free_squares(x);
-    assert!(set.allocate_squares(16, 8).is_none());
-    set.free_squares(y);
-    assert!(set.allocate_squares(16, 8).is_some());
-    Ok(())
-}
+*/

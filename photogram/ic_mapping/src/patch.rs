@@ -4,7 +4,7 @@ use geo_nd::Vector;
 
 use ic_base::{Plane, Point2D, Point3D};
 use ic_camera::CameraLensProjection;
-use ic_image::{ImageColor, ImageDrawable, ImageIO};
+use ic_image::{GenericImageView, Image};
 use ic_mesh::Mesh;
 
 use crate::NamedPoint;
@@ -285,10 +285,15 @@ impl Patch {
     }
 
     //mp create_img
-    pub fn create_img<C, I>(&self, camera: &C, src_img: &I) -> Option<I>
+    pub fn create_img<C, I>(
+        &self,
+        camera: &C,
+        src_img: &I,
+        color: <I as GenericImageView>::Pixel,
+    ) -> Option<I>
     where
         C: CameraLensProjection,
-        I: ImageIO,
+        I: Image,
     {
         if !self.plane_ok {
             return None;
@@ -297,7 +302,7 @@ impl Patch {
         // Find the points on the sensor for all of the mesh points
         let src_pts = self.sensor_pts(camera);
 
-        let (src_w, src_h) = src_img.size();
+        let (src_w, src_h) = src_img.dimensions();
         let src_w = src_w as f64;
         let src_h = src_h as f64;
         if !src_pts.iter().any(|p| {
@@ -347,14 +352,13 @@ impl Patch {
                     if pxy[0] < 0.0 || pxy[1] < 0.0 || pxy[0] >= src_w || pxy[1] >= src_h {
                         continue;
                     }
-                    let c = src_img.get(pxy[0] as u32, pxy[1] as u32);
-                    patch_img.put(x as u32, y as u32, &c);
+                    let c = src_img.get_pixel(pxy[0] as u32, pxy[1] as u32);
+                    patch_img.put_pixel(x as u32, y as u32, c);
                 }
             }
         }
 
         let mesh = self.patch_mesh.mesh();
-        let c = <<I as ImageDrawable>::Pixel as ImageColor>::grey(192);
         for (p0, p1, p2) in mesh.triangle_pts() {
             let p0 = mesh[p0] * self.render_px_per_model;
             let p1 = mesh[p1] * self.render_px_per_model;
@@ -362,9 +366,9 @@ impl Patch {
             let p0 = [p0[0] - lx, p0[1] - by].into();
             let p1 = [p1[0] - lx, p1[1] - by].into();
             let p2 = [p2[0] - lx, p2[1] - by].into();
-            patch_img.draw_line(&p0, &p1, &c);
-            patch_img.draw_line(&p1, &p2, &c);
-            patch_img.draw_line(&p2, &p0, &c);
+            patch_img.draw_line(&p0, &p1, color);
+            patch_img.draw_line(&p1, &p2, color);
+            patch_img.draw_line(&p2, &p0, color);
         }
 
         Some(patch_img)

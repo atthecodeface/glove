@@ -1,24 +1,24 @@
 use std::{collections::HashMap, default};
 
 use ic_base::{Result, Rrc};
-use ic_image::{ImageDrawable, ImageIO, ImageRgb8, ImageSquareSet, ImageSquares};
+use ic_image::{Image, ImageDraw, ImageRgb8, ImageSquareSet, ImageSquares};
 use ic_mapping::NamedPoint;
 
 use crate::Cip;
 
 #[derive(Debug)]
-pub struct CipImages<I: Clone + ImageDrawable> {
+pub struct CipImages<I: Clone + ImageDraw> {
     images: HashMap<String, I>,
 }
 
-impl<I: Clone + ImageDrawable> std::default::Default for CipImages<I> {
+impl<I: Clone + ImageDraw> std::default::Default for CipImages<I> {
     fn default() -> Self {
         let images = HashMap::default();
         Self { images }
     }
 }
 
-impl<I: Clone + ImageDrawable> CipImages<I> {
+impl<I: Clone + ImageDraw> CipImages<I> {
     fn find_cip<A: AsRef<str>>(&self, cip_name: A) -> Option<I> {
         self.images.get(cip_name.as_ref()).cloned()
     }
@@ -31,14 +31,17 @@ impl<I: Clone + ImageDrawable> CipImages<I> {
     ) -> Option<I> {
         eprintln!("Insert/find CIP for np patch {cip_name}");
         if let Some(image) = self.images.get(cip_name).cloned() {
-            if image.size() == (width, height) {
+            if image.dimensions() == (width, height) {
                 return Some(image);
             }
-            eprintln!("Image size {:?} instead of {width},{height}", image.size());
+            eprintln!(
+                "Image size {:?} instead of {width},{height}",
+                image.dimensions()
+            );
         }
         let _ = self.images.remove(cip_name);
         if let Some(image) = image_fn() {
-            eprintln!("Image created with size {:?}", image.size());
+            eprintln!("Image created with size {:?}", image.dimensions());
             self.images.insert(cip_name.to_owned(), image.clone());
             Some(image)
         } else {

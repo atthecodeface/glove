@@ -7,7 +7,7 @@ use ic_photogram::Cip;
 use ic_photogram::NamedPoint;
 use ic_photogram::Result;
 use ic_photogram::Rrc;
-use ic_photogram::{ImageIO, ImagePt, ImageRgb8};
+use ic_photogram::{Image, ImagePt, ImageRgb8};
 
 use super::CmdArgs;
 
@@ -65,13 +65,13 @@ impl CmdArgs {
     }
 
     //mp get_image_read_or_create
-    pub fn get_image_read_or_create(&self) -> Result<ImageRgb8> {
+    pub fn get_image_read_or_create(&self, n: usize) -> Result<ImageRgb8> {
         let read_filename = {
             if self.read_img.is_empty() {
                 None
             } else {
-                let Some(read_filename) = self.path_set.find_file(&self.read_img[0]) else {
-                    return Err(format!("could not finde image file {}", self.read_img[0]).into());
+                let Some(read_filename) = self.path_set.find_file(&self.read_img[n]) else {
+                    return Err(format!("could not find image file {}", self.read_img[n]).into());
                 };
                 Some(read_filename)
             }

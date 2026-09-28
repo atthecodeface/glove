@@ -1,7 +1,7 @@
 //a Imports
 use std::path::{Path, PathBuf};
 
-use crate::{ImageDrawable, ImageGray16, ImageIO, ImageRgb8};
+use crate::{Image, ImageConvert, ImageDrawable, ImageGray16, ImageIO, ImageRgb8};
 use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
 
@@ -69,11 +69,11 @@ impl Cacheable for ImageCacheEntry {
     fn size(&self) -> usize {
         match self {
             ImageCacheEntry::Rgb(i) => {
-                let (w, h) = i.size();
+                let (w, h) = i.dimensions();
                 w as usize * h as usize * 4
             }
             ImageCacheEntry::Gray(i) => {
-                let (w, h) = i.size();
+                let (w, h) = i.dimensions();
                 w as usize * h as usize * 2
             }
             ImageCacheEntry::F32(w, h, _) => w * h * 4,
@@ -179,22 +179,12 @@ impl ImageCache {
         let src_img_ref = self.cache_src_image(&path)?;
         let src_img = ImageCacheEntry::cr_as_rgb8(&src_img_ref);
 
-        let src_size = src_img.size();
+        let src_size = src_img.dimensions();
         let x_scale = (src_size.0 as f64) / (size.0 as f64);
         let y_scale = (src_size.1 as f64) / (size.1 as f64);
         let scale = x_scale.max(y_scale);
         let width = (src_size.0 as f64 / scale) as u32;
-        let height = (src_size.1 as f64 / scale) as u32;
-        let mut scaled_img = ImageRgb8::new(width, height);
-        for y in 0..height {
-            let sy = (y as f64 + 0.5) * scale;
-            for x in 0..width {
-                let sx = (x as f64 + 0.5) * scale;
-                let c = src_img.get(sx as u32, sy as u32);
-                scaled_img.put(x as u32, y as u32, &c);
-            }
-        }
-
+        let scaled_img = src_img.as_rgb8(Some(width), 1.0);
         let thumbnail_img = ImageCacheEntry::Rgb(scaled_img);
         self.cache.insert(key.clone(), thumbnail_img);
         Ok(())

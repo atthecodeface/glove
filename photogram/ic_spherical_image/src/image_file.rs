@@ -1,5 +1,5 @@
 use ic_base::{JsonParsable, PathSet, Rrc};
-use ic_image::ImageIO;
+use ic_image::Image;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -23,13 +23,13 @@ impl JsonParsable for ImageFileDesc {
 }
 
 #[derive(Debug)]
-pub struct ImageFile<I: ImageIO> {
+pub struct ImageFile<I: Image> {
     path: PathBuf,
     img_wh: (u32, u32),
     image: Rrc<I>,
 }
 
-impl<I: ImageIO> ImageFile<I> {
+impl<I: Image> ImageFile<I> {
     pub fn new(width: u32, height: u32) -> Self {
         let image = I::new(width, height).into();
         Self {
@@ -42,7 +42,7 @@ impl<I: ImageIO> ImageFile<I> {
     pub fn of_desc(path_set: &PathSet, desc: &ImageFileDesc) -> ic_base::Result<Self> {
         let p = path_set.find_file_err(&desc.path)?;
         let image = I::read(&p)?;
-        let wh = image.size();
+        let wh = image.dimensions();
         let image = image.into();
         if wh != desc.img_wh {
             return Err(SphericalImageError::BadImageFileSize(wh, desc.img_wh).into());
@@ -63,7 +63,7 @@ impl<I: ImageIO> ImageFile<I> {
         let path = path.as_ref().to_owned();
         let filename = path_set.find_file_err(&path)?;
         let image = I::read_or_create_image(Some(filename), img_wh)?;
-        let img_wh = image.size();
+        let img_wh = image.dimensions();
         let image = image.into();
         Ok(Self {
             path,

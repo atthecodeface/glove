@@ -2,7 +2,7 @@ use crate::{
     GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData, SubdivisionPath,
 };
 use ic_base::{JsonParsable, PathSet, Point3D, Result};
-use ic_image::{ImageIO, ImageGray16, ImageRgb8};
+use ic_image::{Image, ImageGray16, ImageRgb8};
 use indexed::IndexedVec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -97,7 +97,7 @@ impl SphericalImageDescriptor {
 ///
 ///
 #[derive(Debug)]
-pub struct SphericalImage<I: ImageIO> {
+pub struct SphericalImage<I: Image> {
     /// The toplevel shape of the spherical image - Tetrahedron, Octahedron, Icosahedron
     shape: SphericalImageShape,
     /// Path set used for files
@@ -129,21 +129,21 @@ pub struct SphericalImage<I: ImageIO> {
     patch_map: HashMap<GreatCircleTriangleIndex, usize>,
 }
 
-impl<I: ImageIO> std::ops::Index<PatchIndex> for SphericalImage<I> {
+impl<I: Image> std::ops::Index<PatchIndex> for SphericalImage<I> {
     type Output = SphericalPatch;
     fn index(&self, index: PatchIndex) -> &Self::Output {
         &self.patches[index]
     }
 }
 
-impl<I: ImageIO> std::ops::Index<ImageFileIndex> for SphericalImage<I> {
+impl<I: Image> std::ops::Index<ImageFileIndex> for SphericalImage<I> {
     type Output = ImageFile<I>;
     fn index(&self, index: ImageFileIndex) -> &Self::Output {
         &self.image_files[index]
     }
 }
 
-impl<I: ImageIO> SphericalImage<I> {
+impl<I: Image> SphericalImage<I> {
     /// Create the SdIndex, which maps vectors to GC Triangles, and the patch
     /// map, which maps GC triangle index to highest resolution patch
     fn create_indices(&mut self) {
@@ -310,7 +310,7 @@ impl<I: ImageIO> SphericalImage<I> {
         let num_patches = (toplevel_triangles.len() as u32) / 2;
         let image = self.image_files[image_file].image();
         let image = image.borrow();
-        let (width, height) = image.size();
+        let (width, height) = image.dimensions();
         let width_patches = width.div_ceil(patch_size);
         let height_patches = height.div_ceil(patch_size);
         let max_patches = width_patches * height_patches;
@@ -390,10 +390,10 @@ impl<I: ImageIO> SphericalImage<I> {
                 if let Some(p) = patch.image_coords(&self.sd, p) {
                     let image = self.image_files[patch.file_index].image();
                     let image = image.borrow();
-                    let (w, h) = image.size();
+                    let (w, h) = image.dimensions();
                     let x = (p[0].max(0.0).min((w - 1) as f64)) as u32;
                     let y = (p[1].max(0.0).min((h - 1) as f64)) as u32;
-                    return Some(image.get(x, y));
+                    return Some(image.get_pixel(x, y));
                 }
             }
         }

@@ -1,6 +1,8 @@
 //a Imports
 use std::path::Path;
 
+use wgpu::naga::proc::HashableLiteral;
+
 use crate::{Accelerate, KernelArgs, accel_wgpu, cpu};
 
 //a Kernels
@@ -92,7 +94,7 @@ impl Kernels {
     //mp find_best_n_above_value
     pub fn find_best_n_above_value(
         &self,
-        size: (usize, usize),
+        size: (u32, u32),
         data: &mut [f32],
         n: usize,
         value: f32,
@@ -129,12 +131,14 @@ impl Kernels {
     /// Returns a vec of region x y, data x y, value
     fn find_max_above_value_of_regions(
         &self,
-        size: (usize, usize),
+        size: (u32, u32),
         data: &[f32],
         region_size: usize,
         min_value: f32,
     ) -> Result<Vec<(usize, usize, usize, usize, f32)>, ic_base::Error> {
         let (width, height) = size;
+        let width = width as usize;
+        let height = height as usize;
         let mut max_of_region_slice: Vec<f32> = data.into();
         let args: KernelArgs = size.into();
         let args = args.with_scale(min_value);
@@ -171,7 +175,7 @@ impl Kernels {
     /// Returns a Vec of <x,y,value> *sorted* by descending value
     fn find_next_best_above_x(
         &self,
-        size: (usize, usize),
+        size: (u32, u32),
         min_dist: usize,
         data: &[f32],
         value: f32,
@@ -232,7 +236,7 @@ impl Kernels {
     /// buffer at the selected points with lower values
     fn mask_out_selected_points<I>(
         &self,
-        size: (usize, usize),
+        size: (u32, u32),
         data: &mut [f32],
         selected_points: I,
         region_size: usize,
@@ -245,7 +249,7 @@ impl Kernels {
         let args = args.with_scale(0.0);
         let args = args.with_cos(0.0);
         let args = args.with_size(region_size);
-        self.run_shader("copy", &args, width * height, None, data)?;
+        self.run_shader("copy", &args, width as usize * height as usize, None, data)?;
         let things_to_reduce: Vec<f32> = selected_points.flatten().collect();
         self.run_shader(
             "reduce_value",

@@ -1,4 +1,5 @@
 use ic_photogram::ImageCache;
+use image::Rgb;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use geo_nd::{Quaternion, Vector};
@@ -8,7 +9,7 @@ use ic_photogram::Idx;
 use ic_photogram::{
     CameraInstance, CameraLensProjection, CameraProjection, CameraSensor, LensPolys,
 };
-use ic_photogram::{ImageDrawable, ImageIO, ImageRgb8};
+use ic_photogram::{Image, ImageDraw, ImageRgb8};
 use ic_photogram::{ImageFileIndex, SphericalImage};
 use ic_photogram::{Point2D, Point3D, Quat};
 
@@ -103,11 +104,11 @@ impl CmdArgs {
         )?;
 
         let ps: Vec<_> = image.iter_patch_indices().collect();
-        fn pix_map(v: Point3D) -> Option<Color8> {
+        fn pix_map(v: Point3D) -> Option<Rgb<u8>> {
             let r = ((v[0] + 1.) * 127.) as u8;
             let g = ((v[1] + 1.) * 127.) as u8;
             let b = ((v[2] + 1.) * 127.) as u8;
-            Some([r, g, b, 0].into())
+            Some([r, g, b].into())
         }
         for p in ps {
             image.fill_image_patch(0.0, p, &pix_map);
@@ -178,7 +179,7 @@ impl CmdArgs {
                 p[0] = x as f64;
                 let d = self.camera.sensor_px_abs_xy_to_world_dir(p);
                 if let Some(color) = image.get_pixel_of_direction(&d) {
-                    jpg.put(x, y, &color);
+                    jpg.put_pixel(x, y, color);
                 }
             }
         }
@@ -215,7 +216,7 @@ impl CmdArgs {
                 let p: Point3D = [sin_lambda, -tan_phi, -cos_lambda].into();
                 let d = q.apply3(&p.normalize());
                 if let Some(color) = image.get_pixel_of_direction(&d) {
-                    jpg.put(x, y, &color);
+                    jpg.put_pixel(x, y, color);
                 }
             }
         }
@@ -243,7 +244,7 @@ impl CmdArgs {
                 let p: Point3D = [tan_phi, sin_lambda, -cos_lambda].into();
                 let d = q.apply3(&p.normalize());
                 if let Some(color) = image.get_pixel_of_direction(&d) {
-                    jpg.put(x, y, &color);
+                    jpg.put_pixel(x, y, color);
                 }
             }
         }
@@ -258,25 +259,25 @@ impl CmdArgs {
             self.si_render_panorama_vertical(&mut jpg)?;
         } else {
             self.si_render_panorama_horizontal(&mut jpg)?;
-            let white = 255_u8.into();
-            let black = 0.into();
+            let white = Rgb::<u8>::from([255, 255, 255]);
+            let black = Rgb::<u8>::from([0, 0, 0]);
             if self.x_grid > 0.0 {
                 for theta_i in 0..=100 {
-                    let color = { if theta_i == 0 { &white } else { &black } };
+                    let color = { if theta_i == 0 { white } else { black } };
                     let theta = (theta_i as f64) * self.x_grid;
                     let x = ((theta / self.fov_h) * (self.width as f64)) as u32;
                     if x >= self.width / 2 {
                         break;
                     }
                     for y in 0..self.height {
-                        jpg.put(self.width / 2 + x, y, &color);
-                        jpg.put(self.width / 2 - x, y, &color);
+                        jpg.put_pixel(self.width / 2 + x, y, color);
+                        jpg.put_pixel(self.width / 2 - x, y, color);
                     }
                 }
             }
             if self.y_grid > 0.0 {
                 for phi_i in 0..=100 {
-                    let color = { if phi_i == 0 { &white } else { &black } };
+                    let color = { if phi_i == 0 { white } else { black } };
                     let phi = (self.v_ofs + (phi_i as f64) * self.y_grid).to_radians();
                     // y = 0.0 -> 0, 1.0 -> height
                     let y = self.cylindrical_lens.y_of_phi(phi) * (self.height as f64);
@@ -285,11 +286,11 @@ impl CmdArgs {
                     }
                     let y = y as u32;
                     for x in 0..self.width {
-                        jpg.put(x, y, &color);
+                        jpg.put_pixel(x, y, color);
                     }
                 }
                 for phi_i in 1..=100 {
-                    let color = { if phi_i == 0 { &white } else { &black } };
+                    let color = { if phi_i == 0 { white } else { black } };
                     let phi = (self.v_ofs - (phi_i as f64) * self.y_grid).to_radians();
                     // y = 0.0 -> 0, 1.0 -> height
                     let y = self.cylindrical_lens.y_of_phi(phi) * (self.height as f64);
@@ -298,7 +299,7 @@ impl CmdArgs {
                     }
                     let y = y as u32;
                     for x in 0..self.width {
-                        jpg.put(x, y, &color);
+                        jpg.put_pixel(x, y, color);
                     }
                 }
             }
@@ -307,20 +308,20 @@ impl CmdArgs {
         Self::cmd_ok()
     }
 
-    fn pix_map<I: ImageDrawable>(
+    fn pix_map(
         camera: &CameraInstance,
-        src: &I,
+        src: &ImageRgb8,
         w: u32,
         h: u32,
         v: Point3D,
-    ) -> Option<I::Pixel> {
+    ) -> Option<Rgb<u8>> {
         if let Some(pxy) = camera.world_dir_to_opt_sensor_px_abs_xy(v) {
             if pxy[0] < 0.0 || pxy[0] >= (w as f64) || pxy[1] < 0.0 || pxy[1] >= (h as f64) {
                 None
             } else {
                 let x = pxy[0] as u32;
                 let y = pxy[1] as u32;
-                Some(src.get(x, y))
+                Some(*src.get_pixel(x, y))
             }
         } else {
             None
@@ -345,7 +346,7 @@ impl CmdArgs {
 
         let ps: Vec<_> = image.iter_patch_indices().collect();
 
-        let (w, h) = cip_image.size();
+        let (w, h) = cip_image.dimensions();
         for p in ps {
             image.fill_image_patch(self.blend, p, &|v| {
                 Self::pix_map(&self.camera, cip_image, w, h, v)

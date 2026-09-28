@@ -1,6 +1,6 @@
 use thunderclap::{CmdDescriptor, CommandArgs};
 
-use ic_photogram::{ImageIO, ImageCache, ImageDrawable, ImageGray16};
+use ic_photogram::{Image, ImageCache, ImageConvert, ImageDraw, ImageGray16, LumaF32Image};
 use ic_photogram::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -39,13 +39,30 @@ Output the image as a 16-bit luma image (so the kernel output should be in the r
 ";
 
 impl CmdArgs {
+    fn get_image_as_luma_f32(&mut self, n: usize) -> ic_photogram::Result<LumaF32Image> {
+        let img = self.get_image_read_or_create(n)?;
+        eprintln!(
+            "Read initial image, size is {:?} (max pixels in kernel is 4M)",
+            img.dimensions()
+        );
+        let (w, h) = img.dimensions();
+        let npix = w as usize * h as usize;
+        let max = 4 * 1024 * 1024;
+        let scale =
+            (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as u32);
+        let img_luma_f32 = img.as_luma_f32(scale, 1.0);
+        eprintln!(
+            "Using size {w}, {h} ({:.2} Mpx)",
+            (w * h) as f32 / 1024.0 / 1024.0
+        );
+        Ok(img_luma_f32)
+    }
+
     fn ip_as_luma_cmd(&mut self) -> CmdResult {
-        let img = self.get_image_read_or_create()?;
+        let img = self.get_image_read_or_create(0)?;
 
-        eprintln!("Read initial image, size is {:?}", img.size());
-        let (w, h, img_data) = img.as_vec_gray_f32(None);
-
-        let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+        eprintln!("Read initial image, size is {:?}", img.dimensions());
+        let img = img.as_luma16(None, 1.0);
 
         eprintln!("Created luma image");
 
@@ -59,40 +76,26 @@ impl CmdArgs {
     }
 
     fn ip_luma_window_cmd(&mut self) -> CmdResult {
-        let img = self.get_image_read_or_create()?;
-
-        eprintln!(
-            "Read initial image, size is {:?} (max pixels in kernel is 4M)",
-            img.size()
-        );
-        let (w, h) = img.size();
-        let npix = w as usize * h as usize;
-        let max = 4 * 1024 * 1024;
-        let scale =
-            (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
-        let (w, h, mut img_data) = img.as_vec_gray_f32(scale);
-        eprintln!(
-            "Using size {w}, {h} ({:.2} Mpx)",
-            (w * h) as f32 / 1024.0 / 1024.0
-        );
+        let mut img_luma_f32 = self.get_image_as_luma_f32(0)?;
 
         let kernels = Kernels::new();
         let ws = 8;
-        let args: KernelArgs = (w, h).into();
+        let args: KernelArgs = img_luma_f32.dimensions().into();
         let args = args.with_size(ws as usize);
         let ws_f = ws as f32;
         let args_mean = args.with_scale(1.0 / ws_f);
+        let num_pixels = img_luma_f32.as_flat_samples().as_slice().len();
 
         kernels.run_shader(
             "window_var",
             &args_mean,
-            w * h,
+            num_pixels,
             None,
-            img_data.as_mut_slice(),
+            img_luma_f32.as_flat_samples_mut().as_mut_slice(),
         )?;
 
         eprintln!("Completed kernel");
-        let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+        let img = img_luma_f32.as_luma16(None, 1.0);
         eprintln!("Created luma image");
 
         if let Some(write_filename) = self.write_img() {
@@ -105,41 +108,32 @@ impl CmdArgs {
     }
 
     fn ip_luma_kernel_cmd(&mut self) -> CmdResult {
-        let img = self.get_read_image(0)?;
-        let img = ImageCache::image_rgb8_err(&img)?;
+        let mut img_luma_f32 = self.get_image_as_luma_f32(0)?;
 
         let ws = self.kernel_size();
         let scale = self.scale();
         let xy = self.pxy();
         let kernels_to_apply = self.kernels();
 
-        eprintln!(
-            "Read initial image, size is {:?} (max pixels in kernel is 4M)",
-            img.size()
-        );
-        let (w, h) = img.size();
-        let npix = w as usize * h as usize;
-        let max = 4 * 1024 * 1024;
-        let img_scale =
-            (npix > max).then_some(((max as f32 / npix as f32).sqrt() * w as f32).floor() as usize);
-        let (w, h, mut img_data) = img.as_vec_gray_f32(img_scale);
-        eprintln!(
-            "Using size {w}, {h} ({:.2} Mpx)",
-            (w * h) as f32 / 1024.0 / 1024.0
-        );
-
         let kernels = Kernels::new();
-        let args: KernelArgs = (w, h).into();
+        let args: KernelArgs = img_luma_f32.dimensions().into();
         let args = args.with_size(ws);
         let args = args.with_scale(scale as f32);
         let args = args.with_xy(xy);
+        let num_pixels = img_luma_f32.as_flat_samples().as_slice().len();
 
         for k in kernels_to_apply {
-            kernels.run_shader(k, &args, w * h, None, img_data.as_mut_slice())?;
+            kernels.run_shader(
+                k,
+                &args,
+                num_pixels,
+                None,
+                img_luma_f32.as_flat_samples_mut().as_mut_slice(),
+            )?;
         }
 
         eprintln!("Completed kernel");
-        let img = ImageGray16::of_vec_f32(w, h, img_data, 1.0);
+        let img = img_luma_f32.as_luma16(None, 1.0);
         eprintln!("Created luma image");
 
         if let Some(write_filename) = self.write_img() {
@@ -152,10 +146,8 @@ impl CmdArgs {
     }
 
     fn ip_luma_kernel_pair_cmd(&mut self) -> CmdResult {
-        let img2 = self.get_read_image(1)?;
-        let img1 = self.get_read_image(0)?;
-        let img1 = ImageCache::image_rgb8_err(&img1)?;
-        let img2 = ImageCache::image_rgb8_err(&img2)?;
+        let mut img1_luma_f32 = self.get_image_as_luma_f32(0)?;
+        let mut img2_luma_f32 = self.get_image_as_luma_f32(1)?;
 
         let ws = self.kernel_size();
         let scale = self.scale();
@@ -164,38 +156,13 @@ impl CmdArgs {
         let flags = self.flags();
         let kernels_to_apply = self.kernels();
 
-        eprintln!(
-            "Read initial image, size is {:?} (max pixels in kernel is 4M) : xy {xy:?}",
-            img1.size()
-        );
-
-        let (src_w, src_h) = img1.size();
-        let src_npix = src_w as usize * src_h as usize;
-        let src_max = (4 * 1024 * 1024).min(src_npix);
-        let src_img_scale =
-            Some(((src_max as f32 / src_npix as f32).sqrt() * src_w as f32).floor() as usize);
-        let (src_w, src_h, mut src_img) = img1.as_vec_gray_f32(src_img_scale);
-        eprintln!(
-            "Using size {src_w}, {src_h} ({:.2} Mpx)",
-            (src_w * src_h) as f32 / 1024.0 / 1024.0
-        );
         {
-            let img = ImageGray16::of_vec_f32(src_w, src_h, src_img.clone(), 1.0);
+            let img = img1_luma_f32.as_luma16(None, 1.0);
             img.write("src_kernel.png")?;
         }
 
-        let (dst_w, dst_h) = img1.size();
-        let dst_npix = dst_w as usize * dst_h as usize;
-        let dst_max = (4 * 1024 * 1024).min(dst_npix);
-        let dst_img_scale =
-            Some(((dst_max as f32 / dst_npix as f32).sqrt() * dst_w as f32).floor() as usize);
-        let (dst_w, dst_h, mut img_data) = img2.as_vec_gray_f32(dst_img_scale);
-        eprintln!(
-            "Other size {dst_w}, {dst_h} ({:.2} Mpx)",
-            (dst_w * dst_h) as f32 / 1024.0 / 1024.0
-        );
         {
-            let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
+            let img = img2_luma_f32.as_luma16(None, 1.0);
             img.write("dst_kernel.png")?;
         }
 
@@ -203,65 +170,66 @@ impl CmdArgs {
 
         if flags & 1 != 0 {
             eprintln!("Applying window_var_scaled to first");
-            let args: KernelArgs = (src_w, src_h).into();
+            let args: KernelArgs = img1_luma_f32.dimensions().into();
             let args = args.with_size(4);
             kernels.run_shader(
                 "window_var_scaled",
                 &args,
-                src_w * src_h,
+                img1_luma_f32.as_flat_samples().as_slice().len(),
                 None,
-                src_img.as_mut_slice(),
+                img1_luma_f32.as_flat_samples_mut().as_mut_slice(),
             )?;
             eprintln!("Applying window_var_scaled to second");
-            let args: KernelArgs = (dst_w, dst_h).into();
+            let args: KernelArgs = img2_luma_f32.dimensions().into();
             let args = args.with_size(4);
             kernels.run_shader(
                 "window_var_scaled",
                 &args,
-                dst_w * dst_h,
+                img2_luma_f32.as_flat_samples().as_slice().len(),
                 None,
-                img_data.as_mut_slice(),
+                img2_luma_f32.as_flat_samples_mut().as_mut_slice(),
             )?;
         }
 
         {
-            let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
+            let img = img2_luma_f32.as_luma16(None, 1.0);
             img.write("dst2_kernel.png")?;
         }
-        let args: KernelArgs = (dst_w, dst_h).into();
+
+        let args: KernelArgs = img2_luma_f32.dimensions().into();
         let args = args.with_size(ws);
         let args = args.with_scale(scale as f32);
         let args = args.with_angle(angle.to_radians() as f32);
         let args = args.with_xy(xy);
-        let args = args.with_src((src_w, src_h));
+        let args = args.with_src(img1_luma_f32.dimensions());
 
         for k in kernels_to_apply {
             {
-                let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
+                let img = img2_luma_f32.as_luma16(None, 1.0);
                 img.write("dst3_kernel.png")?;
             }
             eprintln!("Applying {k} with {args:?}");
             {
-                let img = ImageGray16::of_vec_f32(src_w, src_h, src_img.clone(), 1.0);
+                let img = img1_luma_f32.as_luma16(None, 1.0);
                 img.write("before_src_kernel.png")?;
             }
             {
-                let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data.clone(), 1.0);
+                let img = img2_luma_f32.as_luma16(None, 1.0);
                 img.write("before_dst_kernel.png")?;
             }
             kernels.run_shader(
                 k,
                 &args,
-                dst_w * dst_h,
-                Some(src_img.as_slice()),
-                img_data.as_mut_slice(),
+                img2_luma_f32.as_flat_samples().as_slice().len(),
+                Some(img1_luma_f32.as_flat_samples().as_slice()),
+                img2_luma_f32.as_flat_samples_mut().as_mut_slice(),
             )?;
         }
 
         if flags & 2 != 0 {
             let pts = kernels.find_best_n_above_value(
-                (dst_w, dst_h),
-                img_data.as_mut_slice(),
+                img2_luma_f32.dimensions(),
+                img2_luma_f32.as_flat_samples_mut().as_mut_slice(),
                 500,
                 0.7,
                 64,
@@ -270,7 +238,7 @@ impl CmdArgs {
         }
 
         eprintln!("Completed kernel");
-        let img = ImageGray16::of_vec_f32(dst_w, dst_h, img_data, 1.0);
+        let img = img2_luma_f32.as_luma16(None, 1.0);
         eprintln!("Created luma image");
 
         if let Some(write_filename) = self.write_img() {

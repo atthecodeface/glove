@@ -6,10 +6,11 @@
 
 //a Imports
 use std::cell::{Ref, RefMut};
+use std::ops::DerefMut;
 use std::rc::Rc;
 
 use geo_nd::Quaternion;
-use ic_image::{Color8, FromPatchFn, ImageDrawable, ImageRgb8};
+use ic_image::{Color8, FromPatchFn, ImageDraw, ImageRgb8};
 use regex::bytes::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 
@@ -353,8 +354,8 @@ impl Project {
         let mut pci = ProjectedCameraImage {
             image: cip_image,
             camera: &*camera,
-            w: cip_image.size().0,
-            h: cip_image.size().1,
+            w: cip_image.dimensions().0,
+            h: cip_image.dimensions().1,
         };
 
         // This impacts the

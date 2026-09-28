@@ -1,7 +1,7 @@
 //a Imports
 use ic_base::Point2D;
 
-use crate::{ImageDrawable, ImageRgb8};
+use crate::{ImageDraw, ImageDrawable, ImageRgb8};
 
 //a ImagePt
 //tp ImagePt
@@ -43,24 +43,24 @@ impl ImagePt {
     pub fn draw(&self, img: &mut ImageRgb8) {
         match self.style {
             3 => {
-                let (w, h) = img.size();
+                let (w, h) = img.dimensions();
                 if self.px < 0.0 || self.py < 0.0 || self.px >= w as f32 || self.py >= h as f32 {
                     return;
                 }
-                let color = [40, 255, 40, 255].into();
-                img.put(self.px as u32, self.py as u32, &color);
+                let color = [40, 255, 40].into();
+                img.put_pixel(self.px as u32, self.py as u32, color);
             }
             0 => {
-                let color = [255, 0, 255, 255].into();
-                img.draw_cross(&[self.px as f64, self.py as f64].into(), 10.0, &color);
+                let color = [255, 0, 255].into();
+                img.draw_cross(&[self.px as f64, self.py as f64].into(), 10.0, color);
             }
             1 => {
-                let color = [0, 255, 255, 255].into();
-                img.draw_cross(&[self.px as f64, self.py as f64].into(), 20.0, &color);
+                let color = [0, 255, 255].into();
+                img.draw_cross(&[self.px as f64, self.py as f64].into(), 20.0, color);
             }
             _ => {
-                let color = [255, 255, 125, 255].into();
-                img.draw_x(&[self.px as f64, self.py as f64].into(), 20.0, &color);
+                let color = [255, 255, 125].into();
+                img.draw_x(&[self.px as f64, self.py as f64].into(), 20.0, color);
             }
         };
     }

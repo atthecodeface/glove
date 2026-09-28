@@ -1,7 +1,7 @@
 mod color;
-mod image_gray16;
+// mod image_gray16;
 mod image_pt;
-mod image_rgb8;
+// mod image_rgb8;
 mod image_square;
 mod line_iter;
 mod regions;
@@ -14,19 +14,26 @@ pub use patch::{FromPatchFn, ImagePatch};
 pub use color::{Color8, Gray16};
 pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
-pub use traits::{Image, ImageColor, ImageDrawable, ImageIO};
+pub use traits::{Image, ImageColor, ImageConvert, ImageDraw, Luma16Image, LumaF32Image};
+pub(crate) use traits::{ImageDrawable, ImageIO};
 
-pub use image_gray16::ImageGray16;
-pub use image_rgb8::ImageRgb8;
+// pub use image_gray16::ImageGray16;
+// pub use image_rgb8::ImageRgb8;
+
+pub type ImageGray16 = Luma16Image;
+pub type ImageRgb8 = image::RgbImage;
+
 pub use image_square::{ImageSquareSet, ImageSquares};
 pub use regions::Region;
 
 use ic_base::PathSet;
-use image::{GenericImage, ImageReader};
+use image::{ColorType, ImageReader};
 use std::path::PathBuf;
 
 mod image_cache;
 pub use image_cache::{ImageCache, ImageCacheEntry};
+
+pub use image::{GenericImage, GenericImageView};
 
 /// Read a path - relative to a [PathSet] - as an image, returning it as either
 /// an ImageRgb8 or an ImageGray16 depending on the kind of file.
@@ -39,19 +46,11 @@ pub fn read_image<P: AsRef<std::path::Path> + std::fmt::Display>(
     if let Some(path) = path_set.find_file(&path) {
         let img = ImageReader::open(&path)?.with_guessed_format()?.decode()?;
         let path = path.to_owned();
-        let img = match ImageRgb8::of_image(img) {
-            Ok(rgb) => {
-                return Ok((path, Some(rgb), None));
-            }
-            Err(img) => img,
-        };
-        let img = match ImageGray16::of_image(img) {
-            Ok(gray) => {
-                return Ok((path, None, Some(gray)));
-            }
-            Err(img) => img,
-        };
-        Ok((path, Some(ImageRgb8::from_image(&img)), None))
+        match img.color() {
+            ColorType::Rgb8 => Ok((path, Some(img.into_rgb8()), None)),
+            ColorType::L16 => Ok((path, None, Some(img.into_luma16()))),
+            _ => Ok((path, Some(img.into_rgb8()), None)),
+        }
     } else {
         Err(format!("Failed to find image file {path}").into())
     }

@@ -1,3 +1,4 @@
+use image::Rgb;
 //a Imports
 use serde::Serialize;
 use std::collections::HashSet;
@@ -132,10 +133,10 @@ impl Region {
         colors_close_enough: &G,
     ) -> (Vec<Region>, Vec<(usize, usize)>)
     where
-        F: Fn(Color8) -> bool,
-        G: Fn(&Color8, &Color8) -> bool,
+        F: Fn(Rgb<u8>) -> bool,
+        G: Fn(&Rgb<u8>, &Color8) -> bool,
     {
-        let (xsz, ysz) = img.size();
+        let (xsz, ysz) = img.dimensions();
         let xsz = xsz as usize;
         let ysz = ysz as usize;
         let mut regions: Vec<Region> = vec![];
@@ -145,7 +146,7 @@ impl Region {
             let regions_py = regions_x;
             regions_x = vec![None; xsz];
             for x in 0..xsz {
-                let c = img.get(x as u32, y as u32);
+                let c = img[(x as u32, y as u32)];
                 if !is_region(c) {
                     regions_x[x] = None;
                     continue;
@@ -180,7 +181,7 @@ impl Region {
                         region
                     } else {
                         let n = regions.len();
-                        regions.push(Region::of_color(c));
+                        regions.push(Region::of_color(c.into()));
                         n
                     }
                 };
@@ -240,8 +241,8 @@ impl Region {
         colors_close_enough: &G,
     ) -> Vec<Region>
     where
-        F: Fn(Color8) -> bool,
-        G: Fn(&Color8, &Color8) -> bool,
+        F: Fn(Rgb<u8>) -> bool,
+        G: Fn(&Rgb<u8>, &Color8) -> bool,
     {
         let (regions, regions_to_merge) =
             Region::scan_image_to_regions(img, is_region, colors_close_enough);
