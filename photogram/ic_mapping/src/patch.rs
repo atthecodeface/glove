@@ -4,7 +4,7 @@ use geo_nd::Vector;
 
 use ic_base::{Plane, Point2D, Point3D};
 use ic_camera::CameraLensProjection;
-use ic_image::Image;
+use ic_image::{ImageColor, ImageDrawable, ImageIO};
 use ic_mesh::Mesh;
 
 use crate::NamedPoint;
@@ -288,7 +288,7 @@ impl Patch {
     pub fn create_img<C, I>(&self, camera: &C, src_img: &I) -> Option<I>
     where
         C: CameraLensProjection,
-        I: Image,
+        I: ImageIO,
     {
         if !self.plane_ok {
             return None;
@@ -354,7 +354,7 @@ impl Patch {
         }
 
         let mesh = self.patch_mesh.mesh();
-        let c: I::Pixel = 192_u8.into();
+        let c = <<I as ImageDrawable>::Pixel as ImageColor>::grey(192);
         for (p0, p1, p2) in mesh.triangle_pts() {
             let p0 = mesh[p0] * self.render_px_per_model;
             let p1 = mesh[p1] * self.render_px_per_model;

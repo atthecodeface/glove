@@ -1,9 +1,9 @@
 use crate::{GcTriangle, SphericalData, SubTriangle};
 use ic_base::{GcTriangle3D, Point2D, Point3D, Triangle3D};
-use ic_image::Image;
+use ic_image::ImageIO;
 
 /// An internal type that manages mapping over a single square patch
-pub struct MapXYToVec<'map, I: Image> {
+pub struct MapXYToVec<'map, I: ImageIO> {
     /// Triangle3D from SdSubtriangle that is the subdivided triangle of size
     /// img_size scaled down by 2^subdivision - bottom left of the square patch
     t012: Triangle3D,
@@ -14,7 +14,7 @@ pub struct MapXYToVec<'map, I: Image> {
     patch_size: u32,
     mapping: Box<dyn FnMut(Point3D) -> Option<I::Pixel> + 'map>,
 }
-impl<'a, I: Image> ic_image::FromPatchFn for MapXYToVec<'a, I> {
+impl<'a, I: ImageIO> ic_image::FromPatchFn for MapXYToVec<'a, I> {
     type Pixel = I::Pixel;
     fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
     fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
@@ -23,7 +23,7 @@ impl<'a, I: Image> ic_image::FromPatchFn for MapXYToVec<'a, I> {
             .flatten()
     }
 }
-impl<'a, I: Image> MapXYToVec<'a, I> {
+impl<'a, I: ImageIO> MapXYToVec<'a, I> {
     /// Map from x,y within the patch to a point on one of the two triangles
     ///
     /// 0 <= x,y < patch_size
@@ -167,7 +167,7 @@ impl ImagePatch {
     ///  0 <= sy < (1<<subdivision)
     ///
     /// Only works with subdivision == 0 for now
-    pub fn map_subsquare<'map, I: Image, F: FnMut(Point3D) -> Option<I::Pixel> + 'map>(
+    pub fn map_subsquare<'map, I: ImageIO, F: FnMut(Point3D) -> Option<I::Pixel> + 'map>(
         &self,
         subdivision: u8,
         _sx: u32,

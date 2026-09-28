@@ -1,5 +1,5 @@
 use ic_base::{JsonParsable, PathSet, Rrc};
-use ic_image::Image;
+use ic_image::ImageIO;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -23,13 +23,13 @@ impl JsonParsable for ImageFileDesc {
 }
 
 #[derive(Debug)]
-pub struct ImageFile<I: Image> {
+pub struct ImageFile<I: ImageIO> {
     path: PathBuf,
     img_wh: (u32, u32),
     image: Rrc<I>,
 }
 
-impl<I: Image> ImageFile<I> {
+impl<I: ImageIO> ImageFile<I> {
     pub fn new(width: u32, height: u32) -> Self {
         let image = I::new(width, height).into();
         Self {

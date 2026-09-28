@@ -7,7 +7,7 @@ use ic_photogram::Cip;
 use ic_photogram::NamedPoint;
 use ic_photogram::Result;
 use ic_photogram::Rrc;
-use ic_photogram::{Image, ImagePt, ImageRgb8};
+use ic_photogram::{ImageIO, ImagePt, ImageRgb8};
 
 use super::CmdArgs;
 

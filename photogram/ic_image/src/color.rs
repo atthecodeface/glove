@@ -1,10 +1,24 @@
+use image::Rgb;
 pub use image::{Luma, Rgba};
 use serde::{Deserialize, Serialize};
 
 use crate::ImageColor;
 
 //a ImageColor for u16
-impl ImageColor for u16 {}
+impl ImageColor for u16 {
+    fn grey(x: u8) -> Self {
+        (x as u16) << 8
+    }
+    fn rgb(r: u8, g: u8, b: u8) -> Self {
+        ((((r as u16) + (g as u16) + (b as u16)) / 3) as u8).into()
+    }
+    fn grey_u16(x: u16) -> Self {
+        Self::grey((x >> 8) as u8)
+    }
+    fn rgb_u16(r: u16, g: u16, b: u16) -> Self {
+        ((((r as u32) + (g as u32) + (b as u32)) / 0x300) as u8).into()
+    }
+}
 
 //a Gray16
 //tp Gray16
@@ -118,8 +132,17 @@ impl<'de> Deserialize<'de> for Gray16 {
 }
 
 impl ImageColor for Color8 {
+    fn grey(x: u8) -> Self {
+        Self::rgb(x, x, x)
+    }
     fn rgb(r: u8, g: u8, b: u8) -> Self {
         [r, g, b, 255].into()
+    }
+    fn grey_u16(x: u16) -> Self {
+        Self::grey((x >> 8) as u8)
+    }
+    fn rgb_u16(r: u16, g: u16, b: u16) -> Self {
+        ((((r as u32) + (g as u32) + (b as u32)) / 0x300) as u8).into()
     }
 }
 
@@ -139,6 +162,11 @@ impl std::fmt::Display for Color8 {
     }
 }
 
+impl From<Color8> for Rgb<u8> {
+    fn from(value: Color8) -> Self {
+        [value.0[0], value.0[1], value.0[2]].into()
+    }
+}
 //ip From<&[u8; 4]> for Color
 impl From<&[u8; 4]> for Color8 {
     fn from(c: &[u8; 4]) -> Color8 {

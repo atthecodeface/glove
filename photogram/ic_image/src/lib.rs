@@ -14,7 +14,7 @@ pub use patch::{FromPatchFn, ImagePatch};
 pub use color::{Color8, Gray16};
 pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
-pub use traits::{Image, ImageColor, ImageDrawable};
+pub use traits::{Image, ImageColor, ImageDrawable, ImageIO};
 
 pub use image_gray16::ImageGray16;
 pub use image_rgb8::ImageRgb8;
@@ -22,7 +22,7 @@ pub use image_square::{ImageSquareSet, ImageSquares};
 pub use regions::Region;
 
 use ic_base::PathSet;
-use image::ImageReader;
+use image::{GenericImage, ImageReader};
 use std::path::PathBuf;
 
 mod image_cache;

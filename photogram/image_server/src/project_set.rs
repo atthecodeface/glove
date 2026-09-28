@@ -7,7 +7,7 @@ use ic_photogram::Patch;
 use ic_photogram::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
 };
-use ic_photogram::{Image, ImageCacheEntry, ImageGray16};
+use ic_photogram::{ImageIO, ImageCacheEntry, ImageGray16};
 use ic_photogram::{KernelArgs, Kernels};
 use ic_photogram::{PathGlob, Result};
 

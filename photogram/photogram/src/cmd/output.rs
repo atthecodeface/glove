@@ -1,7 +1,7 @@
 //a Imports
 use std::io::Write;
 
-use ic_photogram::{Image, Result};
+use ic_photogram::{ImageIO, Result};
 
 use thunderclap::json;
 

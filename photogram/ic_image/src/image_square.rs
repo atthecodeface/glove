@@ -16,7 +16,7 @@ use image::{DynamicImage, GenericImage, GenericImageView};
 
 use ic_base::{Result, Rrc};
 
-use crate::{Image, ImageDrawable, ImagePatch};
+use crate::{ImageDrawable, ImageIO, ImagePatch};
 
 /// The granularity of size for alloc
 /// A set of image squares gathered from one or more images, with a backing store of 'I'
@@ -25,7 +25,7 @@ use crate::{Image, ImageDrawable, ImagePatch};
 ///
 /// Each square in the image has the same width_sq and height_sq
 #[derive(Debug)]
-pub struct ImageSquareSet<I: Image> {
+pub struct ImageSquareSet<I: ImageIO> {
     image_filename: PathBuf,
     square_size: u32,
     width_sq: u32,
@@ -37,7 +37,7 @@ pub struct ImageSquareSet<I: Image> {
 //ip ImageSquareSet
 impl<I> ImageSquareSet<I>
 where
-    I: Image,
+    I: ImageIO,
 {
     //ap image
     pub fn image(&self) -> &Rrc<I> {
@@ -246,7 +246,7 @@ where
 /// A rectangular region inside an image, with a width and a height that are
 /// mulitples of the image square size
 #[derive(Clone)]
-pub struct ImageSquares<I: Image> {
+pub struct ImageSquares<I: ImageIO> {
     image: Rrc<I>,
     /// Size of each square in the ImageSquareSet
     square_size: u32,
@@ -262,7 +262,7 @@ pub struct ImageSquares<I: Image> {
 
 impl<I> std::fmt::Debug for ImageSquares<I>
 where
-    I: Image,
+    I: ImageIO,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(
@@ -279,7 +279,7 @@ where
 
 impl<I> ImageSquares<I>
 where
-    I: Image,
+    I: ImageIO,
 {
     /// Get the starting square tile and size (in square tiles) of the [ImageSquares]
     pub fn take(self) -> (u32, u32, u32, u32) {
@@ -394,7 +394,7 @@ where
 
 impl<I> ImageDrawable for ImageSquares<I>
 where
-    I: Image,
+    I: ImageIO,
 {
     type Pixel = I::Pixel;
     fn get(&self, x: u32, y: u32) -> Self::Pixel {

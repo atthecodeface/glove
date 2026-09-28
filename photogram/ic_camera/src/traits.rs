@@ -336,3 +336,29 @@ pub trait CylindricalProjection: std::fmt::Debug {
     /// Create a boxed clone to allow CylindricalLens to be Clone
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection>;
 }
+
+/// Methods that allow for iterating through a window of world/camera space to
+/// provide the *contents* of camera sensor (an image), where the window is
+/// actually present on the sensor.
+///
+/// This is designed to permit a *destination* image to iterate over its pixels,
+/// potentially line by line, using a struct that provides this trait to get
+/// pixel values to insert into the destination
+///
+/// It is expected that successive invocations of 'opt_pixel_of_camera_dir' will
+/// be closely related in space; 'set_mapping_to_camera_dir' is expected to be
+/// invoked at the start of patches, or at when a new line is requested.
+pub trait CameraImageProjection {
+    type Pixel;
+    /// Invoked occassionally (at the start of a line, for example, when
+    /// filling a square) to indicate the next pixel fetch is unrelated to
+    /// the last
+    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
+
+    /// Return the pixel value of the given camera direction (vector is
+    /// *outward* from the camera) if it hits the sensor/image
+    fn opt_pixel_of_camera_dir(&mut self, camera_dir: Point3D) -> Option<Self::Pixel>;
+
+    /// Map the world direction to a camera direction
+    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D;
+}

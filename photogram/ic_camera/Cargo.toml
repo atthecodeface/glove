@@ -19,3 +19,4 @@ geo-nd.workspace = true
 num-traits.workspace = true
 
 ic_base.workspace = true
+ic_image.workspace = true

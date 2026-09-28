@@ -45,7 +45,7 @@ pub use ic_http::{
 };
 
 pub use ic_image::{
-    Color8, Gray16, Image, ImageCache, ImageCacheEntry, ImageColor, ImageDrawable, ImageGray16,
+    Color8, Gray16, ImageIO, ImageCache, ImageCacheEntry, ImageColor, ImageDrawable, ImageGray16,
     ImagePt, ImageRgb8, ImageSquareSet, Region, read_image,
 };
 pub use ic_kernel::*;

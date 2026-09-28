@@ -1,6 +1,6 @@
 use thunderclap::{CmdDescriptor, CommandArgs};
 
-use ic_photogram::{Image, ImageCache, ImageDrawable, ImageGray16};
+use ic_photogram::{ImageIO, ImageCache, ImageDrawable, ImageGray16};
 use ic_photogram::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};

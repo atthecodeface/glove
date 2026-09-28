@@ -2,7 +2,7 @@ use crate::{
     GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData, SubdivisionPath,
 };
 use ic_base::{JsonParsable, PathSet, Point3D, Result};
-use ic_image::{Image, ImageGray16, ImageRgb8};
+use ic_image::{ImageIO, ImageGray16, ImageRgb8};
 use indexed::IndexedVec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -97,7 +97,7 @@ impl SphericalImageDescriptor {
 ///
 ///
 #[derive(Debug)]
-pub struct SphericalImage<I: Image> {
+pub struct SphericalImage<I: ImageIO> {
     /// The toplevel shape of the spherical image - Tetrahedron, Octahedron, Icosahedron
     shape: SphericalImageShape,
     /// Path set used for files
@@ -129,21 +129,21 @@ pub struct SphericalImage<I: Image> {
     patch_map: HashMap<GreatCircleTriangleIndex, usize>,
 }
 
-impl<I: Image> std::ops::Index<PatchIndex> for SphericalImage<I> {
+impl<I: ImageIO> std::ops::Index<PatchIndex> for SphericalImage<I> {
     type Output = SphericalPatch;
     fn index(&self, index: PatchIndex) -> &Self::Output {
         &self.patches[index]
     }
 }
 
-impl<I: Image> std::ops::Index<ImageFileIndex> for SphericalImage<I> {
+impl<I: ImageIO> std::ops::Index<ImageFileIndex> for SphericalImage<I> {
     type Output = ImageFile<I>;
     fn index(&self, index: ImageFileIndex) -> &Self::Output {
         &self.image_files[index]
     }
 }
 
-impl<I: Image> SphericalImage<I> {
+impl<I: ImageIO> SphericalImage<I> {
     /// Create the SdIndex, which maps vectors to GC Triangles, and the patch
     /// map, which maps GC triangle index to highest resolution patch
     fn create_indices(&mut self) {

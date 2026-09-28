@@ -6,12 +6,12 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Luma, Pixe
 
 use ic_base::Result;
 
-use crate::{Image, ImageDrawable, ImageRgb8};
+use crate::{ImageDrawable, ImageIO, ImageRgb8};
 
 //a ImageGray16
 //tp ImageGray16
 #[derive(Debug, Clone)]
-pub struct ImageGray16(DynamicImage);
+pub struct ImageGray16(pub(crate) DynamicImage);
 
 //ip Deref for ImageGray16
 impl std::ops::Deref for ImageGray16 {
@@ -30,21 +30,13 @@ impl std::ops::DerefMut for ImageGray16 {
 
 //ip ImageGray16
 impl ImageGray16 {
-    pub(crate) fn buffer(&self) -> &image::DynamicImage {
-        &self.0
-    }
-
-    pub(crate) fn as_slice(&self) -> &[u16] {
-        self.0.as_luma16().unwrap().as_raw()
-    }
-
     pub fn of_rgb(image: &ImageRgb8, max: u32) -> Self {
         let (width, height) = image.size();
         let mut image_gray = ImageBuffer::<Luma<u16>, Vec<u16>>::new(width, height);
         let r_sc = 52 * max;
         let g_sc = 177 * max;
         let b_sc = 18 * max;
-        for (x, y, rgba) in image.buffer().pixels() {
+        for (x, y, rgba) in image.0.pixels() {
             let l = (rgba[0] as u32) * r_sc + (rgba[1] as u32) * g_sc + (rgba[2] as u32) * b_sc;
             let l = (l >> 16) as u16;
             image_gray[(x, y)] = [l].into();
@@ -57,7 +49,7 @@ impl ImageGray16 {
         let size = (size.0 as usize, size.1 as usize);
         let (width, height) = as_width.map(|w| (w, w * size.1 / size.0)).unwrap_or(size);
         let mut result: Vec<f32> = vec![0.0; width * height];
-        let s = self.as_slice();
+        let s = self.0.as_luma16().unwrap().as_raw();
         let mut i = 0;
         for y in 0..height {
             let sy = y * size.1 / height;
@@ -112,7 +104,7 @@ impl ImageDrawable for ImageGray16 {
     }
 }
 
-impl Image for ImageGray16 {
+impl ImageIO for ImageGray16 {
     fn new(width: u32, height: u32) -> Self {
         Self(DynamicImage::new_luma16(width, height))
     }

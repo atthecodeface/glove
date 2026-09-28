@@ -8,7 +8,7 @@ use ic_photogram::Idx;
 use ic_photogram::{
     CameraInstance, CameraLensProjection, CameraProjection, CameraSensor, LensPolys,
 };
-use ic_photogram::{Image, ImageDrawable, ImageRgb8};
+use ic_photogram::{ImageDrawable, ImageIO, ImageRgb8};
 use ic_photogram::{ImageFileIndex, SphericalImage};
 use ic_photogram::{Point2D, Point3D, Quat};
 

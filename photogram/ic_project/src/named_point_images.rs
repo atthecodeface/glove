@@ -1,7 +1,7 @@
 use std::{collections::HashMap, default};
 
 use ic_base::{Result, Rrc};
-use ic_image::{Image, ImageDrawable, ImageRgb8, ImageSquareSet, ImageSquares};
+use ic_image::{ImageDrawable, ImageIO, ImageRgb8, ImageSquareSet, ImageSquares};
 use ic_mapping::NamedPoint;
 
 use crate::Cip;

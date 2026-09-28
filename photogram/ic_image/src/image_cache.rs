@@ -1,7 +1,7 @@
 //a Imports
 use std::path::{Path, PathBuf};
 
-use crate::{Image, ImageDrawable, ImageGray16, ImageRgb8};
+use crate::{ImageDrawable, ImageGray16, ImageIO, ImageRgb8};
 use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
 

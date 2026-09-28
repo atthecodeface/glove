@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use ic_base::{JsonParsable, PathSet, Point3D, Quat, Ray, Result, Rrc, TagSet, TanXTanY};
 use ic_camera::{
-    AdjustableCameraProjection, CameraDatabase, CameraLensProjection, CameraProjection,
-    RectilinearLens, SimpleSensorLensCamera,
+    AdjustableCameraProjection, CameraDatabase, CameraImageProjection, CameraLensProjection,
+    CameraProjection, PatchIterator, ProjectedCameraImage, RectilinearLens, SimpleSensorLensCamera,
 };
 use ic_mapping::{NamedPoint, NamedPointSet, PointMapping};
 
@@ -394,86 +394,8 @@ impl Project {
         let mut patch = isq.as_patch(blend);
 
         // This uses distance to camera from model, so uses model position; this has to happen after set_camera_for_facet, OR use mm_distance_to_point...
-        let mut patch_iterator = PatchIterator {
-            camera: &sslc,
-            projected_image: &mut pci,
-        };
+        let mut patch_iterator = PatchIterator::new(&sslc, &mut pci);
         patch.fill_img(&mut patch_iterator);
         true
-    }
-}
-
-struct PatchIterator<'a, C1, C2>
-where
-    C1: CameraLensProjection,
-    C2: CameraImageProjection,
-{
-    camera: &'a C1,
-    projected_image: &'a mut C2,
-}
-
-impl<'a, C1, C2> FromPatchFn for PatchIterator<'a, C1, C2>
-where
-    C1: CameraLensProjection,
-    C2: CameraImageProjection,
-{
-    type Pixel = C2::Pixel;
-    fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
-    fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
-        let world_dir = self
-            .camera
-            .sensor_px_abs_xy_to_world_dir([patch_x as f64, patch_y as f64].into());
-        let camera_dir = self.projected_image.world_dir_to_camera_dir(world_dir);
-        self.projected_image.opt_pixel_of_camera_dir(camera_dir)
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ProjectedCameraImage<'a, C, I>
-where
-    C: CameraLensProjection,
-    I: ImageDrawable,
-{
-    image: &'a I,
-    camera: &'a C,
-    w: u32,
-    h: u32,
-}
-pub trait CameraImageProjection {
-    type Pixel;
-    /// Invoked occassionally (at the start of a line, for example, when
-    /// filling a square) to indicate the next pixel fetch is unrelated to
-    /// the last
-    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
-
-    /// Return the pixel value of the given camera direction (vector is
-    /// *outward* from the camera) if it hits the sensor/image
-    fn opt_pixel_of_camera_dir(&mut self, camera_dir: Point3D) -> Option<Self::Pixel>;
-
-    /// Map the world direction to a camera direction
-    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D;
-}
-
-impl<'a, C, I> CameraImageProjection for ProjectedCameraImage<'a, C, I>
-where
-    C: CameraLensProjection,
-    I: ImageDrawable,
-{
-    type Pixel = I::Pixel;
-    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
-    fn opt_pixel_of_camera_dir(&mut self, dirn: Point3D) -> Option<I::Pixel> {
-        let Some(pxy) = self.camera.camera_dir_to_opt_sensor_px_abs_xy(dirn) else {
-            return None;
-        };
-        if pxy[0] < 0.0 || pxy[1] < 0.0 {
-            return None;
-        }
-        if (pxy[0] >= self.w as f64) || (pxy[1] >= self.h as f64) {
-            return None;
-        }
-        Some(self.image.get(pxy[0] as u32, pxy[1] as u32))
-    }
-    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
-        self.camera.world_dir_to_camera_dir(world_dir)
     }
 }

@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::Image;
+use crate::ImageIO;
 
 /// A trait to map from a (rectangular) patch source to pixels
 ///
@@ -31,7 +31,7 @@ pub trait FromPatchFn {
 /// patch, the 'dropping' of the patch drops the mutable reference to the image,
 /// hence this contains a RefMut for the image
 ///
-pub struct ImagePatch<'a, I: Image> {
+pub struct ImagePatch<'a, I: ImageIO> {
     img: RefMut<'a, I>,
     x: u32,
     y: u32,
@@ -40,7 +40,62 @@ pub struct ImagePatch<'a, I: Image> {
     blend: f64,
 }
 
-impl<'a, I: Image> std::fmt::Debug for ImagePatch<'a, I> {
+pub struct ImagePatch2<'a, 'img, I: ImageIO> {
+    img: &'a mut &'img mut I,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    blend: f64,
+}
+impl<'a, 'img, I: ImageIO> ImagePatch2<'a, 'img, I> {
+    /// Create a new patch
+    pub fn new(
+        img: &'a mut &'img mut I,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+        blend: f64,
+    ) -> Self {
+        Self {
+            img,
+            x,
+            y,
+            width,
+            height,
+            blend,
+        }
+    }
+
+    // pub fn img_mut(&self) -> &'img mut I {
+    //        self.img
+    //    }
+
+    pub fn img_origin(&self) -> (u32, u32) {
+        (self.x, self.y)
+    }
+
+    pub fn img_wh(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    pub fn fill_img<F>(&mut self, patch_fn: &mut F)
+    where
+        F: FromPatchFn<Pixel = I::Pixel>,
+    {
+        for x in 0..self.width {
+            patch_fn.set_mapping(x, 0);
+            for y in 0..self.height {
+                if let Some(c) = patch_fn.map_from_patch(x, y) {
+                    self.img.blend(x + self.x, y + self.y, self.blend, &c);
+                }
+            }
+        }
+    }
+}
+
+impl<'a, I: ImageIO> std::fmt::Debug for ImagePatch<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -50,7 +105,7 @@ impl<'a, I: Image> std::fmt::Debug for ImagePatch<'a, I> {
     }
 }
 
-impl<'a, I: Image> ImagePatch<'a, I> {
+impl<'a, I: ImageIO> ImagePatch<'a, I> {
     /// Create a new patch
     pub fn new(img: RefMut<'a, I>, x: u32, y: u32, width: u32, height: u32, blend: f64) -> Self {
         Self {

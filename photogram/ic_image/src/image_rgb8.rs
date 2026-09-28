@@ -1,15 +1,15 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use image::{DynamicImage, GenericImageView, ImageReader};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageReader, Rgb};
 
 use ic_base::Result;
 
-use crate::{Color8, Image, ImageDrawable, ImageGray16};
+use crate::{Color8, ImageDrawable, ImageGray16, ImageIO};
 
 //a ImageRbg8
 #[derive(Debug, Clone)]
-pub struct ImageRgb8(DynamicImage);
+pub struct ImageRgb8(pub(crate) DynamicImage);
 
 //ip Deref for ImageRgb8
 impl std::ops::Deref for ImageRgb8 {
@@ -27,9 +27,10 @@ impl std::ops::DerefMut for ImageRgb8 {
 
 //ip ImageRgb8
 impl ImageRgb8 {
-    pub(crate) fn buffer(&self) -> &image::DynamicImage {
-        &self.0
-    }
+    // Was Required by Gray
+    // pub(crate) fn buffer(&self) -> &image::DynamicImage {
+    //        &self.0
+    // }
 
     pub fn as_vec_gray_f32(&self, as_width: Option<usize>) -> (usize, usize, Vec<f32>) {
         let size = self.size();
@@ -55,7 +56,7 @@ impl ImageRgb8 {
     }
 
     pub fn of_gray(image: &ImageGray16) -> Self {
-        let image = image.buffer().to_rgb8();
+        let image = image.0.to_rgb8();
         Self(image.into())
     }
 
@@ -73,6 +74,28 @@ impl ImageRgb8 {
     }
 }
 
+impl GenericImageView for ImageRgb8 {
+    type Pixel = Rgb<u8>;
+    fn dimensions(&self) -> (u32, u32) {
+        self.size()
+    }
+    fn get_pixel(&self, x: u32, y: u32) -> Self::Pixel {
+        self.get(x, y).into()
+    }
+}
+/*
+impl GenericImage for ImageRgb8 {
+    fn get_pixel_mut(&mut self, x: u32, y: u32) -> &mut Self::Pixel {
+
+    }
+    fn put_pixel(&mut self, x: u32, y: u32, pixel: Self::Pixel) {
+
+    }
+    fn blend_pixel(&mut self, x: u32, y: u32, pixel: Self::Pixel) {
+
+    }
+}
+*/
 //ip ImageDrawable for ImageRgb8
 impl ImageDrawable for ImageRgb8 {
     type Pixel = Color8;
@@ -99,7 +122,7 @@ impl ImageDrawable for ImageRgb8 {
 }
 
 //ip Image for ImageRgb8
-impl Image for ImageRgb8 {
+impl ImageIO for ImageRgb8 {
     fn new(width: u32, height: u32) -> Self {
         Self(DynamicImage::new_rgb8(width, height))
     }

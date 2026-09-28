@@ -111,6 +111,7 @@ mapping is not impacted by moving the lens, of course.
 
 mod lens_polys;
 use ic_base::{Point2D, Point3D, Quat, TanXTanY};
+use ic_image::{FromPatchFn, ImageDrawable};
 pub use lens_polys::LensPolys;
 
 mod camera_body;
@@ -133,8 +134,8 @@ pub use cylindrical_lens::CylindricalLens;
 
 mod traits;
 pub use traits::{
-    AdjustableCameraProjection, CameraLensProjection, CameraProjection, CameraSensor,
-    CylindricalProjection, LensProjection,
+    AdjustableCameraProjection, CameraImageProjection, CameraLensProjection, CameraProjection,
+    CameraSensor, CylindricalProjection, LensProjection,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -303,5 +304,79 @@ impl CameraSensor for SizedSensor {
 
     fn sensor_mm_single_pixel_width(&self) -> f64 {
         self.mm_width / (self.width as f64)
+    }
+}
+
+pub struct PatchIterator<'a, C1, C2>
+where
+    C1: CameraLensProjection,
+    C2: CameraImageProjection,
+{
+    camera: &'a C1,
+    projected_image: &'a mut C2,
+}
+
+impl<'a, C1, C2> PatchIterator<'a, C1, C2>
+where
+    C1: CameraLensProjection,
+    C2: CameraImageProjection,
+{
+    pub fn new(camera: &'a C1, projected_image: &'a mut C2) -> Self {
+        Self {
+            camera,
+            projected_image,
+        }
+    }
+}
+
+impl<'a, C1, C2> FromPatchFn for PatchIterator<'a, C1, C2>
+where
+    C1: CameraLensProjection,
+    C2: CameraImageProjection,
+{
+    type Pixel = C2::Pixel;
+    fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
+    fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
+        let world_dir = self
+            .camera
+            .sensor_px_abs_xy_to_world_dir([patch_x as f64, patch_y as f64].into());
+        let camera_dir = self.projected_image.world_dir_to_camera_dir(world_dir);
+        self.projected_image.opt_pixel_of_camera_dir(camera_dir)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectedCameraImage<'a, C, I>
+where
+    C: CameraLensProjection,
+    I: ImageDrawable,
+{
+    pub image: &'a I,
+    pub camera: &'a C,
+    pub w: u32,
+    pub h: u32,
+}
+
+impl<'a, C, I> CameraImageProjection for ProjectedCameraImage<'a, C, I>
+where
+    C: CameraLensProjection,
+    I: ImageDrawable,
+{
+    type Pixel = I::Pixel;
+    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
+    fn opt_pixel_of_camera_dir(&mut self, dirn: Point3D) -> Option<I::Pixel> {
+        let Some(pxy) = self.camera.camera_dir_to_opt_sensor_px_abs_xy(dirn) else {
+            return None;
+        };
+        if pxy[0] < 0.0 || pxy[1] < 0.0 {
+            return None;
+        }
+        if (pxy[0] >= self.w as f64) || (pxy[1] >= self.h as f64) {
+            return None;
+        }
+        Some(self.image.get(pxy[0] as u32, pxy[1] as u32))
+    }
+    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
+        self.camera.world_dir_to_camera_dir(world_dir)
     }
 }
