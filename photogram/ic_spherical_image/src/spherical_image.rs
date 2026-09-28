@@ -2,7 +2,7 @@ use crate::{
     GreatCircleTriangleIndex, ImageFile, ImageFileDesc, SdIndex, SphericalData, SubdivisionPath,
 };
 use ic_base::{JsonParsable, PathSet, Point3D, Result};
-use ic_image::{Image, ImageGray16, ImageRgb8};
+use ic_image::{Image, ImageLuma16, ImageRgb8};
 use indexed::IndexedVec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -403,5 +403,5 @@ impl<I: Image> SphericalImage<I> {
 
 pub enum SphericalImageKind {
     Rgb(SphericalImage<ImageRgb8>),
-    Gray16(SphericalImage<ImageGray16>),
+    Gray16(SphericalImage<ImageLuma16>),
 }

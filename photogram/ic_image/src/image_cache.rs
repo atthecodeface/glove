@@ -1,7 +1,7 @@
 //a Imports
 use std::path::{Path, PathBuf};
 
-use crate::{Image, ImageConvert, ImageGray16, ImageRgb8};
+use crate::{Image, ImageConvert, ImageLuma16, ImageRgb8};
 use ic_base::Result;
 use ic_cache::{Cache, CacheRef, Cacheable};
 
@@ -54,7 +54,7 @@ pub enum ImageCacheEntry {
     /// An RGB8 image, usually from a JPEG
     Rgb(ImageRgb8),
     /// A gray-scale image
-    Gray(ImageGray16),
+    Gray(ImageLuma16),
     /// An array of 'f32' of width*height
     F32(usize, usize, Vec<f32>),
 }
@@ -88,7 +88,7 @@ impl ImageCacheEntry {
             _ => None,
         }
     }
-    pub fn as_opt_gray16(&self) -> Option<&ImageGray16> {
+    pub fn as_opt_gray16(&self) -> Option<&ImageLuma16> {
         match &self {
             Self::Gray(i) => Some(i),
             _ => None,
@@ -110,7 +110,7 @@ impl ImageCacheEntry {
     }
 
     /// Return an ImageGray16 reference or panic if the entry is *not* one
-    fn as_gray16(&self) -> &ImageGray16 {
+    fn as_gray16(&self) -> &ImageLuma16 {
         match &self {
             Self::Gray(i) => i,
             _ => panic!("Cannot unmap as ImageGray16"),
@@ -131,7 +131,7 @@ impl ImageCacheEntry {
     }
 
     /// Return an ImageGray16 reference or panic if the entry is *not* one
-    pub fn cr_as_gray16(cr: &CacheRef) -> &ImageGray16 {
+    pub fn cr_as_gray16(cr: &CacheRef) -> &ImageLuma16 {
         cr.downcast::<Self>().unwrap().as_gray16()
     }
 
@@ -221,7 +221,7 @@ impl ImageCache {
         };
         ice.as_opt_rgb8()
     }
-    pub fn image_gray16(cache_ref: &CacheRef) -> Option<&ImageGray16> {
+    pub fn image_gray16(cache_ref: &CacheRef) -> Option<&ImageLuma16> {
         let Some(ice) = cache_ref.downcast::<ImageCacheEntry>() else {
             return None;
         };

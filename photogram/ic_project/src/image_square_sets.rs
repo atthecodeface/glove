@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 use ic_base::{PathSet, Result};
-use ic_image::{ImageGray16, ImageRgb8, ImageSquareSet, read_image};
+use ic_image::{ImageLuma16, ImageRgb8, ImageSquareSet, read_image};
 
 /// A description that is serializable/deserializable from which the
 /// ImageSquareSets can be read
@@ -25,7 +25,7 @@ pub struct ImageSquareSets {
     index: HashMap<String, String>,
     rgb: Vec<ImageSquareSet<ImageRgb8>>,
     rgb_index: HashMap<String, usize>,
-    gray: Vec<ImageSquareSet<ImageGray16>>,
+    gray: Vec<ImageSquareSet<ImageLuma16>>,
     gray_index: HashMap<String, usize>,
 }
 
@@ -95,7 +95,7 @@ impl ImageSquareSets {
         &mut self,
         name: &str,
         filename: PathBuf,
-        mut img: ImageSquareSet<ImageGray16>,
+        mut img: ImageSquareSet<ImageLuma16>,
     ) -> usize {
         let n = self.gray.len();
         img.set_image_filename(filename);

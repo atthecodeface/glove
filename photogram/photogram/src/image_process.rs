@@ -1,6 +1,6 @@
 use thunderclap::{CmdDescriptor, CommandArgs};
 
-use ic_photogram::{Image, ImageCache, ImageConvert, ImageDraw, ImageGray16, LumaF32Image};
+use ic_photogram::{Image, ImageCache, ImageConvert, ImageDraw, ImageLuma16, ImageLumaF32};
 use ic_photogram::{KernelArgs, Kernels};
 
 use crate::cmd::{CmdArgs, CmdResult};
@@ -39,7 +39,7 @@ Output the image as a 16-bit luma image (so the kernel output should be in the r
 ";
 
 impl CmdArgs {
-    fn get_image_as_luma_f32(&mut self, n: usize) -> ic_photogram::Result<LumaF32Image> {
+    fn get_image_as_luma_f32(&mut self, n: usize) -> ic_photogram::Result<ImageLumaF32> {
         let img = self.get_image_read_or_create(n)?;
         eprintln!(
             "Read initial image, size is {:?} (max pixels in kernel is 4M)",

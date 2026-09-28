@@ -3,9 +3,10 @@ use std::{io::Cursor, path::Path};
 use ic_base::{Point2D, Result};
 use image::{GenericImage, ImageBuffer, Luma, Rgb, RgbImage, RgbaImage};
 
-use crate::{Image, ImageColor, ImageConvert, ImageDraw, Luma16Image, LumaF32Image};
+use crate::{Image, ImageColor, ImageConvert, ImageDraw, ImageLuma16, ImageLumaF32};
 
 pub type ImageRgb8 = image::RgbImage;
+pub type ImageRgba8 = image::RgbaImage;
 
 impl ImageColor for Rgb<u8> {
     fn grey(x: u8) -> Self {
@@ -88,9 +89,9 @@ impl Image for RgbaImage {
 }
 
 impl ImageConvert for RgbImage {
-    fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> LumaF32Image {
+    fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> ImageLumaF32 {
         let (width, height) = self.resized(as_width);
-        let mut img = LumaF32Image::new(width, height);
+        let mut img = ImageLumaF32::new(width, height);
         let width = width as usize;
         let height = height as usize;
         let orig_width = self.dimensions().0 as usize;
@@ -107,9 +108,9 @@ impl ImageConvert for RgbImage {
         }
         img
     }
-    fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> Luma16Image {
+    fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> ImageLuma16 {
         let (width, height) = self.resized(as_width);
-        let mut img = Luma16Image::new(width, height);
+        let mut img = ImageLuma16::new(width, height);
         let width = width as usize;
         let height = height as usize;
         let orig_width = self.dimensions().0 as usize;

@@ -1,6 +1,6 @@
 use geo_nd::Vector;
 use ic_base::{GcTriangle3D, Point3D};
-use ic_image::ImageGray16;
+use ic_image::ImageLuma16;
 use ic_spherical_image::{
     ImagePatch, SphericalImage, SphericalImageDescriptor, SphericalImageShape,
     SphericalPatchDescriptor,
@@ -32,7 +32,7 @@ fn test_sph_image_desc() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn test_sph_image_tetra() -> Result<(), Box<dyn std::error::Error>> {
-    let mut image = SphericalImage::<ImageGray16>::of_shape(SphericalImageShape::Octahedron);
+    let mut image = SphericalImage::<ImageLuma16>::of_shape(SphericalImageShape::Octahedron);
     let image_file = image.add_new_image(512, 512);
     image.add_toplevel_patches(image_file, 256, 0)?;
     let ps: Vec<_> = image.iter_patch_indices().collect();

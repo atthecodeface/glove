@@ -4,7 +4,7 @@ use std::{io::Cursor, path::Path};
 use ic_base::{Point2D, Result};
 use image::{GenericImage, ImageBuffer, Luma, Rgb, RgbImage, RgbaImage};
 
-use crate::{LineIter, Luma16Image, LumaF32Image};
+use crate::{ImageLuma16, ImageLumaF32, ImageRgb8, ImageRgba8, LineIter};
 
 /// Trait for an 8-bit color/greyscale
 pub trait ImageColor: Sized {
@@ -133,8 +133,8 @@ pub trait Image: ImageDraw + Sized {
 
 pub trait ImageConvert: Sized {
     /// Creeate a new LumaF32Image of this image resized, using 'scale' to map components to the F32 value
-    fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> LumaF32Image;
-    fn as_rgb8(&self, as_width: Option<u32>, scale: f32) -> RgbImage;
-    fn as_rgba8(&self, as_width: Option<u32>, scale: f32) -> RgbaImage;
-    fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> Luma16Image;
+    fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> ImageLumaF32;
+    fn as_rgb8(&self, as_width: Option<u32>, scale: f32) -> ImageRgb8;
+    fn as_rgba8(&self, as_width: Option<u32>, scale: f32) -> ImageRgba8;
+    fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> ImageLuma16;
 }

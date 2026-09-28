@@ -19,8 +19,8 @@ pub use image_pt::ImagePt;
 pub(crate) use line_iter::LineIter;
 pub use traits::{Image, ImageColor, ImageConvert, ImageDraw};
 
-pub use image_luma::{ImageGray16, Luma16Image, LumaF32Image};
-pub use image_rgb::ImageRgb8;
+pub use image_luma::{ImageLuma16, ImageLumaF32};
+pub use image_rgb::{ImageRgb8, ImageRgba8};
 
 pub use image_square::{ImageSquareSet, ImageSquares};
 pub use regions::Region;
@@ -39,7 +39,7 @@ pub use image::{GenericImage, GenericImageView};
 pub fn read_image<P: AsRef<std::path::Path> + std::fmt::Display>(
     path_set: &PathSet,
     path: P,
-) -> ic_base::Result<(PathBuf, Option<ImageRgb8>, Option<ImageGray16>)> {
+) -> ic_base::Result<(PathBuf, Option<ImageRgb8>, Option<ImageLuma16>)> {
     if let Some(path) = path_set.find_file(&path) {
         let img = ImageReader::open(&path)?.with_guessed_format()?.decode()?;
         let path = path.to_owned();
