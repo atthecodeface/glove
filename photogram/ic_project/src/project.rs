@@ -399,4 +399,27 @@ impl Project {
         patch.fill_img(&mut patch_iterator);
         true
     }
+
+    pub fn create_cip_photo<C: CameraLensProjection>(
+        &self,
+        camera: &C,
+        image: &mut ImageRgb8,
+        cip: &Cip,
+        cip_image: &ImageRgb8,
+    ) {
+        let cip_camera = cip.camera().borrow();
+
+        let mut pci = ProjectedCameraImage {
+            image: cip_image,
+            camera: &*cip_camera,
+            w: cip_image.dimensions().0,
+            h: cip_image.dimensions().1,
+        };
+        let mut patch_iterator = PatchIterator::new(camera, &mut pci);
+        for (x, y, p) in image.enumerate_pixels_mut() {
+            if let Some(c) = patch_iterator.map_from_patch(x, y) {
+                *p = c;
+            }
+        }
+    }
 }
