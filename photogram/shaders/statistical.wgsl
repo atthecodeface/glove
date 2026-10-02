@@ -40,7 +40,9 @@ var<storage, read> in_data: array<f32>; // this is used as input only
 var<storage, read> in_data_b: array<f32>; // this is used as input only
 
 
-// Invoke with a centre x,y of the window
+// Invoke with a centre src_x,src_y of the window inside in_data, and x,y as a position in in_data_b
+//
+// Return offset inside in_data_b to store result, correlation and correlation cubed (for some reason)
 fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
     let ws = half_ws * 2;
@@ -69,7 +71,7 @@ fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
             a2 += i_a * i_a;
             b2 += i_b * i_b;
             ab += i_a * i_b;
-        }            
+        }
     }
     // There are ws*ws pixels in our window
     let n = f32(ws*ws);
@@ -91,8 +93,8 @@ fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let value = select(value_unbounded, 0.0, value_unbounded<0.0 || out_of_bounds || src_out_of_bounds);
 
     // MUST NOT use square as that makes NEGATIVE correlation a POSITIVE correlation
-    let other = value * value * value;
-   
+    let other = value; //  * value * value;
+
     return ResultPair ( center_ofs, value, other );
 }
 
@@ -133,7 +135,7 @@ fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair 
             a2 += i_a * i_a;
             b2 += i_b * i_b;
             ab += i_a * i_b;
-        }            
+        }
     }
     // There are ws*ws pixels in our window
     let n = f32(ws*ws);
@@ -143,12 +145,14 @@ fn window_correlate_arbitrary(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair 
     let value = select(value_unbounded, 0.0, out_of_bounds || src_out_of_bounds || is_noisy );
     // Can use square here as value is >=0
     let other = value * value;
-   
+
     return ResultPair ( center_ofs, value * kernel_args.scale, other * kernel_args.scale );
 //    return ResultPair ( center_ofs, in_data_b[center_ofs], other * kernel_args.scale );
 }
 
 // Invoke with a centre x,y of the window
+//
+// Returns value=mean, other=variance
 fn window_mean_variance(x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
     let ws = half_ws * 2;
@@ -164,8 +168,8 @@ fn window_mean_variance(x:u32, y:u32) -> ResultPair {
             let i_a = in_data[x_ofs+dx];
             a += i_a;
             a2 += i_a * i_a;
-            x_ofs++;  
-        }            
+            x_ofs++;
+        }
     }
     let n = f32(ws*ws);
     let value = select(a / n, 0.0, out_of_bounds);
@@ -253,6 +257,42 @@ fn compute_window_var(@builtin(global_invocation_id) global_id: vec3<u32>) {
     out_data[result.ofs] = result.other * kernel_args.scale;
 }
 
+// Standard deviation of the region
+@compute
+@workgroup_size(256,1)
+fn compute_window_sd(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let x = global_id.x % kernel_args.width;
+    let y = global_id.x / kernel_args.width;
+    let result = window_mean_variance(x, y);
+     out_data[result.ofs] = sqrt(result.other) * kernel_args.scale;
+}
+
+// Standard deviation / mean of the region
+@compute
+@workgroup_size(256,1)
+fn compute_window_sd_div_mean(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let x = global_id.x % kernel_args.width;
+    let y = global_id.x / kernel_args.width;
+    let result = window_mean_variance(x, y);
+    let rmean = result.value;
+    let mean = select(rmean, 0.1, rmean<0.1);
+     out_data[result.ofs] = sqrt(result.other) / mean * kernel_args.scale;
+}
+
+
+/// Use a value of 1/2 + (pixel - mean)/sd
+@compute
+@workgroup_size(256,1)
+fn compute_window_eq(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let x = global_id.x % kernel_args.width;
+    let y = global_id.x / kernel_args.width;
+    let result = window_mean_variance(x, y);
+    let rsd = sqrt(result.other)*8.0;
+    // divide by at least 2
+    let sd = select(rsd, 2.0, rsd<2.0);
+    out_data[result.ofs] = 0.5 + (in_data[result.ofs] - result.value) / sd;
+}
+
 @compute
 @workgroup_size(256,1)
 fn compute_window_var_scaled(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -270,6 +310,3 @@ fn compute_copy(@builtin(global_invocation_id) global_id: vec3<u32>) {
         out_data[global_id.x] = in_data[global_id.x];
     }
 }
-
-
-
