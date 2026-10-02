@@ -58,6 +58,29 @@ where
         }
     }
 
+    /// Replace an item in the cache given a key; the previous item is returned
+    ///
+    /// If there is not an item in the cache already with that key, then a
+    /// simple insertion is performed
+    pub fn replace<C: Cacheable>(&mut self, k: Key, e: C) -> Option<CacheRef> {
+        if let Some(idx) = self.index.get(&k) {
+            let size = e.size();
+            self.total_size -= self.entries[*idx].size();
+            let opt_previous_item = self.entries[*idx].replace(e.into(), self.use_time);
+            self.use_time += 1;
+            self.total_size += size;
+            opt_previous_item
+        } else {
+            let size = e.size();
+            let n = self.entries.len();
+            self.entries.push(CacheEntry::new(e.into(), self.use_time));
+            self.index.insert(k, n);
+            self.use_time += 1;
+            self.total_size += size;
+            None
+        }
+    }
+
     /// Insert an item into the cache given a key
     ///
     /// If there is an item in the cache already with that key, then an

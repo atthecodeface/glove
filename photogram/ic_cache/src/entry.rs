@@ -150,11 +150,19 @@ impl CacheEntry {
     /// If it is *not* empty then return the element that was attempting to fill
     pub fn fill(&mut self, e: CacheRef, use_time: usize) -> Option<CacheRef> {
         if self.is_empty() {
+            self.size = e.size();
             self.data = Some(e);
             self.last_use = use_time;
             None
         } else {
             Some(e)
         }
+    }
+
+    /// Replace the [CacheEntry] *EVEN IF IT IS NOT EMPTY*, updating the last use time
+    pub fn replace(&mut self, e: CacheRef, use_time: usize) -> Option<CacheRef> {
+        self.size = e.size();
+        self.last_use = use_time;
+        self.data.replace(e)
     }
 }
