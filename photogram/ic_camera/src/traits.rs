@@ -316,22 +316,40 @@ pub trait AdjustableCameraProjection: CameraProjection + std::fmt::Debug + Clone
 pub trait CylindricalProjection: std::fmt::Debug {
     /// Get the name of the projection (such as "equirectangular")
     fn name(&self) -> &str;
-    /// Set the vertical field of view, in radians, and the offset from 0
+    /// Set the vertical field of view, in radians, and the offset from 0, using
+    /// a scaling for 'ty'
     ///
-    /// A value of 0 in y should map to v_ofs - fov_v/2
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64);
+    /// When invoked 'ty' is y sensor distance from center line/ sensor-lens-distance); for the
+    /// height of the sensor this should map to fov_v in angle, with ty of 0 mapping to v_ofs
+    ///
+    /// A value of +-ty_sc in y should map to v_ofs +- fov_v/2
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64);
+
+    /// Map ty (which is y sensor distance from center line / sensor-lens-distance) to tan(phi)
+    fn tan_phi_of_ty(&self, ty: f64) -> f64 {
+        self.phi_of_ty(ty).tan()
+    }
+
     /// Map y in range 0 to 1 (max to min) to phi
     ///
     ///
-    fn phi_of_y(&self, y: f64) -> f64;
-    /// Map y in range 0 to 1 to phi in range (v_ofs-fov_v/2) to (v_ofs+fov_v/2) appropriately
-    fn tan_phi_of_y(&self, y: f64) -> f64 {
-        self.phi_of_y(y).tan()
-    }
-    /// Map phi to y, with (v_ofs+fov_v/2) mapping to y=0 and (v_ofs-fov_v/2 ) to y=1
+    fn phi_of_ty(&self, ty: f64) -> f64;
+
+    /// Map phi to ty, such that if phi corresponds to the top of the view
+    /// (v_ofs+fov_v/2) then +ty_sc is returned, and if phi corresponds to the bottom of the view
+    /// (v_ofs-fov_v/2) then -ty_sc is returned
     ///
     /// This must use the inverse mapping for phi(y)
-    fn y_of_phi(&self, phi: f64) -> f64;
+    fn ty_of_phi(&self, phi: f64) -> f64;
+
+    /// Map tan(phi) to ty, such that if phi corresponds to the top of the view
+    /// (v_ofs+fov_v/2) then +ty_sc is returned, and if phi corresponds to the bottom of the view
+    /// (v_ofs-fov_v/2) then -ty_sc is returned
+    ///
+    /// This must use the inverse mapping for phi(y)
+    fn ty_of_tan_phi(&self, tan_phi: f64) -> f64 {
+        self.ty_of_phi(tan_phi.atan())
+    }
 
     /// Create a boxed clone to allow CylindricalLens to be Clone
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection>;

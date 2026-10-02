@@ -31,12 +31,12 @@ impl LensProjection for CylindricalLens {
     //
     // Hence y goes to tan(phi), where y is actually optical_txty.tany
     fn optical_txty_to_camera_txty(&self, optical_txty: TanXTanY) -> TanXTanY {
-        let camera_ty = self.tan_phi_of_y(optical_txty.tany());
+        let camera_ty = self.tan_phi_of_ty(optical_txty.tany());
         let camera_tx = optical_txty.tanx();
         TanXTanY::of_tx_ty(camera_tx, camera_ty)
     }
     fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
-        let optical_ty = self.y_of_phi(camera_txty.tany().atan());
+        let optical_ty = self.ty_of_tan_phi(camera_txty.tany());
         let optical_tx = camera_txty.tanx();
         TanXTanY::of_tx_ty(optical_tx, optical_ty)
     }
@@ -61,42 +61,68 @@ impl CylindricalProjection for CylindricalLens {
     fn name(&self) -> &str {
         self.projection.name()
     }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        self.projection.set_vfov(fov_v, v_ofs)
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64) {
+        self.projection.set_vfov(ty_sc, fov_v, v_ofs)
     }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.projection.phi_of_y(y_relative)
+    fn phi_of_ty(&self, ty: f64) -> f64 {
+        self.projection.phi_of_ty(ty)
     }
-    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
-        self.projection.tan_phi_of_y(y_relative)
+    fn tan_phi_of_ty(&self, ty: f64) -> f64 {
+        self.projection.tan_phi_of_ty(ty)
     }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        self.projection.y_of_phi(phi)
+    fn ty_of_phi(&self, phi: f64) -> f64 {
+        self.projection.ty_of_phi(phi)
+    }
+    fn ty_of_tan_phi(&self, tan_phi: f64) -> f64 {
+        self.projection.ty_of_tan_phi(tan_phi)
     }
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection> {
         Box::new(self.clone())
     }
 }
 
+/// Type that helps to map ty in the range +-ty_sc to
+/// v_ofs+-fov_v/2
 #[derive(Default, Debug, Clone)]
-struct CylindricalEquirectangular {
-    range_y: f64,
-    max_y: f64,
+struct TyToYRel {
+    ty_sc: f64,
+    range_center: f64,
+    range_sc: f64,
 }
+impl TyToYRel {
+    fn set(&mut self, ty_sc: f64, min: f64, max: f64) {
+        self.ty_sc = ty_sc;
+        self.range_sc = (max - min);
+        self.range_center = (max + min) / 2.0;
+    }
+    fn ty_to_range(&self, ty: f64) -> f64 {
+        self.range_center + (ty * self.ty_sc) * self.range_sc
+    }
+    fn range_to_ty(&self, r: f64) -> f64 {
+        (r - self.range_center) / self.range_sc / self.ty_sc
+    }
+}
+
+/// An equirectangular Y projection for a cylindrical lens
+///
+/// In this kind of projection the tan(lens vertical angle) maps to Y on the sensor
+///
+/// ty, the tan(lens vertical angle) is scaled (by ty_sc) and then maps linearly to Y
+#[derive(Default, Debug, Clone)]
+struct CylindricalEquirectangular(TyToYRel);
 
 impl CylindricalProjection for CylindricalEquirectangular {
     fn name(&self) -> &str {
         "equirectangular"
     }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
-        self.max_y = v_ofs + fov_v / 2.0;
-        self.range_y = fov_v;
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64) {
+        self.0.set(ty_sc, v_ofs - fov_v / 2.0, v_ofs + fov_v / 2.0);
     }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.max_y - y_relative * self.range_y
+    fn phi_of_ty(&self, ty: f64) -> f64 {
+        self.0.ty_to_range(ty)
     }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        (self.max_y - phi) / self.range_y
+    fn ty_of_phi(&self, phi: f64) -> f64 {
+        self.0.range_to_ty(phi)
     }
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection> {
         Box::new(self.clone())
@@ -104,28 +130,24 @@ impl CylindricalProjection for CylindricalEquirectangular {
 }
 
 #[derive(Default, Debug, Clone)]
-struct CylindricalLambert {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
+struct CylindricalLambert(TyToYRel);
 
 impl CylindricalProjection for CylindricalLambert {
     fn name(&self) -> &str {
         "lambert"
     }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64) {
         let min_y = (v_ofs - fov_v / 2.0).sin();
         let max_y = (v_ofs + fov_v / 2.0).sin();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
+        self.0.set(ty_sc, min_y, max_y);
     }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
+    fn phi_of_ty(&self, ty: f64) -> f64 {
+        let y_angle = self.0.ty_to_range(ty);
         y_angle.asin()
     }
-    fn y_of_phi(&self, phi: f64) -> f64 {
+    fn ty_of_phi(&self, phi: f64) -> f64 {
         let y_angle = phi.sin();
-        (self.max_y - y_angle) / self.max_minus_min_y
+        self.0.range_to_ty(y_angle)
     }
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection> {
         Box::new(self.clone())
@@ -133,29 +155,28 @@ impl CylindricalProjection for CylindricalLambert {
 }
 
 #[derive(Default, Debug, Clone)]
-struct CylindricalCentral {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
+struct CylindricalCentral(TyToYRel);
+
 impl CylindricalProjection for CylindricalCentral {
     fn name(&self) -> &str {
         "central"
     }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64) {
         let min_y = (v_ofs - fov_v / 2.0).tan();
         let max_y = (v_ofs + fov_v / 2.0).tan();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
+        self.0.set(ty_sc, min_y, max_y);
     }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        self.tan_phi_of_y(y_relative).atan()
+    fn phi_of_ty(&self, ty: f64) -> f64 {
+        self.tan_phi_of_ty(ty).atan()
     }
-    fn tan_phi_of_y(&self, y_relative: f64) -> f64 {
-        self.max_y - y_relative * self.max_minus_min_y
+    fn tan_phi_of_ty(&self, ty: f64) -> f64 {
+        self.0.ty_to_range(ty)
     }
-    fn y_of_phi(&self, phi: f64) -> f64 {
-        let y_angle = phi.tan();
-        (self.max_y - y_angle) / self.max_minus_min_y
+    fn ty_of_tan_phi(&self, tan_phi: f64) -> f64 {
+        self.0.range_to_ty(tan_phi)
+    }
+    fn ty_of_phi(&self, phi: f64) -> f64 {
+        self.ty_of_tan_phi(phi.tan())
     }
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection> {
         Box::new(self.clone())
@@ -163,28 +184,24 @@ impl CylindricalProjection for CylindricalCentral {
 }
 
 #[derive(Default, Debug, Clone)]
-struct CylindricalStereographic {
-    max_minus_min_y: f64,
-    max_y: f64,
-}
+struct CylindricalStereographic(TyToYRel);
 
 impl CylindricalProjection for CylindricalStereographic {
     fn name(&self) -> &str {
         "stereographic"
     }
-    fn set_vfov(&mut self, fov_v: f64, v_ofs: f64) {
+    fn set_vfov(&mut self, ty_sc: f64, fov_v: f64, v_ofs: f64) {
         let min_y = ((v_ofs - fov_v / 2.0) / 2.0).tan();
         let max_y = ((v_ofs + fov_v / 2.0) / 2.0).tan();
-        self.max_y = max_y;
-        self.max_minus_min_y = max_y - min_y;
+        self.0.set(ty_sc, min_y, max_y);
     }
-    fn phi_of_y(&self, y_relative: f64) -> f64 {
-        let y_angle = self.max_y - y_relative * self.max_minus_min_y;
+    fn phi_of_ty(&self, ty: f64) -> f64 {
+        let y_angle = self.0.ty_to_range(ty);
         2.0 * y_angle.atan()
     }
-    fn y_of_phi(&self, phi: f64) -> f64 {
+    fn ty_of_phi(&self, phi: f64) -> f64 {
         let y_angle = (phi / 2.0).tan();
-        (self.max_y - y_angle) / self.max_minus_min_y
+        self.0.range_to_ty(y_angle)
     }
     fn boxed_clone(&self) -> Box<dyn CylindricalProjection> {
         Box::new(self.clone())
