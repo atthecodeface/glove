@@ -111,7 +111,7 @@ features = ["derive", "rc"]
 version = "1.0.91"
 
 [workspace.dependencies.wgpu]
-version = "=0.20"
+version = "30.0"
 
 # indent-display = "0.1"
 # lexer-rs = "0.0.3"
