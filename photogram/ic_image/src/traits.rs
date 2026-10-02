@@ -1,8 +1,8 @@
 //a Imports
-use std::{io::Cursor, path::Path};
+use std::path::Path;
 
 use ic_base::{Point2D, Result};
-use image::{GenericImage, ImageBuffer, Luma, Rgb, RgbImage, RgbaImage};
+use image::GenericImage;
 
 use crate::{ImageLuma16, ImageLumaF32, ImageRgb8, ImageRgba8, LineIter};
 

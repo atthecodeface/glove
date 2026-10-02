@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::{GenericImage, Image};
+use crate::Image;
 
 /// A trait to map from a (rectangular) patch source to pixels
 ///

@@ -1,7 +1,7 @@
 use std::{io::Cursor, path::Path};
 
-use ic_base::{Point2D, Result};
-use image::{GenericImage, ImageBuffer, Luma, Rgb, RgbImage, RgbaImage};
+use ic_base::Result;
+use image::{Rgb, RgbImage, RgbaImage};
 
 use crate::{Image, ImageColor, ImageConvert, ImageDraw, ImageLuma16, ImageLumaF32};
 

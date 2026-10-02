@@ -12,7 +12,7 @@ use std::{
     rc::Rc,
 };
 
-use image::{DynamicImage, GenericImage, GenericImageView, Rgb};
+use image::{DynamicImage, GenericImage, GenericImageView};
 
 use ic_base::{Result, Rrc};
 

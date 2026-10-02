@@ -41,22 +41,90 @@ impl Image for ImageLuma16 {
     }
 }
 
-impl ImageConvert for ImageLumaF32 {
+impl ImageConvert for ImageLuma16 {
     fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> ImageLumaF32 {
         let (width, height) = self.resized(as_width);
         let mut img = ImageLumaF32::new(width, height);
         let width = width as usize;
         let height = height as usize;
         let orig_width = self.dimensions().0 as usize;
-        let orig_height = self.dimensions().0 as usize;
-        let r_sc = 52.0 * scale / 65536.0;
-        let g_sc = 177.0 * scale / 65536.0;
-        let b_sc = 18.0 * scale / 65536.0;
+        let orig_height = self.dimensions().1 as usize;
+        let scale = scale / 65536.0;
         for (x, y, p) in img.enumerate_pixels_mut() {
             let sy = (y as usize) * orig_height / height;
             let sx = (x as usize) * orig_width / width;
-            let rgba = self[(sx as u32, sy as u32)];
-            let l = (rgba[0] as f32) * r_sc + (rgba[1] as f32) * g_sc + (rgba[2] as f32) * b_sc;
+            let l = scale * (self[(sx as u32, sy as u32)][0] as f32);
+            *p = [(l.max(0.0).min(1.0))].into();
+        }
+        img
+    }
+    fn as_rgb8(&self, as_width: Option<u32>, scale: f32) -> ImageRgb8 {
+        todo!();
+    }
+    fn as_rgba8(&self, as_width: Option<u32>, scale: f32) -> RgbaImage {
+        todo!();
+    }
+    fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> ImageLuma16 {
+        if as_width.is_none() && scale == 1.0 {
+            return self.clone();
+        }
+        let (width, height) = self.resized(as_width);
+        let mut img = ImageLuma16::new(width, height);
+        let width = width as usize;
+        let height = height as usize;
+        let orig_width = self.dimensions().0 as usize;
+        let orig_height = self.dimensions().1 as usize;
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            let sy = (y as usize) * orig_height / height;
+            let sx = (x as usize) * orig_width / width;
+            let l = scale * (self[(sx as u32, sy as u32)][0] as f32);
+            *p = [(l.max(0.0).min(65535.0)) as u16].into();
+        }
+        img
+    }
+}
+
+impl Image for ImageLumaF32 {
+    fn new(width: u32, height: u32) -> Self {
+        Self::new(width, height)
+    }
+
+    fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        Err(format!(
+            "Cannot save {:?} as LumaF32 has no save mechanism",
+            path.as_ref(),
+        )
+        .into())
+    }
+
+    fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Err(format!(
+            "Cannot load {:?} as LumaF32 has no read mechanism",
+            path.as_ref(),
+        )
+        .into())
+    }
+
+    fn encode(&self, _extension: &str) -> Result<Vec<u8>> {
+        Err(format!("Cannot enode LumaF32 has no save mechanism",).into())
+    }
+}
+
+impl ImageConvert for ImageLumaF32 {
+    fn as_luma_f32(&self, as_width: Option<u32>, scale: f32) -> ImageLumaF32 {
+        if as_width.is_none() && scale == 1.0 {
+            return self.clone();
+        }
+        let (width, height) = self.resized(as_width);
+        let mut img = ImageLumaF32::new(width, height);
+        let width = width as usize;
+        let height = height as usize;
+        let orig_width = self.dimensions().0 as usize;
+        let orig_height = self.dimensions().1 as usize;
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            let sy = (y as usize) * orig_height / height;
+            let sx = (x as usize) * orig_width / width;
+            let l = self[(sx as u32, sy as u32)][0] * scale;
             *p = [l].into();
         }
         img
@@ -68,6 +136,19 @@ impl ImageConvert for ImageLumaF32 {
         todo!();
     }
     fn as_luma16(&self, as_width: Option<u32>, scale: f32) -> ImageLuma16 {
-        todo!();
+        let (width, height) = self.resized(as_width);
+        let mut img = ImageLuma16::new(width, height);
+        let width = width as usize;
+        let height = height as usize;
+        let orig_width = self.dimensions().0 as usize;
+        let orig_height = self.dimensions().1 as usize;
+        let scale = 65536.0 * scale;
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            let sy = (y as usize) * orig_height / height;
+            let sx = (x as usize) * orig_width / width;
+            let l = scale * self[(sx as u32, sy as u32)][0];
+            *p = [(l.max(0.0).min(65535.0)) as u16].into();
+        }
+        img
     }
 }
