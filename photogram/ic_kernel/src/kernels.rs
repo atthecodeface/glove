@@ -82,8 +82,10 @@ impl Kernels {
         if let Some(wgpu) = &self.wgpu
             && wgpu.run_shader(shader, args, work_items, src_data, out_data)?
         {
+            eprintln!("Ran wgpu shader ok");
             return Ok(());
         }
+        eprintln!("Running CPU shader");
         self.cpu
             .run_shader(shader, args, work_items, src_data, out_data)
             .map(|_| ())

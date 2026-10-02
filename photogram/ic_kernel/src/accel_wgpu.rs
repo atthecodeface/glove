@@ -106,14 +106,12 @@ impl AccelWgpu {
 
         // `request_device` instantiates the feature specific connection to the GPU, defining some parameters,
         //  `features` being the available features.
-        let (device, queue) = rtc(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-            },
-            None,
-        ))
+        let (device, queue) = rtc(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: None,
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            ..Default::default()
+        }))
         .unwrap();
         let shaders = vec![];
         let pipelines = vec![];
@@ -179,12 +177,12 @@ impl AccelWgpu {
     /// A pipeline layout can be used by many pipelines
     pub fn create_pipeline_layout(
         &self,
-        bind_group_layouts: &[&wgpu::BindGroupLayout],
+        bind_group_layouts: &[Option<&wgpu::BindGroupLayout>],
     ) -> wgpu::PipelineLayout {
         let l = wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts,
-            push_constant_ranges: &[],
+            immediate_size: 0,
         };
         self.device.create_pipeline_layout(&l)
     }
@@ -193,7 +191,7 @@ impl AccelWgpu {
     pub fn create_pipeline(
         &mut self,
         shader: Shader,
-        entry_point: &str,
+        entry_point: Option<&str>,
         layout: Option<&wgpu::PipelineLayout>,
         num_bind_groups: usize,
     ) -> Result<Pipeline, String> {
@@ -204,6 +202,7 @@ impl AccelWgpu {
             module: self.shader_err(shader)?,
             entry_point,
             compilation_options,
+            cache: None,
         };
         let pipeline = self.device().create_compute_pipeline(&pipeline_desc);
         let n = self.pipelines.len();
@@ -244,8 +243,11 @@ impl AccelWgpu {
     //mp block
     pub fn block(&self) {
         self.device()
-            .poll(wgpu::Maintain::wait())
-            .panic_on_timeout();
+            .poll(wgpu::wgt::PollType::Wait {
+                submission_index: None,
+                timeout: None,
+            })
+            .unwrap();
     }
 
     //zz All done
@@ -375,7 +377,7 @@ impl ImageAccelerator {
                 ],
             });
 
-        let pipeline_layout = accelerator.create_pipeline_layout(&[&bgl]);
+        let pipeline_layout = accelerator.create_pipeline_layout(&[Some(&bgl)]);
 
         let pipelines = HashMap::new();
         Ok(Self {
@@ -403,7 +405,7 @@ impl ImageAccelerator {
         for sd in shader_file.shader_descs.into_iter() {
             let pipeline = self.accelerator.create_pipeline(
                 cs_module,
-                &sd.shader,
+                Some(&sd.shader),
                 Some(&self.pipeline_layout),
                 1,
             )?;
@@ -458,13 +460,14 @@ impl ImageAccelerator {
         };
         buffer_slice
             .get_mapped_range_mut()
+            .unwrap()
             .copy_from_slice(bytemuck::cast_slice(src_data));
         buffer.unmap();
         Ok(())
     }
 
     //mp map_output
-    fn map_output(&self, byte_size: u64) -> Result<wgpu::BufferView<'_>, String> {
+    fn map_output(&self, byte_size: u64) -> Result<wgpu::BufferView, String> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let buffer_slice = self.output_buffer.slice(0..byte_size);
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
@@ -472,7 +475,7 @@ impl ImageAccelerator {
         let Ok(Ok(())) = receiver.recv() else {
             return Err("Failed to run compute on gpu!".into());
         };
-        Ok(buffer_slice.get_mapped_range())
+        Ok(buffer_slice.get_mapped_range().unwrap())
     }
 
     //mp run
@@ -491,11 +494,13 @@ impl ImageAccelerator {
         } else {
             self.copy_to_buffer(bytemuck::cast_slice(out_data), &self.input_buffer)?;
         }
-        self.copy_to_buffer(bytemuck::cast_slice(&[*args]), &self.uniform_buffer)?;
+        let args_slice: &[KernelArgs] = &[*args];
+        self.copy_to_buffer(bytemuck::cast_slice(args_slice), &self.uniform_buffer)?;
         self.accelerator.queue().submit(Some(cmd_buffer));
         {
             let data = self.map_output(byte_size)?;
-            callback(args, bytemuck::cast_slice(&data), out_data)?;
+            let data: &[u8] = &*data;
+            callback(args, bytemuck::cast_slice(data), out_data)?;
             // Must drop data so that self.output_buffer has no BufferView's
         }
         // Must unmap self.output_buffer so it can be used in the future
