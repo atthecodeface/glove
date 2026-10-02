@@ -38,7 +38,7 @@ pub use ic_camera::{
 };
 pub use ic_camera::{
     BaseCamera, CameraBody, CameraDatabase, CameraInstance, CameraInstanceDesc, CameraLens,
-    CylindricalLens, LensPolys, RectilinearLens, SizedSensor,
+    CylindricalLens, LensPolys, RectilinearLens, SimpleSensorLensCamera, SizedSensor,
 };
 pub use ic_http::{
     HttpRequest, HttpRequestType, HttpResponse, HttpResponseType, HttpServer, HttpServerExt,
