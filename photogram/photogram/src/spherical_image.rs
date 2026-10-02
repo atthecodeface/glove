@@ -203,10 +203,11 @@ impl CmdArgs {
 
         self.cylindrical_lens.set_projection("equirectangular")?;
         self.cylindrical_lens
-            .set_vfov(self.fov_v.to_radians(), self.v_ofs.to_radians());
+            .set_vfov(1.0, self.fov_v.to_radians(), self.v_ofs.to_radians());
         for y in 0..self.height {
             let y_relative = (y as f64) / (self.height as f64);
-            let tan_phi = self.cylindrical_lens.tan_phi_of_y(y_relative);
+            let ty = y_relative * 2.0 - 1.0;
+            let tan_phi = self.cylindrical_lens.tan_phi_of_ty(ty);
             for x in 0..self.width {
                 // x_relative is in the range +-1.0; lambda is in range h_ofs *- hfov/2
                 let x_relative = (x as f64) / (self.width as f64) * 2.0 - 1.0;
@@ -232,10 +233,10 @@ impl CmdArgs {
         let v_ofs = self.v_ofs.to_radians();
 
         self.cylindrical_lens
-            .set_vfov(self.fov_h.to_radians(), self.h_ofs.to_radians());
+            .set_vfov(1.0, self.fov_h.to_radians(), self.h_ofs.to_radians());
         for x in 0..self.width {
             let x_relative = (x as f64) / (self.width as f64);
-            let tan_phi = self.cylindrical_lens.tan_phi_of_y(1.0 - x_relative);
+            let tan_phi = self.cylindrical_lens.tan_phi_of_ty(1.0 - 2.0 * x_relative);
             for y in 0..self.height {
                 let y_relative = 1.0 - (y as f64) / (self.height as f64) * 2.0;
                 let lambda = y_relative * hfov_v + v_ofs;
@@ -280,7 +281,8 @@ impl CmdArgs {
                     let color = { if phi_i == 0 { white } else { black } };
                     let phi = (self.v_ofs + (phi_i as f64) * self.y_grid).to_radians();
                     // y = 0.0 -> 0, 1.0 -> height
-                    let y = self.cylindrical_lens.y_of_phi(phi) * (self.height as f64);
+                    let y = self.cylindrical_lens.ty_of_phi(phi) * (self.height as f64);
+                    let y = (y / 2.0 + 1.0) * (self.height as f64);
                     if y < 0.0 || y >= (self.height as f64) {
                         break;
                     }
@@ -293,7 +295,8 @@ impl CmdArgs {
                     let color = { if phi_i == 0 { white } else { black } };
                     let phi = (self.v_ofs - (phi_i as f64) * self.y_grid).to_radians();
                     // y = 0.0 -> 0, 1.0 -> height
-                    let y = self.cylindrical_lens.y_of_phi(phi) * (self.height as f64);
+                    let y = self.cylindrical_lens.ty_of_phi(phi);
+                    let y = (y / 2.0 + 1.0) * (self.height as f64);
                     if y < 0.0 || y >= (self.height as f64) {
                         break;
                     }

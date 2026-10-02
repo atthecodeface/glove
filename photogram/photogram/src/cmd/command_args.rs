@@ -200,6 +200,7 @@ impl CommandArgs for CmdArgs {
 
         self.write_project = None;
         self.write_camera = None;
+        self.cache_img = None;
         self.write_img = None;
         self.write_polys = None;
         self.write_svg = None;

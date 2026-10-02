@@ -83,6 +83,7 @@ pub struct CmdArgs {
     pub(crate) write_project: Option<String>,
     pub(crate) write_camera: Option<String>,
     pub(crate) write_polys: Option<String>,
+    pub(crate) cache_img: Option<String>,
     pub(crate) write_img: Option<String>,
     pub(crate) write_svg: Option<String>,
     pub(crate) write_patches: Option<String>,

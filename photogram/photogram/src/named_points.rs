@@ -3,8 +3,8 @@ use std::{collections::HashMap, num};
 
 use anyhow::anyhow;
 use geo_nd::Vector;
-use ic_photogram::ModelData;
 use ic_photogram::{Color8, ImageCache};
+use ic_photogram::{Image, ModelData};
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use ic_photogram::NamedPointSet;

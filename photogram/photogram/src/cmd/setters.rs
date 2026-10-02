@@ -144,7 +144,6 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi add_read_img
     pub(crate) fn add_read_img(&mut self, s: &str) -> Result<()> {
         self.read_img.push(s.into());
         Ok(())
@@ -273,7 +272,11 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi set_write_img
+    pub(crate) fn set_cache_img(&mut self, s: &str) -> Result<()> {
+        self.cache_img = Some(s.to_owned());
+        Ok(())
+    }
+
     pub(crate) fn set_write_img(&mut self, s: &str) -> Result<()> {
         self.write_img = Some(s.to_owned());
         Ok(())

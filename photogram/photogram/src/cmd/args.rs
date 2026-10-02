@@ -485,9 +485,18 @@ impl CmdArgs {
         "image",
         None,
         "Image filename",
-        ArgCount::Optional,
+        ArgCount::Min(0),
         None,
         &Self::add_read_img,
+    );
+
+    pub(crate) const ARG_CACHE_IMAGE_OPTIONAL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(
+        "cache",
+        None,
+        "Store image in cache by name",
+        ArgCount::Optional,
+        None,
+        &Self::set_cache_img,
     );
 
     pub(crate) const ARG_WRITE_IMAGE_OPTIONAL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_string(

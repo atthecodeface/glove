@@ -1,9 +1,15 @@
 use std::rc::Rc;
 
 use anyhow::anyhow;
+use image::metadata::Orientation;
+use star_catalog::Quat;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
-use ic_photogram::{Cip, ImageCache, ImageCacheEntry, NamedPoint, PointMapping};
+use ic_photogram::{
+    AdjustableCameraProjection, CameraProjection, Cip, CylindricalLens, CylindricalProjection,
+    Image, ImageCache, ImageCacheEntry, ImageRgb8, NamedPoint, Point3D, PointMapping, Quadtree,
+    SimpleSensorLensCamera,
+};
 
 use geo_nd::{Quaternion, Vector};
 
@@ -201,25 +207,69 @@ impl CmdArgs {
         Ok(json::to_value(dx2_dy2)?)
     }
 
-    fn cip_np_image_create_cmd(self: &mut CmdArgs) -> CmdResult {
+    fn cip_panorama_between_nps_cmd(self: &mut CmdArgs) -> CmdResult {
         self.validate_cip()?;
         let nps = self.get_nps()?;
+        if nps.len() != 2 {
+            return Err(anyhow!("Need two named points"));
+        }
+
         let cip = self.cip.as_ref().unwrap().clone();
         let cip_image = self.get_cip_image(&cip.borrow())?;
         let cip_image = ImageCache::image_rgb8_err(&cip_image)?;
-        for np in nps {
-            if !self.project().create_np_cip_image(
-                &np,
-                &cip.borrow(),
-                cip_image,
-                self.width,
-                self.height,
-            ) {
-                eprintln!("Dont think it did the image thing {np}");
-            } else {
-                eprintln!("Did the image thing {np}");
-            }
-        }
+        let mut image = ImageRgb8::new(self.width, self.height);
+
+        let camera = cip.borrow().camera().borrow().clone();
+        let direction_0 = nps[0].model_world_direction(&camera).normalize();
+        let direction_1 = nps[1].model_world_direction(&camera).normalize();
+        let direction = direction_0.mix(direction_1, 0.5);
+        let up = direction_0.cross_product(direction_1);
+        let hfov = up.length().asin();
+        let up = up.normalize();
+        if up.length_sq() < 0.9 {
+            return Err(anyhow!(
+                "Two named points are in same direction or diametrically opposed"
+            ));
+        };
+        eprintln!("Direction {direction} up {up} {:?}", nps[0]);
+        let orientation = Quat::look_at(&direction, &up); // .conjugate();
+
+        // Will be focused at infinity, so lens-sensor distance is focal length
+        //
+        // tan(hfovh) = width_in_mm / lens-sensor-distance
+        //
+        // px_width/2 * mm_per_pixel = lens-sensor-distance * tan(hfovh)
+        //
+        // mm_per_pixel = 2*lens-sensor-distance * tan(hfovh) / px_width
+        let mm_focal_length = 50.0;
+        let mm_per_pixel = mm_focal_length * 2.0 / (self.width as f64) * (hfov / 2.0 * 1.80).tan();
+
+        let mut lens = CylindricalLens::default();
+        lens.set_projection("rectilinear").unwrap();
+
+        // ty_sc maps +- height/2 / lens_sensor_distance to +-1
+        //
+        // i.e. ty_sc = lens_sensor_distance / height in mm * 2.0;
+        //
+        // lens_sensor_distance is focal_length
+        let ty_sc = mm_focal_length / (self.height as f64) * 2.0 / mm_per_pixel;
+        lens.set_vfov(ty_sc, self.fov_v.to_radians(), 0.0);
+
+        let mut sslc = SimpleSensorLensCamera::new(
+            self.width,
+            self.height,
+            mm_per_pixel,
+            lens,
+            mm_focal_length,
+        );
+        // Focus at infinity
+        sslc.set_focus_distance(1.0E7);
+        sslc.set_orientation(&orientation);
+        sslc.set_position(&camera.position());
+        self.project()
+            .create_cip_photo(&sslc, &mut image, &cip.borrow(), cip_image);
+
+        image.write(self.write_img.as_ref().unwrap())?;
         CmdArgs::cmd_ok()
     }
 
@@ -270,10 +320,16 @@ impl CmdArgs {
         .args(&[Self::ARG_ADD_NAMED_POINT])
         .handler(&Self::cip_dx2_dy2_cmd);
 
-    const CIP_NP_PATCH_CREATE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("np_patch_create")
-        .about("Calculate patches for the given named points in the patch set image")
-        .args(&[Self::ARG_ADD_NAMED_POINT, Self::ARG_WIDTH, Self::ARG_HEIGHT])
-        .handler(&Self::cip_np_image_create_cmd);
+    const CIP_IMAGE_BETWEEN_NPS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("image_between_nps")
+        .about("Generate an image 'between' named points")
+        .args(&[
+            Self::ARG_ADD_NAMED_POINT,
+            Self::ARG_FOVV,
+            Self::ARG_WIDTH,
+            Self::ARG_HEIGHT,
+            Self::ARG_WRITE_IMAGE_REQUIRED,
+        ])
+        .handler(&Self::cip_panorama_between_nps_cmd);
 
     pub(crate) const CIP_CMD: CmdDescriptor<Self> = CmdDescriptor::new("cip")
         .about("List, modify, interrogate etc a Camera/image/point-mapping-set")
@@ -287,7 +343,7 @@ impl CmdArgs {
             Self::CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD,
             Self::CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD,
             Self::CIP_DX2_DY2_CMD,
-            Self::CIP_NP_PATCH_CREATE_CMD,
+            Self::CIP_IMAGE_BETWEEN_NPS_CMD,
         ]);
 
     /*

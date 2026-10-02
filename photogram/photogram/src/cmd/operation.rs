@@ -64,8 +64,7 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mp get_image_read_or_create
-    pub fn get_image_read_or_create(&self, n: usize) -> Result<ImageRgb8> {
+    pub fn get_image_rgb8_read_or_create(&self, n: usize) -> Result<ImageRgb8> {
         let read_filename = {
             if self.read_img.is_empty() {
                 None
@@ -90,6 +89,9 @@ impl CmdArgs {
         let Some(read_filename) = self.read_img.get(n) else {
             return Err(format!("Required at least {} read images to be specified", n + 1).into());
         };
+        if let Some(x) = self.image_cache.get_image(read_filename) {
+            return Ok(x);
+        }
         let Some(read_filename) = self.path_set.find_file(read_filename) else {
             return Err(format!("could not finde image file {read_filename}").into());
         };
