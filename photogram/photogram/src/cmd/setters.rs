@@ -92,16 +92,6 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi add_path
-    /// Adds a directory to the search ath
-    pub(crate) fn add_path(&mut self, s: &str) -> Result<()> {
-        if let Err(e) = self.path_set.add_path(s) {
-            eprintln!("Warning: {e}");
-        };
-        Ok(())
-    }
-
-    //mi add_nps
     /// Adds the named point set into the current NPS...
     ///
     /// Could perhaps do with a way to reset the nps for batch mode
@@ -111,7 +101,6 @@ impl CmdArgs {
         Ok(())
     }
 
-    //mi add_pms
     /// Adds a point mapping set
     pub(crate) fn add_pms(&mut self, pms_filename: &str) -> Result<()> {
         if self.cip.is_none() {
@@ -414,12 +403,17 @@ impl CmdArgs {
         })?;
         Ok(())
     }
-    pub(crate) fn clear_file_path(&mut self, _s: bool) -> Result<()> {
-        self.path_set.clear();
+    pub(crate) fn clear_file_path(&mut self, s: bool) -> Result<()> {
+        if s {
+            self.path_set.clear();
+        }
         Ok(())
     }
+
     pub(crate) fn add_file_path(&mut self, s: &str) -> Result<()> {
-        self.path_set.add_path(s)?;
+        if let Err(e) = self.path_set.add_path(s) {
+            eprintln!("Warning: {e}");
+        };
         Ok(())
     }
     pub(crate) fn set_cylindrical_projection(&mut self, projection: &str) -> Result<()> {

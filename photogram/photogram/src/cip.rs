@@ -166,6 +166,18 @@ impl CmdArgs {
         Self::cmd_ok()
     }
 
+    fn cip_locate_cmd(&mut self) -> CmdResult {
+        self.validate_cip()?;
+        let nps = self.get_nps()?;
+        let mut cip = self.cip.as_ref().unwrap().borrow_mut();
+        fn filter(nps: &[Rc<NamedPoint>], pm: &PointMapping) -> bool {
+            nps.iter().any(|np| pm.is_mapping_of_np(np))
+        }
+        let max_pairs = 100;
+        cip.locate(|_, pm| filter(&nps, pm), max_pairs)?;
+        Self::cmd_ok()
+    }
+
     fn cip_orient_using_model_directions_cmd(&mut self) -> CmdResult {
         self.validate_cip()?;
         let nps = self.get_nps()?;
@@ -297,6 +309,11 @@ impl CmdArgs {
         ])
         .handler(&Self::cip_add_pm_cmd);
 
+    const CIP_LOCATE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("locate")
+        .about("Change the camera for the CIP to be at the best position for the rays")
+        .args(&[Self::ARG_ADD_NAMED_POINT])
+        .handler(&Self::cip_locate_cmd);
+
     const CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new(
         "orient_using_model_directions",
     )
@@ -340,6 +357,7 @@ impl CmdArgs {
             Self::CIP_SELECT_CMD,
             Self::CIP_AS_JSON_CMD,
             Self::CIP_ADD_PM_CMD,
+            Self::CIP_LOCATE_CMD,
             Self::CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD,
             Self::CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD,
             Self::CIP_DX2_DY2_CMD,

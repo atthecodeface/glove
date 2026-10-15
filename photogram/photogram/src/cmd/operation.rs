@@ -93,7 +93,7 @@ impl CmdArgs {
             return Ok(x);
         }
         let Some(read_filename) = self.path_set.find_file(read_filename) else {
-            return Err(format!("could not finde image file {read_filename}").into());
+            return Err(format!("could not find image file {read_filename}").into());
         };
         self.image_cache.src_image(read_filename)
     }
@@ -101,7 +101,7 @@ impl CmdArgs {
     pub fn get_cip_image(&mut self, cip: &Cip) -> Result<CacheRef> {
         let cip_image_filename = cip.image_filename();
         let Some(read_filename) = self.path_set.find_file(cip_image_filename) else {
-            return Err(format!("could not finde image file {cip_image_filename}").into());
+            return Err(format!("could not find image file {cip_image_filename}").into());
         };
         self.image_cache.src_image(read_filename)
     }
