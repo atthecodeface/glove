@@ -1,10 +1,7 @@
+use ic_base::PathSet;
+
 //a Imports
-use crate::{
-    Accelerate, KernelArgs,
-    accel_wgpu::{self, AccelWgpu},
-    cpu::{self, ImageAccelerator},
-};
-use std::path::Path;
+use crate::{Accelerate, KernelArgs, accel_wgpu, cpu};
 
 //a Kernels
 //tp Kernels
@@ -17,9 +14,9 @@ pub struct Kernels {
 }
 
 impl Kernels {
-    pub fn add_wgpu_shaders<P: AsRef<Path>, S: AsRef<str>>(
+    pub fn add_wgpu_shaders<S: AsRef<str>>(
         &mut self,
-        path: P,
+        path: &PathSet,
         shaders: &[S],
     ) -> ic_base::Result<()> {
         self.wgpu = None;
