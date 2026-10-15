@@ -167,3 +167,17 @@ fn compute_reduce_value_around_region(@builtin(global_invocation_id) global_id: 
 }
 
 
+
+
+/// Use a value of 1/2 + (pixel - mean)/sd
+@compute
+@workgroup_size(256,1)
+fn compute_copy(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let dst_x = global_id.x % kernel_args.width;
+    let dst_y = global_id.x / kernel_args.width;
+    let src_x = dst_x + kernel_args.cx;
+    let src_y = dst_y + kernel_args.cy;
+    let src_ofs = src_x + src_y * kernel_args.src_width;
+    let dst_ofs = global_id.x;
+    out_data[dst_ofs] = in_data[src_ofs];
+}

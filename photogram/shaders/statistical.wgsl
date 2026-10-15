@@ -43,6 +43,38 @@ var<storage, read> in_data_b: array<f32>; // this is used as input only
 // Invoke with a centre src_x,src_y of the window inside in_data, and x,y as a position in in_data_b
 //
 // Return offset inside in_data_b to store result, correlation and correlation cubed (for some reason)
+fn window_diff_sq(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
+    let half_ws = kernel_args.size/2;
+    let ws = half_ws * 2;
+    let out_of_bounds = x < half_ws || x > kernel_args.width-half_ws ||
+        y < half_ws || y > kernel_args.height-half_ws
+    ;
+    let src_out_of_bounds = src_x< half_ws || src_x> kernel_args.src_width-half_ws ||
+        src_y < half_ws || src_y > kernel_args.src_height-half_ws
+    ;
+    var diff_sq = 0.0;
+    let src_ofs : u32 = select((src_x - half_ws) + (src_y-half_ws) * kernel_args.src_width, 0u, src_out_of_bounds);
+    let cmp_ofs : u32 = select((x - half_ws) + (y-half_ws) * kernel_args.width, 0u, out_of_bounds);
+    let center_ofs = cmp_ofs + half_ws + half_ws * kernel_args.width;
+    for ( var dy: u32 = 0; dy < ws; dy++ ) {
+        var x_src_ofs = src_ofs + dy * kernel_args.src_width;
+        var x_cmp_ofs = cmp_ofs + dy * kernel_args.width;
+        for ( var dx: u32 = 0; dx < ws; dx++ ) {
+            let i_a = in_data[x_src_ofs + dx];
+            let i_b = in_data_b[x_cmp_ofs + dx];
+            diff_sq += (i_a - i_b) * (i_a - i_b);
+        }
+    }
+    // There are ws*ws pixels in our window
+    let n = f32(ws*ws);
+    let value = diff_sq / n;
+    let other = 1.0 / (1.0 + value * kernel_args.scale);
+
+    return ResultPair ( center_ofs, value, other );
+}
+// Invoke with a centre src_x,src_y of the window inside in_data, and x,y as a position in in_data_b
+//
+// Return offset inside in_data_b to store result, correlation and correlation cubed (for some reason)
 fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
     let ws = half_ws * 2;
@@ -216,6 +248,18 @@ fn compute_window_sum_y(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     out_data[global_id.x] = sum * kernel_args.scale;
 }
+
+@compute
+@workgroup_size(256,1)
+fn compute_window_diff_sq(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let cx = kernel_args.cx;
+    let cy = kernel_args.cy;
+    let x = global_id.x % kernel_args.width;
+    let y = global_id.x / kernel_args.width;
+    let result = window_diff_sq(cx, cy, x, y);
+    out_data[result.ofs] = result.other;
+}
+
 
 @compute
 @workgroup_size(256,1)

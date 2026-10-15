@@ -11,5 +11,6 @@
     [ "window_corr_arb", "compute_window_corr_arbitrary", 256, true],
     [ "window_sd", "compute_window_sd", 256, false],
     [ "window_sd_div_mean", "compute_window_sd_div_mean", 256, false],
-    [ "window_eq", "compute_window_eq", 256, false]
+    [ "window_eq", "compute_window_eq", 256, false],
+    [ "window_diff_sq", "compute_window_diff_sq", 256, true]
     ]
