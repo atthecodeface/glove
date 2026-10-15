@@ -25,6 +25,9 @@ pub struct CmdArgsInner {
     image_path_set: PathSet,
     project_path_set: PathSet,
 
+    shader_path: PathBuf,
+    shaders: Vec<String>,
+
     // star_catalog is in a Mutex not a RwLock as it is not sync, as some of the star filters require RefCell
     star_catalog: Option<Mutex<StarCatalog>>,
 
@@ -50,8 +53,15 @@ impl std::fmt::Debug for CmdArgsInner {
         Ok(())
     }
 }
+impl CmdArgsInner {
+    pub fn shader_path(&self) -> &Path {
+        &self.shader_path
+    }
+    pub fn shaders(&self) -> &[String] {
+        &self.shaders
+    }
+}
 
-//a ServerState
 #[derive(Default)]
 pub struct ServerState {
     started: bool,
@@ -105,7 +115,7 @@ impl CmdArgs {
         f(&mut inner)
     }
     //mi map
-    fn map<F, T>(&self, f: F) -> T
+    pub fn map<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&CmdArgsInner) -> T,
     {
@@ -191,6 +201,16 @@ impl CmdArgs {
         self.map_mut(|inner| inner.project_path_set.add_path(s))
     }
 
+    pub(crate) fn set_shader_path(&mut self, s: &str) -> Result<()> {
+        self.map_mut(|inner| inner.shader_path = s.into());
+        Ok(())
+    }
+
+    pub(crate) fn add_shaders(&mut self, s: &str) -> Result<()> {
+        self.map_mut(|inner| inner.shaders.push(s.to_owned()));
+        Ok(())
+    }
+
     //mi add_string_arg
     pub(crate) fn add_string_arg(&mut self, s: &str) -> Result<()> {
         self.map_mut(|inner| {
@@ -258,6 +278,24 @@ impl CmdArgs {
         &Self::add_project_path,
     );
 
+    const ARG_SHADER_PATH: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "shader_path",
+        None,
+        "Set the directory for the accelerated shaders",
+        ArgCount::Optional,
+        None,
+        &Self::set_shader_path,
+    );
+
+    const ARG_SHADERS: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "shaders",
+        None,
+        "Add a shaders description for the accelerated shaders (expects <shaders>/<shader_name>.json",
+        ArgCount::Any,
+        None,
+        &Self::add_shaders,
+    );
+
     const ARG_BACKGROUND: ArgDescriptor<Self> = ArgDescriptor::arg_flag(
         "background",
         Some('b'),
@@ -289,6 +327,8 @@ impl CmdArgs {
         Self::ARG_FILE_PATH,
         Self::ARG_IMAGE_PATH,
         Self::ARG_PROJECT_PATH,
+        Self::ARG_SHADERS,
+        Self::ARG_SHADER_PATH,
     ];
 
     pub const ARGS_SERVE: &[ArgDescriptor<Self>] =

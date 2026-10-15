@@ -37,8 +37,18 @@ pub struct ProjectSet {
 //ip ProjectSet
 impl ProjectSet {
     pub fn new(cmd_args: CmdArgs) -> Self {
+        let mut kernels = Kernels::default();
+        cmd_args.map(|inner| {
+            if kernels
+                .add_wgpu_shaders(inner.shader_path(), inner.shaders())
+                .is_err()
+            {
+                eprintln!("Failed to load kernels for wgpu");
+            };
+        });
         Self {
             cmd_args,
+            kernels,
             ..Default::default()
         }
     }
