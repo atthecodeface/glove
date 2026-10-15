@@ -1,64 +1,35 @@
 //a Imports
+use crate::{
+    Accelerate, KernelArgs,
+    accel_wgpu::{self, AccelWgpu},
+    cpu::{self, ImageAccelerator},
+};
 use std::path::Path;
-
-use crate::{Accelerate, KernelArgs, accel_wgpu, cpu};
 
 //a Kernels
 //tp Kernels
 // Want this to be Clone, Sync, Send
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Kernels {
     wgpu: Option<accel_wgpu::ImageAccelerator>,
     cpu: cpu::ImageAccelerator,
     verbose: bool,
 }
 
-//ip Default for Kernels
-impl Default for Kernels {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-//ip Kernels
 impl Kernels {
-    //ci read_json
-    /// TODO: move me to accel_wgpu
-    fn read_json<P: AsRef<Path>>(
-        root: P,
-        names: &[&str],
-    ) -> Result<accel_wgpu::ImageAccelerator, String> {
-        let accelerator = accel_wgpu::AccelWgpu::new();
-        let mut wgpu = accel_wgpu::ImageAccelerator::new(accelerator, 16 * 1024 * 1024)?;
-        for n in names {
-            let mut root = root.as_ref().to_owned();
-            root.push(n);
-            let mut x = root.clone();
-            x.set_extension("json");
-            let json = std::fs::read_to_string(&x)
-                .map_err(|e| format!("Error reading Json describing shader file {e}"))?;
-            root.set_extension("wgsl");
-            let x = root.clone();
-            let shader_desc_file = accel_wgpu::ShaderFileDesc::from_json(x, &json)
-                .map_err(|e| format!("Error parsing JSON file {}: {e}", root.display()))?;
-            wgpu.create_pipelines(shader_desc_file)?;
-        }
-        Ok(wgpu)
-    }
-
-    //cp new
-    pub fn new() -> Self {
-        let cpu = cpu::ImageAccelerator::default();
-        let wgpu = {
-            match Self::read_json("shaders", &["statistical", "extract"]) {
-                Err(e) => {
-                    eprintln!("Wgpu acceleration failed, not using that : {e}");
-                    None
-                }
-                Ok(s) => Some(s),
+    pub fn add_wgpu_shaders<P: AsRef<Path>, S: AsRef<str>>(
+        &mut self,
+        path: P,
+        shaders: &[S],
+    ) -> ic_base::Result<()> {
+        self.wgpu = None;
+        match accel_wgpu::ImageAccelerator::read_json(path, shaders) {
+            Ok(wgpu) => {
+                self.wgpu = Some(wgpu);
+                Ok(())
             }
-        };
-        let verbose = false;
-        Self { wgpu, cpu, verbose }
+            Err(e) => Err(format!("Wgpu acceleration failed, not using that : {e}").into()),
+        }
     }
 
     //mp set_verbose
@@ -82,7 +53,6 @@ impl Kernels {
         if let Some(wgpu) = &self.wgpu
             && wgpu.run_shader(shader, args, work_items, src_data, out_data)?
         {
-            eprintln!("Ran wgpu shader ok");
             return Ok(());
         }
         eprintln!("Running CPU shader");

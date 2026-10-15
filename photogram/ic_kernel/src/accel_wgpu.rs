@@ -1,7 +1,7 @@
 //a Imports
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::{borrow::Cow, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -282,7 +282,25 @@ pub struct ImageAccelerator {
 
 //ip ImageAccelerator
 impl ImageAccelerator {
-    //fp new
+    pub fn read_json<P: AsRef<Path>, S: AsRef<str>>(root: P, names: &[S]) -> Result<Self, String> {
+        let accelerator = AccelWgpu::new();
+        let mut wgpu = Self::new(accelerator, 64 * 1024 * 1024)?;
+        for n in names {
+            let mut root = root.as_ref().to_owned();
+            root.push(n.as_ref());
+            let mut x = root.clone();
+            x.set_extension("json");
+            let json = std::fs::read_to_string(&x)
+                .map_err(|e| format!("Error reading Json describing shader file {e}"))?;
+            root.set_extension("wgsl");
+            let x = root.clone();
+            let shader_desc_file = ShaderFileDesc::from_json(x, &json)
+                .map_err(|e| format!("Error parsing JSON file {}: {e}", root.display()))?;
+            wgpu.create_pipelines(shader_desc_file)?;
+        }
+        Ok(wgpu)
+    }
+
     pub fn new(accelerator: AccelWgpu, buffer_size: usize) -> Result<Self, String> {
         let uniform_bgle = wgpu::BindGroupLayoutEntry {
             binding: 0,
