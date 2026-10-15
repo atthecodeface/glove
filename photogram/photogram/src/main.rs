@@ -290,6 +290,8 @@ impl CmdArgs {
             Self::ARG_PRETTY_JSON,
             Self::ARG_ADD_FILE_PATH,
             Self::ARG_CLEAR_FILE_PATH,
+            Self::ARG_SHADER_PATH,
+            Self::ARG_SHADERS,
             Self::ARG_PROJECT_FILE,
             Self::ARG_CAMERA_DB,
             Self::ARG_CAMERA,
