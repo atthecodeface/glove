@@ -15,51 +15,122 @@ pub enum WordError {
     BadFormat,
 }
 
-//a IsWordXy, MaybeWordXy, WORDS constatns
-//tt IsWordXy
 pub trait IsWordXy {
-    const MAX_N: u8;
+    /// The number (for each array) of strings in the array
+    const MAX_N: usize;
+    /// Largest power of 2 that MAX_N is greater than
+    ///
+    /// The bottom MAX_N_2_PWR bits can be used directly for X, or for Y, for a
+    /// mapping across the whole space.
+    const MAX_N_2_PWR: usize;
+    /// Coprime to MAX_N to make linear-to-XY mapping spread the X coordinate
+    const X_MULT: usize;
+    /// Coprime to MAX_N to make linear-to-XY mapping spread the Y coordinate
+    const Y_MULT: usize;
+    /// The length of all the strings
     const SLEN: usize;
+    /// Array of MAX_N strings each of SLEN length
     const WORDS_X: &'static [&'static str];
+    /// Array of MAX_N strings each of SLEN length
     const WORDS_Y: &'static [&'static str];
+    fn xy_of_n(xy: usize) -> (u8, u8) {
+        // Spread it around the space first
+        let xy = xy * Self::X_MULT;
+        // Now select X and Y using the bottom bits evenly,
+        // and upper bits module MAX_N / 2^MAX_N_2_PWR
+        let mut x = 0;
+        let mut y = 0;
+        if (xy & (1 << 0) != 0) && (Self::MAX_N_2_PWR > 0) {
+            x += 1;
+        }
+        if (xy & (1 << 2) != 0) && (Self::MAX_N_2_PWR > 1) {
+            x += 2;
+        }
+        if (xy & (1 << 4) != 0) && (Self::MAX_N_2_PWR > 2) {
+            x += 4;
+        }
+        if (xy & (1 << 6) != 0) && (Self::MAX_N_2_PWR > 3) {
+            x += 8;
+        }
+        if (xy & (1 << 8) != 0) && (Self::MAX_N_2_PWR > 5) {
+            x += 16;
+        }
+
+        if (xy & (1 << 1) != 0) && (Self::MAX_N_2_PWR > 0) {
+            y += 1;
+        }
+        if (xy & (1 << 3) != 0) && (Self::MAX_N_2_PWR > 1) {
+            y += 2;
+        }
+        if (xy & (1 << 5) != 0) && (Self::MAX_N_2_PWR > 2) {
+            y += 4;
+        }
+        if (xy & (1 << 7) != 0) && (Self::MAX_N_2_PWR > 3) {
+            y += 8;
+        }
+        if (xy & (1 << 9) != 0) && (Self::MAX_N_2_PWR > 5) {
+            y += 16;
+        }
+
+        let xy = xy >> (2 * Self::MAX_N_2_PWR);
+        x += (xy % (Self::MAX_N >> Self::MAX_N_2_PWR)) << Self::MAX_N_2_PWR;
+        y += (xy / (Self::MAX_N >> Self::MAX_N_2_PWR)) << Self::MAX_N_2_PWR;
+
+        // Spread more evenly throughout the space
+        x = ((x * Self::X_MULT) + Self::Y_MULT) % Self::MAX_N;
+        y = (((y + x) * Self::Y_MULT) + Self::X_MULT) % Self::MAX_N;
+        (x as u8, y as u8)
+    }
 }
 
-//ti MaybeWordXy
-pub struct MaybeWordXy<const N: u8>;
+pub struct MaybeWordXy<const N: u8, const M: u8>;
 
-//ii IsWordXy for MaybeWordXy<50>
-impl IsWordXy for MaybeWordXy<50> {
-    const MAX_N: u8 = 50;
+impl IsWordXy for MaybeWordXy<100, 5> {
+    const MAX_N: usize = 100;
+    const MAX_N_2_PWR: usize = 2;
+    const X_MULT: usize = 37;
+    const Y_MULT: usize = 73;
+
     const SLEN: usize = 5;
     const WORDS_X: &'static [&'static str] = &WORDS_X5;
     const WORDS_Y: &'static [&'static str] = &WORDS_Y5;
 }
 
-//ii IsWordXy for MaybeWordXy<100>
-impl IsWordXy for MaybeWordXy<100> {
-    const MAX_N: u8 = 100;
+impl IsWordXy for MaybeWordXy<100, 6> {
+    const MAX_N: usize = 100;
+    const MAX_N_2_PWR: usize = 2;
+    const X_MULT: usize = 37;
+    const Y_MULT: usize = 73;
     const SLEN: usize = 6;
     const WORDS_X: &'static [&'static str] = &WORDS_X6;
     const WORDS_Y: &'static [&'static str] = &WORDS_Y6;
 }
 
-//a Constants for the words
-//cp WORDS_X5
-pub const WORDS_X5: [&str; 50] = [
-    "about", "after", "album", "areas", "based", "being", "birth", "board", "cause", "civil",
-    "clear", "court", "early", "every", "field", "final", "focus", "front", "given", "hands",
-    "human", "issue", "large", "local", "means", "metal", "music", "never", "occur", "parts",
-    "point", "prior", "radio", "rules", "serve", "short", "songs", "speed", "still", "taken",
-    "their", "three", "title", "trade", "units", "users", "video", "which", "works", "wrote",
+pub const WORDS_X5: [&str; 100] = [
+    "adult", "audio", "black", "blood", "brief", "broad", "chain", "chief", "civil", "clear",
+    "comic", "cover", "cross", "curve", "daily", "death", "early", "earth", "empty", "enemy",
+    "equal", "extra", "field", "final", "first", "fixed", "fluid", "focus", "force", "fresh",
+    "front", "fruit", "great", "green", "group", "heavy", "human", "inner", "known", "large",
+    "later", "least", "legal", "level", "local", "logic", "magic", "major", "metal", "minor",
+    "model", "moral", "movie", "named", "north", "noted", "novel", "ocean", "opera", "outer",
+    "paper", "piano", "pilot", "place", "plant", "point", "power", "prior", "radio", "rapid",
+    "ready", "right", "river", "royal", "rural", "sales", "short", "small", "solar", "solid",
+    "south", "space", "spent", "split", "steam", "steel", "stock", "stone", "sugar", "total",
+    "trade", "trial", "truth", "urban", "usual", "valid", "video", "voice", "wrong", "young",
 ];
 
 //cp WORDS_Y5
-pub const WORDS_Y5: [&str; 50] = [
-    "added", "again", "among", "avoid", "began", "below", "blood", "built", "cells", "class",
-    "color", "death", "equal", "exist", "films", "first", "force", "fully", "group", "heavy",
-    "image", "known", "least", "major", "media", "model", "needs", "noted", "other", "place",
-    "power", "quite", "right", "scene", "ships", "since", "south", "state", "study", "terms",
-    "third", "times", "today", "under", "until", "value", "where", "women", "would", "young",
+pub const WORDS_Y5: [&str; 100] = [
+    "agent", "album", "angle", "atoms", "award", "birds", "board", "boats", "books", "brain",
+    "cases", "cells", "child", "claim", "class", "clock", "clubs", "coast", "color", "court",
+    "crime", "dance", "drive", "drugs", "entry", "error", "event", "films", "fleet", "floor",
+    "frame", "funds", "games", "goals", "goods", "hands", "heart", "house", "ideas", "image",
+    "index", "issue", "items", "kinds", "label", "limit", "lines", "marks", "match", "media",
+    "money", "music", "noise", "offer", "orbit", "pages", "parts", "phase", "piece", "pitch",
+    "plays", "price", "proof", "raise", "rates", "roads", "roots", "rules", "scene", "seats",
+    "sense", "ships", "shows", "signs", "sleep", "songs", "staff", "state", "study", "table",
+    "tanks", "taxes", "tests", "title", "tools", "towns", "track", "trees", "union", "units",
+    "value", "views", "visit", "votes", "walls", "waves", "weeks", "women", "works", "years",
 ];
 
 //cp WORDS_X6
@@ -94,58 +165,53 @@ pub const WORDS_Y6: [&str; 100] = [
     "worked",
 ];
 
-//a WordXy
-//tp WordXy
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct WordXy<const N: u8>
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct WordXy<const N: u8, const M: u8>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
     x: u8,
     y: u8,
 }
 
-//ip Display for WordXy
-impl<const N: u8> std::fmt::Display for WordXy<N>
+impl<const N: u8, const M: u8> std::fmt::Display for WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(
             fmt,
             "{}.{}",
-            MaybeWordXy::<N>::WORDS_X[self.x as usize],
-            MaybeWordXy::<N>::WORDS_Y[self.y as usize]
+            MaybeWordXy::<N, M>::WORDS_X[self.x as usize],
+            MaybeWordXy::<N, M>::WORDS_Y[self.y as usize]
         )
     }
 }
 
-//ip From<WordXy> for (u8, u8)
-impl<const N: u8> std::convert::From<WordXy<N>> for (u8, u8)
+impl<const N: u8, const M: u8> std::convert::From<WordXy<N, M>> for (u8, u8)
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
-    fn from(xy: WordXy<N>) -> (u8, u8) {
+    fn from(xy: WordXy<N, M>) -> (u8, u8) {
         (xy.x, xy.y)
     }
 }
 
-//ip From<(u8, u8)> for WordXy
-impl<const N: u8> std::convert::From<(u8, u8)> for WordXy<N>
+impl<const N: u8, const M: u8> std::convert::From<(u8, u8)> for WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
-    fn from((x, y): (u8, u8)) -> WordXy<N> {
+    fn from((x, y): (u8, u8)) -> WordXy<N, M> {
         Self::of_xy(x, y)
     }
 }
 
-//ip From<(&(f64, f64, f64, f64), &Point2D)> for WordXy
-impl<const N: u8> std::convert::From<(&(f64, f64, f64, f64), &Point2D)> for WordXy<N>
+impl<const N: u8, const M: u8> std::convert::From<(&(f64, f64, f64, f64), &Point2D)>
+    for WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
-    fn from((bounds, pt): (&(f64, f64, f64, f64), &Point2D)) -> WordXy<N> {
+    fn from((bounds, pt): (&(f64, f64, f64, f64), &Point2D)) -> WordXy<N, M> {
         let x = (pt[0] - bounds.0) / (bounds.2 - bounds.0);
         let y = (pt[1] - bounds.1) / (bounds.3 - bounds.1);
         let x = (x.clamp(0., 0.9999) * (N as f64)).trunc() as u8;
@@ -154,34 +220,30 @@ where
     }
 }
 
-//ip TryFrom for WordXy
-impl<const N: u8> std::convert::TryFrom<&str> for WordXy<N>
+impl<const N: u8, const M: u8> std::convert::TryFrom<&str> for WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
     type Error = WordError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        WordXy::<N>::parse_string(s)
+        WordXy::<N, M>::parse_string(s)
     }
 }
 
-//ip FromStr for WordXy
-impl<const N: u8> std::str::FromStr for WordXy<N>
+impl<const N: u8, const M: u8> std::str::FromStr for WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
     type Err = WordError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        WordXy::<N>::parse_string(s)
+        WordXy::<N, M>::parse_string(s)
     }
 }
 
-//ip WordXy
-impl<const N: u8> WordXy<N>
+impl<const N: u8, const M: u8> WordXy<N, M>
 where
-    MaybeWordXy<N>: IsWordXy,
+    MaybeWordXy<N, M>: IsWordXy,
 {
-    //cp of_xy
     #[track_caller]
     pub fn of_xy(x: u8, y: u8) -> Self {
         assert!(x < N, "X must be less than {N}");
@@ -189,7 +251,6 @@ where
         Self { x, y }
     }
 
-    //fi parse_string
     fn parse_string<A: AsRef<str>>(s: A) -> Result<Self, WordError> {
         if let Some((x, y)) = s.as_ref().split_once('.') {
             let Some(x) = Self::find_x(x) else {
@@ -204,10 +265,9 @@ where
         }
     }
 
-    //fi find_s
     fn find_s<A: AsRef<str>>(s: A, pile: &[&str]) -> Option<u8> {
         let s = s.as_ref();
-        if s.len() != MaybeWordXy::<N>::SLEN {
+        if s.len() != MaybeWordXy::<N, M>::SLEN {
             return None;
         }
         if !s.is_ascii() {
@@ -221,7 +281,7 @@ where
                 lc_s[n] = *b;
             }
         }
-        let sel_lc_s = &lc_s[0..MaybeWordXy::<N>::SLEN];
+        let sel_lc_s = &lc_s[0..MaybeWordXy::<N, M>::SLEN];
         let f = |x_word: &&str| x_word.as_bytes().cmp(sel_lc_s);
         match pile.binary_search_by(f) {
             Ok(n) => Some(n as u8),
@@ -229,31 +289,23 @@ where
         }
     }
 
-    //fi find_x
     fn find_x<A: AsRef<str>>(s: A) -> Option<u8> {
-        Self::find_s(s, MaybeWordXy::<N>::WORDS_X)
+        Self::find_s(s, MaybeWordXy::<N, M>::WORDS_X)
     }
 
-    //fi find_y
     fn find_y<A: AsRef<str>>(s: A) -> Option<u8> {
-        Self::find_s(s, MaybeWordXy::<N>::WORDS_Y)
+        Self::find_s(s, MaybeWordXy::<N, M>::WORDS_Y)
     }
 
-    //zz All done
-}
-
-//a Tests
-#[test]
-fn test_word_xy_0() -> Result<(), Box<dyn std::error::Error>> {
-    for (test_xy, xy_value) in [
-        ("about.added", (0_u8, 0_u8)),
-        ("after.again", (1_u8, 1_u8)),
-        ("album.among", (2_u8, 2_u8)),
-    ] {
-        eprintln!("Test {test_xy}");
-        let xy: WordXy<50> = test_xy.parse()?;
-        assert_eq!(test_xy, &xy.to_string());
-        assert_eq!(xy_value, xy.into());
+    /// Currently for test
+    pub fn x(&self) -> u8 {
+        self.x
     }
-    Ok(())
+    pub fn y(&self) -> u8 {
+        self.y
+    }
+    /// Get the 'nth' word pair, where the first N*N are distinct
+    pub fn of_n(xy: usize) -> Self {
+        MaybeWordXy::<N, M>::xy_of_n(xy).into()
+    }
 }

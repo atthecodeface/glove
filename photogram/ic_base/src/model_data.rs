@@ -216,7 +216,7 @@ impl ModelData {
     pub fn model_direction_from(&self, location: &Point3D) -> Point3D {
         match self.data_kind {
             ModelDataKind::Direction => self.model.normalize(),
-            ModelDataKind::Model => (location - self.model).normalize(),
+            ModelDataKind::Model => (self.model - location).normalize(),
             ModelDataKind::None => *location,
         }
     }

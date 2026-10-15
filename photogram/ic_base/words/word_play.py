@@ -17,7 +17,7 @@
 # 1760 yields 241 six-letter words, 230 most 5 letter matches, 200 most 4 letter matches
 # 2000 yields 269 six-letter words, 258 most 5 letter matches, 225 most 4 letter matches
 # all yields 437 six-letter words, 416 most 5 letter matches, 352 most 4 letter matches
-max_hfw_words = 1390
+max_hfw_words = 111390
 
 # Downloaded from https://github.com/kloge/The-English-Open-Word-List/blob/master/EOWL%20LF%20Delimited%20Format.zip
 with  open("eowl.txt") as f:
@@ -82,7 +82,7 @@ for f in fives:
                 same += 1
                 pass
             pass
-        if same >= 3: # Change for 3/4/5 letters the same
+        if same >= 4: # Change for 3/4/5 letters the same
             allowed = False
             break
         pass

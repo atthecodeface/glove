@@ -280,7 +280,7 @@ impl Ray {
     /// each ray by some inversely proportional function of this
     /// *distance* error (such as 1/(base + distance^2)).
     /// ```
-    pub fn closest_point<'a, F: Fn(&Self, usize) -> f64>(
+    pub fn weighted_closest_point<'a, F: Fn(&Self, usize) -> f64>(
         rays: impl Iterator<Item = &'a Self> + 'a,
         weight_fn: &F,
     ) -> Option<Point3D> {

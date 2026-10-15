@@ -1,3 +1,5 @@
+use bezier_nd::Polynomial;
+use geo_nd::Vector;
 use ic_base::{JsonParsable, Ray, Result};
 
 #[test]
@@ -22,14 +24,14 @@ fn test_ray2() -> Result<()> {
         r#"
 {
       "start": [
-        -257.61000000000007,
+        -257.61,
         -292.0,
         186.81
       ],
       "direction": [
-        0.72802906255846,
-        0.641401039594509,
-        -0.2420297305649314
+        0.728,
+        0.641,
+        -0.242
       ],
       "tan_error": 0.1
     }"#,
@@ -40,21 +42,26 @@ fn test_ray2() -> Result<()> {
         r#"
 {
       "start": [
-        -272.47666666666686,
-        -98.69999999999999,
-        261.94333333333316
+        -272.477,
+        -98.7,
+        261.943
       ],
       "direction": [
-        0.8558988940122954,
-        0.2414215789446973,
-        -0.4573321598667418
+        0.856,
+        0.241,
+        -0.457
       ],
       "tan_error": 0.1
     }"#,
         &(),
     )?;
-    // ray_4060.intersect(&ray_4062);
-    //    assert!(false);
+    let Some(closest) = Ray::weighted_closest_point([ray_4060, ray_4062].iter(), &|_ray, _n| 1.0)
+    else {
+        assert!(false, "Expected their to be a closest point");
+        return Ok(());
+    };
+    let dx = closest.distance_arr(&[72.71, -1.39, 77.31]);
+    assert!(dx < 0.01, "Expected closest point at known location");
     Ok(())
 }
 
@@ -97,7 +104,7 @@ fn test_ray3() -> Result<()> {
         &(),
     )?;
 
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|_, _| 1.0).unwrap();
+    let p = Ray::weighted_closest_point([ray_4060, ray_4062].iter(), &|_, _| 1.0).unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);
@@ -106,7 +113,8 @@ fn test_ray3() -> Result<()> {
         "Distance between the closest point and each of the rays should be about the same"
     );
 
-    let p = Ray::closest_point([ray_4060, ray_4062].iter(), &|r, _| 1.0 / r.tan_error()).unwrap();
+    let p = Ray::weighted_closest_point([ray_4060, ray_4062].iter(), &|r, _| 1.0 / r.tan_error())
+        .unwrap();
     dbg!(p);
     let (_k0, d0_sq) = ray_4060.distances(&p);
     let (_k1, d1_sq) = ray_4062.distances(&p);
