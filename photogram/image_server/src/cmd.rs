@@ -25,7 +25,7 @@ pub struct CmdArgsInner {
     image_path_set: PathSet,
     project_path_set: PathSet,
 
-    shader_path: PathBuf,
+    shader_path: PathSet,
     shaders: Vec<String>,
 
     // star_catalog is in a Mutex not a RwLock as it is not sync, as some of the star filters require RefCell
@@ -54,7 +54,7 @@ impl std::fmt::Debug for CmdArgsInner {
     }
 }
 impl CmdArgsInner {
-    pub fn shader_path(&self) -> &Path {
+    pub fn shader_path(&self) -> &PathSet {
         &self.shader_path
     }
     pub fn shaders(&self) -> &[String] {
@@ -201,9 +201,8 @@ impl CmdArgs {
         self.map_mut(|inner| inner.project_path_set.add_path(s))
     }
 
-    pub(crate) fn set_shader_path(&mut self, s: &str) -> Result<()> {
-        self.map_mut(|inner| inner.shader_path = s.into());
-        Ok(())
+    pub(crate) fn add_shader_path(&mut self, s: &str) -> Result<()> {
+        self.map_mut(|inner| inner.shader_path.add_path(s))
     }
 
     pub(crate) fn add_shaders(&mut self, s: &str) -> Result<()> {
@@ -282,9 +281,9 @@ impl CmdArgs {
         "shader_path",
         None,
         "Set the directory for the accelerated shaders",
-        ArgCount::Optional,
+        ArgCount::Any,
         None,
-        &Self::set_shader_path,
+        &Self::add_shader_path,
     );
 
     const ARG_SHADERS: ArgDescriptor<Self> = ArgDescriptor::arg_string(
