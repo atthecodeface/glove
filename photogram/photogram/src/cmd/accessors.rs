@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 
+use ic_photogram::PathSet;
 use ic_photogram::SphericalImageShape;
 use star_catalog::Catalog;
 
@@ -17,6 +18,12 @@ use super::CmdArgs;
 //a CmdArgs accessors
 //ip CmdArgs accessors
 impl CmdArgs {
+    pub fn shader_path(&self) -> &PathSet {
+        &self.shader_path
+    }
+    pub fn shaders(&self) -> &[String] {
+        &self.shaders
+    }
     //mi project
     pub fn project(&self) -> &Project {
         &self.project

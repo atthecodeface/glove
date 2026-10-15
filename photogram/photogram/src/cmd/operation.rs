@@ -4,6 +4,7 @@ use std::rc::Rc;
 use ic_photogram::CacheRef;
 use ic_photogram::CameraSensor;
 use ic_photogram::Cip;
+use ic_photogram::Kernels;
 use ic_photogram::NamedPoint;
 use ic_photogram::Result;
 use ic_photogram::Rrc;
@@ -34,6 +35,12 @@ impl CmdArgs {
             .project()
             .select_cips(self.cips.iter().map(|s| s.as_str()))?;
         Ok(r)
+    }
+
+    pub fn get_kernels(&self) -> Result<Kernels> {
+        let mut kernels = Kernels::default();
+        kernels.add_wgpu_shaders(&self.shader_path, &self.shaders)?;
+        Ok(kernels)
     }
 
     pub fn get_pms_indices_of_nps(&self) -> Result<Vec<usize>> {

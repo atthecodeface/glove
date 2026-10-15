@@ -94,8 +94,7 @@ impl CmdArgs {
 
         let kernels_to_apply = self.kernels();
 
-        let mut kernels = Kernels::default();
-        let _ = kernels.add_wgpu_shaders("shaders", &["statistical", "extract"]);
+        let kernels = self.get_kernels()?;
         let args = self.ip_get_kernel_args(&img_luma_f32, None);
         let num_pixels = img_luma_f32.as_flat_samples().as_slice().len();
 
@@ -115,11 +114,11 @@ impl CmdArgs {
     const LUMA_KERNEL_PAIR_LONG_HELP: &str = "\
     Apply kernels to a pair of images in luma space
 
-    Convert the images to 16-bit luma
+    The images are first converted to f32 luma image (if conversion is required)
 
     Apply a number of kernels (with a single set of size, scale etc arguments)
 
-    Output the image as a 16-bit luma image (so the kernel output should be in the range 0.0 to 1.0)
+    The result can be saved to the cache and/or written to an output image
     ";
     fn ip_luma_kernel_pair_cmd(&mut self) -> CmdResult {
         let img1_cref = self.get_read_image(0)?;
@@ -134,9 +133,8 @@ impl CmdArgs {
 
         let kernels_to_apply = self.kernels();
 
-        let mut kernels = Kernels::default();
-        let _ = kernels.add_wgpu_shaders("shaders", &["statistical", "extract"]);
-        let args: KernelArgs = self.ip_get_kernel_args(&img2_luma_f32, Some(&img1_luma_f32));
+        let kernels = self.get_kernels()?;
+        let args = self.ip_get_kernel_args(&img2_luma_f32, Some(&img1_luma_f32));
 
         for k in kernels_to_apply {
             kernels.run_shader(
@@ -151,15 +149,31 @@ impl CmdArgs {
         Self::cmd_ok()
     }
 
+    const LUMA_FIND_REGIONS_LONG_HELP: &str = "\
+    Find the N points in an f32 image with the largest values.
+
+    The image is first converted to an f32 luma image (if it was not already one)
+
+    The values at the points must be above the value of 'scale', and points must
+    be a minimum of 'kernel_size' apart (i.e. when a point is returned, no other
+    point within that distance will be considered)
+
+
+    Kernel arguments include:
+     --scale
+     --size
+
+    The result is a list of points
+
+    ";
     fn ip_luma_find_regions_cmd(&mut self) -> CmdResult {
         let img_cref = self.get_read_image(0)?;
 
         let Some(mut img_luma_f32) = ImageCache::as_opt_luma_f32(&img_cref, None, 1.0) else {
-            return Err(anyhow!("Could not generate luma16"));
+            return Err(anyhow!("Could not generate luma f32"));
         };
 
-        let mut kernels = Kernels::default();
-        let _ = kernels.add_wgpu_shaders("shaders", &["statistical", "extract"]);
+        let kernels = self.get_kernels()?;
 
         let pts = kernels.find_best_n_above_value(
             img_luma_f32.dimensions(),
@@ -201,8 +215,7 @@ impl CmdArgs {
             return Err(anyhow!("Precisely one kernel should be provided"));
         }
 
-        let mut kernels = Kernels::default();
-        let _ = kernels.add_wgpu_shaders("shaders", &["statistical", "extract"]);
+        let kernels = self.get_kernels()?;
         let args = self.ip_get_kernel_args(&img2_luma_f32, Some(&img1_luma_f32));
         let num_pixels = img2_luma_f32.as_flat_samples().as_slice().len();
 
@@ -227,7 +240,7 @@ impl CmdArgs {
 
     const IP_LUMA_FIND_REGIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("luma_find_regions")
         .about("Apply kernels to an image in luma space")
-        .long_about(Self::LUMA_KERNEL_LONG_HELP)
+        .long_about(Self::LUMA_FIND_REGIONS_LONG_HELP)
         .args(&[Self::ARG_SCALE, Self::ARG_KERNEL_SIZE])
         .handler(&Self::ip_luma_find_regions_cmd);
 

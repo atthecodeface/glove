@@ -28,6 +28,24 @@ impl CmdArgs {
         },
     );
 
+    const ARG_SHADER_PATH: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "shader_path",
+        None,
+        "Set the directory for the accelerated shaders",
+        ArgCount::Any,
+        None,
+        &Self::add_shader_path,
+    );
+
+    const ARG_SHADERS: ArgDescriptor<Self> = ArgDescriptor::arg_string(
+        "shaders",
+        None,
+        "Add a shaders description for the accelerated shaders (expects <shaders>/<shader_name>.json and .wgsl)",
+        ArgCount::Any,
+        None,
+        &Self::add_shaders,
+    );
+
     pub(crate) const ARG_WIDTH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
         "width",
         None,

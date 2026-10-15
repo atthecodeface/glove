@@ -1,5 +1,7 @@
 //a Imports
 
+use std::path::PathBuf;
+
 use ic_photogram::ImageCache;
 use star_catalog::Catalog;
 
@@ -23,6 +25,9 @@ pub struct CmdArgs {
     pub(crate) path_set: PathSet,
 
     pub(crate) project: Project,
+
+    pub(crate) shader_path: PathSet,
+    pub(crate) shaders: Vec<String>,
 
     // Selected CIP that is part of the project
     pub(crate) cip: Option<Rrc<Cip>>,

@@ -167,6 +167,16 @@ impl CmdArgs {
         Ok(())
     }
 
+    pub(crate) fn add_shader_path(&mut self, s: &str) -> Result<()> {
+        self.shader_path.add_path(s)?;
+        Ok(())
+    }
+
+    pub(crate) fn add_shaders(&mut self, s: &str) -> Result<()> {
+        self.shaders.push(s.to_owned());
+        Ok(())
+    }
+
     //mi add_kernel
     /// Add a kernel to run
     pub(crate) fn add_kernel(&mut self, kernel: &str) -> Result<()> {
