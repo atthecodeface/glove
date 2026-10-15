@@ -45,9 +45,14 @@ pub struct PathSet {
     paths: Vec<PathBuf>,
 }
 
-//ip PathSet
 impl PathSet {
-    //mi glob_path
+    /// Filter files/directories in 'path' and add them to a Vec of PathBuf
+    ///
+    /// If 'path' is a directory, run the directory filter, and it tells whether
+    /// to add the path to the Vec; whether to push (recurse into) the directory, etc
+    ///
+    /// If 'path' is a file, run the file filter; this returns true to add the
+    /// path to the Vec
     fn glob_path<D, F>(
         mut paths: Vec<PathBuf>,
         max: usize,
@@ -93,7 +98,9 @@ impl PathSet {
         paths
     }
 
-    //mp glob
+    /// Given a directory filter and a file filter, generate a Vec of PathBuf of
+    /// all the files/directories that match the filters (recursing if the
+    /// directory filter indicates) up to a maximum depth and Vec length
     pub fn glob<D, F>(
         &self,
         max: usize,
@@ -118,6 +125,9 @@ impl PathSet {
     }
 
     /// Add a new path (that must exist)
+    ///
+    /// To add a path that might not exist, use this method and discard any
+    /// error
     pub fn add_path<P: AsRef<Path> + std::fmt::Display>(&mut self, path: P) -> Result<()> {
         if !path.as_ref().exists() {
             Err(format!("Path {path} cannot be added to seach chain as it does not exist").into())
@@ -153,7 +163,7 @@ impl PathSet {
         }
     }
 
-    //mp find_file_err
+    /// Find a file within the path set and return an error if it cannot be found
     pub fn find_file_err<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
         if let Some(path) = self.find_file(&path) {
             Ok(path)
