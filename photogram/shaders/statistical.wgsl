@@ -42,6 +42,10 @@ var<storage, read> in_data_b: array<f32>; // this is used as input only
 
 // Invoke with a centre src_x,src_y of the window inside in_data, and x,y as a position in in_data_b
 //
+// value = Sum(dxy of square of (-size/2,+size/2] compared to x,y) (in_data[src_x/y + dxy]-in_data_b[xy + dxy])^2 / (size^2)
+//
+// other = 1 / (1 + value*scale)
+//
 // Return offset inside in_data_b to store result, correlation and correlation cubed (for some reason)
 fn window_diff_sq(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
@@ -72,9 +76,10 @@ fn window_diff_sq(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
 
     return ResultPair ( center_ofs, value, other );
 }
+
 // Invoke with a centre src_x,src_y of the window inside in_data, and x,y as a position in in_data_b
 //
-// Return offset inside in_data_b to store result, correlation and correlation cubed (for some reason)
+// Return offset inside in_data_b to store result, correlation and (correlation or 0 if correlation is negative)
 fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     let half_ws = kernel_args.size/2;
     let ws = half_ws * 2;
@@ -122,10 +127,8 @@ fn window_correlate(src_x:u32, src_y:u32, x:u32, y:u32) -> ResultPair {
     //
     // The range is -1 to 1
     let value_unbounded = (n * ab - a * b) / (a2 * n - a * a);
-    let value = select(value_unbounded, 0.0, value_unbounded<0.0 || out_of_bounds || src_out_of_bounds);
-
-    // MUST NOT use square as that makes NEGATIVE correlation a POSITIVE correlation
-    let other = value; //  * value * value;
+    let value = select(value_unbounded, 0.0, out_of_bounds || src_out_of_bounds);
+    let other = select(value, 0.0, value_unbounded>0.0);
 
     return ResultPair ( center_ofs, value, other );
 }
@@ -195,7 +198,7 @@ fn window_mean_variance(x:u32, y:u32) -> ResultPair {
     var a2 = 0.0;
     let ofs = x + y * kernel_args.width;
     for ( var dy: u32 = 0; dy < ws; dy++ ) {
-        var x_ofs = ofs + (dy-half_ws) * kernel_args.width;
+        var x_ofs = ofs - half_ws + (dy-half_ws) * kernel_args.width;
         for ( var dx: u32 = 0; dx < ws; dx++ ) {
             let i_a = in_data[x_ofs+dx];
             a += i_a;
@@ -331,10 +334,13 @@ fn compute_window_eq(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x = global_id.x % kernel_args.width;
     let y = global_id.x / kernel_args.width;
     let result = window_mean_variance(x, y);
-    let rsd = sqrt(result.other)*8.0;
+    // sd is generally 0.1 to 0.5
+    //
+    // rsd is then 2 to 10; indeed, should probably bound it to maybe max 6
+    let rsd = 1.0 / sqrt(result.other);
     // divide by at least 2
-    let sd = select(rsd, 2.0, rsd<2.0);
-    out_data[result.ofs] = 0.5 + (in_data[result.ofs] - result.value) / sd;
+    let sd = select(rsd, 6.0, rsd>6.0);
+    out_data[result.ofs] = 0.5 + ((in_data[result.ofs] - result.value) * sd);
 }
 
 @compute
