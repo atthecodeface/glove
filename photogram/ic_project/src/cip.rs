@@ -279,6 +279,9 @@ impl Cip {
         Ok(err)
     }
 
+    /// Orient the camera using directions from the current camera position
+    ///
+    /// Returns the total dxy2 error of *all* the point mappings
     pub fn orient_camera_using_model_directions<F, W>(
         &mut self,
         filter: F,
@@ -295,6 +298,8 @@ impl Cip {
         )
     }
 
+    /// Adjust the camera orientation in (tiny) angle steps, returning the CHANGE in total
+    /// sqr(dxy) error of the chosen points
     pub fn adjust_camera_orientation_using_dxy2<F, W>(
         &self,
         filter: F,
