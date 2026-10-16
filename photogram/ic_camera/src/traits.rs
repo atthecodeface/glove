@@ -1,8 +1,6 @@
-use geo_nd::{Quaternion, quat};
+use geo_nd::Quaternion;
 
-use ic_base::{
-    Point2D, Point3D, Quat, Ray, RollYaw, TanXTanY, utils::orientation_mapping_triangle,
-};
+use ic_base::{Point2D, Point3D, Quat, Ray, TanXTanY};
 
 /// A trait for a sensor in a digital camera, that maps absolute to
 /// centre-of-lens-pixel relative, still in units of pixels
@@ -31,31 +29,19 @@ pub trait CameraSensor: std::fmt::Debug {
         )
     }
 
-    /// Get the center of the sensor in pixels
-    ///
-    /// This is expected to account for any *sensor* based optical axis offset; for removable lenses, the individual
-    /// lens may have its own offset, which must be accounted for in conversion from sensor XY to optical XY
-    fn sensor_px_center(&self) -> Point2D;
-
     /// Map from absolute to centre-relative pixel
     ///
     /// The units are pixels in both coordinates (sensor relative up and right being positive Y and X)
     ///
     /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
-        let cxy_inverted = px_xy - self.sensor_px_center();
-        [cxy_inverted[0], -cxy_inverted[1]].into()
-    }
+    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D;
 
     /// Map from centre-relative to absolute pixel
     ///
     /// The units are pixels in both coordinates
     ///
     /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
-        let pxy_inverted: Point2D = [px_xy[0], -px_xy[1]].into();
-        pxy_inverted + self.sensor_px_center()
-    }
+    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D;
 
     /// Map from a sensor optical XY to a direction vector (as TanXTanY) from the sensor to the lens
     ///

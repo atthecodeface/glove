@@ -255,11 +255,6 @@ impl CameraSensor for CameraBody {
         (self.px_width, self.px_height)
     }
 
-    /// Get the center pixel (the pixel that aligns with the optical axis of the lens)
-    fn sensor_px_center(&self) -> Point2D {
-        self.px_center.into()
-    }
-
     /// Map an *absolute* pixel value to one relative to the optical axis
     ///
     /// The *relative* pixel coordinates are XY positive as up/right

@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use geo_nd::quat;
 
-use ic_base::{Point2D, Point3D, Quat, Result, RollYaw, TanXTanY};
+use ic_base::{Point2D, Point3D, Quat, Result, TanXTanY};
 
 use crate::{
     AdjustableCameraProjection, CameraBody, CameraDatabase, CameraLens, CameraLensProjection,
@@ -308,11 +308,24 @@ impl CameraSensor for CameraInstance {
         self.body.mm_single_pixel_height()
     }
 
-    /// Get the center of the sensor in pixels
+    /// Map from absolute to centre-relative pixel
     ///
-    /// This accounts for the optical axis offset
-    fn sensor_px_center(&self) -> Point2D {
-        self.body.px_centre()
+    /// The units are pixels in both coordinates (sensor relative up and right being positive Y and X)
+    ///
+    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
+    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
+        let cxy_inverted = px_xy - self.body.px_centre();
+        [cxy_inverted[0], -cxy_inverted[1]].into()
+    }
+
+    /// Map from centre-relative to absolute pixel
+    ///
+    /// The units are pixels in both coordinates
+    ///
+    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
+    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
+        let pxy_inverted: Point2D = [px_xy[0], -px_xy[1]].into();
+        pxy_inverted + self.body.px_centre()
     }
 }
 

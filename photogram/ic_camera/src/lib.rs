@@ -196,8 +196,12 @@ where
         self.sensor.sensor_px_size()
     }
 
-    fn sensor_px_center(&self) -> Point2D {
-        self.sensor.sensor_px_center()
+    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
+        self.sensor.sensor_px_abs_to_px_rel(px_xy)
+    }
+
+    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
+        self.sensor.sensor_px_rel_to_px_abs(px_xy)
     }
 
     fn sensor_mm_single_pixel_height(&self) -> f64 {
@@ -293,9 +297,20 @@ impl CameraSensor for SizedSensor {
         (self.width as f64, self.height as f64)
     }
 
-    /// Get the center pixel (the pixel that aligns with the optical axis of the lens)
-    fn sensor_px_center(&self) -> Point2D {
-        [self.width as f64 / 2.0, self.height as f64 / 2.0].into()
+    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
+        [
+            px_xy[0] - (self.width as f64 / 2.0),
+            (self.height as f64 / 2.0) - px_xy[1],
+        ]
+        .into()
+    }
+
+    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
+        [
+            (self.width as f64 / 2.0) + px_xy[0],
+            (self.height as f64 / 2.0) - px_xy[1],
+        ]
+        .into()
     }
 
     fn sensor_mm_single_pixel_height(&self) -> f64 {
