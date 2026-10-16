@@ -258,16 +258,24 @@ impl CameraSensor for CameraBody {
     /// Map an *absolute* pixel value to one relative to the optical axis
     ///
     /// The *relative* pixel coordinates are XY positive as up/right
+    ///
+    /// The body does not (currently) have an optical axis offset, so this just
+    /// uses the center of the sensor; the combination of lens/body contains the
+    /// optical axis offset.
     #[inline]
-    fn sensor_px_abs_to_px_rel(&self, xy: Point2D) -> Point2D {
+    fn sensor_px_abs_to_optical_xy(&self, xy: Point2D) -> Point2D {
         [xy[0] - self.px_center[0], -xy[1] + self.px_center[1]].into()
     }
 
     /// Map a pixel position *relative* to the optical axis to an absolute sensor position
     ///
     /// The *relative* pixel coordinates are XY positive as up/right
+    ///
+    /// The body does not (currently) have an optical axis offset, so this just
+    /// uses the center of the sensor; the combination of lens/body contains the
+    /// optical axis offset.
     #[inline]
-    fn sensor_px_rel_to_px_abs(&self, xy: Point2D) -> Point2D {
+    fn optical_xy_to_px_abs(&self, xy: Point2D) -> Point2D {
         [xy[0] + self.px_center[0], -xy[1] + self.px_center[1]].into()
     }
 

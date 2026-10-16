@@ -227,23 +227,6 @@ impl CameraInstance {
         self.derive();
     }
 
-    /// Map a pixel position *relative* to the optical axis to an absolute sensor position
-    ///
-    /// The *relative* pixel coordinates are XY positive as up/right
-    #[inline]
-    fn px_rel_xy_to_px_abs_xy(&self, xy: Point2D) -> Point2D {
-        self.body.sensor_px_rel_to_px_abs(xy) + self.optical_axis_offset
-    }
-
-    /// Map an *absolute* pixel value to one relative to the optical axis
-    ///
-    /// The *relative* pixel coordinates are XY positive as up/right
-    #[inline]
-    fn px_abs_xy_to_px_rel_xy(&self, xy: &Point2D) -> Point2D {
-        self.body
-            .sensor_px_abs_to_px_rel(xy - self.optical_axis_offset)
-    }
-
     /// Set the distance of focus for the camera instance
     pub fn set_mm_focus_distance(&mut self, mm_focus_distance: f64) {
         self.mm_focus_distance = mm_focus_distance;
@@ -308,24 +291,13 @@ impl CameraSensor for CameraInstance {
         self.body.mm_single_pixel_height()
     }
 
-    /// Map from absolute to centre-relative pixel
-    ///
-    /// The units are pixels in both coordinates (sensor relative up and right being positive Y and X)
-    ///
-    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
-        let cxy_inverted = px_xy - self.body.px_centre();
-        [cxy_inverted[0], -cxy_inverted[1]].into()
+    fn sensor_px_abs_to_optical_xy(&self, px_xy: Point2D) -> Point2D {
+        self.body.sensor_px_abs_to_optical_xy(px_xy) - self.optical_axis_offset()
     }
 
-    /// Map from centre-relative to absolute pixel
-    ///
-    /// The units are pixels in both coordinates
-    ///
-    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
-        let pxy_inverted: Point2D = [px_xy[0], -px_xy[1]].into();
-        pxy_inverted + self.body.px_centre()
+    fn optical_xy_to_px_abs(&self, px_xy: Point2D) -> Point2D {
+        self.body
+            .optical_xy_to_px_abs(px_xy + self.optical_axis_offset())
     }
 }
 

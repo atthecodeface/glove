@@ -29,19 +29,21 @@ pub trait CameraSensor: std::fmt::Debug {
         )
     }
 
-    /// Map from absolute to centre-relative pixel
+    /// Map from absolute to optical-axis-relative pixel
     ///
-    /// The units are pixels in both coordinates (sensor relative up and right being positive Y and X)
+    /// The units are pixels in both coordinates (optical up and right being positive Y and X)
+    /// Sensor absolute coordinates are also (0,0) top left
     ///
-    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D;
+    /// This takes into account any optical axis offset
+    fn sensor_px_abs_to_optical_xy(&self, px_xy: Point2D) -> Point2D;
 
-    /// Map from centre-relative to absolute pixel
+    /// Map from optical-axis-relative to absolute pixel
     ///
     /// The units are pixels in both coordinates
+    /// Sensor absolute coordinates are also (0,0) top left
     ///
-    /// This does *not* take into account any *lens* optical axis offset; it converts y=0 at top to y=0 at bottom
-    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D;
+    /// This takes into account any optical axis offset
+    fn optical_xy_to_px_abs(&self, px_xy: Point2D) -> Point2D;
 
     /// Map from a sensor optical XY to a direction vector (as TanXTanY) from the sensor to the lens
     ///
@@ -175,7 +177,7 @@ pub trait CameraLensProjection:
 {
     /// Get the optical axis offset for a lens on this body in this instance
     ///
-    /// This is in pixels; it is added to the sensor center
+    /// This is in pixels; it is added to a sensor relative coordinate
     fn optical_axis_offset(&self) -> Point2D;
 
     /// Get the distance of the lens from the sensor in mm
@@ -186,7 +188,7 @@ pub trait CameraLensProjection:
     /// The internal sensor-to-lens direction should only really be required for calibration
     #[inline]
     fn sensor_px_abs_xy_to_optical_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
-        let optical_xy = self.sensor_px_abs_to_px_rel(px_abs_xy) - self.optical_axis_offset();
+        let optical_xy = self.sensor_px_abs_to_optical_xy(px_abs_xy);
         self.optical_xy_to_optical_txty(optical_xy, self.lens_sensor_distance())
     }
 
@@ -194,7 +196,7 @@ pub trait CameraLensProjection:
     ///
     /// *Camera* [TanXTanY] map through the lens mapping to/from *Sensor* [Point2D]/[TanXTanY]
     fn sensor_px_abs_xy_to_camera_txty(&self, px_abs_xy: Point2D) -> TanXTanY {
-        let optical_xy = self.sensor_px_abs_to_px_rel(px_abs_xy) - self.optical_axis_offset();
+        let optical_xy = self.sensor_px_abs_to_optical_xy(px_abs_xy);
         let sensor_txty = self.optical_xy_to_optical_txty(optical_xy, self.lens_sensor_distance());
         let camera_txty = self.optical_txty_to_camera_txty(sensor_txty);
         camera_txty
@@ -213,7 +215,7 @@ pub trait CameraLensProjection:
     fn camera_txty_to_sensor_px_abs_xy(&self, camera_txty: TanXTanY) -> Point2D {
         let sensor_txty = self.camera_txty_to_optical_txty(camera_txty);
         let optical_xy = self.optical_txty_to_optical_xy(sensor_txty, self.lens_sensor_distance());
-        let px_abs_xy = self.sensor_px_rel_to_px_abs(optical_xy + self.optical_axis_offset());
+        let px_abs_xy = self.optical_xy_to_px_abs(optical_xy + self.optical_axis_offset());
         px_abs_xy
     }
 

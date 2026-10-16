@@ -24,8 +24,7 @@ Pixels on an image are mapped as follows:
 Hence there are the following coordinate spaces:
 
 * Sensor/image absolute (top-left is 0,0, units are pixels) (sensor_px_abs_xy)
-* Sensor/image relative (center is 0,0, units are pixels) (sensor_px_rel_xy, generally internal use only)
-* Optical center relative (optical axis is 0,0, units are pixels, represented by a Point2D) (optical_xy generally internal use only)
+* Optical center relative (optical axis is 0,0, units are pixels, represented by a Point2D) (optical_xy)
 * Optical direction vector ([X, Y, -1], represented by a TanXTanY) (optical_txty, generally internal use only)
 * Camera direction vector ([X, Y, -1], represented by a TanXTanY) (camera_txty)
 * World direction vectors as [X,Y,Z] (world_dir)
@@ -122,276 +121,30 @@ pub use camera_lens::{CameraLens, serialize_lens_name};
 mod camera_database;
 pub use camera_database::CameraDatabase;
 
-// mod camera_calibrate;
 mod camera_instance;
 mod camera_instance_desc;
-// pub use camera_calibrate::CalibrationMapping;
 pub use camera_instance::CameraInstance;
 pub use camera_instance_desc::CameraInstanceDesc;
 
 mod cylindrical_lens;
 pub use cylindrical_lens::CylindricalLens;
 
+mod base_camera;
+mod rectilinear_lens;
+mod simple_sensor_camera;
+mod sized_sensor;
+pub use base_camera::BaseCamera;
+pub use rectilinear_lens::RectilinearLens;
+pub use simple_sensor_camera::SimpleSensorCamera;
+pub use sized_sensor::SizedSensor;
+
+mod bicamera_patch_iterator;
+mod projected_camera_image;
+pub use bicamera_patch_iterator::BicameraPatchIterator;
+pub use projected_camera_image::ProjectedCameraImage;
+
 mod traits;
 pub use traits::{
     AdjustableCameraProjection, CameraImageProjection, CameraLensProjection, CameraProjection,
     CameraSensor, CylindricalProjection, LensProjection,
 };
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SimpleSensorLensCamera<
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-> {
-    pub sensor: SizedSensor,
-    pub lens: L,
-    pub camera: BaseCamera,
-    pub mm_focal_length: f64,
-    pub mm_focus_distance: f64,
-}
-
-impl<L> SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    /// Create a new 'camera' at the origin, looking along -Z with X to the right, focussed at (near) infinity with given sensor and lens details
-    pub fn new(width: u32, height: u32, mm_per_pixel: f64, lens: L, mm_focal_length: f64) -> Self {
-        let sensor = SizedSensor {
-            width,
-            height,
-            mm_height: (height as f64 * mm_per_pixel),
-            mm_width: (width as f64 * mm_per_pixel),
-        };
-        let camera = BaseCamera::default();
-        Self {
-            sensor,
-            lens,
-            camera,
-            mm_focal_length,
-            mm_focus_distance: 1.0E7,
-        }
-    }
-}
-
-impl<L> AdjustableCameraProjection for SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    fn set_position(&mut self, position: &Point3D) {
-        self.camera.set_position(position);
-    }
-    fn set_orientation(&mut self, orientation: &Quat) {
-        self.camera.set_orientation(orientation);
-    }
-    fn set_optical_axis_offset(&mut self, _p: &Point2D) {}
-    fn set_focus_distance(&mut self, mm_focus_distance: f64) {
-        self.mm_focus_distance = mm_focus_distance;
-    }
-}
-
-impl<L> CameraSensor for SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    fn sensor_px_size(&self) -> (f64, f64) {
-        self.sensor.sensor_px_size()
-    }
-
-    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
-        self.sensor.sensor_px_abs_to_px_rel(px_xy)
-    }
-
-    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
-        self.sensor.sensor_px_rel_to_px_abs(px_xy)
-    }
-
-    fn sensor_mm_single_pixel_height(&self) -> f64 {
-        self.sensor.sensor_mm_single_pixel_height()
-    }
-
-    fn sensor_mm_single_pixel_width(&self) -> f64 {
-        self.sensor.sensor_mm_single_pixel_width()
-    }
-}
-impl<L> LensProjection for SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    fn optical_txty_to_camera_txty(&self, optical_txty: TanXTanY) -> TanXTanY {
-        self.lens.optical_txty_to_camera_txty(optical_txty)
-    }
-    fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
-        self.lens.camera_txty_to_optical_txty(camera_txty)
-    }
-}
-impl<L> CameraProjection for SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    fn position(&self) -> Point3D {
-        self.camera.position()
-    }
-    fn orientation(&self) -> Quat {
-        self.camera.orientation()
-    }
-}
-impl<L> CameraLensProjection for SimpleSensorLensCamera<L>
-where
-    L: LensProjection + std::default::Default + Clone + std::fmt::Debug,
-{
-    fn optical_axis_offset(&self) -> Point2D {
-        Point2D::default()
-    }
-    fn lens_sensor_distance(&self) -> f64 {
-        1.0 / (1.0 / self.mm_focal_length - 1.0 / self.mm_focus_distance)
-    }
-}
-#[derive(Debug, Clone, Copy, Default)]
-pub struct BaseCamera {
-    pub position: Point3D,
-    pub orientation: Quat,
-}
-
-impl CameraProjection for BaseCamera {
-    fn orientation(&self) -> Quat {
-        self.orientation
-    }
-    fn position(&self) -> Point3D {
-        self.position
-    }
-}
-
-impl AdjustableCameraProjection for BaseCamera {
-    fn set_position(&mut self, position: &Point3D) {
-        self.position = *position;
-    }
-    fn set_orientation(&mut self, orientation: &Quat) {
-        self.orientation = *orientation;
-    }
-    fn set_optical_axis_offset(&mut self, _p: &Point2D) {}
-    fn set_focus_distance(&mut self, _mm_focus_distance: f64) {}
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct RectilinearLens();
-
-impl LensProjection for RectilinearLens {
-    fn camera_txty_to_optical_txty(&self, camera_txty: TanXTanY) -> TanXTanY {
-        camera_txty
-    }
-    fn optical_txty_to_camera_txty(&self, sensor_txty: TanXTanY) -> TanXTanY {
-        sensor_txty
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SizedSensor {
-    pub width: u32,
-    pub height: u32,
-    pub mm_width: f64,
-    pub mm_height: f64,
-}
-
-impl CameraSensor for SizedSensor {
-    /// Get the size of the sensor in pixels
-    fn sensor_px_size(&self) -> (f64, f64) {
-        (self.width as f64, self.height as f64)
-    }
-
-    fn sensor_px_abs_to_px_rel(&self, px_xy: Point2D) -> Point2D {
-        [
-            px_xy[0] - (self.width as f64 / 2.0),
-            (self.height as f64 / 2.0) - px_xy[1],
-        ]
-        .into()
-    }
-
-    fn sensor_px_rel_to_px_abs(&self, px_xy: Point2D) -> Point2D {
-        [
-            (self.width as f64 / 2.0) + px_xy[0],
-            (self.height as f64 / 2.0) - px_xy[1],
-        ]
-        .into()
-    }
-
-    fn sensor_mm_single_pixel_height(&self) -> f64 {
-        self.mm_height / (self.height as f64)
-    }
-
-    fn sensor_mm_single_pixel_width(&self) -> f64 {
-        self.mm_width / (self.width as f64)
-    }
-}
-
-pub struct PatchIterator<'a, C1, C2>
-where
-    C1: CameraLensProjection,
-    C2: CameraImageProjection,
-{
-    camera: &'a C1,
-    projected_image: &'a mut C2,
-}
-
-impl<'a, C1, C2> PatchIterator<'a, C1, C2>
-where
-    C1: CameraLensProjection,
-    C2: CameraImageProjection,
-{
-    pub fn new(camera: &'a C1, projected_image: &'a mut C2) -> Self {
-        Self {
-            camera,
-            projected_image,
-        }
-    }
-}
-
-impl<'a, C1, C2> FromPatchFn for PatchIterator<'a, C1, C2>
-where
-    C1: CameraLensProjection,
-    C2: CameraImageProjection,
-{
-    type Pixel = C2::Pixel;
-    fn set_mapping(&mut self, _patch_x: u32, _patch_y: u32) {}
-    fn map_from_patch(&mut self, patch_x: u32, patch_y: u32) -> Option<Self::Pixel> {
-        let world_dir = self
-            .camera
-            .sensor_px_abs_xy_to_world_dir([patch_x as f64, patch_y as f64].into());
-        let camera_dir = self.projected_image.world_dir_to_camera_dir(world_dir);
-        self.projected_image.opt_pixel_of_camera_dir(camera_dir)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ProjectedCameraImage<'a, C, I>
-where
-    C: CameraLensProjection,
-    I: ImageDraw,
-{
-    pub image: &'a I,
-    pub camera: &'a C,
-    pub w: u32,
-    pub h: u32,
-}
-
-impl<'a, C, I> CameraImageProjection for ProjectedCameraImage<'a, C, I>
-where
-    C: CameraLensProjection,
-    I: ImageDraw,
-{
-    type Pixel = I::Pixel;
-    fn set_mapping_to_camera_dir(&mut self, _dirn: Point3D) {}
-    fn opt_pixel_of_camera_dir(&mut self, dirn: Point3D) -> Option<I::Pixel> {
-        let Some(pxy) = self.camera.camera_dir_to_opt_sensor_px_abs_xy(dirn) else {
-            return None;
-        };
-        if pxy[0] < 0.0 || pxy[1] < 0.0 {
-            return None;
-        }
-        if (pxy[0] >= self.w as f64) || (pxy[1] >= self.h as f64) {
-            return None;
-        }
-        Some(self.image.get_pixel(pxy[0] as u32, pxy[1] as u32))
-    }
-    fn world_dir_to_camera_dir(&self, world_dir: Point3D) -> Point3D {
-        self.camera.world_dir_to_camera_dir(world_dir)
-    }
-}

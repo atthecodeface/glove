@@ -21,20 +21,20 @@ fn test_sensor_sized() -> ic_base::Result<()> {
     let pxy: Point2D = [1.0, 0.5].into();
     assert!(
         sensor
-            .sensor_px_abs_to_px_rel(pxy)
+            .sensor_px_abs_to_optical_xy(pxy)
             .distance_sq_arr(&[-1.0, 1.0])
             < 1E-5
     );
     assert!(
         sensor
-            .sensor_px_rel_to_px_abs(pxy)
+            .optical_xy_to_px_abs(pxy)
             .distance_sq_arr(&[3.0, 1.0])
             < 1E-5
     );
 
-    let t = sensor.sensor_px_rel_to_px_abs(sensor.sensor_px_abs_to_px_rel(pxy));
+    let t = sensor.optical_xy_to_px_abs(sensor.sensor_px_abs_to_optical_xy(pxy));
     assert!(t.distance(pxy) < 1E-5);
-    let t = sensor.sensor_px_abs_to_px_rel(sensor.sensor_px_rel_to_px_abs(pxy));
+    let t = sensor.sensor_px_abs_to_optical_xy(sensor.optical_xy_to_px_abs(pxy));
     assert!(t.distance(pxy) < 1E-5);
 
     // sensor relative is from pixel is /10.0 * 0.2, from pxy itself (note, note from pxy relative...)
