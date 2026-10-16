@@ -306,9 +306,6 @@ impl CmdArgs {
             Self::ARG_WRITE_PATCHES,
             Self::ARG_WRITE_POLYS,
             Self::ARG_CIP,
-            // Self::ARG_WRITE_NAMED_POINTS,
-            // Self::ARG_WRITE_NAMED_POINTS,
-            // CmdArgs::add_arg_nps(&mut build);
         ])
         .cmds(&[
             Self::PROJECT_CMD,
@@ -322,7 +319,6 @@ impl CmdArgs {
 fn main() -> Result<()> {
     let build = CmdArgs::PHOTOGRAM_CMD.build();
     /*
-        build.add_subcommand(image_process::image_process_cmd());
         build.add_subcommand(image_analyze::image_analyze_cmd());
         build.add_subcommand(star::star_cmd());
         build.add_subcommand(calibration::calibration_cmd());

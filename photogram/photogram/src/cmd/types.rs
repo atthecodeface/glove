@@ -52,8 +52,6 @@ pub struct CmdArgs {
 
     pub(crate) pretty_json: bool,
 
-    pub(crate) width: u32,
-    pub(crate) height: u32,
     pub(crate) kernel_size: usize,
     pub(crate) scale: f64,
     pub(crate) angle: f64,
@@ -66,7 +64,6 @@ pub struct CmdArgs {
     pub(crate) x_grid: f64,
     pub(crate) y_grid: f64,
     pub(crate) patch_size: u32,
-    pub(crate) use_deltas: bool,
     pub(crate) use_pts: usize,
     pub(crate) max_error: f64,
     pub(crate) max_points: usize,
@@ -81,6 +78,8 @@ pub struct CmdArgs {
     pub(crate) blend: f64,
 
     // Items clear during reset
+    pub(crate) resize: bool,
+    pub(crate) use_deltas: bool,
     pub(crate) read_img: Vec<String>,
     pub(crate) np: Vec<String>, // could be name, 3D, pixel XY (from camera mapping of 3D); might need at least 3
     pub(crate) kernels: Vec<String>,
@@ -94,6 +93,8 @@ pub struct CmdArgs {
     pub(crate) write_patches: Option<String>,
     pub(crate) render_vertical: bool,
 
+    pub(crate) width: u32,
+    pub(crate) height: u32,
     pub(crate) xy: Vec<Point2D>,
     pub(crate) xyz: Vec<Point3D>,
 

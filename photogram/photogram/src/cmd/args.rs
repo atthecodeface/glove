@@ -46,11 +46,33 @@ impl CmdArgs {
         &Self::add_shaders,
     );
 
+    pub(crate) const ARG_RESIZE: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_flag(
+        "resize",
+        None,
+        "Enable resizing (to width, for example)",
+        &|s: &mut CmdArgs, v: bool| {
+            s.resize = v;
+            Ok(())
+        },
+    );
+
     pub(crate) const ARG_WIDTH: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
         "width",
         None,
         "Set the width for the operation",
         ArgCount::Required,
+        None,
+        &|s: &mut CmdArgs, v: u32| {
+            s.width = v;
+            Ok(())
+        },
+    );
+
+    pub(crate) const ARG_WIDTH_OPTIONAL: ArgDescriptor<CmdArgs> = ArgDescriptor::arg_u32(
+        "width",
+        None,
+        "Set the width for the operation",
+        ArgCount::Optional,
         None,
         &|s: &mut CmdArgs, v: u32| {
             s.width = v;

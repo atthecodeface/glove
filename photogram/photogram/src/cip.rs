@@ -1,14 +1,12 @@
 use std::rc::Rc;
 
 use anyhow::anyhow;
-use image::metadata::Orientation;
 use star_catalog::Quat;
 use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use ic_photogram::{
     AdjustableCameraProjection, CameraProjection, Cip, CylindricalLens, CylindricalProjection,
-    Image, ImageCache, ImageCacheEntry, ImageRgb8, NamedPoint, Point3D, PointMapping, Quadtree,
-    SimpleSensorLensCamera,
+    Image, ImageCache, ImageRgb8, NamedPoint, PointMapping, SimpleSensorLensCamera,
 };
 
 use geo_nd::{Quaternion, Vector};
@@ -32,45 +30,8 @@ Extract a triangular patch from an image as if viewed straight on
 ";
 
 //hi LOCATE_LONG_HELP
-const LOCATE_LONG_HELP: &str = "\
-Use the CIP's point mappings, for given mapped names points, to locate
-the camera, given its focal length, etc.
-
-Pairs of point mappings are chosen that provide good subtended viewing
-angles, and that are (from the camera's perspecfive) more orthogonal
-to each other, are generated.
-
-For each pair of mappings a surface is generated in model space, where
-if the camera were placed on that surface it would 'see' the pair of
-mappings with the angle between them the same as is on the image.
-
-The first surfaces is iterated over, to find the position where the
-sum of the distances from the surface of the *other* pairs is
-minimized. This provides the initial best location for the camera.
-
-This position is then adjusted by small amounts, to reduce the total
-error seen by *all* of the surfaces.
-
-";
 
 //hi ORIENT_LONG_HELP
-const ORIENT_LONG_HELP: &str = "\
-Use the CIP's point mappings, for given mapped names points, to orient
-the camera, given its positions etc.
-
-Pairs of point mappings are chosen that provide good subtended viewing
-angles, and that are (from the camera's perspecfive) more orthogonal
-to each other, are generated.
-
-For each pair of mappings a camera orientation is determined, which
-would (if the camera is perfectly positioned) map the two points to
-their positions on the camera sensor. This yields an array of
-orientations (as quaternions).
-
-The array of orientations is averaged, to produce the camera
-orientation.
-
-";
 
 //hi CREATE_RAYS_LONG_HELP
 const CREATE_RAYS_LONG_HELP: &str = "\
@@ -152,6 +113,7 @@ impl CmdArgs {
             self.cip().unwrap().borrow().to_json(self.pretty_json())?,
         )?)
     }
+
     fn cip_add_pm_cmd(&mut self) -> CmdResult {
         self.validate_cip()?;
         let np_name = self.get_string_arg(0).unwrap();
@@ -186,8 +148,9 @@ impl CmdArgs {
             nps.iter().any(|np| pm.is_mapping_of_np(np))
         }
         let weighting = |_pm: &PointMapping| 1.0;
-        cip.orient_camera_using_model_directions(|_, pm| filter(&nps, pm), weighting)?;
-        Self::cmd_ok()
+        let total_dxy2_error =
+            cip.orient_camera_using_model_directions(|_, pm| filter(&nps, pm), weighting)?;
+        Ok(json::to_value(total_dxy2_error)?)
     }
 
     fn cip_adjust_camera_orientation_using_dxy2_cmd(&mut self) -> CmdResult {
@@ -198,13 +161,13 @@ impl CmdArgs {
             nps.iter().any(|np| pm.is_mapping_of_np(np))
         }
         let weighting = |_pm: &PointMapping| 1.0;
-        cip.adjust_camera_orientation_using_dxy2(
+        let delta_dxy2 = cip.adjust_camera_orientation_using_dxy2(
             |_, pm| filter(&nps, pm),
             weighting,
             self.angle().to_radians(),
             self.steps(),
         )?;
-        Self::cmd_ok()
+        Ok(json::to_value(delta_dxy2)?)
     }
 
     fn cip_dx2_dy2_cmd(&mut self) -> CmdResult {
@@ -309,36 +272,111 @@ impl CmdArgs {
         ])
         .handler(&Self::cip_add_pm_cmd);
 
+    const CIP_LOCATE_LONG_HELP: &str = "\
+    Use the CIP's point mappings, for given mapped names points, to locate
+    the camera, given its focal length, etc.
+
+    Pairs of point mappings are chosen that provide good subtended viewing
+    angles, and that are (from the camera's perspecfive) more orthogonal
+    to each other, are generated.
+
+    For each pair of mappings a surface is generated in model space, where
+    if the camera were placed on that surface it would 'see' the pair of
+    mappings with the angle between them the same as is on the image.
+
+    The first surfaces is iterated over, to find the position where the
+    sum of the distances from the surface of the *other* pairs is
+    minimized. This provides the initial best location for the camera.
+
+    This position is then adjusted by small amounts, to reduce the total
+    error seen by *all* of the surfaces.
+
+    ";
+
     const CIP_LOCATE_CMD: CmdDescriptor<Self> = CmdDescriptor::new("locate")
         .about("Change the camera for the CIP to be at the best position for the rays")
+        .long_about(Self::CIP_LOCATE_LONG_HELP)
         .args(&[Self::ARG_ADD_NAMED_POINT])
         .handler(&Self::cip_locate_cmd);
 
+    const CIP_ORIENT_LONG_HELP: &str = "\
+    Use the CIP's point mappings, for given mapped names points, to orient
+    the camera, given its position etc.
+
+    Pairs of point mappings are chosen that provide good subtended viewing
+    angles, and that are (from the camera's perspecfive) more orthogonal
+    to each other, are generated.
+
+    For each pair of mappings a camera orientation is determined, which
+    would (if the camera is perfectly positioned) map the two points to
+    their positions on the camera sensor. This yields an array of
+    orientations (as quaternions).
+
+    The array of orientations is averaged, to produce the camera
+    orientation.
+
+    ";
     const CIP_ORIENT_USING_MODEL_DIRECTIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new(
         "orient_using_model_directions",
     )
     .about(
         "Change the camera for the CIP to orient such that the model *directions* are mapped well",
     )
+    .long_about(Self::CIP_ORIENT_LONG_HELP)
     .args(&[Self::ARG_ADD_NAMED_POINT])
     .handler(&Self::cip_orient_using_model_directions_cmd);
 
+    const CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_LONG_HELP: &str = "\
+    Using the mappings for the named points specified, adjust the camera orientation by steps
+    to miminize the sum of sqr(dxy) for those mapped points.
+
+    Rotation by an angle around X, then Y, then Z are attempted; in each attempt, if the sqr(dxy)
+    decreases, the new orientation is kept.
+
+    This is repeated a number of times, up to a maximum or until no changes are made by
+    any of the three rotation attempts.
+
+    Uses 'steps', 'angle' and 'named points' as arguments
+
+    The result is the CHANGE in the sqr(dxy) summed for all the mappings chosen.
+    ";
     const CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_CMD: CmdDescriptor<Self> = CmdDescriptor::new(
         "adjust_camera_orientation_using_dxy2",
     )
     .about(
         "Change the camera orientation for the CIP by tweaking by a number of steps in each axis of a certain angle at most",
     )
+    .long_about(Self::CIP_ADJUST_CAMERA_ORIENTATION_USING_DXY2_LONG_HELP)
     .args(&[Self::ARG_ADD_NAMED_POINT, Self::ARG_STEPS, Self::ARG_ANGLE])
     .handler(&Self::cip_adjust_camera_orientation_using_dxy2_cmd);
 
+    const CIP_DXY2_LONG_HELP: &str = "\
+    Calculate, for the mappings for the named points specified, the sum of sqr(dxy) for those mapped points.
+
+    Uses 'named points' as arguments
+
+    The result is the sqr(dxy) summed for all the mappings chosen.
+    ";
     const CIP_DX2_DY2_CMD: CmdDescriptor<Self> = CmdDescriptor::new("dx2_dy2")
         .about("Calculate the total sensor dx_sq and dy_sq values for all the mapped points")
+        .long_about(Self::CIP_DXY2_LONG_HELP)
         .args(&[Self::ARG_ADD_NAMED_POINT])
         .handler(&Self::cip_dx2_dy2_cmd);
 
+    const CIP_IMAGE_BETWEEN_NPS_LONG_HELP: &str = "\
+    Generate a cylindrical-projection RGB image given two named points;
+    starting at the first and panning to the seconnd.
+
+    The vertical field-of-view must be provided, and the result will have
+    a given width and height in pixels.
+
+    There is extra horizontal field-of-view added to the panorama (of arbitrary amount, currently)
+
+    The resultant image must be written out (as a jpeg usually)
+    ";
     const CIP_IMAGE_BETWEEN_NPS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("image_between_nps")
         .about("Generate an image 'between' named points")
+        .long_about(Self::CIP_IMAGE_BETWEEN_NPS_LONG_HELP)
         .args(&[
             Self::ARG_ADD_NAMED_POINT,
             Self::ARG_FOVV,

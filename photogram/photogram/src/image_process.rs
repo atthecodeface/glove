@@ -27,6 +27,7 @@ impl CmdArgs {
 
         if let Some(src_img) = src_img {
             args = args.with_src(src_img.dimensions());
+            eprintln!("Src img dims {args:?}");
         }
         args
     }
@@ -54,13 +55,16 @@ impl CmdArgs {
 
     This is normally used to generate a luma cache internal image from an external JPEG
 
+    If 'width' is specified then rescaling to that width is performed
+
     photogram image_process --image colorful.jpg --cache luma_16 as_luma
 
     ";
     fn ip_as_luma_cmd(&mut self) -> CmdResult {
         let img_cref = self.get_read_image(0)?;
 
-        let Some(img) = ImageCache::as_opt_luma16(&img_cref, None, 1.0) else {
+        let resize = (self.width != 0).then_some(self.width);
+        let Some(img) = ImageCache::as_opt_luma16(&img_cref, resize, 1.0) else {
             return Err(anyhow!("Could not generate luma16"));
         };
         self.ip_handle_result_image(img)?;
@@ -235,11 +239,11 @@ impl CmdArgs {
     const IP_AS_LUMA_CMD: CmdDescriptor<Self> = CmdDescriptor::new("as_luma")
         .about("Generate a 16-bit luma image")
         .long_about(Self::AS_LUMA_LONG_HELP)
-        .args(&[])
+        .args(&[Self::ARG_WIDTH_OPTIONAL])
         .handler(&Self::ip_as_luma_cmd);
 
     const IP_LUMA_FIND_REGIONS_CMD: CmdDescriptor<Self> = CmdDescriptor::new("luma_find_regions")
-        .about("Apply kernels to an image in luma space")
+        .about("Find the N points with the largest values")
         .long_about(Self::LUMA_FIND_REGIONS_LONG_HELP)
         .args(&[Self::ARG_SCALE, Self::ARG_KERNEL_SIZE])
         .handler(&Self::ip_luma_find_regions_cmd);

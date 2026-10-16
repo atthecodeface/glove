@@ -36,6 +36,17 @@ impl CommandArgs for CmdArgs {
             set_value_fn: &|mut _cmd_args, s| Err(anyhow!("Failed to set key 'cip' to '{s}'")),
         },
         CmdProperty {
+            name: "cip.name",
+            get_fn: &|cmd_args| {
+                cmd_args
+                    .cip
+                    .as_ref()
+                    .map(|c| json::to_value(c.borrow().name_as_tag().as_str()).ok())
+                    .flatten()
+            },
+            set_value_fn: &|mut _cmd_args, s| Err(anyhow!("Failed to set key 'cip.name' to '{s}'")),
+        },
+        CmdProperty {
             name: "cip.image_filename",
             get_fn: &|cmd_args| {
                 cmd_args
@@ -209,6 +220,9 @@ impl CommandArgs for CmdArgs {
         self.max_points = 0;
         self.max_error = 0.0;
         self.use_pts = 0;
+        self.width = 0;
+        self.height = 0;
+        self.resize = false;
         self.use_deltas = false;
         self.from_camera = false;
         self.flags = 0;
