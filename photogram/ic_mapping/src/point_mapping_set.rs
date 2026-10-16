@@ -339,10 +339,8 @@ impl PointMappingSet {
         (n, worst_e)
     }
 
-    //fp total_error
-    // used by get_best_location
-    //
-    pub fn total_error<C: CameraLensProjection>(&self, camera: &C) -> f64 {
+    /// Get the total dxy2 error for all mappings in the PMS
+    pub fn total_dxy2_error<C: CameraLensProjection>(&self, camera: &C) -> f64 {
         self.mappings
             .iter()
             .fold(0.0, |acc, pm| acc + pm.get_mapped_dpxy_error2(camera))
@@ -488,6 +486,8 @@ impl PointMappingSet {
 
     /// Update the camera orientation to be the average of *all* of the pairs of (filtered) mappings
     ///
+    /// Return the total dxy2 error in all the point mappings
+    ///
     /// Each pair of mappings provides (using the lens projection) a pair of
     /// world directions from their sensor positions and a pair of world
     /// directions given the named point (either as a direction or a model point
@@ -559,7 +559,7 @@ impl PointMappingSet {
 
         let (qr, _e) = utils::weighted_average_many_with_err(&qs);
         camera.set_orientation(&qr);
-        let te = self.total_error(camera);
+        let te = self.total_dxy2_error(camera);
         // eprintln!("Error in qr's {e} total error {te} QR: {qr}q");
         Ok(te)
     }
