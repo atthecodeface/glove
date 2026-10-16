@@ -7,7 +7,7 @@ members = [
     # "spherical_image",
     "ic_base", "ic_cache",
     "ic_camera", "ic_http",
-    "ic_image", "ic_kernel",
+    "ic_image", "ic_image_process", "ic_kernel",
     "ic_mapping", "ic_mesh",
     "ic_project",
    # "ic_projections",
@@ -34,6 +34,7 @@ ic_cache = { version = "0.1.0", path = "./ic_cache" }
 ic_camera = { version = "0.1.0", path = "./ic_camera" }
 ic_http = { version = "0.1.0", path = "./ic_http" }
 ic_image = { version = "0.1.0", path = "./ic_image" }
+ic_image_process = { version = "0.1.0", path = "./ic_image_process" }
 ic_kernel = { version = "0.1.0", path = "./ic_kernel" }
 ic_mapping = { version = "0.1.0", path = "./ic_mapping" }
 ic_mesh = { version = "0.1.0", path = "./ic_mesh" }
