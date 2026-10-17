@@ -36,10 +36,11 @@ fn test_sph_image_tetra() -> Result<(), Box<dyn std::error::Error>> {
     let image_file = image.add_new_image(512, 512);
     image.add_toplevel_patches(image_file, 256, 0)?;
     let ps: Vec<_> = image.iter_patch_indices().collect();
-    fn pix_map(v: Point3D) -> Option<u16> {
+    fn pix_map(v: Point3D) -> Option<image::Luma<u16>> {
         let d = (v[0] * v[0] + v[1] * v[1]).sqrt();
         let d = (d.atan2(v[2]) * 5.0).cos();
-        Some(((d * 32000.0) + 32768.0) as u16)
+        let luma = ((d * 32000.0) + 32768.0) as u16;
+        Some([luma].into())
     }
     for p in ps {
         image.fill_image_patch(0.0, p, &pix_map);
