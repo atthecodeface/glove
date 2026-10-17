@@ -1,23 +1,15 @@
-//a To do
-//
-// Add named patches
-//
-// Use tags in pms
-
-//a Imports
 use std::cell::{Ref, RefMut};
-use std::ops::DerefMut;
 use std::rc::Rc;
 
 use geo_nd::Quaternion;
-use ic_image::{Color8, FromPatchFn, ImageDraw, ImageRgb8};
+use ic_image::{FromPatchFn, ImageRgb8};
 use regex::bytes::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 
-use ic_base::{JsonParsable, PathSet, Point3D, Quat, Ray, Result, Rrc, TagSet, TanXTanY};
+use ic_base::{JsonParsable, Point3D, Quat, Ray, Result, Rrc, TagSet};
 use ic_camera::{
-    AdjustableCameraProjection, CameraDatabase, CameraImageProjection, CameraLensProjection,
-    CameraProjection, PatchIterator, ProjectedCameraImage, RectilinearLens, SimpleSensorLensCamera,
+    AdjustableCameraProjection, BicameraPatchIterator, CameraDatabase, CameraLensProjection,
+    CameraProjection, ProjectedCameraImage, RectilinearLens, SimpleSensorCamera,
 };
 use ic_mapping::{NamedPoint, NamedPointSet, PointMapping};
 
@@ -350,12 +342,7 @@ impl Project {
 
         let camera = cip.camera().borrow();
 
-        let mut pci = ProjectedCameraImage {
-            image: cip_image,
-            camera: &*camera,
-            w: cip_image.dimensions().0,
-            h: cip_image.dimensions().1,
-        };
+        let mut pci = ProjectedCameraImage::mapping_camera_to_image(cip_image, &*camera);
 
         // This impacts the
         let mm_distance_to_point = 1000.0;
@@ -367,7 +354,7 @@ impl Project {
         let mm_per_pixel = tan_hfov * mm_focal_length * 2.0 / (width as f64);
         eprintln!("{mm_per_pixel} fov {}", tan_hfov.atan() * 2.0);
 
-        let mut sslc = SimpleSensorLensCamera::new(
+        let mut sslc = SimpleSensorCamera::new(
             width,
             height,
             mm_per_pixel,
@@ -395,7 +382,7 @@ impl Project {
         let mut patch = isq.as_patch(blend);
 
         // This uses distance to camera from model, so uses model position; this has to happen after set_camera_for_facet, OR use mm_distance_to_point...
-        let mut patch_iterator = PatchIterator::new(&sslc, &mut pci);
+        let mut patch_iterator = BicameraPatchIterator::new(&sslc, &mut pci);
         patch.fill_img(&mut patch_iterator);
         true
     }
@@ -409,13 +396,8 @@ impl Project {
     ) {
         let cip_camera = cip.camera().borrow();
 
-        let mut pci = ProjectedCameraImage {
-            image: cip_image,
-            camera: &*cip_camera,
-            w: cip_image.dimensions().0,
-            h: cip_image.dimensions().1,
-        };
-        let mut patch_iterator = PatchIterator::new(camera, &mut pci);
+        let mut pci = ProjectedCameraImage::mapping_camera_to_image(cip_image, &*cip_camera);
+        let mut patch_iterator = BicameraPatchIterator::new(camera, &mut pci);
         for (x, y, p) in image.enumerate_pixels_mut() {
             if let Some(c) = patch_iterator.map_from_patch(x, y) {
                 *p = c;
