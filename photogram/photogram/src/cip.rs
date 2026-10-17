@@ -6,7 +6,7 @@ use thunderclap::{CmdDescriptor, CommandArgs, json};
 
 use ic_photogram::{
     AdjustableCameraProjection, CameraProjection, Cip, CylindricalLens, CylindricalProjection,
-    Image, ImageCache, ImageRgb8, NamedPoint, PointMapping, SimpleSensorLensCamera,
+    Image, ImageCache, ImageRgb8, NamedPoint, PointMapping, SimpleSensorCamera,
 };
 
 use geo_nd::{Quaternion, Vector};
@@ -230,13 +230,8 @@ impl CmdArgs {
         let ty_sc = mm_focal_length / (self.height as f64) * 2.0 / mm_per_pixel;
         lens.set_vfov(ty_sc, self.fov_v.to_radians(), 0.0);
 
-        let mut sslc = SimpleSensorLensCamera::new(
-            self.width,
-            self.height,
-            mm_per_pixel,
-            lens,
-            mm_focal_length,
-        );
+        let mut sslc =
+            SimpleSensorCamera::new(self.width, self.height, mm_per_pixel, lens, mm_focal_length);
         // Focus at infinity
         sslc.set_focus_distance(1.0E7);
         sslc.set_orientation(&orientation);
