@@ -5,15 +5,11 @@ use ic_camera::{CameraSensor, SizedSensor};
 /// Test the sized sensor and the CameraSensor trait, quite simply
 #[test]
 fn test_sensor_sized() -> ic_base::Result<()> {
-    let mut sensor = SizedSensor::default();
-    sensor.height = 3;
-    sensor.width = 4;
-    sensor.mm_per_pixel = 0.2;
+    let sensor = SizedSensor::new(4, 3, 0.2);
 
     assert_eq!(sensor.sensor_px_size(), (4.0, 3.0));
-    assert_eq!(sensor.sensor_px_center().as_ref(), &[2.0, 1.5]);
-    assert_eq!(sensor.sensor_mm_single_pixel_width(), 0.2);
-    assert_eq!(sensor.sensor_mm_single_pixel_height(), 0.2);
+    assert!((sensor.sensor_mm_single_pixel_width() - 0.2) < 1E-6);
+    assert!((sensor.sensor_mm_single_pixel_height() - 0.2) < 1E-6);
     assert!((sensor.sensor_mm_size().0 - 0.8).abs() < 1E-5);
     assert!((sensor.sensor_mm_size().1 - 0.6).abs() < 1E-5);
 

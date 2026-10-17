@@ -177,7 +177,11 @@ pub trait CameraLensProjection:
 {
     /// Get the optical axis offset for a lens on this body in this instance
     ///
-    /// This is in pixels; it is added to a sensor relative coordinate
+    /// This is in pixels; it may be added to a sensor relative coordinate
+    ///
+    /// This is more for informational purposes; many projections will only use
+    /// 0,0. It is, though, used specifically for a camera lens/body combination
+    /// where the sensoris untransformed (e.g. not a prrojected camera image)
     fn optical_axis_offset(&self) -> Point2D;
 
     /// Get the distance of the lens from the sensor in mm

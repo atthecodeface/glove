@@ -1,7 +1,4 @@
-use std::io::SeekFrom;
-
-use geo_nd::{SqMatrix, glsl::Mat3};
-use ic_base::{Mat3x3, Point2D, Point3D};
+use ic_base::{Point2D, Point3D};
 use ic_image::ImageDraw;
 
 use crate::{CameraImageProjection, CameraLensProjection};
@@ -20,7 +17,7 @@ use crate::{CameraImageProjection, CameraLensProjection};
 /// `opt_pixel_of_camera_dir` and `world_dir_to_camera_dir` methods. These can
 /// then be used to say 'get the pixel corresponding to this world direction, if
 /// it is in the portion of the sensor'
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProjectedCameraImage<'a, C, I>
 where
     C: CameraLensProjection,
@@ -30,9 +27,10 @@ where
     pub image: &'a I,
     /// The camera which provides world-direction-to-sensor-absolute mapping
     pub camera: &'a C,
-    /// The (row-major) transformation matrix applied to (sensor x, sensor y, 1) to yield an
-    /// image-region-relative coordinate providing the pixel value for the sensor
-    sensor_to_image_transform: Mat3x3,
+    /// The transformation is image = translate(scale(rotate(sensor)))
+    sensor_to_image_scale: f64,
+    sensor_to_image_angle: f64,
+    sensor_to_image_translation: Point2D,
     /// The width of the image region in pixels; this will be positive or zero
     w: f64,
     /// The height of the image region in pixels; this will be positive or zero
@@ -42,11 +40,41 @@ where
     /// The Y-offset into the image that of the top-most pixels of the region used for the sensor rectangle
     y_ofs: u32,
 }
+
+impl<'a, C, I> std::fmt::Debug for ProjectedCameraImage<'a, C, I>
+where
+    C: CameraLensProjection,
+    I: ImageDraw,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ProjectedCameraImage {{ {}x{}@({},{}) : {}+{} rot {}deg : camera:{:?} : image dims {}x{} }}",
+            self.w,
+            self.h,
+            self.x_ofs,
+            self.y_ofs,
+            self.sensor_to_image_scale,
+            self.sensor_to_image_translation,
+            self.sensor_to_image_angle.to_degrees(),
+            self.camera,
+            self.image.dimensions().0,
+            self.image.dimensions().1
+        )
+    }
+}
 impl<'a, C, I> ProjectedCameraImage<'a, C, I>
 where
     C: CameraLensProjection,
     I: ImageDraw,
 {
+    pub fn width(&self) -> u32 {
+        self.w as u32
+    }
+    pub fn height(&self) -> u32 {
+        self.h as u32
+    }
+
     /// Create a [ProjectedCameraImage] with the *whole* of the provided image,
     /// starting at the top-left of the sensor of the provided camera.
     ///
@@ -60,43 +88,52 @@ where
             camera,
             w,
             h,
-            sensor_to_image_transform: Mat3x3::identity(),
+            sensor_to_image_scale: 1.0,
+            sensor_to_image_angle: 0.0,
+            sensor_to_image_translation: Point2D::default(),
             x_ofs: 0,
             y_ofs: 0,
         }
     }
 
-    /// Set the transformation applied to sensor (px, py, 1) to yield image *region* (px,py,-)
+    /// Set the region of the sensor using the centre spot on the sensor and the
+    /// width in pixels of the sensor that the image region corresponds to
     ///
-    /// The image px,py from 0,0 to w,h are supplied by the image starting at (x_ofs,y_ofs)
-    pub fn with_transform<A: AsRef<[f64; 9]>>(mut self, transform: A) -> Self {
-        self.sensor_to_image_transform = transform.as_ref().into();
+    /// (sensor_cxy[0] - sensor_px_width/2) will map to image region x of 0.0
+    /// (sensor_cxy[0] + sensor_px_width/2) will map to image region x of 1.0
+    ///
+    /// scale = w / sensor_px_width
+    ///
+    /// image = translate(scale(sensor))
+    /// Hence 0.0 = translate(w / sensor_px_width * sensor_cxy[0] - w/2)
+    ///  0.0 = w / sensor_px_width * sensor_cxy[0] - w/2) + sensor_to_image_translation
+    ///  sensor_to_image_translation = w/2 - w / sensor_px_width * sensor_cxy[0]
+    pub fn of_sensor_region(mut self, sensor_cxy: Point2D, sensor_px_width: f64) -> Self {
+        self.sensor_to_image_scale = self.w / sensor_px_width;
+        self.sensor_to_image_translation = [
+            self.w / 2.0 - self.sensor_to_image_scale * sensor_cxy[0],
+            self.h / 2.0 - self.sensor_to_image_scale * sensor_cxy[1],
+        ]
+        .into();
+        eprintln!("{self:?}");
         self
     }
 
     /// Apply a rotation by 'angle', not changing the translation
     pub fn with_rotation(mut self, angle: f64) -> Self {
-        let ca = angle.cos();
-        let sa = angle.sin();
-        let m: Mat3x3 = [ca, sa, 0., -sa, ca, 0., 0., 0., 1.].into();
-        self.sensor_to_image_transform = m * self.sensor_to_image_transform;
+        self.sensor_to_image_angle = angle;
         self
     }
 
     /// Set the top-left pixel of the sensor that the image region contains
-    ///
-    /// If `with_scaling` is also used, issue this call *first*
-    pub fn with_sensor_position(mut self, tl: Point2D) -> Self {
-        self.sensor_to_image_transform[2] = -tl[0];
-        self.sensor_to_image_transform[5] = -tl[1];
+    pub fn with_sensor_translation(mut self, tl: Point2D) -> Self {
+        self.sensor_to_image_translation = tl;
         self
     }
 
     /// Set the scaling factor (amount to multiply sensor pxy to reach image region pxy)
-    ///
-    /// If `with_sensor_position` is also used, issue this call *afterwards*
-    pub fn with_scaling(mut self, scaling: f64) -> Self {
-        self.sensor_to_image_transform *= scaling;
+    pub fn with_scaling(mut self, scale: f64) -> Self {
+        self.sensor_to_image_scale = scale;
         self
     }
 
@@ -120,11 +157,28 @@ where
         self
     }
 
+    /// Map an image pixel xy to a sensor pixel xy
+    pub fn map_image_region_pxy_to_sensor_abs_pxy(&self, image_pxy: Point2D) -> Point2D {
+        let ca = self.sensor_to_image_angle.cos() / self.sensor_to_image_scale;
+        let sa = self.sensor_to_image_angle.sin() / self.sensor_to_image_scale;
+        let unrotated_pxy = image_pxy - self.sensor_to_image_translation;
+        [
+            unrotated_pxy[0] * ca - unrotated_pxy[1] * sa,
+            unrotated_pxy[1] * ca + unrotated_pxy[0] * sa,
+        ]
+        .into()
+    }
+
     /// Map a sensor pixel xy to an image pixel xy
     pub fn map_sensor_abs_pxy_to_image_region_pxy(&self, sensor_pxy: Point2D) -> Point2D {
-        let sensor_pxyo: Point3D = [sensor_pxy[0], sensor_pxy[1], 1.0].into();
-        let image_pxyo = self.sensor_to_image_transform.mul_vec(&sensor_pxyo);
-        [image_pxyo[0], image_pxyo[1]].into()
+        let ca = self.sensor_to_image_angle.cos() * self.sensor_to_image_scale;
+        let sa = self.sensor_to_image_angle.sin() * self.sensor_to_image_scale;
+        let rotated_pxy: Point2D = [
+            sensor_pxy[0] * ca + sensor_pxy[1] * sa,
+            sensor_pxy[1] * ca - sensor_pxy[0] * sa,
+        ]
+        .into();
+        rotated_pxy + self.sensor_to_image_translation
     }
 
     /// Map a sensor pixel xy to an image pixel xy
